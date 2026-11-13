@@ -1,7 +1,6 @@
 import type { OrderDeskCustomer, ServiceArea } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     EmptyState,
     ErrorState,
@@ -19,49 +18,84 @@ import { fieldWidth } from '@healthy360/design-tokens';
 import { useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 
 import { toFailure } from '../../../data/hooks.ts';
+import { useKitchenCustomerQuery } from '../../../data/kitchen-customers-hooks.ts';
 import {
     CUSTOMER_SEARCH_MIN_LENGTH,
     useAddOrderDeskCustomerAddressMutation,
     useCreateOrderDeskCustomerMutation,
+    useOrderDeskCustomerAllergiesQuery,
     useOrderDeskCustomerSearchQuery,
     useOrderDeskDeliveryAreasQuery,
     useUpdateOrderDeskCustomerMutation,
 } from '../../../data/order-desk-hooks.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
+import { focusField } from '../field-focus.ts';
 import { displayName } from '../format.ts';
+import { allergenLabel } from '../ops-format.ts';
 import { serverFieldErrors } from '../server-field-errors.ts';
-import { checkDeskPhone, dialFor, isBlankPhone, normaliseDeskPhone } from './desk-phone.ts';
+import {
+    checkDeskPhone,
+    deskSearchTerm,
+    dialFor,
+    isBlankPhone,
+    normaliseDeskPhone,
+} from './desk-phone.ts';
 import { useDebouncedValue } from './use-debounced-value.ts';
+import { DeskButton, DeskChip } from '../desk-kit/index.ts';
 
 /**
- * Who a collection or a delivery is for, and where a delivery goes — the two cards the sale page
- * opens above the menu when the kind of sale needs them.
+ * Who the sale is for, and where a delivery goes. The customer card opens the sale, above the menu;
+ * the address card opens when the kind of sale needs it.
  *
  * Each card is a `FormSection variant="card"`, the record editors' section, so its title sits a
  * step above everything in it. Once answered, a card folds to one line — the name and number, or the
  * street — with a Change button in its header, so the menu below it moves back up the page instead of
  * staying under a search the agent has finished with.
  *
- * ## Addresses are written, never chosen
+ * ## Their allergies are said as soon as they are chosen
  *
- * There is no operation on this surface that *lists* a customer's addresses — the desk may add one
- * and nothing else. So a delivery taken here writes the destination down as the caller gives it,
- * every time, and a returning customer gets a second copy of their own street. That is the wire's
- * shape rather than a choice made here, and the card says so before anybody types.
+ * Read once per chosen customer, never per search row, because the server records each read. "None
+ * declared" and "never asked" are different sentences here: the second must not read as safe.
+ *
+ * ## Addresses
+ *
+ * A customer in the kitchen's book offers their saved delivery addresses to choose from. Anybody else
+ * — somebody written down a minute ago, or a registered caller found by their number — has none the
+ * desk may read, so the destination is written down as the caller gives it.
+ *
+ * ## Their warnings are their own
+ *
+ * The sale page has no issue tray (taken off it on 2026-10-28, at the user's request), so a number
+ * somebody else already has and an address nobody delivers to are one-line `Callout` strips at the
+ * head of the card they concern — each clearing itself once the sale is no longer for that record,
+ * and each with its way out: the other record, the address.
  *
  * ## The a11y rule the rows follow
  *
- * A customer row holds a Choose button, so the row itself takes no press: nested interactive content
- * is a serious axe violation.
+ * A customer row is one press target, and its Choose is drawn inside it rather than being a second
+ * button: nested interactive content is a serious axe violation.
  */
 
 /** The wait before a customer search is asked — a request per keystroke otherwise. */
 const SEARCH_DEBOUNCE_MS = 300;
 
 const EM_DASH = '—';
+
+/** Up to two letters for the customer bar's mark. */
+function initialsOf(name: string): string {
+    return name
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part.charAt(0).toUpperCase())
+        .join('');
+}
+
+/** Every pill on the customer bar: one height, centred on the bar's line. */
+const BAR_PILL_CLASS = '!h-6 self-center !rounded-full !px-2.5';
 
 /* ------------------------------------------------------------------------------------------------
  * The customer
@@ -83,13 +117,120 @@ function useKitchenDial(): string | null {
     }, [me, membershipId]);
 }
 
+/** What the chosen customer has declared, or an honest failure to find out. */
+export function ChosenAllergies({
+    customerAccountId,
+    inline = false,
+}: {
+    readonly customerAccountId: string;
+    /** The sale's customer bar: each allergen as an amber pill on the bar's line. */
+    readonly inline?: boolean | undefined;
+}) {
+    const { t } = useTranslation();
+    const read = useOrderDeskCustomerAllergiesQuery(customerAccountId);
+
+    if (inline && read.data !== undefined && read.data.allergens.length > 0) {
+        return (
+            <View
+                testID="kitchen-order-desk-sale-customer-allergies"
+                role="alert"
+                aria-label={t('kitchen:desk.sale.customerAllergiesTitle')}
+                className="flex-row flex-wrap items-center gap-1.5"
+            >
+                {read.data.allergens.map((allergen) => (
+                    <Badge
+                        key={allergen.allergenCode}
+                        tone="warning"
+                        icon="warning"
+                        className={BAR_PILL_CLASS}
+                        label={t('kitchen:allergy.item', {
+                            allergen: allergenLabel(allergen.allergenCode, t),
+                            severity: t(`kitchen:allergy.severity.${allergen.severity}`),
+                        })}
+                    />
+                ))}
+            </View>
+        );
+    }
+
+    if (read.isPending) {
+        return (
+            <Skeleton
+                testID="kitchen-order-desk-sale-customer-allergies-loading"
+                heightClassName={inline ? 'h-6' : 'h-row-md'}
+                {...(inline ? { widthClassName: 'w-40' } : {})}
+            />
+        );
+    }
+
+    if (read.data === undefined) {
+        return (
+            <Text
+                variant="caption"
+                tone="danger"
+                role="alert"
+                testID="kitchen-order-desk-sale-customer-allergies-error"
+            >
+                {t('kitchen:desk.sale.customerAllergiesError')}
+            </Text>
+        );
+    }
+
+    if (read.data.allergens.length > 0) {
+        return (
+            <Callout
+                testID="kitchen-order-desk-sale-customer-allergies"
+                tone="danger"
+                icon="warning"
+                role="alert"
+                title={t('kitchen:desk.sale.customerAllergiesTitle')}
+                body={read.data.allergens
+                    .map((allergen) =>
+                        t('kitchen:allergy.item', {
+                            allergen: allergenLabel(allergen.allergenCode, t),
+                            severity: t(`kitchen:allergy.severity.${allergen.severity}`),
+                        }),
+                    )
+                    .join(t('kitchen:common.listSeparator'))}
+            />
+        );
+    }
+
+    return (
+        <Text
+            variant="caption"
+            tone={read.data.declaresNoAllergens ? 'secondary' : 'warning'}
+            testID="kitchen-order-desk-sale-customer-allergies-none"
+        >
+            {t(
+                read.data.declaresNoAllergens
+                    ? 'kitchen:desk.sale.customerAllergiesNone'
+                    : 'kitchen:desk.sale.customerAllergiesUnknown',
+            )}
+        </Text>
+    );
+}
+
 export function CustomerSection({
     customerAccountId,
+    walkIn,
+    walkInOffered,
+    needsPhone = false,
     onChoose,
+    onWalkIn,
+    onUndoWalkIn,
 }: {
     /** The chosen account, from the sale's state. `null` opens the search. */
     readonly customerAccountId: string | null;
+    /** The agent said this sale names nobody; the card folds to say so. */
+    readonly walkIn: boolean;
+    /** Collection and delivery must name somebody, so the card stops offering it. */
+    readonly walkInOffered: boolean;
+    /** The quote refused `phone_required`: the driver would have no number to ring. */
+    readonly needsPhone?: boolean;
     readonly onChoose: (customer: OrderDeskCustomer) => void;
+    readonly onWalkIn: () => void;
+    readonly onUndoWalkIn: () => void;
 }) {
     const { t } = useTranslation();
     const dial = useKitchenDial();
@@ -109,7 +250,7 @@ export function CustomerSection({
     const [editPhone, setEditPhone] = useState('');
 
     const debounced = useDebouncedValue(query.trim(), SEARCH_DEBOUNCE_MS);
-    const search = useOrderDeskCustomerSearchQuery(debounced);
+    const search = useOrderDeskCustomerSearchQuery(deskSearchTerm(debounced, dial));
     const create = useCreateOrderDeskCustomerMutation();
     const update = useUpdateOrderDeskCustomerMutation();
     const updateFailure = toFailure(update.error);
@@ -178,7 +319,7 @@ export function CustomerSection({
                 onSuccess: (result) => {
                     setChosen(result.customer);
                     onChoose(result.customer);
-                    // Held open while somebody else shares the new number, so it can be read.
+                    // Held open while somebody else shares the new number; the card says who.
                     if (result.possibleDuplicates.length === 0) setEditing(false);
                 },
             },
@@ -190,37 +331,144 @@ export function CustomerSection({
         editName.trim() === (chosen.displayName ?? '') &&
         normaliseDeskPhone(editPhone) === (chosen.phone ?? '');
 
+    /*
+     * Somebody else has the number — a warning, never a refusal: a household or an office shares
+     * one line. Said while the sale is still for the record that shares it; the one just created
+     * offers each other record one press away, so the order can join that history instead.
+     */
+    const duplicateName = (duplicate: OrderDeskCustomer) =>
+        `${duplicate.displayName ?? t('kitchen:desk.sale.customerUnnamed')} · ${
+            duplicate.phone ?? EM_DASH
+        }`;
+    const created = create.data;
+    const edited = update.data;
+    // Said as strips at the head of this card: the sale page has no issue tray.
+    const duplicateNotices = (
+        <>
+            {created === undefined || created.customer.id !== customerAccountId
+                ? null
+                : created.possibleDuplicates.map((duplicate) => (
+                      <Callout
+                          key={duplicate.id}
+                          testID={`kitchen-order-desk-sale-customer-duplicate-${duplicate.id}`}
+                          tone="warning"
+                          title={t('kitchen:desk.sale.customerDuplicatesTitle')}
+                          body={duplicateName(duplicate)}
+                          actions={
+                              <DeskButton
+                                  testID={`kitchen-order-desk-sale-customer-duplicate-${duplicate.id}-choose`}
+                                  variant="secondary"
+                                  label={t('kitchen:desk.sale.customerUseInstead')}
+                                  onPress={() => {
+                                      choose(duplicate);
+                                  }}
+                              />
+                          }
+                      />
+                  ))}
+            {edited === undefined ||
+            edited.customer.id !== customerAccountId ||
+            edited.possibleDuplicates.length === 0 ? null : (
+                <Callout
+                    testID="kitchen-order-desk-sale-customer-edit-duplicates"
+                    tone="warning"
+                    title={t('kitchen:desk.sale.customerEditDuplicatesTitle')}
+                    body={edited.possibleDuplicates
+                        .map(duplicateName)
+                        .join(t('kitchen:common.listSeparator'))}
+                />
+            )}
+            {/* A registered customer's number is theirs to add, so only the desk's own get Add. */}
+            {!needsPhone || !folded || editing || chosen === null ? null : (
+                <Callout
+                    testID="kitchen-order-desk-sale-customer-phone-required"
+                    tone="warning"
+                    title={t('kitchen:desk.refusal.phone_required')}
+                    actions={
+                        chosen.origin === 'self_service' ? undefined : (
+                            <DeskButton
+                                testID="kitchen-order-desk-sale-customer-add-phone"
+                                variant="secondary"
+                                label={t('kitchen:desk.sale.customerAddPhone')}
+                                onPress={() => {
+                                    startEditing(chosen);
+                                    focusField('kitchen-order-desk-sale-customer-edit-phone');
+                                }}
+                            />
+                        )
+                    }
+                />
+            )}
+        </>
+    );
+
+    const actions = walkIn ? (
+        <DeskButton
+            testID="kitchen-order-desk-sale-walk-in-change"
+            variant="secondary"
+            label={t('kitchen:desk.sale.change')}
+            onPress={onUndoWalkIn}
+        />
+    ) : folded && !editing ? (
+        <Inline space="xs">
+            {/* A registered customer's name is theirs: the row policy refuses the write. */}
+            {chosen?.origin === 'self_service' ? null : (
+                <DeskButton
+                    testID="kitchen-order-desk-sale-customer-edit"
+                    variant="secondary"
+                    label={t('kitchen:desk.sale.customerEdit')}
+                    onPress={() => {
+                        if (chosen !== null) startEditing(chosen);
+                    }}
+                />
+            )}
+            <DeskButton
+                testID="kitchen-order-desk-sale-customer-change"
+                variant="secondary"
+                label={t('kitchen:desk.sale.change')}
+                onPress={() => {
+                    setChanging(true);
+                }}
+            />
+        </Inline>
+    ) : null;
+
+    const openCreate = () => {
+        setCreating(true);
+        setCreateAttempted(false);
+        // Opens on the kitchen's own code; the agent types the rest.
+        if (phone === '' && dial !== null) setPhone(`${dial} `);
+    };
+
+    /*
+     * A slim bar rather than a card with a title (the Order desk redesign): who the sale is for on
+     * one line — their initials, name and number, what they are, what they must not eat — with
+     * Edit and Change at its end. Unanswered, the same bar is the search with New customer and
+     * Walk-in beside it.
+     */
     return (
-        <FormSection
-            variant="card"
+        <View
             testID="kitchen-order-desk-sale-customer"
-            title={t('kitchen:desk.sale.customerTitle')}
-            actions={
-                folded && !editing ? (
-                    <Inline space="xs">
-                        <Button
-                            testID="kitchen-order-desk-sale-customer-edit"
-                            size="sm"
-                            variant="secondary"
-                            label={t('kitchen:desk.sale.customerEdit')}
-                            onPress={() => {
-                                if (chosen !== null) startEditing(chosen);
-                            }}
-                        />
-                        <Button
-                            testID="kitchen-order-desk-sale-customer-change"
-                            size="sm"
-                            variant="secondary"
-                            label={t('kitchen:desk.sale.change')}
-                            onPress={() => {
-                                setChanging(true);
-                            }}
-                        />
-                    </Inline>
-                ) : undefined
-            }
+            role="group"
+            aria-label={t('kitchen:desk.sale.customerTitle')}
+            className="z-auto flex-col gap-3 rounded-2xl border border-stroke-subtle bg-surface-raised px-3.5 py-3"
         >
-            {folded && chosen !== null && editing ? (
+            {duplicateNotices}
+            {walkIn ? (
+                <View className="flex-row items-center gap-3.5">
+                    <View className="h-10 w-10 items-center justify-center rounded-lg bg-surface-sidebar">
+                        <Icon name="person" size="md" className="text-content-on-sidebar" />
+                    </View>
+                    <Text
+                        variant="label"
+                        className="font-bold"
+                        testID="kitchen-order-desk-sale-walk-in-chosen"
+                    >
+                        {t('kitchen:desk.sale.walkIn')}
+                    </Text>
+                    <View className="ms-auto">{actions}</View>
+                </View>
+            ) : folded && chosen !== null && editing ? (
                 <View
                     testID="kitchen-order-desk-sale-customer-edit-form"
                     className="flex-col gap-tight"
@@ -259,31 +507,9 @@ export function CustomerSection({
                         </Text>
                     )}
 
-                    {update.data === undefined ||
-                    update.data.possibleDuplicates.length === 0 ? null : (
-                        <Callout
-                            testID="kitchen-order-desk-sale-customer-edit-duplicates"
-                            tone="warning"
-                            role="status"
-                            title={t('kitchen:desk.sale.customerEditDuplicatesTitle')}
-                        >
-                            <View className="flex-col gap-hair">
-                                {update.data.possibleDuplicates.map((duplicate) => (
-                                    <Text key={duplicate.id} variant="caption">
-                                        {`${
-                                            duplicate.displayName ??
-                                            t('kitchen:desk.sale.customerUnnamed')
-                                        } · ${duplicate.phone ?? EM_DASH}`}
-                                    </Text>
-                                ))}
-                            </View>
-                        </Callout>
-                    )}
-
                     <Inline space="xs" wrap>
-                        <Button
+                        <DeskButton
                             testID="kitchen-order-desk-sale-customer-edit-save"
-                            size="sm"
                             label={t('kitchen:desk.sale.customerEditSave')}
                             loading={update.isPending}
                             disabled={
@@ -295,9 +521,8 @@ export function CustomerSection({
                                 saveEdit(chosen);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-order-desk-sale-customer-edit-cancel"
-                            size="sm"
                             variant="secondary"
                             label={t('kitchen:desk.sale.customerCancelCreate')}
                             onPress={() => {
@@ -307,36 +532,93 @@ export function CustomerSection({
                     </Inline>
                 </View>
             ) : folded && chosen !== null ? (
-                <View
-                    testID="kitchen-order-desk-sale-customer-chosen"
-                    className="flex-row flex-wrap items-center gap-tight"
-                >
-                    <Text variant="label">
-                        {chosen.displayName ?? t('kitchen:desk.sale.customerUnnamed')}
-                    </Text>
-                    <Text variant="mono" tone="secondary">
-                        {chosen.phone ?? EM_DASH}
-                    </Text>
-                    {chosen.hasOrdersWithOrg ? (
-                        <Badge
-                            tone="success"
-                            icon={null}
-                            label={t('kitchen:desk.sale.customerRegular')}
-                        />
-                    ) : null}
+                <View className="z-auto flex-row flex-wrap items-center gap-3.5">
+                    <View
+                        aria-hidden
+                        className="h-10 w-10 items-center justify-center rounded-xl bg-surface-brand-subtle"
+                    >
+                        <Text variant="strong" className="font-bold !text-content-on-brand-subtle">
+                            {initialsOf(
+                                chosen.displayName ?? t('kitchen:desk.sale.customerUnnamed'),
+                            )}
+                        </Text>
+                    </View>
+                    <View
+                        testID="kitchen-order-desk-sale-customer-chosen"
+                        className="flex-row flex-wrap items-center gap-3"
+                    >
+                        <View className="flex-col">
+                            <Text variant="label" className="font-bold">
+                                {chosen.displayName ?? t('kitchen:desk.sale.customerUnnamed')}
+                            </Text>
+                            <Text variant="mono" tone="secondary">
+                                {chosen.phone ?? EM_DASH}
+                            </Text>
+                        </View>
+                        {chosen.hasOrdersWithOrg ? (
+                            <DeskChip
+                                tone="success"
+                                label={t('kitchen:desk.sale.customerRegular')}
+                            />
+                        ) : null}
+                        {chosen.origin === 'self_service' ? (
+                            <DeskChip
+                                tone="neutral"
+                                label={t('kitchen:desk.sale.customerRegistered')}
+                            />
+                        ) : null}
+                    </View>
+                    <View aria-hidden className="h-7 w-px bg-brand-100" />
+                    <ChosenAllergies customerAccountId={chosen.id} inline />
+                    <View className="ms-auto">{actions}</View>
                 </View>
             ) : (
                 <View className="z-auto flex-col gap-tight">
-                    <View style={{ width: fieldWidth }}>
-                        <SearchInput
-                            testID="kitchen-order-desk-sale-customer-search"
-                            label={t('kitchen:desk.sale.customerSearchLabel')}
-                            placeholder={t('kitchen:desk.sale.customerSearchPlaceholder')}
-                            value={query}
-                            onChangeText={setQuery}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                        />
+                    <View className="z-auto flex-row flex-wrap items-center gap-tight">
+                        <View className="h-10 w-10 items-center justify-center rounded-xl bg-surface-brand-subtle">
+                            <Icon
+                                name="person"
+                                size="md"
+                                className="text-content-on-brand-subtle"
+                            />
+                        </View>
+                        {/* eslint-disable-next-line no-restricted-syntax -- the search absorbs the bar. */}
+                        <View className="flex-1" style={{ minWidth: fieldWidth }}>
+                            <SearchInput
+                                className="!h-[38px] !rounded-[10px] !border-transparent !bg-surface-sunken"
+                                testID="kitchen-order-desk-sale-customer-search"
+                                label={t('kitchen:desk.sale.customerSearchLabel')}
+                                placeholder={t('kitchen:desk.sale.customerSearchPlaceholder')}
+                                value={query}
+                                onChangeText={setQuery}
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                            />
+                        </View>
+                        {creating ? null : (
+                            <Inline space="xs">
+                                {rows.length > 0 ? null : (
+                                    <DeskButton
+                                        testID="kitchen-order-desk-sale-customer-new"
+                                        variant="secondary"
+                                        label={t('kitchen:desk.sale.customerNew')}
+                                        iconStart={<Icon name="plus" size="sm" />}
+                                        onPress={openCreate}
+                                    />
+                                )}
+                                {walkInOffered ? (
+                                    <DeskButton
+                                        testID="kitchen-order-desk-sale-walk-in"
+                                        variant="secondary"
+                                        label={t('kitchen:desk.sale.walkInChoose')}
+                                        onPress={() => {
+                                            setChanging(false);
+                                            onWalkIn();
+                                        }}
+                                    />
+                                ) : null}
+                            </Inline>
+                        )}
                     </View>
 
                     {tooShort ? (
@@ -372,46 +654,96 @@ export function CustomerSection({
                     ) : rows.length > 0 ? (
                         <View
                             testID="kitchen-order-desk-sale-customer-results"
-                            className="flex-col border-t border-stroke"
+                            className="flex-col"
                         >
-                            {rows.map((row) => (
-                                <View
-                                    key={row.id}
-                                    testID={`kitchen-order-desk-sale-customer-${row.id}`}
-                                    className={
-                                        customerAccountId === row.id
-                                            ? 'min-h-row-md flex-row flex-wrap items-center gap-tight border-b border-stroke-subtle bg-surface-brand-subtle px-control-sm'
-                                            : 'min-h-row-md flex-row flex-wrap items-center gap-tight border-b border-stroke-subtle px-control-sm'
-                                    }
-                                >
-                                    {/* eslint-disable-next-line no-restricted-syntax -- the name is the row's filler. */}
-                                    <View className="min-w-0 flex-1">
-                                        <Text variant="label">
-                                            {row.displayName ??
-                                                t('kitchen:desk.sale.customerUnnamed')}
-                                        </Text>
+                            {rows.map((row) => {
+                                const rowName =
+                                    row.displayName ?? t('kitchen:desk.sale.customerUnnamed');
+                                return (
+                                    <View
+                                        key={row.id}
+                                        testID={`kitchen-order-desk-sale-customer-${row.id}`}
+                                        className="border-t border-stroke-subtle"
+                                    >
+                                        <Pressable
+                                            testID={`kitchen-order-desk-sale-customer-${row.id}-choose`}
+                                            role="button"
+                                            accessibilityRole="button"
+                                            accessibilityLabel={`${t('kitchen:desk.sale.customerChoose')}: ${rowName}`}
+                                            onPress={() => {
+                                                choose(row);
+                                            }}
+                                            className={
+                                                customerAccountId === row.id
+                                                    ? 'flex-row flex-wrap items-center gap-3 rounded-lg bg-surface-brand-subtle px-2 py-2'
+                                                    : 'group flex-row flex-wrap items-center gap-3 rounded-lg px-2 py-2 hover:bg-surface-sunken'
+                                            }
+                                        >
+                                            {/* eslint-disable-next-line no-restricted-syntax -- the name is the row's filler. */}
+                                            <View className="min-w-0 flex-1 flex-col">
+                                                <Text
+                                                    variant="strong"
+                                                    className="font-bold"
+                                                    numberOfLines={1}
+                                                >
+                                                    {rowName}
+                                                </Text>
+                                                <Text variant="mono" tone="secondary">
+                                                    {row.phone ?? EM_DASH}
+                                                </Text>
+                                            </View>
+                                            {row.hasOrdersWithOrg ? (
+                                                <DeskChip
+                                                    tone="success"
+                                                    label={t('kitchen:desk.sale.customerRegular')}
+                                                />
+                                            ) : null}
+                                            {row.origin === 'self_service' ? (
+                                                <DeskChip
+                                                    tone="neutral"
+                                                    label={t(
+                                                        'kitchen:desk.sale.customerRegistered',
+                                                    )}
+                                                />
+                                            ) : null}
+                                            <View
+                                                aria-hidden
+                                                className="h-desk-step items-center justify-center rounded bg-surface-brand px-3 group-hover:bg-surface-canopy"
+                                            >
+                                                <Text
+                                                    variant="label"
+                                                    className="font-semibold !text-content-on-brand"
+                                                >
+                                                    {t('kitchen:desk.sale.customerChoose')}
+                                                </Text>
+                                            </View>
+                                        </Pressable>
                                     </View>
-                                    <Text variant="mono" tone="secondary">
-                                        {row.phone ?? EM_DASH}
-                                    </Text>
-                                    {row.hasOrdersWithOrg ? (
-                                        <Badge
-                                            tone="success"
-                                            icon={null}
-                                            label={t('kitchen:desk.sale.customerRegular')}
+                                );
+                            })}
+                            {creating ? null : (
+                                <View className="flex-row border-t border-stroke-subtle pt-2">
+                                    <Pressable
+                                        testID="kitchen-order-desk-sale-customer-new"
+                                        role="button"
+                                        accessibilityRole="button"
+                                        onPress={openCreate}
+                                        className="flex-row items-center gap-1 px-2 py-1"
+                                    >
+                                        <Icon
+                                            name="plus"
+                                            size="sm"
+                                            className="text-content-on-brand-subtle"
                                         />
-                                    ) : null}
-                                    <Button
-                                        testID={`kitchen-order-desk-sale-customer-${row.id}-choose`}
-                                        size="sm"
-                                        variant="quiet"
-                                        label={t('kitchen:desk.sale.customerChoose')}
-                                        onPress={() => {
-                                            choose(row);
-                                        }}
-                                    />
+                                        <Text
+                                            variant="label"
+                                            className="font-semibold !text-content-on-brand-subtle"
+                                        >
+                                            {t('kitchen:desk.sale.customerNew')}
+                                        </Text>
+                                    </Pressable>
                                 </View>
-                            ))}
+                            )}
                             {rows.length >= (search.data?.limit ?? Number.POSITIVE_INFINITY) ? (
                                 <Text
                                     variant="caption"
@@ -435,40 +767,94 @@ export function CustomerSection({
                     {creating ? (
                         <View
                             testID="kitchen-order-desk-sale-customer-form"
-                            className="flex-col gap-tight border-t border-stroke-subtle pt-tight"
+                            className="flex-col gap-3 rounded-xl bg-surface-sunken p-3.5"
                         >
-                            <Text variant="strong" accessibilityRole="header">
+                            <Text
+                                variant="strong"
+                                accessibilityRole="header"
+                                className="!text-[15px] font-bold"
+                            >
                                 {t('kitchen:desk.sale.customerCreateTitle')}
                             </Text>
-                            <FormGrid columns={2}>
-                                <TextInputField
-                                    testID="kitchen-order-desk-sale-customer-name"
-                                    id="kitchen-order-desk-sale-customer-name"
-                                    label={t('kitchen:desk.sale.customerNameLabel')}
-                                    placeholder={t('kitchen:desk.sale.customerNamePlaceholder')}
-                                    size="sm"
-                                    required
-                                    {...createServer.flag('display_name')}
-                                    value={name}
-                                    onChangeText={setName}
-                                />
-                                <TextInputField
-                                    testID="kitchen-order-desk-sale-customer-phone"
-                                    id="kitchen-order-desk-sale-customer-phone"
-                                    label={t('kitchen:desk.sale.customerPhoneLabel')}
-                                    hint={t('kitchen:desk.sale.customerPhoneHint')}
-                                    size="sm"
-                                    required
-                                    {...(createPhoneError === undefined
-                                        ? {}
-                                        : { error: createPhoneError })}
-                                    value={phone}
-                                    onChangeText={setPhone}
-                                    autoCapitalize="none"
-                                    autoCorrect={false}
-                                    inputMode="tel"
-                                />
-                            </FormGrid>
+                            <View className="z-auto flex-row flex-wrap items-end gap-3">
+                                {/* eslint-disable-next-line no-restricted-syntax -- two fields share the row. */}
+                                <View className="flex-1" style={{ minWidth: fieldWidth }}>
+                                    <TextInputField
+                                        testID="kitchen-order-desk-sale-customer-name"
+                                        id="kitchen-order-desk-sale-customer-name"
+                                        label={t('kitchen:desk.sale.customerNameLabel')}
+                                        placeholder={t('kitchen:desk.sale.customerNamePlaceholder')}
+                                        size="lg"
+                                        required
+                                        {...createServer.flag('display_name')}
+                                        value={name}
+                                        onChangeText={setName}
+                                    />
+                                </View>
+                                {/* eslint-disable-next-line no-restricted-syntax -- two fields share the row. */}
+                                <View className="flex-1" style={{ minWidth: fieldWidth }}>
+                                    <TextInputField
+                                        testID="kitchen-order-desk-sale-customer-phone"
+                                        id="kitchen-order-desk-sale-customer-phone"
+                                        label={t('kitchen:desk.sale.customerPhoneLabel')}
+                                        hint={t('kitchen:desk.sale.customerPhoneHint')}
+                                        size="lg"
+                                        required
+                                        {...(createPhoneError === undefined
+                                            ? {}
+                                            : { error: createPhoneError })}
+                                        value={phone}
+                                        onChangeText={setPhone}
+                                        autoCapitalize="none"
+                                        autoCorrect={false}
+                                        inputMode="tel"
+                                    />
+                                </View>
+                                <Inline space="xs" wrap>
+                                    <DeskButton
+                                        testID="kitchen-order-desk-sale-customer-create"
+                                        label={t('kitchen:desk.sale.customerCreate')}
+                                        loading={create.isPending}
+                                        disabled={name.trim() === '' || isBlankPhone(phone, dial)}
+                                        onPress={() => {
+                                            setCreateAttempted(true);
+                                            if (createPhoneProblem !== null) return;
+                                            create.mutate(
+                                                {
+                                                    displayName: name.trim(),
+                                                    phone: normaliseDeskPhone(phone),
+                                                },
+                                                {
+                                                    onSuccess: (result) => {
+                                                        // Chosen at once: the agent just typed this
+                                                        // person in. The duplicate warning, if any,
+                                                        // is the thing to read before moving on.
+                                                        if (
+                                                            result.possibleDuplicates.length === 0
+                                                        ) {
+                                                            choose(result.customer);
+                                                        } else {
+                                                            // Held open on the possible duplicates,
+                                                            // so they are read.
+                                                            setChanging(true);
+                                                            setChosen(result.customer);
+                                                            onChoose(result.customer);
+                                                        }
+                                                    },
+                                                },
+                                            );
+                                        }}
+                                    />
+                                    <DeskButton
+                                        testID="kitchen-order-desk-sale-customer-cancel"
+                                        variant="secondary"
+                                        label={t('kitchen:desk.sale.customerCancelCreate')}
+                                        onPress={() => {
+                                            setCreating(false);
+                                        }}
+                                    />
+                                </Inline>
+                            </View>
 
                             {createFailure === null ||
                             (createServer.isValidation && createServer.unplaced === null) ? null : (
@@ -479,113 +865,11 @@ export function CustomerSection({
                                     {createServer.unplaced ?? createFailure.message}
                                 </Text>
                             )}
-
-                            {create.data === undefined ||
-                            create.data.possibleDuplicates.length === 0 ? null : (
-                                <Callout
-                                    testID="kitchen-order-desk-sale-customer-duplicates"
-                                    tone="warning"
-                                    role="status"
-                                    title={t('kitchen:desk.sale.customerDuplicatesTitle')}
-                                    body={t('kitchen:desk.sale.customerDuplicatesBody')}
-                                >
-                                    <View className="flex-col gap-hair">
-                                        {create.data.possibleDuplicates.map((duplicate) => (
-                                            <Inline
-                                                key={duplicate.id}
-                                                space="sm"
-                                                align="center"
-                                                wrap
-                                                testID={`kitchen-order-desk-sale-customer-duplicate-${duplicate.id}`}
-                                            >
-                                                <Text variant="caption">
-                                                    {`${
-                                                        duplicate.displayName ??
-                                                        t('kitchen:desk.sale.customerUnnamed')
-                                                    } · ${duplicate.phone ?? EM_DASH}`}
-                                                </Text>
-                                                <Button
-                                                    testID={`kitchen-order-desk-sale-customer-duplicate-${duplicate.id}-choose`}
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    label={t(
-                                                        'kitchen:desk.sale.customerUseInstead',
-                                                    )}
-                                                    onPress={() => {
-                                                        choose(duplicate);
-                                                    }}
-                                                />
-                                            </Inline>
-                                        ))}
-                                    </View>
-                                </Callout>
-                            )}
-
-                            <Inline space="xs" wrap>
-                                <Button
-                                    testID="kitchen-order-desk-sale-customer-create"
-                                    size="sm"
-                                    label={t('kitchen:desk.sale.customerCreate')}
-                                    loading={create.isPending}
-                                    disabled={name.trim() === '' || isBlankPhone(phone, dial)}
-                                    onPress={() => {
-                                        setCreateAttempted(true);
-                                        if (createPhoneProblem !== null) return;
-                                        create.mutate(
-                                            {
-                                                displayName: name.trim(),
-                                                phone: normaliseDeskPhone(phone),
-                                            },
-                                            {
-                                                onSuccess: (result) => {
-                                                    // Chosen at once: the agent just typed this
-                                                    // person in. The duplicate warning, if any,
-                                                    // is the thing to read before moving on.
-                                                    if (result.possibleDuplicates.length === 0) {
-                                                        choose(result.customer);
-                                                    } else {
-                                                        // Held open, so the possible duplicates
-                                                        // stay on screen to be read.
-                                                        setChanging(true);
-                                                        setChosen(result.customer);
-                                                        onChoose(result.customer);
-                                                    }
-                                                },
-                                            },
-                                        );
-                                    }}
-                                />
-                                <Button
-                                    testID="kitchen-order-desk-sale-customer-cancel"
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('kitchen:desk.sale.customerCancelCreate')}
-                                    onPress={() => {
-                                        setCreating(false);
-                                    }}
-                                />
-                            </Inline>
                         </View>
-                    ) : (
-                        <Inline space="xs">
-                            <Button
-                                testID="kitchen-order-desk-sale-customer-new"
-                                size="sm"
-                                variant="secondary"
-                                label={t('kitchen:desk.sale.customerNew')}
-                                iconStart={<Icon name="plus" size="sm" />}
-                                onPress={() => {
-                                    setCreating(true);
-                                    setCreateAttempted(false);
-                                    // Opens on the kitchen's own code; the agent types the rest.
-                                    if (phone === '' && dial !== null) setPhone(`${dial} `);
-                                }}
-                            />
-                        </Inline>
-                    )}
+                    ) : null}
                 </View>
             )}
-        </FormSection>
+        </View>
     );
 }
 
@@ -597,10 +881,13 @@ export function AddressSection({
     customerAccountId,
     customerAddressId,
     onSaved,
+    title,
 }: {
     readonly customerAccountId: string | null;
     readonly customerAddressId: string | null;
     readonly onSaved: (addressId: string) => void;
+    /** Translated. The card's heading where "Delivery address" would say it twice — an edit's new one. */
+    readonly title?: string | undefined;
 }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
@@ -635,8 +922,46 @@ export function AddressSection({
         },
     });
     const saved = save.data ?? null;
+    // A customer outside the kitchen's book answers 404, which is simply no list to offer.
+    const book = useKitchenCustomerQuery(customerAccountId ?? undefined);
+    const onFile = (book.data?.addresses ?? []).filter((address) => address.type === 'delivery');
+    const [pickedLine, setPickedLine] = useState<string | null>(null);
+    const picked =
+        customerAddressId !== null && onFile.some((address) => address.id === customerAddressId);
     // Folded only while the saved address is still the sale's — a new customer clears it.
-    const folded = saved !== null && saved.id === customerAddressId && !changing;
+    const isTheSales = saved !== null && saved.id === customerAddressId;
+    const folded = (isTheSales || picked) && !changing;
+
+    /*
+     * A warning rather than a block: the address is real and saved, and whether a zone covers it is
+     * the *quote's* answer — `area_not_served`, with the sentence the agent reads out. Said while it
+     * is still the sale's address, whether or not the card is open to change it. A strip at the
+     * head of this card — the sale page has no issue tray — and Change on it opens the address.
+     */
+    const undeliverable =
+        !isTheSales || saved.isDeliverable ? null : (
+            <Callout
+                testID="kitchen-order-desk-sale-address-undeliverable"
+                tone="warning"
+                title={t('kitchen:desk.sale.addressUndeliverableTitle')}
+                body={saved.lineOne}
+                {...(folded
+                    ? {
+                          actions: (
+                              <DeskButton
+                                  testID="kitchen-order-desk-sale-address-undeliverable-fix"
+                                  variant="secondary"
+                                  label={t('kitchen:desk.sale.change')}
+                                  onPress={() => {
+                                      setChanging(true);
+                                      focusField('kitchen-order-desk-sale-address-area');
+                                  }}
+                              />
+                          ),
+                      }
+                    : {})}
+            />
+        );
 
     const options = useMemo(
         () =>
@@ -654,15 +979,14 @@ export function AddressSection({
 
     return (
         <FormSection
-            variant="card"
+            variant="panel"
             testID="kitchen-order-desk-sale-address"
-            title={t('kitchen:desk.sale.addressTitle')}
+            title={title ?? t('kitchen:desk.sale.addressTitle')}
             description={folded ? undefined : t('kitchen:desk.sale.addressNoteBody')}
             actions={
                 folded ? (
-                    <Button
+                    <DeskButton
                         testID="kitchen-order-desk-sale-address-change"
-                        size="sm"
                         variant="secondary"
                         label={t('kitchen:desk.sale.change')}
                         onPress={() => {
@@ -672,27 +996,48 @@ export function AddressSection({
                 ) : undefined
             }
         >
-            {folded && saved !== null ? (
-                <View className="flex-col gap-tight">
-                    <Text variant="label" testID="kitchen-order-desk-sale-address-saved">
-                        {saved.lineOne}
-                    </Text>
-                    {saved.isDeliverable ? null : (
-                        // A warning rather than a block: the address is real and saved, and whether
-                        // a zone covers it is the *quote's* answer — `area_not_served`, with the
-                        // sentence the agent reads out.
-                        <Callout
-                            testID="kitchen-order-desk-sale-address-undeliverable"
-                            tone="warning"
-                            role="alert"
-                            title={t('kitchen:desk.sale.addressUndeliverableTitle')}
-                            body={t('kitchen:desk.sale.addressUndeliverableBody')}
-                        />
-                    )}
-                </View>
+            {undeliverable}
+            {folded ? (
+                <Text variant="label" testID="kitchen-order-desk-sale-address-saved">
+                    {isTheSales ? saved.lineOne : pickedLine}
+                </Text>
             ) : (
                 <View className="z-auto flex-col gap-snug">
-                    <FormGrid columns={3}>
+                    {onFile.length === 0 ? null : (
+                        <View
+                            testID="kitchen-order-desk-sale-address-on-file"
+                            className="flex-col border-t border-stroke"
+                        >
+                            {onFile.map((address) => (
+                                <View
+                                    key={address.id}
+                                    testID={`kitchen-order-desk-sale-address-on-file-${address.id}`}
+                                    className="min-h-row-md flex-row flex-wrap items-center gap-tight border-b border-stroke-subtle px-control-sm"
+                                >
+                                    {/* eslint-disable-next-line no-restricted-syntax -- the street is the row's filler. */}
+                                    <View className="min-w-0 flex-1">
+                                        <Text variant="label">
+                                            {[address.label, address.lineOne]
+                                                .filter((part) => part !== null && part !== '')
+                                                .join(' · ') || EM_DASH}
+                                        </Text>
+                                    </View>
+                                    <DeskButton
+                                        testID={`kitchen-order-desk-sale-address-on-file-${address.id}-choose`}
+                                        variant="quiet"
+                                        label={t('kitchen:desk.sale.customerChoose')}
+                                        onPress={() => {
+                                            setPickedLine(address.lineOne);
+                                            setChanging(false);
+                                            onSaved(address.id);
+                                        }}
+                                    />
+                                </View>
+                            ))}
+                        </View>
+                    )}
+                    {/* Two to a row: three left each field too narrow to read once the panel is open. */}
+                    <FormGrid columns={2}>
                         <Select
                             testID="kitchen-order-desk-sale-address-area"
                             id="kitchen-order-desk-sale-address-area"
@@ -753,9 +1098,8 @@ export function AddressSection({
                     )}
 
                     <Inline space="xs">
-                        <Button
+                        <DeskButton
                             testID="kitchen-order-desk-sale-address-save"
-                            size="sm"
                             label={t('kitchen:desk.sale.addressSave')}
                             loading={save.isPending}
                             disabled={

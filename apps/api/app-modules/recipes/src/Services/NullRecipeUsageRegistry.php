@@ -32,6 +32,16 @@ final class NullRecipeUsageRegistry implements RecipeUsageRegistry
     }
 
     /**
+     * Nothing sells this recipe, so nothing about selling it can block it.
+     *
+     * @return list<array{code: string, detail: string, context: array<string, mixed>}>
+     */
+    public function sellingBlockers(Recipe $recipe): array
+    {
+        return [];
+    }
+
+    /**
      * Nothing sells this recipe, so nothing comes off sale. The recompute job
      * still calls it — a quarantine that only happened when the catalogues
      * module was installed would be a quarantine with a hole in it — and the
@@ -40,6 +50,14 @@ final class NullRecipeUsageRegistry implements RecipeUsageRegistry
      * @return list<string>
      */
     public function quarantinePublishedItems(Recipe $recipe, string $reason): array
+    {
+        return [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function releaseQuarantinedItems(Recipe $recipe): array
     {
         return [];
     }
@@ -76,4 +94,17 @@ final class NullRecipeUsageRegistry implements RecipeUsageRegistry
      * @param  Builder<covariant Model>  $scoped
      */
     public function orWhereSellerMatches(Builder $scoped, string $needle): void {}
+
+    /**
+     * Nothing sells this recipe, so no listing holds a twin for it.
+     */
+    public function twinIngredientId(Recipe $recipe): ?string
+    {
+        return null;
+    }
+
+    /**
+     * Nothing sells this recipe, so nothing earns anything from it.
+     */
+    public function recipePublished(Recipe $recipe): void {}
 }

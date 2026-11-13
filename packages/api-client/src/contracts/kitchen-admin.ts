@@ -24,6 +24,14 @@ import type { MeasureUnit, NutritionFacts, Serving } from '@healthy360/nutrition
 
 import type { PackSize } from './marketplace.ts';
 import type { CursorPage, CursorPageRequest, OffsetPageRequest } from './pagination.ts';
+import type {
+    CreatePriceListRequest,
+    CreateSalesChannelRequest,
+    ItemChannelOffering,
+    PriceListChannels,
+    SalesChannelRecord,
+    SetPriceListChannelsRequest,
+} from './kitchen-wholesale.ts';
 
 /**
  * The kitchen-management contract (phase K1).
@@ -250,6 +258,15 @@ export interface IngredientAllergenMapping {
     /** Where the determination came from — a supplier specification, a test report, a person. */
     readonly sourceNote: string | null;
     readonly lookupSource?: Readonly<Record<string, unknown>> | null;
+    /** How it was found: typed by the kitchen, or brought in by the master list or a lookup. */
+    readonly source?:
+        | 'master_list'
+        | 'technical_sheet'
+        | 'supplier_declaration'
+        | 'kitchen_declared'
+        | 'inferred'
+        /** Carried from a published sub-recipe onto the ingredient it produces. */
+        | 'recipe_derived';
 }
 
 export interface AllergenReferenceCandidate {
@@ -315,6 +332,8 @@ export interface NutritionReferenceCandidate {
     readonly suitable: boolean;
     readonly reasons: readonly string[];
     readonly missing_nutrients: readonly string[];
+    /** A branded food not recorded per gram — per ml, or no serving unit — so no per-100 g figure. */
+    readonly unsupported_basis: boolean;
     readonly source_hash: string;
     readonly retrieved_at: string;
 }
@@ -346,7 +365,26 @@ export interface IngredientAssistSuggestion {
         readonly relation: 'same' | 'more_specific' | 'different' | null;
         readonly reason: string | null;
     } | null;
-    readonly unavailable: readonly ('assistant' | 'nutrition')[];
+    /** How the kitchen buys and stocks it — a model estimate. */
+    readonly unit: 'kg' | 'l' | 'piece' | null;
+    /** The mass of one litre or one piece in grams, a bounded model estimate; null for kg. */
+    readonly gramsPerUnit: number | null;
+    readonly allergens: {
+        /** The Open Food Facts search the allergen picker runs. */
+        readonly candidates: readonly AllergenReferenceCandidate[];
+        readonly notices: readonly string[];
+        /** The importable product that is plainly this ingredient, if one is. */
+        readonly pick: number | null;
+        /** The model's own read for when no product fits; `null` when it did not answer. */
+        readonly codes:
+            | readonly {
+                  readonly allergenCode: AllergenCode;
+                  readonly containment: AllergenContainment;
+              }[]
+            | null;
+        readonly reason: string | null;
+    };
+    readonly unavailable: readonly ('assistant' | 'nutrition' | 'allergens')[];
 }
 
 export interface ConfirmIngredientAllergensRequest {
@@ -396,6 +434,61 @@ export interface SetRecordPhotoRequest {
     readonly recordId: string;
     readonly photo: Blob;
     readonly fileName: string;
+}
+
+/* ── spreadsheet transfer (Import / Export) ─────────────────────────────────────────────────── */
+
+/** The three Catalogue lists that move records in and out as an Excel workbook. */
+export type TransferResource = 'ingredients' | 'recipes' | 'stock';
+
+/**
+ * A file the API answered with bytes rather than an envelope. `filename` is what the server put in
+ * `Content-Disposition`, or `null` when the browser could not read that header (CORS) — the caller
+ * then falls back to a name of its own.
+ */
+export interface DownloadedFile {
+    readonly blob: Blob;
+    readonly filename: string | null;
+}
+
+/**
+ * A workbook to upload. On the web this is the picked or dropped `File`; on native it is the
+ * `{uri, name, type}` triple React Native's `FormData` accepts in a file's place.
+ */
+export interface ImportUpload {
+    readonly file: Blob | { readonly uri: string; readonly name: string; readonly type: string };
+    readonly fileName: string;
+}
+
+export type ImportRowOutcomeKind = 'created' | 'updated' | 'skipped' | 'failed';
+
+/** One sheet row the import has something to say about. `row` is the sheet's own row number. */
+export interface ImportRowOutcome {
+    readonly row: number;
+    readonly outcome: ImportRowOutcomeKind;
+    readonly reference: string | null;
+    readonly message: string | null;
+}
+
+/**
+ * What an import did. `unchanged` rows are counted but never listed — a re-imported export is
+ * mostly those, and a list of three hundred "nothing to do" lines tells nobody anything.
+ */
+export interface ImportReport {
+    readonly created: number;
+    readonly updated: number;
+    readonly unchanged: number;
+    readonly skipped: number;
+    readonly failed: number;
+    /** Sheet headers the import did not recognise and left alone, verbatim. */
+    readonly ignoredColumns: readonly string[];
+    readonly rows: readonly ImportRowOutcome[];
+}
+
+/** One recipe with its current version and, when this member may see money, its costed sheet. */
+export interface RecipeSheetBundle {
+    readonly recipe: RecipeAdmin;
+    readonly sheet: TechnicalSheetAdmin | null;
 }
 
 export interface IngredientAdmin {
@@ -594,6 +687,18 @@ export interface IngredientAdmin {
      */
     readonly forkedFromId: IngredientId | null;
     readonly notes: string | null;
+    /**
+     * The recipe that makes this ingredient — a preparation's twin — or `null` for something
+     * bought in. On list rows only; absent on a single read. `isPublished` false means a line using
+     * it is still costed from its typed price.
+     */
+    readonly producedByRecipe?: ProducedByRecipe | null | undefined;
+}
+
+export interface ProducedByRecipe {
+    readonly id: RecipeId;
+    readonly name: LocalisedText;
+    readonly isPublished: boolean;
 }
 
 /* ------------------------------------------------------------------------------------------------
@@ -966,6 +1071,16 @@ export interface RecipeVersionAdmin {
     /** True when a line or an ingredient changed after the figures were last derived. */
     readonly derivationStale: boolean;
     readonly publishedAt: IsoDateTime | null;
+    /** Why the version is quarantined (`review_required`); `null` outside review. */
+    readonly reviewReason: string | null;
+    /**
+     * The label a quarantined version was published with, keyed by allergen code — what a release
+     * replaces with `allergens`. `{}` when that label carried nothing; `null` outside review and on
+     * a quarantine older than the field, which recorded only its `reviewReason`.
+     */
+    readonly previousLabel: Readonly<Record<string, AllergenContainment>> | null;
+    /** The version's own lock, which a release sends; the recipe's is `meta.lockVersion`. */
+    readonly lockVersion: number;
 }
 
 /**
@@ -1048,6 +1163,10 @@ export interface RecipeSoldAs {
     readonly defaultPack: RecipeSoldAsPack | null;
     /** Why selling it cannot lower stock (HA-45); empty when a sale can. */
     readonly stockBlockers?: readonly StockBlocker[] | undefined;
+    /** `false` is not assessed for allergens, which puts it off sale. */
+    readonly allergensAssessed?: boolean | undefined;
+    /** A dish on sale with no published recipe. A warning: it stays on sale. */
+    readonly onSaleWithoutRecipe?: boolean | undefined;
 }
 
 export interface RecipeAdminSummary {
@@ -1227,6 +1346,22 @@ export interface RecipeLineCost {
     /** Null is an unpriced line. Never a zero: a zero is a measurement. */
     readonly unitCost: CostAmount | null;
     readonly lineCost: CostAmount | null;
+    /**
+     * Where a production line's cost came from on a draft preview; `null` on an uncosted line, on a
+     * saved sheet and on packaging lines. `ingredient_fallback` on a preparation means its recipe
+     * could not cost it, so its typed price was used.
+     */
+    readonly costSource?: RecipeLineCostSource | null | undefined;
+    /** The recipe a `component_recipe` cost came from; `null` otherwise. */
+    readonly sourceRecipe?: RecipeLineSourceRecipe | null | undefined;
+}
+
+export type RecipeLineCostSource =
+    'weekly' | 'latest_purchase' | 'component_recipe' | 'ingredient_fallback' | 'quoted';
+
+export interface RecipeLineSourceRecipe {
+    readonly id: RecipeId;
+    readonly name: LocalisedText;
 }
 
 /**
@@ -1257,6 +1392,11 @@ export interface RecipeComputedCost {
      * which item it could not cost instead of showing one package where two were drawn.
      */
     readonly packages: readonly RecipePackageCost[];
+    /**
+     * What each sold pack costs, one entry per pack the draft sent, keyed as it was sent. Absent or
+     * empty on a saved sheet, which knows nothing of packs.
+     */
+    readonly packs?: readonly RecipePackCost[] | undefined;
 }
 
 /** CONFIDENTIAL — one packaging line's cost per filled package. */
@@ -1388,6 +1528,11 @@ export interface CreateRecipeRequest {
     readonly b2cPrice?: CostAmount | undefined;
     /** See {@link RecipeAdmin.shelfLifeDays}. Omitted leaves it unset. */
     readonly shelfLifeDays?: number | undefined;
+    /**
+     * Create it as a preparation: the server makes the recipe's own ingredient twin so other
+     * recipes can use it as a line. Leave it off for a sold kind, whose listing brings the twin.
+     */
+    readonly producesIngredient?: boolean | undefined;
 }
 
 export interface UpdateRecipeRequest extends LockedRequest {
@@ -1486,6 +1631,8 @@ export interface RecipeRollupDraft {
     readonly packaging?: readonly RecipePackagingLineInput[] | undefined;
     /** Applied to the packaging half alone. The production coefficient is `wastePercent`. */
     readonly packagingWastePercent?: number | undefined;
+    /** The packs the recipe is sold in, as the editor holds them — costed into `packs`. */
+    readonly packs?: readonly RecipeRollupPack[] | undefined;
 }
 
 /** One allergen the draft would declare, and the lines that put it there. */
@@ -1614,6 +1761,10 @@ export interface ProductAdmin {
     readonly dataQualityFlags: readonly string[];
     /** Why selling it cannot lower stock (HA-45); empty when a sale can. */
     readonly stockBlockers?: readonly StockBlocker[] | undefined;
+    /** `false` is not assessed for allergens, which puts it off sale. */
+    readonly allergensAssessed?: boolean | undefined;
+    /** A dish on sale with no published recipe. A warning: it stays on sale. */
+    readonly onSaleWithoutRecipe?: boolean | undefined;
     /**
      * The photograph id, resolved by `EntityImage` — the stored one when a kitchen set it,
      * otherwise `<item_type>-<slug>`, the same id the storefront derives. Most products have no
@@ -1734,6 +1885,118 @@ export interface SetItemChannelPricesRequest extends LockedRequest {
 }
 
 /* ------------------------------------------------------------------------------------------------
+ * Packs & prices — a cooked item's packs, what each is made of, and where it sells
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The places a pack sells. `counter` carries no price: it charges the Home shop's. */
+export type PackPlace = 'home' | 'business' | 'counter';
+
+/** A place that carries a price — the web shop (`home`) or the B2B channel (`business`). */
+export interface ItemPackPlace {
+    readonly salesChannelId: string;
+    readonly priceListId: PriceListId;
+    readonly currency: CurrencyCode;
+    /** Whether the item is offered there today. */
+    readonly offered: boolean;
+}
+
+/** The order desk. `followsHome` false: it reads another list and cannot be ticked from here. */
+export interface ItemPackCounter {
+    readonly salesChannelId: string;
+    readonly offered: boolean;
+    readonly followsHome: boolean;
+    /** The list the desk reads, named so the editor can say which. */
+    readonly priceListName: string | null;
+}
+
+export interface ItemPackPrice {
+    readonly amountMinor: number;
+    /** The item's pack-less price, standing in until the pack is saved with its own. */
+    readonly inherited: boolean;
+}
+
+/** One packaging item a pack is made of. At most one per pack is the container. */
+export interface ItemPackComponent {
+    readonly ingredientId: IngredientId;
+    readonly quantity: number;
+    readonly isContainer: boolean;
+}
+
+export interface ItemPack {
+    /** The pack's variant id. */
+    readonly id: string;
+    readonly code: string;
+    readonly name: LocalisedText | null;
+    readonly isDefault: boolean;
+    /** What one pack holds. */
+    readonly fill: { readonly quantity: number; readonly unit: MeasureUnit };
+    /** Empty for a pack nobody has given a container yet. */
+    readonly components: readonly ItemPackComponent[];
+    readonly prices: {
+        readonly home: ItemPackPrice | null;
+        readonly business: ItemPackPrice | null;
+    };
+}
+
+/** An item's packs. A place is `null` when the kitchen has nowhere to sell there. */
+export interface ItemPacks {
+    /** The **item's** lock version. */
+    readonly lockVersion: number;
+    readonly places: {
+        readonly home: ItemPackPlace | null;
+        readonly business: ItemPackPlace | null;
+        readonly counter: ItemPackCounter | null;
+    };
+    /** Every active pack, default first. */
+    readonly packs: readonly ItemPack[];
+}
+
+export interface SetItemPack {
+    /** An existing pack, or absent to create one. */
+    readonly id?: string | undefined;
+    readonly fill: { readonly quantity: number; readonly unit: MeasureUnit };
+    readonly components: readonly ItemPackComponent[];
+    /** Minor units; `null` is not sold there. */
+    readonly prices: { readonly home: number | null; readonly business: number | null };
+}
+
+/** The complete set: an active pack left out is archived. `lockVersion` is the item's. */
+export interface SetItemPacksRequest extends LockedRequest {
+    readonly places: {
+        readonly home: boolean;
+        readonly business: boolean;
+        readonly counter: boolean;
+    };
+    readonly packs: readonly SetItemPack[];
+}
+
+/** A pack as the editor holds it, sent with the roll-up draft to be costed under `key`. */
+export interface RecipeRollupPack {
+    readonly key: string;
+    readonly fillQuantity: number;
+    readonly fillUnit: MeasureUnit;
+    readonly components: readonly ItemPackComponent[];
+}
+
+export type PackCostWithheldReason =
+    | 'production_incomplete'
+    | 'no_yield'
+    | 'no_piece_count'
+    | 'unit_unsupported'
+    | 'packaging_unknown'
+    | 'packaging_unpriced';
+
+/** CONFIDENTIAL — what one sold pack costs. Complete, or withheld with the reason. */
+export interface RecipePackCost {
+    readonly key: string;
+    /** Stated whenever the production half is complete. */
+    readonly contents: CostAmount | null;
+    readonly packaging: CostAmount | null;
+    readonly cost: CostAmount | null;
+    readonly withheldReason: PackCostWithheldReason | null;
+}
+
+/* ------------------------------------------------------------------------------------------------
  * Price lists
  * ---------------------------------------------------------------------------------------------- */
 
@@ -1795,6 +2058,21 @@ export interface PriceListAdminFilter extends CursorPageRequest, OffsetPageReque
      * For a caller that needs only the lists — the review badge, which every kitchen page draws.
      */
     readonly withoutEntries?: boolean | undefined;
+}
+
+/** The price-list screen's Lens figures, counted by the index rather than over every list. */
+export interface PriceListFigures {
+    /** Per status over the search, the status filter aside. Archived lists count as `retired`. */
+    readonly statusCounts: Readonly<Record<PublishableStatus, number>>;
+    /** Lists in the filtered set with no confirmed price. */
+    readonly unpricedCount: number;
+    /** Lists in the filtered set on a contract-private channel. */
+    readonly agreementCount: number;
+}
+
+export interface PriceListPage extends CursorPage<PriceListAdmin> {
+    /** Sent by the index with every page; absent from a stub that does not count. */
+    readonly figures?: PriceListFigures | undefined;
 }
 
 export interface SetPriceListEntriesRequest extends LockedRequest {
@@ -1888,6 +2166,10 @@ export interface MealAdmin {
     readonly imagePlaceholderId: string;
     /** Why selling it cannot lower stock (HA-45); empty when a sale can. */
     readonly stockBlockers?: readonly StockBlocker[] | undefined;
+    /** `false` is not assessed for allergens, which puts it off sale. */
+    readonly allergensAssessed?: boolean | undefined;
+    /** A dish on sale with no published recipe. A warning: it stays on sale. */
+    readonly onSaleWithoutRecipe?: boolean | undefined;
     /**
      * CONFIDENTIAL — gross margin against the recipe's cost per serving at the current confirmed
      * price, whole percent. `null` when either side of that sum is missing, which is honest: a
@@ -2078,93 +2360,6 @@ export interface SetPlanCombinationsRequest extends LockedRequest {
 }
 
 /* ------------------------------------------------------------------------------------------------
- * The fixed menu
- * ---------------------------------------------------------------------------------------------- */
-
-/**
- * The four sittings a dish can fill.
- *
- * Exactly the vocabulary `subscription_meal_choices.slot` stores, because generation copies this
- * string straight onto a choice row: a value a menu admitted and a choice did not would be a failure
- * discovered at the far end of the system, on the night the order was generated.
- */
-export const PLAN_MENU_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
-export type PlanMenuSlot = (typeof PLAN_MENU_SLOTS)[number];
-
-/** One dish, in one slot, on one day of the plan's cycle. */
-export interface PlanMenuEntry {
-    /**
-     * The server's row identifier.
-     *
-     * Carried so an editor can key a row that came from the server, and for nothing else: the
-     * replacement body has **no identifier field**, because an entry's identity on this contract is
-     * its coordinate — `(cycleDay, slot, sequence)` — and a menu is replaced as a whole document.
-     */
-    readonly id: string;
-    /**
-     * 1-based day of the cycle. **Day 1 is the anchor date itself**, and the cycle is anchored to the
-     * *plan* rather than to each subscriber: everybody on the plan eats the same dish on the same
-     * date, which is what makes a day one production run instead of an à la carte service.
-     */
-    readonly cycleDay: number;
-    readonly slot: PlanMenuSlot;
-    /** Disambiguates the kitchen that serves lunch twice. 1 unless somebody says otherwise. */
-    readonly sequence: number;
-    readonly mealId: MealId;
-    /** As the server resolved it, so a menu renders without a second read per dish. */
-    readonly mealName: LocalisedText;
-}
-
-/**
- * A plan's fixed menu, as one document.
- *
- * **All three parts move together.** A cycle length with no entries, entries with no cycle length,
- * and a cycle length with no anchor are each refused; all three empty is the legitimate statement
- * "this plan has no published menu", which is what every plan says until somebody writes one.
- *
- * Publishing a menu is a **cutover**, not a cosmetic change: until one exists a fixed-menu
- * subscription order carries no meal lines and deducts no stock, and from the first save generation
- * fills the day's choices from this menu and confirmed orders start consuming ingredients.
- */
-export interface PlanMenu {
-    readonly planId: SubscriptionPlanId;
-    /**
-     * The **catalogue item's** meta, not the profile's.
-     *
-     * `subscription_plan_profiles` is not lock-versioned: the menu write carries the item's version,
-     * exactly as the profile write does, so a save reads this rather than inventing a number.
-     */
-    readonly meta: AdminEntityMeta;
-    /** Length of the rotation in days, or `null` when no menu is published. */
-    readonly cycleDays: number | null;
-    /** `YYYY-MM-DD` the cycle's day 1 falls on. A date, because a cycle turns over at midnight. */
-    readonly anchorDate: string | null;
-    readonly entries: readonly PlanMenuEntry[];
-}
-
-/** One entry as the replacement body carries it — a coordinate and the dish that fills it. */
-export interface PlanMenuEntryInput {
-    readonly cycleDay: number;
-    readonly slot: PlanMenuSlot;
-    readonly sequence: number;
-    /** Must be a **published meal** of this kitchen; anything else is refused with `422`. */
-    readonly mealId: MealId;
-}
-
-/**
- * Replaces the whole menu.
- *
- * Replace, never merge, for {@link SetPlanVariantsRequest}'s reason and one more: an entry has no
- * stable identifier to merge against, so a partial write could not express "day 3's lunch is now a
- * different dish" without inventing one.
- */
-export interface ReplacePlanMenuRequest extends LockedRequest {
-    readonly entries: readonly PlanMenuEntryInput[];
-    readonly cycleDays: number | null;
-    readonly anchorDate: string | null;
-}
-
-/* ------------------------------------------------------------------------------------------------
  * Delivery zones, windows and branch operating data
  * ---------------------------------------------------------------------------------------------- */
 
@@ -2204,6 +2399,9 @@ export interface DeliveryZoneAdmin {
     readonly branchIds: readonly KitchenBranchId[];
     /** Gazetteer rows the zone covers — resolved, so a screen need not fetch them separately. */
     readonly areas: readonly ServiceArea[];
+    /** Set on the list, which carries the counts and leaves `areas` empty. */
+    readonly areaCount?: number | undefined;
+    readonly inactiveAreaCount?: number | undefined;
     readonly deliveryFeeMinor: number | null;
     readonly minimumOrderMinor: number | null;
     readonly currency: CurrencyCode;
@@ -2356,6 +2554,30 @@ export interface KitchenAdminRepository {
     /** Remove a record's photo, so it shows its stock picture again. */
     removeRecordPhoto(subject: RecordPhotoSubject, recordId: string): Promise<void>;
 
+    /* ── spreadsheet transfer (Import / Export) ─────────────────────────────────────────────── */
+
+    /**
+     * Upload a workbook and apply it: matched rows update, unmatched rows are created (stock: counts
+     * are recorded against the active branch). Answers the full report; a refused *file* is an
+     * `ApiError` (`validation.failed` on `file`), a refused *row* is a line in the report.
+     */
+    importRecords(resource: TransferResource, upload: ImportUpload): Promise<ImportReport>;
+    /** The ingredient list as a workbook, honouring the same filter `listIngredients` takes. */
+    exportIngredients(filter?: IngredientAdminFilter): Promise<DownloadedFile>;
+    /** The recipe list as a workbook — one row per ingredient line — honouring `listRecipes`' filter. */
+    exportRecipes(filter?: RecipeAdminFilter): Promise<DownloadedFile>;
+    /** The active branch's stock book as a count sheet (`X-Branch-Id` picks the branch). */
+    exportStock(): Promise<DownloadedFile>;
+    /** An empty workbook with the headers the import expects and one example row. */
+    downloadImportTemplate(resource: TransferResource): Promise<DownloadedFile>;
+    /**
+     * CONFIDENTIAL — up to twenty recipes with their current version and costed sheet, in one
+     * read, for printing. `sheet` is `null` for a member without `recipe.view_costs_organisation`.
+     */
+    listRecipeTechnicalSheets(
+        recipeIds: readonly RecipeId[],
+    ): Promise<readonly RecipeSheetBundle[]>;
+
     /* ── ingredients ────────────────────────────────────────────────────────────────────────── */
 
     /**
@@ -2445,6 +2667,17 @@ export interface KitchenAdminRepository {
     /** Refused from `review_required` — a quarantined recipe cannot be published (plan §4.7). */
     publishRecipe(recipeId: RecipeId, request: LockedRequest): Promise<RecipeAdmin>;
     retireRecipe(recipeId: RecipeId, request: LockedRequest): Promise<RecipeAdmin>;
+    /**
+     * Release a quarantined version once a manager has compared its old and new allergen labels:
+     * the new label goes live on the same version and its listings go back on sale. Refused with
+     * `details.reason = derivation_stale` while an ingredient change is still being recomputed.
+     * `lockVersion` is the **version's**.
+     */
+    releaseRecipeVersion(
+        recipeId: RecipeId,
+        versionId: RecipeVersionId,
+        lockVersion: number,
+    ): Promise<RecipeAdmin>;
 
     /* ── products ───────────────────────────────────────────────────────────────────────────── */
 
@@ -2478,10 +2711,14 @@ export interface KitchenAdminRepository {
         itemId: ProductId | MealId,
         request: SetItemChannelPricesRequest,
     ): Promise<ItemChannelPrices>;
+    /** A cooked item's packs, their packaging, prices and places — `GET …/items/{item}/packs`. */
+    getItemPacks(itemId: ProductId | MealId): Promise<ItemPacks>;
+    /** Writes the whole set in one statement against the item's lock version. */
+    setItemPacks(itemId: ProductId | MealId, request: SetItemPacksRequest): Promise<ItemPacks>;
 
     /* ── price lists ────────────────────────────────────────────────────────────────────────── */
 
-    listPriceLists(filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>>;
+    listPriceLists(filter?: PriceListAdminFilter): Promise<PriceListPage>;
     getPriceList(priceListId: PriceListId): Promise<PriceListAdmin>;
     setPriceListEntries(
         priceListId: PriceListId,
@@ -2489,6 +2726,31 @@ export interface KitchenAdminRepository {
     ): Promise<PriceListAdmin>;
     /** Refused while any entry breaks {@link isPriceEntryConsistent}. */
     publishPriceList(priceListId: PriceListId, request: LockedRequest): Promise<PriceListAdmin>;
+
+    /* ── wholesale setup (`./kitchen-wholesale.ts`) ─────────────────────────────────────────── */
+
+    /** The organisation's own channel rows, read fresh — a create must show up at once. */
+    listSalesChannels(): Promise<readonly SalesChannelRecord[]>;
+    /** Needs `catalogue.manage_organisation`. */
+    createSalesChannel(request: CreateSalesChannelRequest): Promise<SalesChannelRecord>;
+    /** A new draft list with no entries and no channels. Needs `price_list.manage_organisation`. */
+    createPriceList(request: CreatePriceListRequest): Promise<PriceListAdmin>;
+    getPriceListChannels(priceListId: PriceListId): Promise<PriceListChannels>;
+    /** Every list's scope and channels in one read — the price-list index with its channels. */
+    listPriceListChannels(): Promise<readonly PriceListChannels[]>;
+    /** Replaces the list's channel assignments; the list's lock version guards it. */
+    setPriceListChannels(
+        priceListId: PriceListId,
+        request: SetPriceListChannelsRequest,
+    ): Promise<PriceListChannels>;
+    getItemChannelOffering(itemId: string): Promise<ItemChannelOffering>;
+    /** The named items' channels, a hundred to a request — the items index with its channels. */
+    listItemChannelOfferings(itemIds: readonly string[]): Promise<readonly ItemChannelOffering[]>;
+    /**
+     * Offers the item on one more channel, keeping every assignment it already has. The item's
+     * channel write replaces the whole set, so this reads it first; already offered is a no-op.
+     */
+    offerItemOnChannel(itemId: string, salesChannelId: string): Promise<ItemChannelOffering>;
 
     /* ── meals ──────────────────────────────────────────────────────────────────────────────── */
 
@@ -2499,6 +2761,8 @@ export interface KitchenAdminRepository {
     /** Makes the meal visible to consumers. Refused from `review_required`. */
     publishMeal(mealId: MealId, request: LockedRequest): Promise<MealAdmin>;
     retireMeal(mealId: MealId, request: LockedRequest): Promise<MealAdmin>;
+    /** Staff state the item contains none of the allergens. Refused once anything else vouches for it. */
+    markAllergensAssessed(itemId: ProductId | MealId): Promise<void>;
     setMealAvailability(mealId: MealId, request: SetMealAvailabilityRequest): Promise<MealAdmin>;
 
     /* ── subscription plans ─────────────────────────────────────────────────────────────────── */
@@ -2522,16 +2786,6 @@ export interface KitchenAdminRepository {
         planId: SubscriptionPlanId,
         request: SetPlanCombinationsRequest,
     ): Promise<PlanAdmin>;
-    /** The plan's fixed menu. Cycle and entries together, because they are one document. */
-    getPlanMenu(planId: SubscriptionPlanId): Promise<PlanMenu>;
-    /**
-     * Replaces it wholesale, or withdraws it when everything is empty.
-     *
-     * Refused with `validation.failed` for a dish that is not a published meal of this kitchen, for
-     * a day beyond the submitted cycle, and for a plan with no commercial terms yet
-     * (`plan_profile_missing`) — a menu on an unconfigured plan is a menu on nothing.
-     */
-    replacePlanMenu(planId: SubscriptionPlanId, request: ReplacePlanMenuRequest): Promise<PlanMenu>;
 
     /* ── delivery zones and windows ─────────────────────────────────────────────────────────── */
 

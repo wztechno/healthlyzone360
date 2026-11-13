@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace Healthy360\Cart\Services;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Cart\Contracts\QuarantinedStock;
 use Healthy360\Catalogues\Enums\SalesChannelStatus;
 use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Customers\Models\CustomerAccount;
+use Healthy360\Organisations\Enums\BranchStatus;
+use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Pricing\Services\PriceResolver;
 use Healthy360\Pricing\Services\ResolvedPrice;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
@@ -44,18 +48,27 @@ use Healthy360\Tenancy\Database\DatabaseTenantContext;
  *    may be shown (§4.8), so it is the only status a consumer may buy. A
  *    retired article stays in an old basket and is refused here, visibly,
  *    which is the whole reason the `restrictOnDelete` on `cart_items` exists.
- * 4. **The variant belongs to the article and is active.** A pack is not
+ * 4. **Somebody has assessed it for allergens.** An unassessed dish would read
+ *    as safe to a customer when nobody checked, so it is off sale.
+ *    {@see CatalogueItem::scopeAllergensAssessed()} is the definition.
+ * 4a. **It can be made from something other than stock on quality hold.** A hold
+ *    leaves anything free on the shelf on sale; only a sale that could come out of
+ *    nothing but held stock is refused ({@see QuarantinedStock}).
+ * 5. **The variant belongs to the article and is active.** A pack is not
  *    separately published, so `active` is its whole test. When the caller
  *    names no pack for a pack kind, the probe picks one the way the
  *    marketplace listing did ({@see offeredPack()}): consumer surfaces name
  *    the article, never the pack.
- * 5. **The channel offers it on the day.** The absence of an assignment says
+ * 6. **The channel offers it on the day.** The absence of an assignment says
  *    nothing at all — availability and publication are different questions —
  *    so an article no channel has been given is refused rather than assumed.
  *    The variant rule mirrors pricing's: a named variant matches its own row
  *    *or* the item-level row (a kitchen that offers the article offers every
  *    pack of it); an unnamed one matches only the item-level row.
- * 6. **There is a price**, and it is in the currency the basket is denominated
+ * 7. **The kitchen's calendar has not ruled the day out.** {@see calendarRefusal()}.
+ *    A meal with no row for the date stays available, or every meal nobody
+ *    filled a calendar in for would vanish.
+ * 8. **There is a price**, and it is in the currency the basket is denominated
  *    in. Both halves matter. An unpriced article is not free, and a price in
  *    another currency is not a price in this one — converting it would be this
  *    class inventing an exchange rate nobody agreed to.
@@ -76,12 +89,15 @@ final readonly class LineProbe
     public function __construct(
         private PriceResolver $prices,
         private DatabaseTenantContext $tenantContext,
+        private QuarantinedStock $quarantined,
     ) {}
 
     /**
      * @param  string  $quantity  decimal string, as `cart_items.quantity` is held
      * @param  CarbonImmutable|null  $on  the day the line is wanted; today when none is named
      * @param  string  $currencyCode  what the basket or order is denominated in
+     * @param  bool  $enforceCalendar  false where the day is not being sold: subscription deliveries, accepted quotations, undated basket lines, and a line an edited order already holds
+     * @param  bool  $enforceAssessment  false where the sale was settled before this line: subscription deliveries and a line an edited order already holds; the quality hold is skipped there too, and meets the deduction instead
      */
     public function probe(
         SalesChannel $channel,
@@ -91,6 +107,8 @@ final readonly class LineProbe
         ?CarbonImmutable $on,
         string $currencyCode,
         ?CustomerAccount $buyer = null,
+        bool $enforceCalendar = true,
+        bool $enforceAssessment = true,
     ): LineProbeResult {
         // Scoped to the channel's kitchen for the whole probe: prices (and any
         // future RLS-bound catalogue tables) must answer under that tenant, not
@@ -108,6 +126,8 @@ final readonly class LineProbe
                 $on,
                 $currencyCode,
                 $buyer,
+                $enforceCalendar,
+                $enforceAssessment,
             ),
         );
     }
@@ -150,6 +170,8 @@ final readonly class LineProbe
         ?CarbonImmutable $on,
         string $currencyCode,
         ?CustomerAccount $buyer,
+        bool $enforceCalendar,
+        bool $enforceAssessment,
     ): LineProbeResult {
         $day = ($on ?? CarbonImmutable::now())->startOfDay();
         $refusals = [];
@@ -182,6 +204,19 @@ final readonly class LineProbe
             ];
         }
 
+        if ($enforceAssessment && ! CatalogueItem::withoutTenancy()->whereKey($item->getKey())->allergensAssessed()->exists()) {
+            $refusals[] = ['reason' => 'item_not_assessed', 'catalogue_item_id' => (string) $item->getKey()];
+        }
+
+        $warnings = [];
+
+        if ($enforceAssessment && $this->quarantined->refuses((string) $channel->organisation_id, $item, $quantity)) {
+            $refusals[] = ['reason' => 'quality_hold', 'catalogue_item_id' => (string) $item->getKey()];
+        } elseif ($enforceAssessment && $this->quarantined->shortOfFree((string) $channel->organisation_id, $item, $quantity)) {
+            // Held stock is not free, so the shelf is short: warned, never refused.
+            $warnings[] = ['reason' => 'stock_short', 'catalogue_item_id' => (string) $item->getKey()];
+        }
+
         $variant = null;
 
         if ($catalogueItemVariantId !== null) {
@@ -212,6 +247,12 @@ final readonly class LineProbe
             ];
         }
 
+        $unavailable = $enforceCalendar ? $this->calendarRefusal($item, $on, $quantity) : null;
+
+        if ($unavailable !== null) {
+            $refusals[] = $unavailable;
+        }
+
         $price = $this->prices->currentFor(
             (string) $channel->getKey(),
             (string) $item->getKey(),
@@ -236,7 +277,77 @@ final readonly class LineProbe
             ];
         }
 
-        return new LineProbeResult($item, $variant, $refusals === [] ? $price : null, $refusals);
+        return new LineProbeResult($item, $variant, $refusals === [] ? $price : null, $refusals, $warnings);
+    }
+
+    /**
+     * `item_unavailable_on_date` when the kitchen's own calendar rules the day
+     * out: `day_off`, `sold_out`, or for a same-day order `cut_off_passed`.
+     *
+     * One read on the `(catalogue_item_id, date)` index per line, so a desk quote
+     * of many lines stays linear, as every other read in this probe is. An
+     * undated probe adds one for the timezone, because "today" is the branch's.
+     *
+     * Portions are read here and counted down by `CalendarPortions` at placement.
+     * This read is the early answer; that write is the one two checkouts cannot
+     * both win.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function calendarRefusal(CatalogueItem $item, ?CarbonImmutable $on, string $quantity): ?array
+    {
+        $date = $on?->toDateString() ?? $this->branchNow($item)->toDateString();
+
+        $row = CatalogueItemAvailabilityDay::withoutTenancy()
+            ->where('catalogue_item_id', $item->getKey())
+            ->where('date', $date)
+            ->first();
+
+        if (! $row instanceof CatalogueItemAvailabilityDay) {
+            return null;
+        }
+
+        $cause = match (true) {
+            ! $row->is_available => 'day_off',
+            $row->remaining_portions !== null && $row->remaining_portions < ceil((float) $quantity) => 'sold_out',
+            default => null,
+        };
+
+        if ($cause === null && $row->order_cut_off_at !== null) {
+            $local = $this->branchNow($item);
+
+            if ($local->toDateString() === $date && $local->format('H:i:s') > $row->order_cut_off_at) {
+                $cause = 'cut_off_passed';
+            }
+        }
+
+        if ($cause === null) {
+            return null;
+        }
+
+        return [
+            'reason' => 'item_unavailable_on_date',
+            'catalogue_item_id' => (string) $item->getKey(),
+            'on' => $date,
+            'cause' => $cause,
+        ];
+    }
+
+    /**
+     * The clock on the kitchen's wall. A probe has no branch, so a calendar cut-off
+     * is read on the organisation's first active branch, and an organisation with
+     * none falls back to the application's clock as `BranchScheduleLookup` does.
+     */
+    private function branchNow(CatalogueItem $item): CarbonImmutable
+    {
+        $timezone = OrganisationBranch::withoutTenancy()
+            ->where('organisation_id', $item->organisation_id)
+            ->where('status', BranchStatus::Active->value)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->value('timezone');
+
+        return CarbonImmutable::now(is_string($timezone) && $timezone !== '' ? $timezone : (string) config('app.timezone', 'UTC'));
     }
 
     /**

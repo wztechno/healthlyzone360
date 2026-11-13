@@ -7,6 +7,7 @@ namespace Healthy360\Kitchens\Console;
 use App\Models\User;
 use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Role;
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\B2b\Enums\AgreementStatus;
 use Healthy360\B2b\Enums\ApplicationStatus;
 use Healthy360\B2b\Enums\PaymentTerms;
@@ -96,6 +97,11 @@ final class SeedTestAccountsCommand extends Command
 
     private const string BUYER_EMAIL = 'buyer@corp.healthzone360.test';
 
+    /** A delivery the driver cannot ring is refused `phone_required`, so each test account has one. */
+    private const string CUSTOMER_PHONE = '+96170360001';
+
+    private const string BUYER_PHONE = '+96170360002';
+
     private const string BUYER_SLUG = 'healthzone360-test-corporate';
 
     private const string BUYER_NAME = 'HealthZone Test Corporate';
@@ -175,6 +181,7 @@ final class SeedTestAccountsCommand extends Command
         // ── B2C ─────────────────────────────────────────────────────────────────────────────────
         $customer = $this->user(self::CUSTOMER_EMAIL, 'Carla', 'Customer');
         $this->verifiedLogin($contacts, $customer);
+        $contacts->rememberForUser(user: $customer, channel: ContactChannel::Phone, value: self::CUSTOMER_PHONE, source: 'registration');
 
         $database->asUser((string) $customer->getKey(), function () use ($customer, $areaId, $lifecycle, $addresses, $dietary, $consents): void {
             $account = $lifecycle->openConsumerAccount($customer, CustomerAccountOrigin::SelfService);
@@ -221,6 +228,10 @@ final class SeedTestAccountsCommand extends Command
         );
         $companyId = (string) $company->getKey();
 
+        app(OrganisationRoles::class)->provision($companyId);
+
+        $ownerRole = Role::withoutTenancy()->where('organisation_id', $companyId)->where('code', 'organisation_owner')->firstOrFail();
+
         $account = $database->during((string) $buyer->getKey(), $companyId, null, function () use ($company, $companyId, $buyer, $ownerRole, $accountNumbers, $addresses, $areaId): CustomerAccount {
             $membership = OrganisationMembership::withoutTenancy()->firstOrCreate(
                 ['organisation_id' => $companyId, 'user_id' => $buyer->getKey()],
@@ -260,6 +271,8 @@ final class SeedTestAccountsCommand extends Command
 
             return $account;
         });
+
+        $contacts->rememberForCustomerAccount((string) $account->getKey(), ContactChannel::Phone, self::BUYER_PHONE, source: 'registration');
 
         $application = B2bApplication::query()->firstOrCreate(
             ['provisioned_organisation_id' => $companyId],

@@ -21,7 +21,14 @@
  * primary-strength text on a full-weight border, while `ghost` has no box at all and belongs inside
  * dense rows where a border per control would be noise.
  */
-export const BUTTON_VARIANTS = ['primary', 'secondary', 'quiet', 'ghost', 'danger'] as const;
+export const BUTTON_VARIANTS = [
+    'primary',
+    'secondary',
+    'quiet',
+    'ghost',
+    'danger',
+    'sidebar',
+] as const;
 export type ButtonVariant = (typeof BUTTON_VARIANTS)[number];
 
 export const BUTTON_SIZES = ['sm', 'md', 'lg'] as const;
@@ -39,6 +46,9 @@ export const CONTAINER_VARIANT: Readonly<Record<ButtonVariant, string>> = {
     quiet: 'bg-surface-raised border border-stroke-subtle hover:bg-surface-sunken',
     ghost: 'bg-transparent border border-transparent hover:bg-surface-sunken',
     danger: 'bg-danger border border-transparent',
+    // The primary of a panel drawn in the sidebar green (the order desk ticket): the rail's own
+    // active pill, white in light mode, so it reads as the one action on that ground.
+    sidebar: 'bg-surface-sidebar-active border border-transparent hover:opacity-90',
 };
 
 /**
@@ -57,4 +67,5 @@ export const LABEL_VARIANT: Readonly<Record<ButtonVariant, string>> = {
     quiet: 'text-content-secondary font-medium',
     ghost: 'text-content-primary font-medium',
     danger: 'text-danger-on-default font-semibold',
+    sidebar: 'text-content-on-sidebar-active font-semibold',
 };

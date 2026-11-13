@@ -2,7 +2,7 @@ import { ErrorState, Heading, Stack } from '@healthy360/design-system';
 import { apiFailure } from '@healthy360/api-client';
 import { isRouteArea } from '@healthy360/domain-types';
 import type { RouteArea } from '@healthy360/domain-types';
-import { evaluateGates, requirementForArea } from '@healthy360/permissions';
+import { ROUTE_PATHS, evaluateGates, requirementForArea } from '@healthy360/permissions';
 import type { AccessState } from '@healthy360/permissions';
 import { Redirect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -35,10 +35,13 @@ function gatingAreaOf(href: string): RouteArea | null {
  * Staff never return to the shop. They sign in to work, so a shop page they signed in from — or a
  * customer page they cannot use (`shop-view-only.tsx`) — gives way to the workspace page, where
  * they choose where to work. A return into a workspace (a link to a kitchen page) is still honoured.
+ *
+ * And shoppers never return to the workspace page, which is not theirs: they land on the shop.
  */
 function mayReturnTo(state: AccessState, href: string): boolean {
     const area = gatingAreaOf(href);
     if (isShopViewOnly(state) && (isPublicHref(href) || area === 'customer')) return false;
+    if (!isShopViewOnly(state) && pathnameOf(href) === ROUTE_PATHS.workspace) return false;
     if (isPublicHref(href)) return true;
     if (area === null) return true;
     return evaluateGates(state, requirementForArea(area)).status === 'allow';

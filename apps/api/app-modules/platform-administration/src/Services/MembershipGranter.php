@@ -11,6 +11,7 @@ use Healthy360\B2b\Contracts\InvitationMembershipGranter;
 use Healthy360\B2b\Models\OrganisationInvitation;
 use Healthy360\Organisations\Enums\MembershipStatus;
 use Healthy360\Organisations\Models\OrganisationMembership;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -20,8 +21,8 @@ use Illuminate\Support\Facades\DB;
  * ## It is the seeder's mechanism, deliberately
  *
  * `DemoTenantSeeder::membership()` has been creating memberships this way
- * since P0 — `updateOrCreate` on `(organisation_id, user_id)`, the template
- * role found by `organisation_id IS NULL AND code = ?`, and `membership_roles`
+ * since P0 — `updateOrCreate` on `(organisation_id, user_id)`, the
+ * organisation's own role found by code, and `membership_roles`
  * carrying a denormalised `organisation_id` for the RLS policy to match on.
  * Every demo owner, including `owner@verdant.test`, exists because of those
  * three writes. Reproducing them exactly is what makes an invited owner
@@ -48,11 +49,30 @@ use Illuminate\Support\Facades\DB;
  *
  * `organisation_memberships.branch_id` is null for organisation-wide access
  * and set for a single branch; the invitation already carries the distinction,
- * so it is copied rather than re-decided.
+ * so it is copied rather than re-decided — onto a new membership. An existing
+ * membership elsewhere in the organisation is never moved by a branch
+ * invitation (`wouldMoveExistingMembership`).
  */
 final readonly class MembershipGranter implements InvitationMembershipGranter
 {
+    public function __construct(private DatabaseTenantContext $database) {}
+
+    /**
+     * Run as the organisation being joined: its roles are its own rows now,
+     * and `roles` carries row-level security the acceptor's session — which
+     * belongs to no organisation yet — cannot see past.
+     */
     public function grant(OrganisationInvitation $invitation, User $acceptor): ?string
+    {
+        return $this->database->during(
+            (string) $acceptor->getKey(),
+            $invitation->organisation_id,
+            null,
+            fn (): ?string => $this->grantInContext($invitation, $acceptor),
+        );
+    }
+
+    private function grantInContext(OrganisationInvitation $invitation, User $acceptor): ?string
     {
         $role = $this->role($invitation);
 
@@ -62,6 +82,14 @@ final readonly class MembershipGranter implements InvitationMembershipGranter
             // strand a valid acceptance. The row is already stamped; reporting
             // `membership_created: false` puts the problem in front of whoever
             // issued it.
+            return null;
+        }
+
+        if ($this->wouldMoveExistingMembership($invitation, $acceptor)) {
+            // A branch invitation never moves somebody who already belongs to
+            // the organisation somewhere else — that is how a branch manager
+            // would reach a whole-kitchen member or another branch's staff.
+            // Moving a person between branches is the scope editor's job.
             return null;
         }
 
@@ -92,28 +120,37 @@ final readonly class MembershipGranter implements InvitationMembershipGranter
     }
 
     /**
-     * The role an invitation's `role_code` names.
+     * The organisation's own role with the invitation's `role_code`.
      *
-     * The organisation's own role wins over the platform template of the same
-     * code. A tenant that has defined `organisation_owner` for itself means
-     * that one, and handing the invited person the template instead would give
-     * them a different set of permissions from every other owner in the same
-     * organisation.
+     * Never the platform template: every organisation owns a copy of each
+     * (`OrganisationRoles::provision()`), and a role the kitchen deleted stays
+     * deleted rather than coming back through an old invitation.
      */
     private function role(OrganisationInvitation $invitation): ?Role
     {
-        $bespoke = Role::withoutTenancy()
+        return Role::withoutTenancy()
             ->where('organisation_id', $invitation->organisation_id)
             ->where('code', $invitation->role_code)
             ->first();
+    }
 
-        if ($bespoke instanceof Role) {
-            return $bespoke;
+    /**
+     * Whether a branch-scoped invitation would rewrite the branch of a
+     * membership the acceptor already has. A whole-kitchen invitation — only a
+     * whole-kitchen administrator can issue one — keeps the old behaviour.
+     */
+    private function wouldMoveExistingMembership(OrganisationInvitation $invitation, User $acceptor): bool
+    {
+        if ($invitation->branch_id === null) {
+            return false;
         }
 
-        return Role::withoutTenancy()
-            ->whereNull('organisation_id')
-            ->where('code', $invitation->role_code)
+        $existing = OrganisationMembership::withoutTenancy()
+            ->where('organisation_id', $invitation->organisation_id)
+            ->where('user_id', (string) $acceptor->getKey())
             ->first();
+
+        return $existing instanceof OrganisationMembership
+            && (string) $existing->branch_id !== (string) $invitation->branch_id;
     }
 }

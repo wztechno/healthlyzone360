@@ -250,8 +250,43 @@ describe('recorded payloads map onto the domain contract', () => {
     });
 
     /**
-     * The branch directory is the only route from `membership.branch_id` to a named branch: `/me`
-     * carries the identifier, and the hydrated record only ever arrives inside an active context.
+     * An organisation-wide member of a two-branch kitchen holds no branch until they pick one, so
+     * the list has to arrive with the membership — before any context has hydrated a branch.
+     */
+    it('offers every branch the server lists for a membership', () => {
+        const payload = {
+            ...RECORDED_ME.data,
+            memberships: RECORDED_ME.data.memberships.map((membership) =>
+                membership.branch_id === null
+                    ? {
+                          ...membership,
+                          branches: ['Foodie', 'Main Kitchen'].map((name, index) => ({
+                              id: `019fb11f-f00d-73a5-a82c-00000000000${String(index)}`,
+                              name,
+                              city: null,
+                              timezone: 'Asia/Beirut',
+                              status: 'active',
+                          })),
+                      }
+                    : membership,
+            ),
+        };
+
+        const me = mapMeResponse(
+            payload as unknown as WireMePayload,
+            RECORDED_ME.meta.permissions_version,
+            createBranchDirectory(),
+        );
+
+        const kitchen = me.memberships[1]!;
+        expect(kitchen.branches.map((branch) => branch.name)).toEqual(['Foodie', 'Main Kitchen']);
+        expect(kitchen.branches[0]!.organisationId).toBe(kitchen.organisation.id);
+    });
+
+    /**
+     * Against a server that does not list a membership's branches, the directory is the only route
+     * from `membership.branch_id` to a named branch: the hydrated record arrives inside an active
+     * context.
      */
     it('names a membership branch once a context has hydrated it', () => {
         const branches = createBranchDirectory();

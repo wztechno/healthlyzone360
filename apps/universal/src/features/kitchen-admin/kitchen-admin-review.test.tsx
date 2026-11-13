@@ -53,6 +53,7 @@ import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { ReviewScreen } from './screens/review-screen.tsx';
 import { Dimensions } from 'react-native';
+import { getRecordAction } from '../../testing/record-actions.ts';
 
 /**
  * These screens draw their tables through `CatalogueList`, which only lays out columns at `md` and
@@ -725,12 +726,18 @@ describe('the review queue screen', () => {
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
-        // The figures, not the cards: the cards are drawn while the queue is still in flight.
-        await untilVisible('kitchen-review-summary-shown-value');
-        // Counted cards, not a sentence: one record shown, and that one is refused publication.
-        expect(screen.getByTestId('kitchen-review-summary-shown-value')).toHaveTextContent('1');
-        expect(screen.getByTestId('kitchen-review-summary-blocked-value')).toHaveTextContent('1');
-        expect(screen.getByTestId('kitchen-review-summary-unblocked-value')).toHaveTextContent('0');
+        // The figures, not the bar: the bar is drawn while the queue is still in flight.
+        await untilVisible('kitchen-review-toolbar-figure-all-value');
+        // Counted figures, not a sentence: one record shown, and that one is refused publication.
+        expect(screen.getByTestId('kitchen-review-toolbar-figure-all-value')).toHaveTextContent(
+            '1',
+        );
+        expect(screen.getByTestId('kitchen-review-toolbar-figure-blocked-value')).toHaveTextContent(
+            '1',
+        );
+        expect(
+            screen.getByTestId('kitchen-review-toolbar-figure-unblocked-value'),
+        ).toHaveTextContent('0');
     });
 
     it('opens a read-only window from the row, whose one action is the record’s own editor', async () => {
@@ -758,8 +765,12 @@ describe('the review queue screen', () => {
             /Nothing is resolved from this window/,
         );
 
+        const action = await getRecordAction(
+            'kitchen-review-window',
+            'kitchen-review-window-primary',
+        );
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-review-window-primary'));
+            fireEvent.press(action);
         });
 
         // The editor, carrying the way back to this record's page in the queue.
@@ -777,14 +788,54 @@ describe('the review queue screen', () => {
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
-        await untilVisible('kitchen-review-toolbar-status-unblocked');
+        await untilVisible('kitchen-review-toolbar-figure-unblocked');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-review-toolbar-status-unblocked'));
+            fireEvent.press(screen.getByTestId('kitchen-review-toolbar-figure-unblocked'));
         });
 
         await untilVisible('kitchen-review-filtered-empty');
         expect(screen.queryByTestId('kitchen-review-clear')).toBeNull();
-        expect(screen.getByTestId('kitchen-review-summary-shown-value')).toHaveTextContent('0');
+        expect(screen.getByTestId('kitchen-review-toolbar-result')).toHaveTextContent('0 of 1');
+    });
+
+    it('narrows to a last-changed window by the Period shortcut, and All restores it', async () => {
+        await renderStubScreen(<ReviewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
+        });
+
+        await untilVisible('kitchen-review-filter-period-trigger');
+        // The table's Show columns rides at the bar's end, as on Stock gaps.
+        expect(screen.getByTestId('kitchen-review-table-list-columns-trigger')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-review-filter-from')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-review-filter-to')).toBeTruthy();
+
+        // The record last changed months ago: Today leaves nothing, and says so without the all-clear.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-review-filter-period-trigger'));
+            fireEvent.press(await screen.findByTestId('kitchen-review-filter-period-today'));
+        });
+        await untilVisible('kitchen-review-filtered-empty');
+        expect(screen.queryByTestId('kitchen-review-clear')).toBeNull();
+        expect(screen.getByTestId('kitchen-review-toolbar-figure-all-value')).toHaveTextContent(
+            '0',
+        );
+
+        // The desk menu closes on a pick; a press that finds it still open shuts it, so press again.
+        const trigger = 'kitchen-review-filter-period-trigger';
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(trigger));
+        });
+        if (screen.queryByTestId('kitchen-review-filter-period-all') === null) {
+            await act(async () => {
+                fireEvent.press(screen.getByTestId(trigger));
+            });
+        }
+        await act(async () => {
+            fireEvent.press(await screen.findByTestId('kitchen-review-filter-period-all'));
+        });
+        await untilVisible('kitchen-review-table-list');
+        expect(screen.getByTestId('kitchen-review-toolbar-result')).toHaveTextContent('1 of 1');
     });
 
     it('opens on the figures — no page title, scope footnotes or truncation banner', async () => {
@@ -793,7 +844,7 @@ describe('the review queue screen', () => {
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
-        await untilVisible('kitchen-review-summary-shown-value');
+        await untilVisible('kitchen-review-toolbar-figure-all-value');
         expect(screen.queryByTestId('kitchen-review-title')).toBeNull();
         expect(screen.queryByTestId('kitchen-review-scope')).toBeNull();
         expect(screen.queryByTestId('kitchen-review-not-checked')).toBeNull();
@@ -828,9 +879,9 @@ describe('the review queue screen', () => {
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
-        await untilVisible('kitchen-review-window-back');
+        await untilVisible('kitchen-review-window-close');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-review-window-back'));
+            fireEvent.press(screen.getByTestId('kitchen-review-window-close'));
         });
 
         await untilVisible('kitchen-review-screen');

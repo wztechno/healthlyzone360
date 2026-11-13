@@ -2,13 +2,13 @@ import type { RouteArea } from '@healthy360/domain-types';
 import { can, evaluateGates, mergeRequirements, requirementForArea } from '@healthy360/permissions';
 import type { DenialReason, GateResult, RouteRequirement } from '@healthy360/permissions';
 import { Redirect, useGlobalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { RETURN_TO_PARAM, safeReturnTo, withReturnTo } from '../navigation/return-to.ts';
-import { useCurrentHref } from '../navigation/use-return-to.ts';
+import { ArrivalHrefContext, useCurrentHref } from '../navigation/use-return-to.ts';
 import { useAccessState, useSession } from '../session/session-provider.tsx';
 import { SproutMark } from '../ui/sprout-mark.tsx';
 import { useSettledCondition } from './use-settled-condition.ts';
@@ -148,11 +148,13 @@ function GateRedirect({ result }: { readonly result: GateRedirectResult }) {
  * carrying still is. So that one is handed on, and the chain survives a session that ended half way.
  */
 function ReturningRedirect({ href }: { readonly href: string }) {
+    const arrival = useContext(ArrivalHrefContext);
     const here = useCurrentHref();
     const params = useGlobalSearchParams();
     const carried = params[RETURN_TO_PARAM];
     const returnTo =
-        safeReturnTo(here) ?? safeReturnTo(Array.isArray(carried) ? carried[0] : carried);
+        safeReturnTo(arrival ?? here) ??
+        safeReturnTo(Array.isArray(carried) ? carried[0] : carried);
     return <Redirect href={withReturnTo(href, returnTo) as never} />;
 }
 

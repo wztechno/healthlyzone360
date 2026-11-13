@@ -6,36 +6,39 @@ import type {
     ProductionMode,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Callout,
     Dialog,
-    EmptyState,
     ErrorState,
     FilterChip,
+    FormGrid,
     FormSection,
     FormSkeleton,
     Icon,
     InfoTip,
     Inline,
+    IssueTrayFrame,
     Select,
     Stack,
     Switch,
     Text,
     TextInputField,
+    useIssueGroup,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { SelectOption } from '@healthy360/design-system';
+import type { IssueCardItem, IssuePassedItem, SelectOption } from '@healthy360/design-system';
 import { MEAL_TYPES } from '@healthy360/domain-types';
-import type { MealId, MealType } from '@healthy360/domain-types';
+import type { DietClassification, MealId, MealType } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../access/gate.tsx';
+import { DishOptionsSection } from './dish-options-section.tsx';
 import { toFailure } from '../../data/hooks.ts';
+import { useDishOptionsQuery } from '../../data/order-desk-hooks.ts';
 import {
     ingredientsFromPages,
     useAdminMealQuery,
@@ -47,7 +50,6 @@ import {
 } from '../../data/kitchen-admin-hooks.ts';
 import { useProcurementReferenceQuery } from '../../data/kitchen-ops-hooks.ts';
 import { BilingualField } from './bilingual-field.tsx';
-import { ChannelPricesSection } from './channel-prices-section.tsx';
 import {
     MealAvailabilityEditor,
     availabilityErrors,
@@ -60,7 +62,7 @@ import {
     CATALOGUE_VIEW_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from './entity-registry.ts';
-import { GateRailCard } from './gate-rail-card.tsx';
+import { focusField, focusSection } from './field-focus.ts';
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { useHostSave } from './host-save.ts';
 import type { RegisterHostSave } from './host-save.ts';
@@ -76,11 +78,21 @@ import {
     unitDimension,
     unitKey,
 } from './format.ts';
+import { AllergenAssessmentCallout, AssessmentBadges } from './catalogue/allergen-assessment.tsx';
 import { stockBlockersSentence } from './catalogue/recipe-columns.tsx';
+import { allergenLabel } from './ops-format.ts';
+import {
+    PacksHostContext,
+    packsIssueLabel,
+    packsIssuesFromRefusal,
+} from './packs-prices-section.tsx';
 import { serverFieldErrors } from './server-field-errors.ts';
+import { useNudgeOnRefusal } from './tray-nudge.ts';
 import { useOptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from './use-unsaved-guard.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * A meal's listing — the Selling tab of its page, and the one form in this workspace whose save a
  * shopper can see.
@@ -103,7 +115,7 @@ import { useUnsavedGuard } from './use-unsaved-guard.ts';
  * afterwards. That link is not decoration: it is the shortest way for the person who pressed the
  * button to check that what they published is what a customer now sees.
  *
- * ## Three things are read-only here, each for its own reason
+ * ## Two things are read-only here, each for its own reason (the margin went to Packs & prices)
  *
  * 1. **Allergens.** `MealAdmin.allergens` is frozen at publication from the recipe version's
  *    declaration and the contract has no meal-level setter. Editing a meal's label directly is
@@ -111,9 +123,6 @@ import { useUnsavedGuard } from './use-unsaved-guard.ts';
  *    the recipe and the version — and links to the place the label can actually be changed.
  * 2. **Channel availability.** `setProductChannelAvailability` is a *product* method. Meals carry
  *    channels on the read shape with no writer, so they are shown as a fact.
- * 3. **The margin.** Confidential, and a number nobody can retype: it is derived from the recipe's
- *    cost per serving against a confirmed price. `null` when either side is missing, which is honest —
- *    a margin over a placeholder price is a fiction (plan §2.4).
  *
  * ## Availability is a calendar, not a rule
  *
@@ -130,6 +139,38 @@ const NO_INGREDIENT = '__none__';
 
 /** The "not stated" answer of the production-mode picker. `production_mode` is nullable. */
 const NO_MODE = '__unset__';
+
+/**
+ * The free-from tags and the allergen classes that contradict each one, any containment — a copy of
+ * `CatalogueItemService::FREE_FROM`. The server refuses to save or publish a contradicting tag and
+ * the marketplace drops one already stored; this copy only draws the warning.
+ */
+const FREE_FROM: Partial<Record<DietClassification, readonly string[]>> = {
+    gluten_free: ['gluten'],
+    dairy_free: ['milk'],
+    nut_free: ['tree_nut', 'peanut'],
+};
+
+/**
+ * The meal's free-from tags its current label, or a choice it offers, contradicts, with the classes
+ * that do — the server's `CatalogueItemService::labelAllergenCodes()`.
+ */
+function freeFromClashes(meal: MealAdmin, choiceAllergens: readonly string[]) {
+    const label = [...meal.allergens.map(String), ...choiceAllergens];
+    return meal.dietClassifications.flatMap((tag) => {
+        const codes = (FREE_FROM[tag] ?? []).filter((code) => label.includes(code));
+        return codes.length === 0 ? [] : [{ tag, codes }];
+    });
+}
+
+/** The meal's diet tags less the ones its label contradicts, which the server would refuse. */
+function tagsTheLabelAllows(
+    meal: MealAdmin,
+    choiceAllergens: readonly string[],
+): readonly DietClassification[] {
+    const clashing = freeFromClashes(meal, choiceAllergens).map((clash) => clash.tag);
+    return meal.dietClassifications.filter((tag) => !clashing.includes(tag));
+}
 
 /**
  * The catalogue string each production mode is named by.
@@ -277,6 +318,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
     const { locale } = useLocale();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
+    const packsHost = useContext(PacksHostContext);
 
     const record = useAdminMealQuery(meal);
 
@@ -304,6 +346,15 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
     const [showRetire, setShowRetire] = useState(false);
 
     const data = record.data;
+    // What the dish's choices add to the plate: a free-from tag they contradict is refused too.
+    const dishOptions = useDishOptionsQuery(String(meal));
+    const choiceAllergens = useMemo(
+        () =>
+            (dishOptions.data ?? []).flatMap((option) =>
+                (option.allergens ?? []).map(({ code }) => code),
+            ),
+        [dishOptions.data],
+    );
     const serverKey =
         data === undefined ? null : `${String(data.id)}:${String(data.meta.lockVersion)}`;
 
@@ -342,6 +393,10 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
     }, [guard, record]);
 
     const concurrency = useOptimisticConcurrency({ onReload: reload });
+
+    // The recipe page's tray, which this listing's cards join; a refused save opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
 
     const takeDayKey = (): string => {
         const key = `day-${String(nextDayOrdinal)}`;
@@ -513,9 +568,9 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
     }, [data, detailsDirty, daysDirty, t]);
 
     /**
-     * The same three predicates as {@link publishBlockers}, shaped for the gate rail: a labelled
-     * pass/fail row each, with the blocker sentence as the failing row's fix-note. Derived, never a
-     * fourth source of truth — the rail's dots and the publish button disable together.
+     * The same predicates as {@link publishBlockers}, shaped for the issue tray: a passed check, or
+     * a card saying in a few words what is missing and taking the reader to it. Derived, never a
+     * fourth source of truth — the cards and the publish button disable together.
      */
     const gateChecks = useMemo(
         () => [
@@ -523,25 +578,35 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                 key: 'name',
                 label: t('kitchen:meals.gateCheckName'),
                 passed: !isTranslationIncomplete(data?.name ?? details.name),
-                note: t('kitchen:meals.blockName'),
+                problem: t('kitchen:tray.mealNameMissing'),
+                fix: () => {
+                    focusField('kitchen-meal-name-ar');
+                },
             },
             {
                 key: 'saved',
                 label: t('kitchen:meals.gateCheckSaved'),
                 passed: !(detailsDirty || daysDirty),
-                note: t('kitchen:meals.blockUnsaved'),
+                problem: t('kitchen:tray.mealUnsaved'),
+                fix: undefined,
             },
             {
                 key: 'serviceDays',
                 label: t('kitchen:meals.gateCheckServiceDays'),
                 passed: (data?.availability.length ?? days.length) > 0,
-                note: t('kitchen:meals.blockServiceDays'),
+                problem: t('kitchen:tray.mealNoServiceDay'),
+                fix: () => {
+                    focusSection('kitchen-meal-availability');
+                },
             },
             {
                 key: 'stock',
                 label: t('kitchen:stockBlockers.gateCheck'),
                 passed: (data?.stockBlockers ?? []).length === 0,
-                note: stockBlockersSentence(data?.stockBlockers ?? [], 'publishBlocked', t),
+                problem: stockBlockersSentence(data?.stockBlockers ?? [], 'publishBlocked', t),
+                fix: () => {
+                    focusSection('kitchen-meal-production');
+                },
             },
         ],
         [data, details.name, days.length, detailsDirty, daysDirty, t],
@@ -575,9 +640,9 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
         // No recipe: the page is the recipe, and the writer sends only what it is given.
         portionFactor,
         mealTypes: details.mealTypes,
-        // Echoed back untouched so a save here cannot clear a classification set elsewhere — see
-        // the note on DetailsDraft.
-        dietClassifications: saved.dietClassifications,
+        // Echoed back so a save here cannot clear a classification set elsewhere — see the note on
+        // DetailsDraft — less a free-from tag the label contradicts, which the server refuses.
+        dietClassifications: tagsTheLabelAllows(saved, choiceAllergens),
         ...finishedStockRequest,
     });
 
@@ -589,8 +654,13 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
     useHostSave(onRegisterSave, async () => {
         if (data === undefined || !guard.isDirty) return true;
         if (!canManage) return false;
-        if (detailsDirty && (detailsBlocked || portion === null)) return false;
-        if (daysDirty && dayErrors.size > 0) return false;
+        if (
+            (detailsDirty && (detailsBlocked || portion === null)) ||
+            (daysDirty && dayErrors.size > 0)
+        ) {
+            nudgeTray();
+            return false;
+        }
         try {
             let lockVersion = data.meta.lockVersion;
             if (detailsDirty && portion !== null) {
@@ -662,42 +732,12 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
         );
     };
 
-    /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
-
-    if (record.isPending) {
-        return (
-            <FormSkeleton
-                testID="kitchen-meal-editor-loading"
-                partTestID="kitchen-meal"
-                sections={3}
-                heading={false}
-            />
-        );
-    }
-
-    const loadFailure = toFailure(record.error);
-    if (loadFailure !== null) {
-        return (
-            <Stack space="lg" testID="kitchen-meal-editor-screen">
-                <ErrorState
-                    testID="kitchen-meal-load-error"
-                    failure={loadFailure}
-                    title={t('kitchen:meals.loadErrorTitle')}
-                    onRetry={() => {
-                        void record.refetch();
-                    }}
-                    retrying={record.isFetching}
-                />
-            </Stack>
-        );
-    }
-
     const saveFailure = toFailure(update.error);
     const availabilityFailure = toFailure(setAvailability.error);
     /*
-     * What the server refused, put on the fields it named (BUG-06). This listing has no issue
-     * banner, so the callouts stay and carry only what no field shows. Net content is described
-     * only while it is drawn: a refusal of a hidden field belongs in the callout.
+     * What the server refused, put on the fields it named (BUG-06); what no field shows is a card.
+     * Net content is described only while it is drawn: a refusal of a hidden field belongs on the
+     * card.
      */
     const netContentDrawn = details.sellsFromFinishedStock && !unitsUnavailable;
     const server = serverFieldErrors(saveFailure, {
@@ -777,8 +817,207 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
     const publishRefusedByStatus = Object.keys(publishFields).includes('status');
     const quarantined = data?.meta.status === 'review_required';
     const isPublished = data?.meta.status === 'published';
+    const isRetired = data?.meta.status === 'retired';
+    useNudgeOnRefusal(update.error ?? setAvailability.error, nudgeTray);
 
-    return (
+    /*
+     * The listing's problems, as cards in the recipe page's tray under the tab's name: what stops
+     * publication while it is still a draft, then whatever a save was refused with.
+     */
+    const gateShown = data !== undefined && !isPublished && !isRetired;
+    const listingCards: IssueCardItem[] = [
+        ...(quarantined
+            ? [
+                  {
+                      key: 'quarantine',
+                      tone: 'warning' as const,
+                      label: t('kitchen:publish.quarantineTitle'),
+                      // The release is the recipe's: its old and new labels are compared there.
+                      action:
+                          data?.recipeId == null
+                              ? undefined
+                              : {
+                                    label: t('kitchen:products.openRecipe'),
+                                    onPress: () => {
+                                        const target = data.recipeId;
+                                        if (target === null) return;
+                                        guard.intercept(() => {
+                                            router.push(
+                                                `/kitchen/recipes/${String(target)}` as never,
+                                            );
+                                        });
+                                    },
+                                    testID: 'kitchen-meal-quarantine-open-recipe',
+                                },
+                      testID: 'kitchen-meal-quarantine',
+                  },
+              ]
+            : []),
+        // A free-from tag the label contradicts: hidden from customers, and refused on save and
+        // publish. The fix drops every such tag at once, or the server refuses the one left.
+        ...(data === undefined ? [] : freeFromClashes(data, choiceAllergens)).map((clash) => ({
+            key: `diet-clash-${clash.tag}`,
+            tone: 'warning' as const,
+            label: t('kitchen:meals.dietTagClash', {
+                tag: t(`marketplace:diets.${clash.tag}`),
+                allergens: clash.codes
+                    .map((code) => allergenLabel(code, t))
+                    .join(t('kitchen:common.listSeparator')),
+            }),
+            detail: t('kitchen:meals.dietTagClashDetail'),
+            action:
+                data === undefined || !canManage
+                    ? undefined
+                    : {
+                          label: t('kitchen:meals.dietTagClashRemove'),
+                          onPress: () => {
+                              update.mutate(
+                                  {
+                                      mealId: data.id,
+                                      request: {
+                                          lockVersion: data.meta.lockVersion,
+                                          dietClassifications: tagsTheLabelAllows(
+                                              data,
+                                              choiceAllergens,
+                                          ),
+                                      },
+                                  },
+                                  {
+                                      onError: (error) => {
+                                          concurrency.capture(error);
+                                      },
+                                  },
+                              );
+                          },
+                          testID: `kitchen-meal-diet-clash-${clash.tag}-remove`,
+                      },
+            testID: `kitchen-meal-diet-clash-${clash.tag}`,
+        })),
+        ...(!gateShown
+            ? []
+            : gateChecks
+                  .filter((check) => !check.passed)
+                  .map((check) => ({
+                      key: `gate-${check.key}`,
+                      tone: 'warning' as const,
+                      label: check.problem,
+                      detail: t('kitchen:tray.groupPublish'),
+                      action: check.fix === undefined ? undefined : { onPress: check.fix },
+                      testID: `kitchen-meal-gate-check-${check.key}`,
+                  }))),
+        // A publish refused for its packs: fixed on Packs & prices, which the page opens.
+        ...packsIssuesFromRefusal(publishFields, packsHost?.draft ?? null).map((issue) => ({
+            key: `packs-${issue.key}`,
+            tone: 'warning' as const,
+            label: packsIssueLabel(issue, t),
+            detail: t('kitchen:tray.groupPublish'),
+            action:
+                packsHost === null
+                    ? undefined
+                    : {
+                          onPress: () => {
+                              packsHost.open(issue);
+                          },
+                      },
+            testID: `kitchen-meal-packs-${issue.key}`,
+        })),
+        ...(saveFailure === null
+            ? []
+            : [
+                  {
+                      key: 'save-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:editor.saveError'),
+                      detail: server.unplaced ?? saveFailure.message,
+                      testID: 'kitchen-meal-save-error',
+                  },
+              ]),
+        ...(availabilityFailure === null
+            ? []
+            : [
+                  {
+                      key: 'availability-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:availability.saveError'),
+                      detail: dayServer.unplaced ?? availabilityFailure.message,
+                      action: {
+                          onPress: () => {
+                              focusSection('kitchen-meal-availability');
+                          },
+                      },
+                      testID: 'kitchen-meal-availability-error',
+                  },
+              ]),
+        ...(isRetired
+            ? [
+                  {
+                      key: 'retired',
+                      tone: 'info' as const,
+                      label: t('kitchen:meals.retiredTitle'),
+                      testID: 'kitchen-meal-retired',
+                  },
+              ]
+            : []),
+    ];
+    const listingPassed: IssuePassedItem[] = [
+        ...(isPublished
+            ? [
+                  {
+                      key: 'published',
+                      label: t('kitchen:tray.onPublicMenu'),
+                      testID: 'kitchen-meal-published',
+                  },
+              ]
+            : []),
+        ...(!gateShown
+            ? []
+            : gateChecks
+                  .filter((check) => check.passed)
+                  .map((check) => ({
+                      key: `gate-${check.key}`,
+                      label: check.label,
+                      testID: `kitchen-meal-gate-check-${check.key}`,
+                  }))),
+    ];
+    const listingGroup = {
+        key: 'selling',
+        title: t('kitchen:recipes.tabSelling'),
+        items: listingCards,
+        testID: 'kitchen-meal-issues',
+    };
+    const inHostTray = useIssueGroup(listingGroup, { passed: listingPassed });
+
+    /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
+
+    if (record.isPending) {
+        return (
+            <FormSkeleton
+                testID="kitchen-meal-editor-loading"
+                partTestID="kitchen-meal"
+                sections={3}
+                heading={false}
+            />
+        );
+    }
+
+    const loadFailure = toFailure(record.error);
+    if (loadFailure !== null) {
+        return (
+            <Stack space="lg" testID="kitchen-meal-editor-screen">
+                <ErrorState
+                    testID="kitchen-meal-load-error"
+                    failure={loadFailure}
+                    title={t('kitchen:meals.loadErrorTitle')}
+                    onRetry={() => {
+                        void record.refetch();
+                    }}
+                    retrying={record.isFetching}
+                />
+            </Stack>
+        );
+    }
+
+    const editor = (
         <EditorFrame
             testID="kitchen-meal-editor-screen"
             title={t('kitchen:meals.editTitle')}
@@ -798,43 +1037,77 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
             actionsPlacement="header"
             headerVariant="plain"
             embedded
-            rail={
-                /*
-                 * Three cards, in the order the handoff stacks them: what stops publication, what
-                 * the recipe decided, and the number nobody outside the kitchen sees. All three
-                 * render on an unsaved meal too — an empty gate and two empty states say more about
-                 * what this record still needs than a blank column does.
-                 */
-                <Stack space="md">
-                    <GateRailCard
-                        testID="kitchen-meal-gate"
-                        title={t('kitchen:meals.gateTitle')}
-                        checks={gateChecks}
-                        action={
-                            !canManage || isPublished ? undefined : (
-                                <Button
-                                    testID="kitchen-meal-publish"
-                                    label={t('kitchen:publish.action')}
-                                    // The acceptance check: visibly disabled while any gate check
-                                    // fails. The dialog's confirm keeps the same guard.
-                                    disabled={publishBlockers.length > 0 || quarantined}
-                                    onPress={() => {
-                                        setShowPublish(true);
-                                    }}
-                                />
-                            )
-                        }
-                    />
-
+            primaryAction={
+                <Inline space="xs" wrap justify="end">
+                    {/*
+                     * The proof, offered where it is useful. In this world the marketplace reads
+                     * the same catalogue, so this link goes to the page a customer sees — which is
+                     * the only way the person who pressed Publish can check what they published.
+                     */}
+                    {isPublished && data !== undefined ? (
+                        <DeskButton
+                            testID="kitchen-meal-view-public"
+                            variant="quiet"
+                            label={t('kitchen:meals.viewPublic')}
+                            onPress={() => {
+                                guard.intercept(() => {
+                                    // With the way back to this page, which the shop offers
+                                    // staff above its trail.
+                                    router.push(
+                                        withReturnTo(
+                                            `/meals/${String(data.id)}`,
+                                            returnHref,
+                                        ) as never,
+                                    );
+                                });
+                            }}
+                        />
+                    ) : null}
+                    {!canManage ? null : isPublished ? (
+                        <DeskButton
+                            testID="kitchen-meal-retire"
+                            variant="secondary"
+                            label={t('kitchen:meals.retire')}
+                            onPress={() => {
+                                setShowRetire(true);
+                            }}
+                        />
+                    ) : (
+                        <DeskButton
+                            testID="kitchen-meal-publish"
+                            label={t('kitchen:publish.action')}
+                            // Visibly disabled while any check in the tray fails. The dialog's
+                            // confirm keeps the same guard.
+                            disabled={publishBlockers.length > 0 || quarantined}
+                            onPress={() => {
+                                setShowPublish(true);
+                            }}
+                        />
+                    )}
+                </Inline>
+            }
+        >
+            {/*
+             * Each section is its own card (`FormSection variant="panel"`), as on every record
+             * editor. `EditorFrame` draws no panel around them, so these are the only rectangles.
+             * `loose` between cards, the ingredient editor's gap.
+             */}
+            <View className="z-auto flex-col gap-loose">
+                {/*
+                 * What the recipe decided and the confidential margin, in one strip on top. Both
+                 * render on an unsaved meal too: two empty states say more about what this record
+                 * still needs than a blank strip does. What stops publication is in the issue tray.
+                 */}
+                <View
+                    testID="kitchen-meal-summary"
+                    className="z-auto flex-row flex-wrap items-start gap-base rounded-[18px] border border-stroke-subtle bg-surface-raised p-4"
+                >
                     {/*
                      * Derived and frozen — see the module note. The provenance line stays because
                      * "which version of the recipe is this label from?" is the question a person has
                      * when the label and the recipe disagree.
                      */}
-                    <View
-                        testID="kitchen-meal-allergens"
-                        className="gap-2 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
-                    >
+                    <View testID="kitchen-meal-allergens" className="min-w-0 flex-1 gap-2">
                         <Inline space="xs" align="center" wrap>
                             <Text variant="micro" tone="secondary">
                                 {t('kitchen:meals.allergensRailTitle')}
@@ -852,10 +1125,15 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                     }
                                 />
                             )}
-                            <Badge
+                            <DeskChip
                                 testID="kitchen-meal-allergens-source"
                                 tone="neutral"
                                 label={t('kitchen:meals.allergensFromRecipe')}
+                            />
+                            <AssessmentBadges
+                                testID="kitchen-meal-allergens"
+                                allergensAssessed={data?.allergensAssessed}
+                                onSaleWithoutRecipe={data?.onSaleWithoutRecipe}
                             />
                         </Inline>
 
@@ -870,7 +1148,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         ) : (
                             <Inline space="xs" wrap>
                                 {data.allergens.map((code) => (
-                                    <Badge
+                                    <DeskChip
                                         key={code}
                                         testID={`kitchen-meal-allergen-${String(code)}`}
                                         tone="danger"
@@ -879,147 +1157,32 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 ))}
                             </Inline>
                         )}
-                    </View>
-
-                    <View
-                        testID="kitchen-meal-confidential"
-                        className="gap-2 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
-                    >
-                        <Inline space="xs" align="center" wrap>
-                            <Text variant="micro" tone="secondary">
-                                {t('kitchen:meals.marginRailTitle')}
-                            </Text>
-                            <Badge
-                                testID="kitchen-meal-confidential-badge"
-                                tone="danger"
-                                icon="eyeOff"
-                                label={t('kitchen:meals.confidential')}
+                        {data?.allergensAssessed === false ? (
+                            <AllergenAssessmentCallout
+                                testID="kitchen-meal-allergen-assessment"
+                                itemId={data.id}
                             />
-                        </Inline>
-
-                        {data?.marginPercent == null ? (
-                            <>
-                                <Text
-                                    testID="kitchen-meal-margin-unknown"
-                                    variant="bodyStrong"
-                                    tone="secondary"
-                                >
-                                    {t('kitchen:meals.marginEmpty')}
-                                </Text>
-                            </>
-                        ) : (
-                            <Text testID="kitchen-meal-margin" variant="bodyStrong">
-                                {t('kitchen:meals.marginValue', { percent: data.marginPercent })}
-                            </Text>
-                        )}
+                        ) : null}
                     </View>
-                </Stack>
-            }
-            primaryAction={
-                !canManage ? null : (
-                    <Inline space="xs" wrap justify="end">
-                        {isPublished ? (
-                            <Button
-                                testID="kitchen-meal-retire"
-                                variant="secondary"
-                                label={t('kitchen:meals.retire')}
-                                onPress={() => {
-                                    setShowRetire(true);
-                                }}
-                            />
-                        ) : // Publish lives on the gate rail now, beside the checks that gate it.
-                        null}
-                    </Inline>
-                )
-            }
-            banner={
-                <Stack space="sm">
-                    {quarantined ? (
-                        <Callout
-                            testID="kitchen-meal-quarantine"
-                            role="alert"
-                            tone="warning"
-                            title={t('kitchen:publish.quarantineTitle')}
-                            body={t('kitchen:publish.quarantineBody')}
-                        />
-                    ) : null}
-
                     {/*
-                     * The proof, offered where it is useful. In this world the marketplace reads
-                     * the same catalogue, so this link goes to the page a customer sees — which is
-                     * the only way the person who pressed Publish can check what they published.
+                     * No margin rail: a margin is per pack and per place now, on the recipe's
+                     * Packs & prices tab and its Costing table.
                      */}
-                    {isPublished && data !== undefined ? (
-                        <Callout
-                            testID="kitchen-meal-published"
-                            role="note"
-                            tone="success"
-                            title={t('kitchen:meals.publishedTitle')}
-                            body={t('kitchen:meals.publishedBody')}
-                            actions={
-                                <Button
-                                    testID="kitchen-meal-view-public"
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('kitchen:meals.viewPublic')}
-                                    onPress={() => {
-                                        guard.intercept(() => {
-                                            // With the way back to this page, which the
-                                            // shop offers staff above its trail.
-                                            router.push(
-                                                withReturnTo(
-                                                    `/meals/${String(data.id)}`,
-                                                    returnHref,
-                                                ) as never,
-                                            );
-                                        });
-                                    }}
-                                />
-                            }
-                        />
-                    ) : null}
-
-                    {data?.meta.status === 'retired' ? (
-                        <Callout
-                            testID="kitchen-meal-retired"
-                            role="note"
-                            tone="info"
-                            title={t('kitchen:meals.retiredTitle')}
-                            body={t('kitchen:meals.retiredBody')}
-                        />
-                    ) : null}
-
-                    {saveFailure === null ? null : (
-                        <Callout
-                            testID="kitchen-meal-save-error"
-                            role="alert"
-                            tone="danger"
-                            title={t('kitchen:editor.saveError')}
-                            body={server.unplaced ?? saveFailure.message}
-                        />
-                    )}
-                </Stack>
-            }
-        >
-            {/*
-             * Each section is its own card (`FormSection variant="card"`), as on every record
-             * editor. `EditorFrame` draws no panel around them, so these are the only rectangles.
-             * `loose` between cards, the ingredient editor's gap.
-             */}
-            <View className="z-auto flex-col gap-loose">
+                </View>
                 {/* ── identity ─────────────────────────────────────────────────────────────── */}
                 <FormSection
-                    variant="card"
+                    variant="panel"
                     first
                     testID="kitchen-meal-details"
                     // Not "Identity": the recipe's own first card is called that, and this one is
                     // what the customer reads — a different name and record.
                     title={t('kitchen:forms.menuListing')}
                 >
-                    <Stack space="md">
+                    <FormGrid track="half" maxColumns={4} testID="kitchen-meal-details-grid">
                         <BilingualField
+                            span={4}
                             testID="kitchen-meal-name"
-                            layout="fill"
+                            layout="row"
                             fieldLabel={t('kitchen:fields.name')}
                             value={details.name}
                             placeholder={{
@@ -1042,6 +1205,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         />
 
                         <BilingualField
+                            span={4}
                             testID="kitchen-meal-description"
                             layout="fill"
                             fieldLabel={t('kitchen:meals.descriptionLabel')}
@@ -1069,6 +1233,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                          * shelf and carries half its nutrition.
                          */}
                         <TextInputField
+                            span={1}
                             testID="kitchen-meal-portion"
                             id="kitchen-meal-portion"
                             label={t('kitchen:meals.portionLabel')}
@@ -1087,9 +1252,8 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 markDetailsDirty();
                             }}
                         />
-                    </Stack>
+                    </FormGrid>
                 </FormSection>
-
                 {/* ── production and finished stock ────────────────────────────────────────── */}
                 {/*
                  * The chain the server checks, in the order it checks it (PROD1). A meal sells one
@@ -1104,54 +1268,52 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                  * two fields somebody has to find again.
                  */}
                 <FormSection
-                    variant="card"
+                    variant="panel"
                     testID="kitchen-meal-production"
+                    nativeID="kitchen-meal-production"
                     title={t('kitchen:meals.sectionProduction')}
                 >
                     <Stack space="md">
-                        <View className="z-auto flex-col gap-base md:flex-row">
-                            <View className="z-auto min-w-0 flex-1">
-                                <Select
-                                    testID="kitchen-meal-production-mode"
-                                    id="kitchen-meal-production-mode"
-                                    label={t('kitchen:meals.productionModeLabel')}
-                                    hint={t('kitchen:meals.productionModeHint')}
-                                    disabled={!canManage}
-                                    options={productionModeOptions}
-                                    value={details.productionMode ?? NO_MODE}
-                                    {...server.flag('production_mode')}
-                                    onChange={(next) => {
-                                        setDetails({
-                                            ...details,
-                                            productionMode:
-                                                next === NO_MODE ? null : (next as ProductionMode),
-                                        });
-                                        markDetailsDirty();
-                                    }}
-                                />
-                            </View>
-
-                            <View className="z-auto min-w-0 flex-1">
-                                <Select
-                                    testID="kitchen-meal-produced-ingredient"
-                                    id="kitchen-meal-produced-ingredient"
-                                    label={t('kitchen:meals.producedIngredientLabel')}
-                                    hint={t('kitchen:meals.producedIngredientHint')}
-                                    searchable
-                                    disabled={!canManage}
-                                    options={ingredientOptions}
-                                    value={details.ingredientId ?? NO_INGREDIENT}
-                                    {...server.flag('ingredient_id')}
-                                    onChange={(next) => {
-                                        setDetails({
-                                            ...details,
-                                            ingredientId: next === NO_INGREDIENT ? null : next,
-                                        });
-                                        markDetailsDirty();
-                                    }}
-                                />
-                            </View>
-                        </View>
+                        <FormGrid track="half" maxColumns={4} testID="kitchen-meal-production-grid">
+                            <Select
+                                span={2}
+                                testID="kitchen-meal-production-mode"
+                                id="kitchen-meal-production-mode"
+                                label={t('kitchen:meals.productionModeLabel')}
+                                hint={t('kitchen:meals.productionModeHint')}
+                                disabled={!canManage}
+                                options={productionModeOptions}
+                                value={details.productionMode ?? NO_MODE}
+                                {...server.flag('production_mode')}
+                                onChange={(next) => {
+                                    setDetails({
+                                        ...details,
+                                        productionMode:
+                                            next === NO_MODE ? null : (next as ProductionMode),
+                                    });
+                                    markDetailsDirty();
+                                }}
+                            />
+                            <Select
+                                span={2}
+                                testID="kitchen-meal-produced-ingredient"
+                                id="kitchen-meal-produced-ingredient"
+                                label={t('kitchen:meals.producedIngredientLabel')}
+                                hint={t('kitchen:meals.producedIngredientHint')}
+                                searchable
+                                disabled={!canManage}
+                                options={ingredientOptions}
+                                value={details.ingredientId ?? NO_INGREDIENT}
+                                {...server.flag('ingredient_id')}
+                                onChange={(next) => {
+                                    setDetails({
+                                        ...details,
+                                        ingredientId: next === NO_INGREDIENT ? null : next,
+                                    });
+                                    markDetailsDirty();
+                                }}
+                            />
+                        </FormGrid>
 
                         <Switch
                             testID="kitchen-meal-finished-stock"
@@ -1193,55 +1355,55 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 body={t('kitchen:meals.netContentUnitsForbidden')}
                             />
                         ) : (
-                            <View className="z-auto flex-col gap-base md:flex-row">
-                                <View className="z-auto min-w-0 flex-1">
-                                    <TextInputField
-                                        testID="kitchen-meal-net-content"
-                                        id="kitchen-meal-net-content"
-                                        label={t('kitchen:meals.netContentLabel')}
-                                        hint={t('kitchen:meals.netContentHint')}
-                                        placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                        value={details.netContentQuantity}
-                                        inputMode="decimal"
-                                        required={producedShelfWeighed}
-                                        disabled={!canManage}
-                                        {...(netContentInvalid
-                                            ? { error: t('kitchen:meals.netContentInvalid') }
-                                            : netContentRequired
-                                              ? { error: t('kitchen:meals.netContentRequired') }
-                                              : {})}
-                                        {...server.flag('net_content_quantity')}
-                                        onChangeText={(next) => {
-                                            setDetails({ ...details, netContentQuantity: next });
-                                            markDetailsDirty();
-                                        }}
-                                    />
-                                </View>
-
-                                <View className="z-auto min-w-0 flex-1">
-                                    <Select
-                                        testID="kitchen-meal-net-content-unit"
-                                        id="kitchen-meal-net-content-unit"
-                                        label={t('kitchen:meals.netContentUnitLabel')}
-                                        searchable
-                                        disabled={!canManage}
-                                        options={unitOptions}
-                                        value={details.netContentUnitId ?? ''}
-                                        {...(netContentUnitMissing
-                                            ? { error: t('kitchen:meals.netContentUnitMissing') }
-                                            : {})}
-                                        {...server.flag('net_content_unit_id')}
-                                        onChange={(next) => {
-                                            setDetails({ ...details, netContentUnitId: next });
-                                            markDetailsDirty();
-                                        }}
-                                    />
-                                </View>
-                            </View>
+                            <FormGrid
+                                track="half"
+                                maxColumns={4}
+                                testID="kitchen-meal-net-content-grid"
+                            >
+                                <TextInputField
+                                    span={1}
+                                    testID="kitchen-meal-net-content"
+                                    id="kitchen-meal-net-content"
+                                    label={t('kitchen:meals.netContentLabel')}
+                                    hint={t('kitchen:meals.netContentHint')}
+                                    placeholder={t('kitchen:fields.quantityPlaceholder')}
+                                    value={details.netContentQuantity}
+                                    inputMode="decimal"
+                                    required={producedShelfWeighed}
+                                    disabled={!canManage}
+                                    {...(netContentInvalid
+                                        ? { error: t('kitchen:meals.netContentInvalid') }
+                                        : netContentRequired
+                                          ? { error: t('kitchen:meals.netContentRequired') }
+                                          : {})}
+                                    {...server.flag('net_content_quantity')}
+                                    onChangeText={(next) => {
+                                        setDetails({ ...details, netContentQuantity: next });
+                                        markDetailsDirty();
+                                    }}
+                                />
+                                <Select
+                                    span={1}
+                                    testID="kitchen-meal-net-content-unit"
+                                    id="kitchen-meal-net-content-unit"
+                                    label={t('kitchen:meals.netContentUnitLabel')}
+                                    searchable
+                                    disabled={!canManage}
+                                    options={unitOptions}
+                                    value={details.netContentUnitId ?? ''}
+                                    {...(netContentUnitMissing
+                                        ? { error: t('kitchen:meals.netContentUnitMissing') }
+                                        : {})}
+                                    {...server.flag('net_content_unit_id')}
+                                    onChange={(next) => {
+                                        setDetails({ ...details, netContentUnitId: next });
+                                        markDetailsDirty();
+                                    }}
+                                />
+                            </FormGrid>
                         )}
                     </Stack>
                 </FormSection>
-
                 {/* ── where it sits in the day ──────────────────────────────────────────────── */}
                 {/*
                  * Chips rather than a multi-select: the vocabulary is a short, closed platform enum
@@ -1251,7 +1413,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                  * to lie about the interaction.
                  */}
                 <FormSection
-                    variant="card"
+                    variant="panel"
                     testID="kitchen-meal-types-section"
                     title={t('kitchen:meals.sectionWhen')}
                 >
@@ -1277,11 +1439,94 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         ))}
                     </Inline>
                 </FormSection>
+                <DishOptionsSection itemId={String(meal)} canManage={canManage} />
+                {/* Packs and prices are the recipe's Packs & prices tab's, not this listing's. */}
+                {/* ── service days ──────────────────────────────────────────────────────────── */}
+                <FormSection
+                    variant="panel"
+                    testID="kitchen-meal-availability"
+                    nativeID="kitchen-meal-availability"
+                    title={t('kitchen:availability.sectionServiceDays')}
+                    aside={
+                        <Text
+                            testID="kitchen-meal-availability-count"
+                            variant="caption"
+                            tone="secondary"
+                        >
+                            {days.length === 0
+                                ? t('kitchen:availability.noneYet')
+                                : t('kitchen:availability.dayCount', { count: days.length })}
+                        </Text>
+                    }
+                    actions={
+                        !canManage ? undefined : (
+                            <DeskButton
+                                testID="kitchen-meal-availability-add"
+                                size="sm"
+                                variant="secondary"
+                                label={t('kitchen:availability.addDay')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={() => {
+                                    setDays([...days, emptyAvailabilityDay(takeDayKey())]);
+                                    markDaysDirty();
+                                }}
+                            />
+                        )
+                    }
+                >
+                    <Stack space="md">
+                        {days.length === 0 ? (
+                            /*
+                             * The board's small dashed box rather than the large empty state: an
+                             * empty table inside a section, with what to do behind the (i).
+                             */
+                            <View
+                                testID="kitchen-meal-availability-empty"
+                                className="flex-row items-center gap-hair rounded-lg border border-dashed border-stroke px-base py-snug"
+                            >
+                                <Text variant="strong">{t('kitchen:availability.emptyTitle')}</Text>
+                                <InfoTip
+                                    label={t('kitchen:availability.emptyTitle')}
+                                    text={t('kitchen:availability.emptyBody')}
+                                />
+                            </View>
+                        ) : (
+                            <MealAvailabilityEditor
+                                testID="kitchen-meal-availability-editor"
+                                rows={days}
+                                errors={dayErrors}
+                                fieldError={dayFieldError}
+                                canManage={canManage}
+                                onChange={(next) => {
+                                    setDays(next);
+                                    markDaysDirty();
+                                }}
+                            />
+                        )}
 
+                        {/*
+                         * Availability saves separately from the record — a different endpoint and
+                         * a different lock — so its control appears once there is something to
+                         * save, rather than sitting under an untouched empty state.
+                         */}
+                        {!canManage || !daysDirty || onRegisterSave !== undefined ? null : (
+                            <Inline space="sm" wrap justify="end">
+                                <DeskButton
+                                    testID="kitchen-meal-availability-save"
+                                    variant="secondary"
+                                    label={t('kitchen:availability.save')}
+                                    loading={setAvailability.isPending}
+                                    disabled={setAvailability.isPending || dayErrors.size > 0}
+                                    onPress={saveAvailability}
+                                />
+                            </Inline>
+                        )}
+                    </Stack>
+                </FormSection>
                 {/* ── source transcription ──────────────────────────────────────────────────── */}
                 {data?.composition == null && data?.kitchenCategory == null ? null : (
                     <FormSection
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-meal-composition"
                         title={t('kitchen:fields.composition')}
                     >
@@ -1305,96 +1550,11 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         </Stack>
                     </FormSection>
                 )}
-
-                {/* ── B2B / B2C weight and price ──────────────────────────────────────────── */}
-                <ChannelPricesSection itemId={meal} />
-
-                {/* ── service days ──────────────────────────────────────────────────────────── */}
-                <FormSection
-                    variant="card"
-                    testID="kitchen-meal-availability"
-                    title={t('kitchen:availability.sectionServiceDays')}
-                    aside={
-                        <Text
-                            testID="kitchen-meal-availability-count"
-                            variant="caption"
-                            tone="secondary"
-                        >
-                            {days.length === 0
-                                ? t('kitchen:availability.noneYet')
-                                : t('kitchen:availability.dayCount', { count: days.length })}
-                        </Text>
-                    }
-                    actions={
-                        !canManage ? undefined : (
-                            <Button
-                                testID="kitchen-meal-availability-add"
-                                size="sm"
-                                variant="secondary"
-                                label={t('kitchen:availability.addDay')}
-                                iconStart={<Icon name="plus" size="sm" />}
-                                onPress={() => {
-                                    setDays([...days, emptyAvailabilityDay(takeDayKey())]);
-                                    markDaysDirty();
-                                }}
-                            />
-                        )
-                    }
-                >
-                    <Stack space="md">
-                        {availabilityFailure === null ? null : (
-                            <Callout
-                                testID="kitchen-meal-availability-error"
-                                role="alert"
-                                tone="danger"
-                                title={t('kitchen:availability.saveError')}
-                                body={dayServer.unplaced ?? availabilityFailure.message}
-                            />
-                        )}
-
-                        {days.length === 0 ? (
-                            <EmptyState
-                                testID="kitchen-meal-availability-empty"
-                                title={t('kitchen:availability.emptyTitle')}
-                                body={t('kitchen:availability.emptyBody')}
-                            />
-                        ) : (
-                            <MealAvailabilityEditor
-                                testID="kitchen-meal-availability-editor"
-                                rows={days}
-                                errors={dayErrors}
-                                fieldError={dayFieldError}
-                                canManage={canManage}
-                                onChange={(next) => {
-                                    setDays(next);
-                                    markDaysDirty();
-                                }}
-                            />
-                        )}
-
-                        {/*
-                         * Availability saves separately from the record — a different endpoint and
-                         * a different lock — so its control appears once there is something to
-                         * save, rather than sitting under an untouched empty state.
-                         */}
-                        {!canManage || !daysDirty || onRegisterSave !== undefined ? null : (
-                            <Inline space="sm" wrap justify="end">
-                                <Button
-                                    testID="kitchen-meal-availability-save"
-                                    variant="secondary"
-                                    label={t('kitchen:availability.save')}
-                                    loading={setAvailability.isPending}
-                                    disabled={setAvailability.isPending || dayErrors.size > 0}
-                                    onPress={saveAvailability}
-                                />
-                            </Inline>
-                        )}
-                    </Stack>
-                </FormSection>
             </View>
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog
+                look="card"
                 testID="kitchen-meal-publish-dialog"
                 open={showPublish}
                 onClose={() => {
@@ -1404,7 +1564,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                 description={t('kitchen:meals.publishBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-meal-publish-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -1412,7 +1572,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 setShowPublish(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-meal-publish-confirm"
                             label={t('kitchen:publish.confirm')}
                             loading={publish.isPending}
@@ -1463,7 +1623,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         ) : (
                             <Inline space="xs" wrap>
                                 {data.allergens.map((code) => (
-                                    <Badge
+                                    <DeskChip
                                         key={code}
                                         testID={`kitchen-meal-publish-allergen-${String(code)}`}
                                         tone="danger"
@@ -1523,6 +1683,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
 
             {/* ── retire ───────────────────────────────────────────────────────────────────── */}
             <Dialog
+                look="card"
                 testID="kitchen-meal-retire-dialog"
                 open={showRetire}
                 onClose={() => {
@@ -1532,7 +1693,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                 description={t('kitchen:meals.retireBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-meal-retire-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -1540,7 +1701,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 setShowRetire(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-meal-retire-confirm"
                             variant="danger"
                             label={t('kitchen:meals.retireConfirm')}
@@ -1579,5 +1740,22 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                 </Text>
             </Dialog>
         </EditorFrame>
+    );
+
+    // In the recipe page's tray when there is one; drawn alone, the listing keeps its own.
+    return inHostTray ? (
+        editor
+    ) : (
+        <IssueTrayFrame
+            tray={{
+                title: t('kitchen:tray.title'),
+                testID: 'kitchen-meal-tray',
+                groups: [listingGroup],
+                passed: listingPassed,
+            }}
+            controller={issueTray}
+        >
+            {editor}
+        </IssueTrayFrame>
     );
 }

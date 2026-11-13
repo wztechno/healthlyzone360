@@ -68,6 +68,7 @@ import { DeliveryWindowsScreen } from './screens/delivery-windows-screen.tsx';
 import { DeliveryZoneEditScreen } from './screens/delivery-zone-edit-screen.tsx';
 import { DeliveryZonesScreen } from './screens/delivery-zones-screen.tsx';
 import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
+import { StorefrontProfileScreen } from './screens/storefront-profile-screen.tsx';
 
 /*
  * The Commercial lists are desk surfaces: above  a row draws every column the spec declares.
@@ -119,6 +120,9 @@ jest.mock('expo-router', () => {
     const replace = jest.fn();
     return {
         __esModule: true,
+        useSegments: () => [],
+        useGlobalSearchParams: () => ({}),
+        useNavigation: () => ({}),
         useRouter: () => ({
             push,
             replace,
@@ -1268,7 +1272,10 @@ describe('the delivery-zone editor', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-zone-windows-manage'));
         });
-        expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/delivery-windows');
+        // With the zone as the way back.
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            '/kitchen/delivery-windows?returnTo=%252Fkitchen%252Fdelivery-zones',
+        );
     });
 
     it('saves a changed assignment with setZoneWindows under the zone’s lock version', async () => {
@@ -1781,6 +1788,149 @@ describe('the service-area picker at gazetteer scale', () => {
  * Branch operating hours
  * ---------------------------------------------------------------------------------------------- */
 
+describe('the kitchen service timings', () => {
+    const TIMINGS = {
+        orderLeadMinutes: 120,
+        alarmAfterMinutes: 5,
+        ordersPerWindow: null,
+        pausedUntil: null,
+        managerAlertAfterMinutes: 10,
+        ownerAlertAfterMinutes: 20,
+        refundApprovalAboveMinor: 5000,
+        priceApprovalAbovePercent: null,
+        dishMarginTargetPercent: null,
+    };
+
+    it('reads the four timings and saves a changed one with the rest', async () => {
+        const { repositories } = await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING },
+                staffAlerts: {
+                    getServiceSettings: async () => TIMINGS,
+                    saveServiceSettings: async (saved) => ({ ...saved, pausedUntil: null }),
+                },
+            },
+        });
+        await untilVisible('kitchen-service-timings');
+
+        expect(screen.getByTestId('kitchen-service-timings-lead-input').props.value).toBe('120');
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-service-timings-lead-input'), '90');
+        });
+        // The page's one unsaved marker covers this form too.
+        await untilVisible('kitchen-branch-hours-screen-dirty');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-service-timings-save'));
+        });
+
+        await untilVisible('kitchen-service-timings-saved-toast');
+        // The pause has its own endpoint: this save does not carry it.
+        const { pausedUntil: _pause, ...timings } = TIMINGS;
+        expect(repositories.staffAlerts.saveServiceSettings).toHaveBeenCalledWith({
+            ...timings,
+            orderLeadMinutes: 90,
+        });
+    });
+
+    it('will not save an empty timing as zero', async () => {
+        await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING },
+                staffAlerts: { getServiceSettings: async () => TIMINGS },
+            },
+        });
+        await untilVisible('kitchen-service-timings');
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-service-timings-alarm-input'), '');
+        });
+
+        expect(screen.getByTestId('kitchen-service-timings-save')).toBeDisabled();
+    });
+
+    it('is not drawn for someone who may only read the week', async () => {
+        const { repositories } = await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenManagerSession({
+                memberships: [testMembership({ branches: [testBranch()] })],
+                activeContext: testActiveContext({ permissions: ['catalogue.view_organisation'] }),
+            }),
+            repositories: { kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING } },
+        });
+        await untilVisible('kitchen-branch-hours-screen');
+
+        expect(screen.queryByTestId('kitchen-service-timings')).toBeNull();
+        expect(repositories.staffAlerts.getServiceSettings).not.toHaveBeenCalled();
+    });
+});
+
+describe('the storefront profile', () => {
+    const PROFILE = {
+        tagline: { en: 'Grilled, never fried', ar: '' },
+        description: { en: '', ar: '' },
+        cuisines: { en: ['Lebanese'], ar: [] },
+    };
+
+    it('reads the copy and saves the cuisines typed with either comma as a list', async () => {
+        const { repositories } = await renderStubScreen(<StorefrontProfileScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                staffAlerts: {
+                    getStorefrontProfile: async () => PROFILE,
+                    saveStorefrontProfile: async (saved) => saved,
+                },
+            },
+        });
+        await untilVisible('kitchen-storefront-profile');
+
+        expect(screen.getByTestId('kitchen-storefront-profile-cuisines-en-input').props.value).toBe(
+            'Lebanese',
+        );
+
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-storefront-profile-cuisines-ar-input'),
+                'لبناني، مشاوي, ',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-storefront-profile-save'));
+        });
+
+        await untilVisible('kitchen-storefront-profile-saved-toast');
+        expect(repositories.staffAlerts.saveStorefrontProfile).toHaveBeenCalledWith({
+            ...PROFILE,
+            cuisines: { en: ['Lebanese'], ar: ['لبناني', 'مشاوي'] },
+        });
+    });
+
+    it('refuses a reader', async () => {
+        const { repositories } = await renderStubScreen(<StorefrontProfileScreen />, {
+            session: kitchenManagerSession({
+                memberships: [testMembership({ branches: [testBranch()] })],
+                activeContext: testActiveContext({ permissions: ['catalogue.view_organisation'] }),
+            }),
+        });
+        await untilVisible('kitchen-storefront-forbidden');
+
+        expect(screen.queryByTestId('kitchen-storefront-profile')).toBeNull();
+        expect(repositories.staffAlerts.getStorefrontProfile).not.toHaveBeenCalled();
+    });
+
+    it('is no longer drawn on the opening hours page', async () => {
+        const { repositories } = await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: { kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING } },
+        });
+        await untilVisible('kitchen-branch-hours-screen');
+
+        expect(screen.queryByTestId('kitchen-storefront-profile')).toBeNull();
+        expect(repositories.staffAlerts.getStorefrontProfile).not.toHaveBeenCalled();
+    });
+});
+
 describe('the branch operating week', () => {
     it('renders all seven days for the branch already in context', async () => {
         await renderStubScreen(<BranchOperatingScreen />, {
@@ -1978,28 +2128,17 @@ describe('the branch operating week', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('the delivery cards on the hub', () => {
-    it('offers both families with counts read from the repository', async () => {
-        const zones = [SEEDED_ZONE, UNDECIDED_ZONE];
-
+    it('offers both families from the Go to list', async () => {
         await renderStubScreen(<KitchenHomeScreen />, {
             session: kitchenSession(),
-            repositories: hubRepositories(zones),
+            repositories: hubRepositories([SEEDED_ZONE, UNDECIDED_ZONE]),
         });
         await untilVisible('kitchen-home-screen');
 
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-home-section-commercial-more'));
+        });
         expect(screen.getByTestId('kitchen-family-delivery-zones')).toBeTruthy();
         expect(screen.getByTestId('kitchen-family-branch-operating')).toBeTruthy();
-
-        await untilVisible('kitchen-family-delivery-zones-total');
-        expect(screen.getByTestId('kitchen-family-delivery-zones-total')).toHaveTextContent(
-            new RegExp(String(zones.length)),
-        );
-
-        // The branch card counts trading days rather than records: a week has no publication state.
-        await untilVisible('kitchen-family-branch-operating-total');
-        const openDays = BRANCH_OPERATING.days.filter((day) => day.opensAt !== null).length;
-        expect(screen.getByTestId('kitchen-family-branch-operating-total')).toHaveTextContent(
-            new RegExp(String(openDays)),
-        );
     });
 });

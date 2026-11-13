@@ -116,6 +116,49 @@ export const nativeTokens = {
           "pattern": "dots-dense",
           "patternId": "nutrition-excessive"
         }
+      },
+      "tint": {
+        "green": {
+          "surface": "#dcfce7",
+          "on": "#14532d",
+          "fill": "#16a34a"
+        },
+        "blue": {
+          "surface": "#dbeafe",
+          "on": "#1e3a8a",
+          "fill": "#3b82f6"
+        },
+        "orange": {
+          "surface": "#ffedd5",
+          "on": "#7c2d12",
+          "fill": "#f97316"
+        },
+        "yellow": {
+          "surface": "#fef9c3",
+          "on": "#713f12",
+          "fill": "#eab308"
+        },
+        "pink": {
+          "surface": "#fce7f3",
+          "on": "#831843",
+          "fill": "#ec4899"
+        },
+        "violet": {
+          "surface": "#ede9fe",
+          "on": "#4c1d95",
+          "fill": "#8b5cf6"
+        },
+        "teal": {
+          "surface": "#ccfbf1",
+          "on": "#134e4a",
+          "fill": "#14b8a6"
+        }
+      },
+      "stage": {
+        "orange": "#fb923c",
+        "green": "#4ade80",
+        "blue": "#60a5fa",
+        "yellow": "#facc15"
       }
     },
     "dark": {
@@ -226,6 +269,49 @@ export const nativeTokens = {
           "pattern": "dots-dense",
           "patternId": "nutrition-excessive"
         }
+      },
+      "tint": {
+        "green": {
+          "surface": "#153a26",
+          "on": "#bbf7d0",
+          "fill": "#4ade80"
+        },
+        "blue": {
+          "surface": "#172554",
+          "on": "#bfdbfe",
+          "fill": "#60a5fa"
+        },
+        "orange": {
+          "surface": "#431407",
+          "on": "#fed7aa",
+          "fill": "#fb923c"
+        },
+        "yellow": {
+          "surface": "#3f2a06",
+          "on": "#fef08a",
+          "fill": "#facc15"
+        },
+        "pink": {
+          "surface": "#4a0d2b",
+          "on": "#fbcfe8",
+          "fill": "#f472b6"
+        },
+        "violet": {
+          "surface": "#2e1065",
+          "on": "#ddd6fe",
+          "fill": "#a78bfa"
+        },
+        "teal": {
+          "surface": "#042f2e",
+          "on": "#99f6e4",
+          "fill": "#2dd4bf"
+        }
+      },
+      "stage": {
+        "orange": "#fb923c",
+        "green": "#4ade80",
+        "blue": "#60a5fa",
+        "yellow": "#facc15"
       }
     }
   },
@@ -645,6 +731,46 @@ export const nativeTokens = {
       "shadowOpacity": 0.26,
       "shadowRadius": 23,
       "elevation": 10
+    },
+    "bar": {
+      "shadowColor": "#0b3b26",
+      "shadowOffset": {
+        "width": 0,
+        "height": 12
+      },
+      "shadowOpacity": 0.22,
+      "shadowRadius": 22,
+      "elevation": 12
+    },
+    "brand-glow": {
+      "shadowColor": "#0b3b26",
+      "shadowOffset": {
+        "width": 0,
+        "height": 6
+      },
+      "shadowOpacity": 0.4,
+      "shadowRadius": 7,
+      "elevation": 6
+    },
+    "search": {
+      "shadowColor": "#0b3b26",
+      "shadowOffset": {
+        "width": 0,
+        "height": 4
+      },
+      "shadowOpacity": 0.12,
+      "shadowRadius": 10,
+      "elevation": 4
+    },
+    "focus-ring": {
+      "shadowColor": "#0b3b26",
+      "shadowOffset": {
+        "width": 0,
+        "height": 4
+      },
+      "shadowOpacity": 0.12,
+      "shadowRadius": 10,
+      "elevation": 4
     }
   },
   "elevationRoles": {

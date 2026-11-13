@@ -5,7 +5,7 @@ import {
     useRouter,
     useSegments,
 } from 'expo-router';
-import { useCallback, useEffect, useMemo } from 'react';
+import { createContext, useCallback, useEffect, useMemo } from 'react';
 
 import { clearResumeIntent } from '../features/marketplace/resume-intent.ts';
 import { lastQuery, rememberQuery } from './last-query.ts';
@@ -40,6 +40,12 @@ import type { ReturnDestination } from './return-to.ts';
  * replaces the current one — so the submitted form is never what Back returns to. It replaces the
  * target's params rather than merging them, which is why it is always given a complete href.
  */
+
+/**
+ * Where a layout really is while the router reports its bare area, for the gate's return link.
+ * `customer/_layout.tsx` explains that stretch. Null everywhere else.
+ */
+export const ArrivalHrefContext = createContext<string | null>(null);
 
 /**
  * The current page as an href — pathname plus its search params, `returnTo` encoded as written.

@@ -1,0 +1,506 @@
+import type { ReactNode } from 'react';
+import { Text as RNText, View } from 'react-native';
+
+/**
+ * The record canopy — a record page's opening, drawn on the canopy band (option C of the
+ * `Minimal view page` canvas).
+ *
+ * ```
+ * ┌──────────────────────────────────────────────────────────────────────────────────────┐
+ * │ [‹ Back] [photo] Tahini paste  طحينة  ● Published     Cost / 100 g  Margin  [Edit] │
+ * │                  IG-014 · Ingredient · Pantry › Spreads                              │
+ * │                  Last changed 2 days ago by Sara K. · Version 7                      │
+ * │ ┌ ● Draft ──── ● Issued ──── ◐ Partly received ──── ○ Received ─────────────────┐  │
+ * └──────────────────────────────────────────────────────────────────────────────────────┘
+ * ```
+ *
+ * It replaces the page header and the Record status card: what the record is, where it stands,
+ * the two or three figures a reader opens it for, and every action it has left. The history strip
+ * is optional — a record with a lifecycle (a supply order) draws it, a catalogue record does not.
+ *
+ * No size above the admin's `strong` role is used anywhere on it: the band is what catches the
+ * eye, never the type. The band is the admin rail's own green (`surface-sidebar` and its `on-sidebar`
+ * inks, 2026-11-10), not the shop's dark canopy, so a pop-up's head reads as part of the admin.
+ */
+
+export type RecordCanopyTone = 'success' | 'warning' | 'danger' | 'neutral';
+
+export interface RecordCanopyFact {
+    readonly key: string;
+    /** Translated. */
+    readonly label: string;
+    /** Formatted by the page. */
+    readonly value: string;
+    readonly testID?: string | undefined;
+}
+
+/** `done` happened, `partial` happened in part, `pending` has not happened. */
+export type RecordCanopyStepState = 'done' | 'partial' | 'pending';
+
+export interface RecordCanopyStep {
+    readonly key: string;
+    /** Translated. */
+    readonly label: string;
+    /** Formatted, or `null` for a step with nothing to say yet: the dash. */
+    readonly at: string | null;
+    readonly state: RecordCanopyStepState;
+    readonly testID?: string | undefined;
+}
+
+export interface RecordCanopyCaptionPart {
+    readonly text: string;
+    readonly testID?: string | undefined;
+}
+
+/** A caption line: one text, or several parts joined by `separator` that each keep an id. */
+export type RecordCanopyCaption =
+    | RecordCanopyCaptionPart
+    | {
+          readonly parts: readonly RecordCanopyCaptionPart[];
+          readonly separator: string;
+          readonly testID?: string | undefined;
+      };
+
+export interface RecordCanopyProps {
+    /** Translated record name. */
+    readonly title: string;
+    /** The name in the other language, beside the title. Omitted when there is none. */
+    readonly titleAside?: string | undefined;
+    readonly titleAsideLang?: string | undefined;
+    readonly status?: { readonly label: string; readonly tone: RecordCanopyTone } | undefined;
+    /** Badges a page already renders as nodes — a list's own status chip — after the status. */
+    readonly titleBadges?: ReactNode | undefined;
+    /** Overrides `{testID}-title` / `{testID}-status` for a page whose suites name them. */
+    readonly titleTestID?: string | undefined;
+    readonly statusTestID?: string | undefined;
+    /**
+     * One quiet line each under the title — identifiers, who changed it last. A line the page
+     * already names by a test id of its own carries it.
+     */
+    readonly captions?: readonly (string | RecordCanopyCaption)[] | undefined;
+    /** The record's picture or glyph, at the head's start. */
+    readonly media?: ReactNode | undefined;
+    /** The figures a reader opens the record for. Two or three. */
+    readonly facts?: readonly RecordCanopyFact[] | undefined;
+    /** Every action the record has left, at the head's inline end. */
+    readonly actions?: ReactNode | undefined;
+    /**
+     * The way back — a `Button`, drawn first. Omitted in a `RecordDialog`, whose ✕ is the way
+     * back; a record that is a route of its own still draws one.
+     */
+    readonly back?: ReactNode | undefined;
+    readonly steps?: readonly RecordCanopyStep[] | undefined;
+    /** Translated. The history strip's accessible name. */
+    readonly stepsLabel?: string | undefined;
+    /** The dash a step with nothing to say shows. */
+    readonly noValue: string;
+    readonly testID: string;
+}
+
+const PILL_CLASS: Readonly<Record<RecordCanopyTone, string>> = {
+    success: 'bg-content-on-sidebar-muted/20',
+    warning: 'bg-warning/30',
+    danger: 'bg-danger/30',
+    neutral: 'bg-content-on-sidebar/10',
+};
+
+const PILL_DOT_CLASS: Readonly<Record<RecordCanopyTone, string>> = {
+    success: 'bg-content-on-sidebar-muted',
+    warning: 'bg-warning',
+    danger: 'bg-danger',
+    neutral: 'bg-content-on-sidebar/60',
+};
+
+const STEP_DOT_CLASS: Readonly<Record<RecordCanopyStepState, string>> = {
+    done: 'bg-content-on-sidebar-muted',
+    partial: 'bg-warning',
+    pending: 'border-2 border-content-on-sidebar/45',
+};
+
+export function RecordCanopy({
+    title,
+    titleAside,
+    titleAsideLang,
+    status,
+    titleBadges,
+    titleTestID,
+    statusTestID,
+    captions = [],
+    media,
+    facts = [],
+    actions,
+    back,
+    steps = [],
+    stepsLabel,
+    noValue,
+    testID,
+}: RecordCanopyProps) {
+    return (
+        // `z-10`, as the Record lens: a popover opened from an action must land over the tiles.
+        <View
+            testID={testID}
+            role="region"
+            aria-label={title}
+            className="z-10 overflow-hidden rounded-xl bg-surface-sidebar shadow-elevation-card"
+        >
+            <View className="z-auto flex-col gap-base p-base">
+                <View className="z-auto flex-row flex-wrap items-center gap-x-5 gap-y-snug">
+                    {back}
+                    {media}
+
+                    <View className="min-w-0 shrink flex-col gap-hair">
+                        <View className="flex-row flex-wrap items-center gap-tight">
+                            <RNText
+                                testID={titleTestID ?? `${testID}-title`}
+                                accessibilityRole="header"
+                                aria-level={1}
+                                className="text-role-strong font-bold text-content-on-sidebar text-start"
+                            >
+                                {title}
+                            </RNText>
+                            {titleAside === undefined || titleAside === '' ? null : (
+                                <RNText
+                                    testID={`${testID}-title-aside`}
+                                    {...(titleAsideLang === undefined
+                                        ? {}
+                                        : { lang: titleAsideLang })}
+                                    className="text-role-strong text-content-on-sidebar-muted text-start"
+                                >
+                                    {titleAside}
+                                </RNText>
+                            )}
+                            {status === undefined ? null : (
+                                <View
+                                    testID={statusTestID ?? `${testID}-status`}
+                                    className={`h-5 flex-row items-center gap-1.5 rounded-full px-2 ${PILL_CLASS[status.tone]}`}
+                                >
+                                    <View
+                                        aria-hidden
+                                        className={`h-2 w-2 rounded-full ${PILL_DOT_CLASS[status.tone]}`}
+                                    />
+                                    <RNText className="text-role-label font-semibold text-content-on-sidebar">
+                                        {status.label}
+                                    </RNText>
+                                </View>
+                            )}
+                            {titleBadges}
+                        </View>
+                        {captions.map((caption, index) => {
+                            const line: RecordCanopyCaption =
+                                typeof caption === 'string' ? { text: caption } : caption;
+                            const key = `${String(index)}-${'text' in line ? line.text : line.parts.map((part) => part.text).join()}`;
+                            return (
+                                <RNText
+                                    key={key}
+                                    testID={line.testID ?? `${testID}-caption-${String(index)}`}
+                                    className="text-role-label text-content-on-sidebar-muted text-start"
+                                >
+                                    {'text' in line
+                                        ? line.text
+                                        : line.parts.map((part, at) => (
+                                              <RNText key={`${String(at)}-${part.text}`}>
+                                                  {at === 0 ? null : line.separator}
+                                                  <RNText testID={part.testID}>{part.text}</RNText>
+                                              </RNText>
+                                          ))}
+                                </RNText>
+                            );
+                        })}
+                    </View>
+
+                    {facts.length === 0 && actions === undefined ? null : (
+                        <View className="z-auto ms-auto flex-row flex-wrap items-center gap-tight">
+                            {facts.map((fact) => (
+                                <View
+                                    key={fact.key}
+                                    className="min-w-[112px] flex-col gap-0.5 rounded-lg border border-content-on-sidebar/15 bg-content-on-sidebar/10 px-snug py-tight"
+                                >
+                                    <RNText className="text-role-label text-content-on-sidebar-muted text-start">
+                                        {fact.label}
+                                    </RNText>
+                                    <RNText
+                                        testID={fact.testID ?? `${testID}-fact-${fact.key}`}
+                                        className="text-role-strong font-bold tabular-nums text-content-on-sidebar text-start"
+                                    >
+                                        {fact.value}
+                                    </RNText>
+                                </View>
+                            ))}
+                            {actions === undefined ? null : (
+                                <View
+                                    testID={`${testID}-actions`}
+                                    className="z-auto flex-row flex-wrap items-center gap-tight"
+                                >
+                                    {actions}
+                                </View>
+                            )}
+                        </View>
+                    )}
+                </View>
+
+                {steps.length === 0 ? null : (
+                    <View
+                        testID={`${testID}-history`}
+                        role="list"
+                        aria-label={stepsLabel}
+                        className="flex-row rounded-lg bg-content-on-sidebar/10 px-base py-snug"
+                    >
+                        {steps.map((step, index) => {
+                            const next = steps[index + 1];
+                            return (
+                                <View
+                                    key={step.key}
+                                    role="listitem"
+                                    // eslint-disable-next-line no-restricted-syntax -- one step of the history strip: the steps share the strip equally.
+                                    className="min-w-0 flex-1 flex-col gap-1.5"
+                                >
+                                    <View className="flex-row items-center">
+                                        <View
+                                            aria-hidden
+                                            className={`h-3 w-3 rounded-full ${STEP_DOT_CLASS[step.state]}`}
+                                        />
+                                        <View
+                                            aria-hidden
+                                            // eslint-disable-next-line no-restricted-syntax -- the connector line runs to the next step's dot.
+                                            className={`mx-1.5 h-0.5 flex-1 ${
+                                                next === undefined
+                                                    ? 'bg-transparent'
+                                                    : next.state === 'pending'
+                                                      ? 'bg-content-on-sidebar/20'
+                                                      : 'bg-content-on-sidebar-muted'
+                                            }`}
+                                        />
+                                    </View>
+                                    <RNText className="text-role-label font-semibold text-content-on-sidebar text-start">
+                                        {step.label}
+                                    </RNText>
+                                    <RNText
+                                        testID={step.testID}
+                                        className="text-role-label tabular-nums text-content-on-sidebar-muted text-start"
+                                    >
+                                        {step.at ?? noValue}
+                                    </RNText>
+                                </View>
+                            );
+                        })}
+                    </View>
+                )}
+            </View>
+        </View>
+    );
+}
+
+export interface RecordCanopyHeroProps {
+    /** Translated record name. */
+    readonly title: string;
+    /** The name in the other language, under the title. Omitted when there is none to show. */
+    readonly titleAside?: string | undefined;
+    readonly titleAsideLang?: string | undefined;
+    /** The record's handle, first on the line over the title. */
+    readonly reference?: string | null | undefined;
+    /** Translated. Second on that line. Omit where `kind` or `statusChip` says it instead. */
+    readonly status?: string | undefined;
+    /** Translated. Second on that line, in place of `status`: "PKG-001 • Packaging item". */
+    readonly kind?: string | undefined;
+    /** The status as the first pill, for a record with no figure beside its name. */
+    readonly statusChip?: { readonly label: string; readonly tone: RecordCanopyTone } | undefined;
+    /** Filing, unit — translated, one pill each. */
+    readonly chips?: readonly string[] | undefined;
+    /** One quiet line under the chips: who changed it last. */
+    readonly caption?: string | undefined;
+    /** Further quiet lines, each with an id of its own. */
+    readonly captionLines?:
+        readonly { readonly text: string; readonly testID: string }[] | undefined;
+    /** Overrides for a page whose suites already name these. */
+    readonly titleTestID?: string | undefined;
+    readonly statusTestID?: string | undefined;
+    readonly referenceTestID?: string | undefined;
+    readonly kindTestID?: string | undefined;
+    readonly media?: ReactNode | undefined;
+    /** The one figure the record is opened for, large at the inline end. */
+    readonly figure?:
+        | {
+              readonly label: string;
+              readonly value: string;
+              readonly note?: string | undefined;
+          }
+        | undefined;
+    /** What a record on a route of its own can do, its way back first, at the inline end. */
+    readonly actions?: ReactNode | undefined;
+    readonly testID: string;
+}
+
+/**
+ * The Ingredient view board's canopy: handle and status over a large name, the filing as pills, and
+ * one large figure at the inline end. A page with one figure to lead with draws this; the band is
+ * {@link RecordCanopy}'s, and every other View page keeps that compact head.
+ */
+export function RecordCanopyHero({
+    title,
+    titleAside,
+    titleAsideLang,
+    reference,
+    status,
+    kind,
+    statusChip,
+    chips = [],
+    caption,
+    captionLines = [],
+    titleTestID,
+    statusTestID,
+    referenceTestID,
+    kindTestID,
+    media,
+    figure,
+    actions,
+    testID,
+}: RecordCanopyHeroProps) {
+    return (
+        <View
+            testID={testID}
+            role="region"
+            aria-label={title}
+            className="z-10 overflow-hidden rounded-xl bg-surface-sidebar shadow-elevation-card"
+        >
+            <View className="flex-row flex-wrap items-end justify-between gap-6 p-6">
+                <View className="min-w-0 shrink flex-row flex-wrap items-center gap-5">
+                    {media}
+                    <View className="min-w-0 shrink flex-col">
+                        <View className="flex-row flex-wrap items-center gap-2">
+                            {reference === undefined ||
+                            reference === null ||
+                            reference === '' ? null : (
+                                <>
+                                    <RNText
+                                        testID={referenceTestID ?? `${testID}-reference`}
+                                        className="text-role-label font-semibold tabular-nums text-content-on-sidebar text-start"
+                                    >
+                                        {reference}
+                                    </RNText>
+                                    <View
+                                        aria-hidden
+                                        className="h-1 w-1 rounded-full bg-content-on-sidebar"
+                                    />
+                                </>
+                            )}
+                            {status === undefined ? null : (
+                                <RNText
+                                    testID={statusTestID ?? `${testID}-status`}
+                                    className="text-role-label font-semibold text-content-on-sidebar text-start"
+                                >
+                                    {status}
+                                </RNText>
+                            )}
+                            {kind === undefined ? null : (
+                                <RNText
+                                    testID={kindTestID ?? `${testID}-kind`}
+                                    className="text-role-label font-semibold text-content-on-sidebar text-start"
+                                >
+                                    {kind}
+                                </RNText>
+                            )}
+                        </View>
+                        <RNText
+                            testID={titleTestID ?? `${testID}-title`}
+                            accessibilityRole="header"
+                            aria-level={1}
+                            className="mt-2 font-display text-3xl font-bold text-content-on-sidebar text-start lg:text-4xl"
+                        >
+                            {title}
+                        </RNText>
+                        {titleAside === undefined || titleAside === '' ? null : (
+                            <RNText
+                                testID={`${testID}-title-aside`}
+                                {...(titleAsideLang === undefined ? {} : { lang: titleAsideLang })}
+                                className="mt-1 text-base font-semibold text-content-on-sidebar-muted text-start"
+                            >
+                                {titleAside}
+                            </RNText>
+                        )}
+                        {chips.length === 0 && statusChip === undefined ? null : (
+                            <View className="mt-[14px] flex-row flex-wrap gap-1.5">
+                                {statusChip === undefined ? null : (
+                                    <View
+                                        testID={statusTestID ?? `${testID}-status`}
+                                        className={`h-7 flex-row items-center rounded-full px-3 ${PILL_CLASS[statusChip.tone]}`}
+                                    >
+                                        <RNText className="text-role-label font-semibold text-content-on-sidebar">
+                                            {statusChip.label}
+                                        </RNText>
+                                    </View>
+                                )}
+                                {chips.map((chip) => (
+                                    <View
+                                        key={chip}
+                                        className="h-7 flex-row items-center rounded-full bg-content-on-sidebar/20 px-3"
+                                    >
+                                        <RNText className="text-role-label font-semibold text-content-on-sidebar">
+                                            {chip}
+                                        </RNText>
+                                    </View>
+                                ))}
+                            </View>
+                        )}
+                        {caption === undefined ? null : (
+                            <RNText
+                                testID={`${testID}-caption`}
+                                className="mt-2.5 text-role-label text-content-on-sidebar-muted text-start"
+                            >
+                                {caption}
+                            </RNText>
+                        )}
+                        {captionLines.map((line, index) => (
+                            <RNText
+                                key={line.testID}
+                                testID={line.testID}
+                                className={`${index === 0 ? 'mt-2.5' : 'mt-0.5'} text-role-label text-content-on-sidebar-muted text-start`}
+                            >
+                                {line.text}
+                            </RNText>
+                        ))}
+                    </View>
+                </View>
+
+                {figure === undefined ? null : (
+                    <View testID={`${testID}-figure`} className="ms-auto flex-col items-end">
+                        <RNText className="text-role-label font-semibold text-content-on-sidebar">
+                            {figure.label}
+                        </RNText>
+                        <RNText
+                            testID={`${testID}-figure-value`}
+                            className="my-0.5 font-display text-3xl font-bold tabular-nums text-content-on-sidebar lg:text-4xl"
+                        >
+                            {figure.value}
+                        </RNText>
+                        {figure.note === undefined ? null : (
+                            <RNText className="text-role-label font-semibold text-content-on-sidebar">
+                                {figure.note}
+                            </RNText>
+                        )}
+                    </View>
+                )}
+
+                {actions === undefined ? null : (
+                    <View
+                        testID={`${testID}-actions`}
+                        className="z-auto ms-auto flex-row flex-wrap items-center gap-tight"
+                    >
+                        {actions}
+                    </View>
+                )}
+            </View>
+        </View>
+    );
+}
+
+/** A record's glyph in the canopy's media slot, for a record that has no picture. */
+export function RecordCanopyGlyph({ children }: { readonly children: ReactNode }) {
+    return (
+        <View
+            aria-hidden
+            className="h-12 w-12 items-center justify-center rounded-lg border border-content-on-sidebar/20 bg-content-on-sidebar/10"
+        >
+            {children}
+        </View>
+    );
+}

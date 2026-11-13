@@ -8,6 +8,7 @@ use Healthy360\AccessAdministration\Presenters\OrganisationRolePresenter;
 use Healthy360\AccessAdministration\Services\AccessAdministrationLocator;
 use Healthy360\AccessAdministration\Services\AccessAdministrationQuery;
 use Healthy360\AccessControl\Models\Role;
+use Healthy360\AccessControl\Services\PermissionRegistry;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
@@ -41,6 +42,12 @@ use Illuminate\Http\JsonResponse;
  * Eleven templates plus however many a kitchen has defined, and every one of
  * them is a row in a picker that has to be complete to be usable. A cursor
  * would mean an editor that cannot draw its own dropdown without draining one.
+ *
+ * ## Retired templates stay out of the list
+ *
+ * A kitchen's untouched copy of a template no real job maps to, with nobody on
+ * it, is left out ({@see PermissionRegistry::isHiddenRole()}). The row stays and
+ * still resolves by id; this is the list a kitchen chooses from.
  */
 final class OrganisationRoleIndexController
 {
@@ -58,7 +65,7 @@ final class OrganisationRoleIndexController
         $this->locator->contextOrganisation($organisation);
 
         $roles = Role::query()
-            ->orderByRaw('organisation_id IS NOT NULL')
+            ->whereNotNull('organisation_id')
             ->orderBy('code')
             ->get();
 
@@ -70,7 +77,12 @@ final class OrganisationRoleIndexController
         $grants = $this->query->codesForRoles($roleIds);
 
         return ApiResponse::data(
-            $roles->map(fn (Role $role): array => $this->presenter->summary(
+            $roles->reject(static fn (Role $role): bool => PermissionRegistry::isHiddenRole(
+                (string) $role->code,
+                $role->created_by === null ? null : (string) $role->created_by,
+                $role->updated_by === null ? null : (string) $role->updated_by,
+                $holders[(string) $role->getKey()] ?? 0,
+            ))->values()->map(fn (Role $role): array => $this->presenter->summary(
                 $role,
                 $holders[(string) $role->getKey()] ?? 0,
                 count($grants[(string) $role->getKey()] ?? []),

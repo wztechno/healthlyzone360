@@ -89,7 +89,8 @@ final class CheckoutWorld
      *
      * Phone verification is not arranged, deliberately — gate A-011 is off by
      * default, and a fixture that satisfied a requirement nobody makes would
-     * hide the day somebody turned it on.
+     * hide the day somebody turned it on. A phone is, unproven and not primary,
+     * because a delivery the driver cannot ring is refused `phone_required`.
      */
     public static function readyCustomer(DeliveryArea $area, string $label = 'Home'): object
     {
@@ -100,6 +101,8 @@ final class CheckoutWorld
             'is_login_identity' => true,
             'is_primary' => true,
         ]);
+
+        ContactPoint::factory()->phone()->forCustomerAccount((string) $account->getKey())->create();
 
         CustomerDietaryProfile::factory()->declaresNoAllergens()->create([
             'customer_account_id' => $account->getKey(),
@@ -185,7 +188,9 @@ final class CheckoutWorld
     }
 
     /**
-     * An organisation-wide zone claiming the area, at a stated fee.
+     * An organisation-wide zone claiming the area, at a stated fee and with no
+     * minimum: the factory's sits at exactly this world's meal price, and a test
+     * of the minimum states its own.
      */
     public static function servingZone(Organisation $organisation, DeliveryArea $area, int $feeMinor = 500, string $code = 'inner'): DeliveryZone
     {
@@ -194,6 +199,7 @@ final class CheckoutWorld
             'code' => $code,
             'currency_code' => $organisation->default_currency_code,
             'delivery_fee_minor' => $feeMinor,
+            'minimum_order_minor' => null,
             'status' => 'active',
         ]);
 
@@ -210,10 +216,13 @@ final class CheckoutWorld
     /**
      * A delivery window of the zone's organisation, offered in that zone when
      * `$assigned` — placement refuses a slot its zone does not offer.
+     *
+     * Untimed, so these worlds prove what a zone offers at any hour the suite
+     * runs. `orders/tests/ImpossibleOrdersTest.php` states the hours it tests.
      */
     public static function window(DeliveryZone $zone, string $code = 'evening', bool $assigned = true): DeliveryWindow
     {
-        $window = DeliveryWindow::factory()->create(['organisation_id' => $zone->organisation_id, 'code' => $code]);
+        $window = DeliveryWindow::factory()->untimed()->create(['organisation_id' => $zone->organisation_id, 'code' => $code]);
 
         if ($assigned) {
             DeliveryZoneWindow::withoutTenancy()->create([

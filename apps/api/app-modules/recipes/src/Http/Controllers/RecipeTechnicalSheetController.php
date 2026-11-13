@@ -4,22 +4,10 @@ declare(strict_types=1);
 
 namespace Healthy360\Recipes\Http\Controllers;
 
-use Healthy360\Audit\Enums\PurposeOfUse;
-use Healthy360\Audit\Services\AuditRecorder;
-use Healthy360\Recipes\Enums\CostBasis;
-use Healthy360\Recipes\Exceptions\MixedCostCurrency;
-use Healthy360\Recipes\Models\RecipeCostSnapshot;
-use Healthy360\Recipes\Models\RecipeVersionLine;
-use Healthy360\Recipes\Models\RecipeVersionPackaging;
-use Healthy360\Recipes\Presenters\RecipeVersionPresenter;
-use Healthy360\Recipes\Presenters\TechnicalSheetPresenter;
-use Healthy360\Recipes\Services\RecipeCostingService;
 use Healthy360\Recipes\Services\RecipeLocator;
-use Healthy360\Recipes\Services\WeeklyRecipeCostingService;
+use Healthy360\Recipes\Services\RecipeVersionReads;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
-use Healthy360\Support\Enums\DataClassification;
-use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -70,12 +58,7 @@ final class RecipeTechnicalSheetController
 {
     public function __construct(
         private readonly RecipeLocator $locator,
-        private readonly RecipeVersionPresenter $versions,
-        private readonly TechnicalSheetPresenter $presenter,
-        private readonly RecipeCostingService $costing,
-        private readonly WeeklyRecipeCostingService $weeklyCosting,
-        private readonly AuditRecorder $audit,
-        private readonly TenantContext $context,
+        private readonly RecipeVersionReads $reads,
     ) {}
 
     /**
@@ -85,112 +68,6 @@ final class RecipeTechnicalSheetController
     {
         $record = $this->locator->version($this->locator->recipe($recipe), $version);
 
-        $lines = RecipeVersionLine::query()
-            ->where('recipe_version_id', $record->getKey())
-            ->orderBy('line_number')
-            ->get();
-
-        $packaging = RecipeVersionPackaging::query()
-            ->where('recipe_version_id', $record->getKey())
-            ->orderBy('line_number')
-            ->get();
-
-        $uncosted = $this->costing->uncostedLineNumbers($lines);
-        $currencies = $this->costing->currenciesOf($lines);
-
-        /*
-         * The live block. `computeRecalculated()` throws on a formulation in two
-         * currencies — an import defect somebody has to go and fix — and that
-         * must not take the whole sheet down with it: the lines, the snapshots
-         * and the conflict flag below are exactly what a person needs in order
-         * to *see* the problem. So the live figures are dropped and the rest of
-         * the response stands.
-         */
-        try {
-            $production = $this->costing->computeRecalculated($record, $lines);
-            $packagingCost = $this->costing->computePackaging($record, $packaging);
-
-            $computed = $this->presenter->computed(
-                $production,
-                $packagingCost,
-                $this->costing->totalCostPerYieldUnit($production, $packagingCost),
-                $this->costing->costPerPackage($record, $production, $packagingCost, $packaging),
-                $this->costing->lineCostsOf($lines),
-                $this->costing->lineCostsOf($packaging),
-            );
-        } catch (MixedCostCurrency) {
-            $computed = null;
-        }
-
-        /*
-         * The weekly block (PROD1) — what the version costs at what the kitchen
-         * is actually paying, beside what its own lines were frozen at. It never
-         * throws: the service reports a two-currency formulation as "nothing is
-         * costed" rather than refusing, because this is a page somebody is
-         * looking at and the lines below are what they need in order to see the
-         * problem.
-         */
-        $weekly = $this->presenter->weekly(
-            $this->weeklyCosting->cost($this->context->organisationId(), $record, $lines, $packaging),
-        );
-
-        $snapshots = [];
-
-        foreach (CostBasis::cases() as $basis) {
-            $snapshot = RecipeCostSnapshot::latestFor((string) $record->getKey(), $basis);
-
-            $snapshots[$basis->value] = $snapshot instanceof RecipeCostSnapshot
-                ? $this->presenter->snapshot($snapshot)
-                : null;
-        }
-
-        $this->audit->recordAccess(
-            'catalogue.technical_sheet_viewed',
-            PurposeOfUse::OrganisationAdministration,
-            DataClassification::Confidential,
-            actorUserId: $this->context->userId(),
-            subjectType: 'recipe_version',
-            subjectId: (string) $record->getKey(),
-
-            // Identifiers and counts only. An audit row is readable with
-            // `audit.view_organisation`, which is not the cost permission, so
-            // a single amount here would route around the whole split.
-            metadata: [
-                'recipe_id' => $record->recipe_id,
-                'version_number' => $record->version_number,
-                'line_count' => $lines->count(),
-                'packaging_line_count' => $packaging->count(),
-                'uncosted_line_count' => count($uncosted),
-            ],
-        );
-
-        return ApiResponse::data([
-            'version' => $this->versions->version($record),
-            'completeness' => $record->completeness->value,
-
-            // The one currency the costed lines share, or null when nothing is
-            // costed *or* when an import left more than one behind. The flag
-            // beside it says which of those two it is, because "no currency"
-            // and "several currencies" need different fixes.
-            'currency_code' => count($currencies) === 1 ? $currencies[0] : null,
-            'currency_conflict' => count($currencies) > 1,
-            'lines' => $lines->map(fn (RecipeVersionLine $line): array => $this->presenter->line($line))->all(),
-            'packaging_lines' => $packaging->map(
-                fn (RecipeVersionPackaging $row): array => $this->presenter->packagingLine($row),
-            )->all(),
-            'uncosted_line_numbers' => $uncosted,
-            'snapshots' => $snapshots,
-
-            // Null only when the formulation carries two currencies, which the
-            // `currency_conflict` flag above already reports. A client renders
-            // the snapshots and the conflict in that case.
-            'computed' => $computed,
-
-            // Beside `computed`, never instead of it. One says what the sheet
-            // was costed at and the other what the same formulation costs at
-            // this week's published prices; a reader comparing them is the whole
-            // point, and a single merged figure would answer neither question.
-            'weekly' => $weekly,
-        ]);
+        return ApiResponse::data($this->reads->technicalSheet($record));
     }
 }

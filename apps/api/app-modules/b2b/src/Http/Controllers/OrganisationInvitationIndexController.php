@@ -54,7 +54,7 @@ final class OrganisationInvitationIndexController
     {
         $tenant = $this->locator->contextOrganisation($organisation);
 
-        $query = OrganisationInvitation::query()->where('organisation_id', $tenant->getKey());
+        $query = $this->locator->withinActorBranch(OrganisationInvitation::query())->where('organisation_id', $tenant->getKey());
 
         $this->applyStatus($request, $query);
 

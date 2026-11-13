@@ -85,6 +85,7 @@ export function MacroCalculatorScreen() {
                 />
             ) : (
                 <QueryStates
+                    skeleton="figures"
                     query={calculation}
                     isEmpty={calculation.data === undefined}
                     emptyTitle={t('catalogue:tools.errorTitle')}

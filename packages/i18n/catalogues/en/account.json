@@ -8,7 +8,8 @@
         "addresses": "Addresses",
         "notifications": "Notifications",
         "favorites": "Favorites",
-        "payments": "Payment methods"
+        "payments": "Payment methods",
+        "allergies": "Allergies"
     },
     "orders": {
         "title": "Order history",
@@ -20,10 +21,32 @@
         "browse": "Browse the menu",
         "more": "Show older orders",
         "backToHistory": "Back to your orders",
+        "cancelOpen": "Cancel order",
+        "cancelTitle": "Cancel this order?",
+        "cancelBody": "The kitchen has not accepted it yet, so nothing will be cooked or delivered, and nothing is owed. Once the kitchen accepts an order, contact the kitchen to change it.",
+        "cancelKeep": "Keep order",
+        "cancelConfirm": "Cancel order",
+        "cancelTooLateTitle": "The kitchen has already accepted this order",
+        "cancelTooLateBody": "It can no longer be cancelled here. Contact the kitchen to change it.",
+        "cancelAlreadyCancelledTitle": "This order is already cancelled",
+        "cancelAlreadyCancelledBody": "There is nothing more to do here. Contact the kitchen if you did not expect this.",
         "notFoundTitle": "We could not find that order",
         "notFoundBody": "It may belong to another account, or the link may be incomplete. Your own orders are all in your order history.",
         "lineLabel": "{{qty}}× {{name}}",
-        "reorder": "Reorder"
+        "reorder": "Reorder",
+        "view": "View",
+        "track": "Track order",
+        "progress": "Order progress",
+        "showLabel": "Show",
+        "filter": {
+            "all": "All",
+            "active": "Active",
+            "delivered": "Delivered"
+        },
+        "showing_one": "Showing {{count}} order",
+        "showing_other": "Showing {{count}} orders",
+        "showingOf_one": "Showing {{shown}} of {{count}} order",
+        "showingOf_other": "Showing {{shown}} of {{count}} orders"
     },
     "checklist": {
         "cannotActivate": "A few required steps are still outstanding.",
@@ -87,7 +110,11 @@
         "allergiesDeclared": "Allergies: {{list}}.",
         "securityTitle": "Sign-in and security",
         "changePassword": "Change password",
-        "devices": "Devices"
+        "devices": "Devices",
+        "yourDiet": "Your diet",
+        "dietChosen_one": "{{count}} chosen",
+        "dietChosen_other": "{{count}} chosen",
+        "manage": "Manage"
     },
     "privacy": {
         "title": "Privacy",
@@ -188,7 +215,27 @@
         "missingTitle": "That address is no longer here",
         "missingBody": "It may have been removed, or the link may be out of date.",
         "backToList": "Back to your addresses",
-        "savedToast": "Address saved."
+        "savedToast": "Address saved.",
+        "board": {
+            "saveAs": "Save it as",
+            "home": "Home",
+            "work": "Work",
+            "other": "Other",
+            "nameIt": "Name it",
+            "nameItPlaceholder": "Gym, Parents, Studio",
+            "line1Label": "Street and number",
+            "line1Placeholder": "Street name and number",
+            "searchAreas_one": "Search {{count}} area",
+            "searchAreas_other": "Search {{count}} areas",
+            "searchAreasLabel": "Search areas",
+            "notesPlaceholder": "Landmark, gate code, which entrance",
+            "contact": "Contact number",
+            "useDefault": "Use as my default",
+            "preview": "Address preview",
+            "yourArea": "Your area",
+            "pickArea": "Pick an area to check delivery",
+            "coverage": "We deliver to {{area}}. You will see which kitchens do when you order."
+        }
     },
     "dietary": {
         "title": "Allergies and diet",
@@ -223,7 +270,53 @@
         "exclusionsSubtitle": "Things you simply do not want, for reasons that are not an allergy.",
         "save": "Save",
         "saved": "Saved.",
-        "savedToast": "Allergies and diet saved."
+        "savedToast": "Allergies and diet saved.",
+        "anyAllergies": "Any food allergies?",
+        "declaredCount_one": "{{count}} declared",
+        "declaredCount_other": "{{count}} declared",
+        "answerShort": {
+            "yes": "Yes",
+            "no": "No"
+        },
+        "noAllergies": "No allergies",
+        "tickedCount_one": "{{count}} ticked",
+        "tickedCount_other": "{{count}} ticked",
+        "howStrict": "How strictly to avoid each",
+        "covers": {
+            "milk": "Butter, cheese, labneh, yoghurt",
+            "egg": "Eggs and mayonnaise",
+            "gluten": "Wheat, rye, barley, oats",
+            "tree_nut": "Almond, cashew, pistachio, walnut",
+            "peanut": "Peanut and peanut butter",
+            "sesame": "Sesame seed and tahini",
+            "fish": "Fish, stock, fish sauce",
+            "crustaceans": "Crab, shrimp, lobster",
+            "mollusc": "Squid, mussels, oysters",
+            "soy": "Soya sauce, tofu, edamame",
+            "mustard": "Seed, powder, prepared",
+            "celery": "Stalk, leaf, seed, celeriac",
+            "sulphites": "Vinegar, dried fruit, pickles",
+            "lupin": "Lupin flour and beans"
+        },
+        "howStrictTip": "Only a declared allergy removes a meal outright.",
+        "leaveOut": {
+            "kind": {
+                "dislike": "I don’t like it",
+                "forbidden": "Never"
+            },
+            "kindFor": "How strictly to leave out {{name}}",
+            "add": "Add a food",
+            "searchLabel": "Search for a food",
+            "searchPlaceholder": "Search ingredients",
+            "close": "Close the search",
+            "added": "Added",
+            "addAsWritten": "Add “{{text}}” as written",
+            "noMatch": "No ingredient matches “{{text}}”",
+            "searchFailed": "The search did not answer",
+            "remove": "Remove {{name}}",
+            "cancel": "Cancel",
+            "confirm": "Add"
+        }
     },
     "consents": {
         "title": "Permissions",
@@ -262,7 +355,11 @@
         "ageGate": "Confirm your age before agreeing to anything else.",
         "allRequiredDone": "Everything required has been agreed.",
         "outstanding_one": "{{count}} required permission still to agree to.",
-        "outstanding_other": "{{count}} required permissions still to agree to."
+        "outstanding_other": "{{count}} required permissions still to agree to.",
+        "neededNote": "Needed to order",
+        "allAgreed": "Everything required has been agreed.",
+        "leftToAgree_one": "{{count}} required permission still to agree to.",
+        "leftToAgree_other": "{{count}} required permissions still to agree to."
     },
     "closure": {
         "title": "Closing your account",
@@ -369,7 +466,8 @@
         "signedOutNote": "You have been signed out. This device no longer holds a session.",
         "optOutDoneTitle": "Marketing stopped",
         "optOutDoneBody": "We will not send you marketing again. Your account and everything in it is untouched.",
-        "keepAccount": "Keep my account"
+        "keepAccount": "Keep my account",
+        "codeTitle": "Enter the code we emailed you"
     },
     "favorites": {
         "empty": "No favorites yet",
@@ -377,6 +475,15 @@
     },
     "payments": {
         "cash": "Cash on delivery",
-        "body": "One-off orders are paid to the courier when they arrive. No card is stored on your account."
-    }
+        "body": "One-off orders are paid to the courier when they arrive. No card is stored on your account.",
+        "cashSub": "Delivery orders and plans",
+        "counter": "Cash at the counter",
+        "counterSub": "Pickup orders"
+    },
+    "band": {
+        "activePlan": "Active plan",
+        "nextDelivery": "Next delivery",
+        "orders": "Orders"
+    },
+    "saveFailed": "That change was not saved."
 }

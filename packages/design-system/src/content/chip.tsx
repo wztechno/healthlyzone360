@@ -243,11 +243,19 @@ export function FilterChip({
             }}
             className={cx(
                 'flex-row items-center justify-center gap-1.5 self-start rounded-full border',
-                size === 'sm' ? 'px-2.5 py-0.5' : 'px-3.5 py-1.5',
+                density === 'compact' && size === 'sm'
+                    ? 'h-desk-toolbar px-3'
+                    : size === 'sm'
+                      ? 'px-2.5 py-0.5'
+                      : 'px-3.5 py-1.5',
                 coarse ? 'min-h-touch' : null,
-                selected
-                    ? 'border-surface-inverse bg-surface-inverse'
-                    : 'border-stroke-strong bg-surface-raised',
+                density === 'compact'
+                    ? selected
+                        ? 'border-stroke bg-surface-brand-subtle'
+                        : 'border-stroke-subtle bg-surface-raised hover:bg-surface-brand-subtle'
+                    : selected
+                      ? 'border-surface-inverse bg-surface-inverse'
+                      : 'border-stroke-strong bg-surface-raised',
                 disabled ? 'opacity-50' : null,
                 className,
             )}
@@ -259,11 +267,17 @@ export function FilterChip({
                     // was one of the components that never asked which surface it was on, so a
                     // filter row in the Catalogue came out in Inter beside a toolbar in Schibsted.
                     density === 'compact'
-                        ? 'text-role-label'
+                        ? 'text-[13px] font-semibold'
                         : size === 'sm'
                           ? 'text-xs font-medium'
                           : 'text-sm font-medium',
-                    selected ? 'text-content-inverse' : 'text-content-primary',
+                    density === 'compact'
+                        ? selected
+                            ? 'text-content-on-brand-subtle'
+                            : 'text-content-primary'
+                        : selected
+                          ? 'text-content-inverse'
+                          : 'text-content-primary',
                 )}
             >
                 {label}

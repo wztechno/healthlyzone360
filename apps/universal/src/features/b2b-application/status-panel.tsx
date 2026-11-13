@@ -5,9 +5,12 @@ import type {
     B2BDocumentKind,
     ReviewerRequest,
 } from '@healthy360/api-client/contracts';
-import { Badge, Button, Callout, Card, Stack, Text } from '@healthy360/design-system';
+import { Icon, cx } from '@healthy360/design-system';
+import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
+
+import { ExtraButton, ExtraCard, ExtraSmallButton } from '../account/account-extra.tsx';
 
 import { stepForSection } from './sections.ts';
 import type { B2BStepSlug } from './sections.ts';
@@ -83,86 +86,135 @@ export function StatusPanel({
     const open = application.reviewerRequests.filter((request) => request.resolvedAt === null);
 
     return (
-        <Stack testID={testID} space="lg">
-            <Stack space="xs">
-                <View className="flex-row items-center gap-2">
-                    <Badge
-                        testID={`${testID}-badge`}
-                        tone={STATE_TONE[state]}
-                        label={t(`b2bApplication:status.${state}.label`)}
+        <View testID={testID} className="flex-col">
+            {/* The board's "Now" card: the stage, what it means, the reference and the last change. */}
+            <View className="relative overflow-hidden rounded-[28px] bg-surface-canopy px-7 py-8">
+                <View
+                    aria-hidden
+                    className="absolute -end-[120px] -top-[170px] h-[460px] w-[460px] rounded-full bg-stage-green opacity-15"
+                />
+                <RNText className="text-xs font-bold uppercase tracking-widest text-stage-green text-start">
+                    {t('b2bApplication:status.now')}
+                </RNText>
+                <View className="mt-1.5 flex-row items-center gap-2.5">
+                    <View
+                        aria-hidden
+                        className={cx('h-2.5 w-2.5 rounded-full', STATE_DOT[STATE_TONE[state]])}
                     />
-                    <Text tone="secondary" variant="caption" testID={`${testID}-reference`}>
-                        {t('b2bApplication:reference', { reference: application.reference })}
-                    </Text>
+                    <RNText
+                        testID={`${testID}-badge`}
+                        accessibilityRole="header"
+                        aria-level={2}
+                        className="min-w-0 flex-1 font-display text-3xl font-bold leading-[36px] text-content-on-canopy text-start"
+                    >
+                        {t(`b2bApplication:status.${state}.label`)}
+                    </RNText>
                 </View>
-                <Text testID={`${testID}-body`}>{t(`b2bApplication:status.${state}.body`)}</Text>
-            </Stack>
+                <RNText
+                    testID={`${testID}-body`}
+                    className="mt-2 max-w-[620px] text-base font-medium leading-6 text-content-on-canopy-muted text-start"
+                >
+                    {t(`b2bApplication:status.${state}.body`)}
+                </RNText>
+                <View className="mt-4 flex-row flex-wrap gap-2">
+                    <View className="h-[30px] justify-center rounded-full bg-content-on-canopy/10 px-3">
+                        <RNText
+                            testID={`${testID}-reference`}
+                            className="text-xs font-semibold text-content-on-canopy"
+                        >
+                            {t('b2bApplication:reference', { reference: application.reference })}
+                        </RNText>
+                    </View>
+                </View>
+            </View>
 
             {/*
              * The half of a decision the applicant is shown. The reviewer's internal note is a
              * different column and never reaches this client (§4.8 denylist).
              */}
             {application.applicantMessage === null ? null : (
-                <Card testID={`${testID}-message`} title={t('b2bApplication:status.messageFromUs')}>
-                    <Text>{application.applicantMessage}</Text>
-                </Card>
+                <ExtraCard
+                    testID={`${testID}-message`}
+                    title={t('b2bApplication:status.messageFromUs')}
+                >
+                    <View className="mt-3 rounded-[18px] border border-stroke-subtle bg-surface-base px-[18px] py-4">
+                        <RNText className="text-base font-medium leading-6 text-content-primary text-start">
+                            {application.applicantMessage}
+                        </RNText>
+                    </View>
+                </ExtraCard>
             )}
 
             {open.length > 0 ? (
-                <Stack testID={`${testID}-requests`} space="sm">
-                    <Text variant="bodyStrong">
-                        {t('b2bApplication:status.reviewerRequestsTitle')}
-                    </Text>
+                <ExtraCard
+                    testID={`${testID}-requests`}
+                    title={t('b2bApplication:status.reviewerRequestsTitle')}
+                >
                     <View role="status" aria-live="polite">
-                        <Text tone="secondary" variant="caption">
+                        <RNText className="text-sm text-content-secondary text-start">
                             {t('b2bApplication:status.reviewerRequests', { count: open.length })}
-                        </Text>
+                        </RNText>
                     </View>
-                    {open.map((request) => (
-                        <RequestCard
-                            key={request.id}
-                            request={request}
-                            testID={`${testID}-request-${request.id}`}
-                            {...(onOpenStep === undefined ? {} : { onOpenStep })}
-                        />
-                    ))}
-                </Stack>
+                    <View className="mt-2">
+                        {open.map((request) => (
+                            <RequestRow
+                                key={request.id}
+                                request={request}
+                                testID={`${testID}-request-${request.id}`}
+                                {...(onOpenStep === undefined ? {} : { onOpenStep })}
+                            />
+                        ))}
+                    </View>
+                </ExtraCard>
             ) : null}
 
-            {state === 'agreement_pending' && onOpenAgreement !== undefined ? (
-                <Button
-                    testID={`${testID}-open-agreement`}
-                    label={t('b2bApplication:agreement.title')}
-                    onPress={onOpenAgreement}
-                />
-            ) : null}
+            <View className="mt-5 flex-row flex-wrap items-center gap-2.5">
+                {state === 'agreement_pending' && onOpenAgreement !== undefined ? (
+                    <ExtraButton
+                        testID={`${testID}-open-agreement`}
+                        label={t('b2bApplication:agreement.title')}
+                        icon="arrowForward"
+                        onPress={onOpenAgreement}
+                    />
+                ) : null}
 
-            {(state === 'agreement_signed' ||
-                state === 'provisioning' ||
-                state === 'provisioned') &&
-            onOpenProvisioning !== undefined ? (
-                <Button
-                    testID={`${testID}-open-provisioning`}
-                    variant="secondary"
-                    label={t('b2bApplication:provisioning.title')}
-                    onPress={onOpenProvisioning}
-                />
-            ) : null}
+                {(state === 'agreement_signed' ||
+                    state === 'provisioning' ||
+                    state === 'provisioned') &&
+                onOpenProvisioning !== undefined ? (
+                    <ExtraButton
+                        testID={`${testID}-open-provisioning`}
+                        tone="secondary"
+                        label={t('b2bApplication:provisioning.title')}
+                        onPress={onOpenProvisioning}
+                    />
+                ) : null}
 
-            {state === 'draft' && onOpenStep !== undefined ? (
-                <Button
-                    testID={`${testID}-resume`}
-                    label={t('b2bApplication:entry.resume')}
-                    onPress={() => {
-                        onOpenStep('company');
-                    }}
-                />
-            ) : null}
-        </Stack>
+                {state === 'draft' && onOpenStep !== undefined ? (
+                    <ExtraButton
+                        testID={`${testID}-resume`}
+                        label={t('b2bApplication:entry.resume')}
+                        icon="arrowForward"
+                        onPress={() => {
+                            onOpenStep('company');
+                        }}
+                    />
+                ) : null}
+            </View>
+        </View>
     );
 }
 
-function RequestCard({
+const STATE_DOT: Readonly<Record<'neutral' | 'info' | 'warning' | 'success' | 'danger', string>> = {
+    neutral: 'bg-content-on-canopy-muted',
+    info: 'bg-info-subtle',
+    warning: 'bg-warning-strong',
+    success: 'bg-stage-green',
+    danger: 'bg-danger-strong',
+};
+
+/** One thing the reviewers asked for: when, what they said, and the way to each part named. */
+function RequestRow({
     request,
     onOpenStep,
     testID,
@@ -172,23 +224,33 @@ function RequestCard({
     readonly testID: string;
 }) {
     const { t } = useTranslation();
+    const formatter = useFormatter();
 
     return (
-        <Callout
+        <View
             testID={testID}
-            tone="warning"
             role="note"
-            title={t('b2bApplication:status.requestAskedOn', { date: request.requestedAt })}
-            body={request.message}
-            actions={
-                onOpenStep === undefined ? undefined : (
-                    <>
+            className="flex-row items-start gap-3 border-t border-stroke-subtle py-3.5 first:border-t-0"
+        >
+            <View className="h-10 w-10 items-center justify-center rounded-[13px] bg-warning-subtle">
+                <Icon name="alert" size="md" className="text-warning-on-subtle" />
+            </View>
+            <View className="min-w-0 flex-1">
+                <RNText className="text-base font-semibold text-content-primary text-start">
+                    {request.message}
+                </RNText>
+                <RNText className="mt-0.5 text-sm text-content-secondary text-start">
+                    {t('b2bApplication:status.requestAskedOn', {
+                        date: formatter.formatDate(request.requestedAt),
+                    })}
+                </RNText>
+                {onOpenStep === undefined ? null : (
+                    <View className="mt-2.5 flex-row flex-wrap gap-2">
                         {request.sections.map((section: B2BApplicationSection) => (
-                            <Button
+                            <ExtraSmallButton
                                 key={section}
                                 testID={`${testID}-section-${section}`}
-                                variant="secondary"
-                                size="sm"
+                                tone="secondary"
                                 label={t('b2bApplication:status.goToSection', {
                                     section: t(`b2bApplication:sections.${section}.title`),
                                 })}
@@ -198,11 +260,10 @@ function RequestCard({
                             />
                         ))}
                         {request.documentKinds.map((kind: B2BDocumentKind) => (
-                            <Button
+                            <ExtraSmallButton
                                 key={kind}
                                 testID={`${testID}-document-${kind}`}
-                                variant="secondary"
-                                size="sm"
+                                tone="secondary"
                                 label={t('b2bApplication:status.goToDocuments', {
                                     kind: t(`b2bApplication:documents.kinds.${kind}`),
                                 })}
@@ -211,9 +272,97 @@ function RequestCard({
                                 }}
                             />
                         ))}
-                    </>
-                )
-            }
-        />
+                    </View>
+                )}
+            </View>
+        </View>
+    );
+}
+
+/** The application's journey, in order — the stages the board's "Every stage" rail lists. */
+export const STAGES: readonly B2BApplicationState[] = [
+    'draft',
+    'submitted',
+    'in_review',
+    'info_requested',
+    'approved',
+    'agreement_pending',
+    'agreement_signed',
+    'provisioning',
+    'provisioned',
+];
+
+/**
+ * "Every stage": each stage a dot and its name — the ones behind ticked, the current one marked —
+ * so the person can see what comes next. A request for information is a detour, not a stage
+ * everybody passes, so it is only drawn while the application is in it.
+ */
+export function StageRail({
+    state,
+    testID,
+}: {
+    readonly state: B2BApplicationState;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const stages = STAGES.filter(
+        (stage) => stage !== 'info_requested' || state === 'info_requested',
+    );
+    const at = stages.indexOf(state);
+    if (at === -1) return null;
+    return (
+        <ExtraCard testID={testID} title={t('b2bApplication:status.everyStage')}>
+            <RNText className="text-sm text-content-secondary text-start">
+                {t('b2bApplication:status.everyStageBody')}
+            </RNText>
+            <View className="mt-3">
+                {stages.map((stage, index) => {
+                    const done = index < at;
+                    const now = index === at;
+                    return (
+                        <View key={stage} className="relative flex-row items-center gap-3 py-2">
+                            {index < stages.length - 1 ? (
+                                <View
+                                    aria-hidden
+                                    className="absolute bottom-[-8px] start-[13px] top-9 w-0.5 bg-stroke-subtle"
+                                />
+                            ) : null}
+                            <View
+                                className={cx(
+                                    'h-7 w-7 items-center justify-center rounded-full border-2',
+                                    done
+                                        ? 'border-surface-brand bg-surface-brand'
+                                        : now
+                                          ? 'border-warning-strong bg-warning-subtle'
+                                          : 'border-stroke bg-surface-raised',
+                                )}
+                            >
+                                {done ? (
+                                    <Icon
+                                        name="check"
+                                        size="sm"
+                                        className="text-content-on-brand"
+                                    />
+                                ) : now ? (
+                                    <View className="h-2 w-2 rounded-full bg-warning-strong" />
+                                ) : null}
+                            </View>
+                            <RNText
+                                className={cx(
+                                    'text-sm font-semibold text-start',
+                                    done
+                                        ? 'text-content-primary'
+                                        : now
+                                          ? 'text-warning-on-subtle'
+                                          : 'text-content-secondary',
+                                )}
+                            >
+                                {t(`b2bApplication:status.${stage}.label`)}
+                            </RNText>
+                        </View>
+                    );
+                })}
+            </View>
+        </ExtraCard>
     );
 }

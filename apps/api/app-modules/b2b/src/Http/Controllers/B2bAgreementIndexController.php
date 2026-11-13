@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\B2b\Http\Controllers;
 
+use Healthy360\B2b\Enums\AgreementStatus;
 use Healthy360\B2b\Http\Concerns\ResolvesAuthenticatedUser;
 use Healthy360\B2b\Models\B2bAgreement;
 use Healthy360\B2b\Presenters\B2bAgreementPresenter;
@@ -52,6 +53,9 @@ final class B2bAgreementIndexController
 
         $agreements = B2bAgreement::query()
             ->where('b2b_application_id', $record->getKey())
+            // A draft is the reviewer's working copy, not something put in
+            // front of the company yet.
+            ->where('status', '!=', AgreementStatus::Draft->value)
             ->orderByDesc('version')
             ->get();
 

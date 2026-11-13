@@ -14,9 +14,9 @@ use Healthy360\Inventory\Services\NullSubscriptionMealDemand;
  * Inventory declares the question; it never learns who answers it. The forecast
  * lives here because the half nobody can move lives here — `MealExplosion`,
  * `stock_items`, `stock_levels` and `par_level` are this module's own rows — and
- * the two other demand populations it needs are already reachable: `order_lines`
- * over the declared Inventory → Orders edge, and `plan_menu_entries` over
- * Inventory → Catalogues. Subscriptions is the one book it may not open. So this
+ * the other demand population it needs is already reachable: `order_lines`
+ * over the declared Inventory → Orders edge. Subscriptions is the one book it
+ * may not open. So this
  * is an ordinary port, the mirror image of `OrderStockConsumption`:
  * `InventoryServiceProvider` binds {@see NullSubscriptionMealDemand}
  * as a default, and the subscriptions module binds the real implementation over
@@ -44,12 +44,11 @@ use Healthy360\Inventory\Services\NullSubscriptionMealDemand;
  * for days no order exists for yet — the same predicate `SubscriptionOutlook`
  * uses for its `scheduled` basis, and by construction for its `projected` one.
  *
- * **Any resolution of what a slot will contain when nobody has chosen.** That is
- * the plan's menu, which lives in Catalogues, which the forecast can read for
- * itself — and must, because the same read has to record *why* a slot could not
- * be resolved (`plan_has_no_menu`, a withdrawn dish) in the forecast's own
- * vocabulary. A port that pre-resolved it would put half the reason taxonomy on
- * the far side of the seam.
+ * **Any guess at what a sitting nobody chose will contain.** Generation fills
+ * such a day by repeating the customer's own choices, but which ones depends on
+ * what they change before then; the forecast records the day as
+ * `meals_not_chosen` in its own vocabulary rather than this port inventing an
+ * answer.
  */
 interface SubscriptionMealDemand
 {
@@ -57,19 +56,19 @@ interface SubscriptionMealDemand
      * Every subscription day in this window that is not already an order, and
      * every meal choice standing against those days.
      *
-     * `days` is one entry per subscription per day, carrying the plan so the
-     * caller can read its menu, the meals and snacks a day the subscriber
-     * bought so it can cut that menu to them (null serves the whole menu day),
-     * and the basis so a caller that wants to weigh a
+     * `days` is one entry per subscription per day, carrying the plan, the
+     * meals and snacks a day the subscriber bought so a caller can tell a day
+     * whose sittings are not all chosen, and the basis so a caller that wants
+     * to weigh a
      * claim differently from a forecast still can. `choices` is flat rather than
      * nested under its day because the caller tallies it as its own population
-     * — a chosen dish is demand whether or not the menu also names one — and it
+     * — a chosen dish is demand — and it
      * is restricted to the days in `days` for the double-counting reason above.
      *
      * `sequence` is an int and `slot` one of `breakfast|lunch|dinner|snack`,
-     * the four words `subscription_meal_choices` and `plan_menu_entries` both
-     * store; together with `delivery_date` and `subscription_id` they are the
-     * coordinate a caller matches a menu entry against.
+     * the four words `subscription_meal_choices` stores; together with
+     * `delivery_date` and `subscription_id` they are the coordinate of one
+     * sitting.
      *
      * @param  string|null  $branchId  narrow to one production site, or null for the whole organisation
      * @return array{

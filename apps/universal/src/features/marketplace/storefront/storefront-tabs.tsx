@@ -1,18 +1,19 @@
-import { cx, useIsCoarsePointer } from '@healthy360/design-system';
+import { cx, useBreakpoint } from '@healthy360/design-system';
 import { Pressable, ScrollView, Text as RNText, View } from 'react-native';
 
 /**
- * The storefront's tab row — HealthZone `§isStorefront` `storeTabs`: bare labels 28px apart on a
- * hairline, the open one in the primary ink over a 2px brand underline, the rest secondary.
+ * The storefront's tab row, as the accepted shop board draws it: one white bar with a soft shadow,
+ * each tab a 48px rounded button, the open one in ink, and a small count beside a tab that has one
+ * (the menu's dishes) — brand-filled on the open tab.
  *
- * Not the design system's `Tabs`: its underline variant spaces tabs 4px apart with their own
- * padding and underlines in the focus ink, which is the admin's tab row. This is the customer
- * page's, and it scrolls sideways rather than wrapping when five labels do not fit a phone — the
- * design's `overflow-x: auto`.
+ * Not the design system's `Tabs`, which is the admin's underline row. This is the customer page's,
+ * and it scrolls sideways rather than wrapping when five labels do not fit a phone.
  */
 export interface StorefrontTabItem<T extends string> {
     readonly value: T;
     readonly label: string;
+    /** A count beside the label — the menu's dishes. */
+    readonly count?: string | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -31,19 +32,23 @@ export function StorefrontTabs<T extends string>({
     onChange,
     testID,
 }: StorefrontTabsProps<T>) {
-    const coarse = useIsCoarsePointer();
-
+    // Shop · Kitchens, phone board: separate 42px chips, the chosen one in ink.
+    const phone = !useBreakpoint().atLeast('md');
     return (
-        <View className="relative">
-            {/* The row's hairline, under the tabs so the open tab's underline covers it. */}
-            <View className="absolute bottom-0 end-0 start-0 h-px bg-stroke" />
+        <View
+            className={
+                phone
+                    ? 'border-b border-stroke-subtle py-2.5'
+                    : 'rounded-[20px] border border-stroke-subtle bg-surface-raised p-1.5 shadow-elevation-2'
+            }
+        >
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 <View
                     testID={testID}
                     role="tablist"
                     accessibilityRole="tablist"
                     aria-label={label}
-                    className="flex-row gap-7"
+                    className="flex-row gap-1.5"
                 >
                     {items.map((item) => {
                         const selected = item.value === value;
@@ -59,9 +64,20 @@ export function StorefrontTabs<T extends string>({
                                     onChange(item.value);
                                 }}
                                 className={cx(
-                                    'shrink-0 justify-center border-b-2 py-3',
-                                    coarse ? 'min-h-touch' : null,
-                                    selected ? 'border-surface-brand' : 'border-transparent',
+                                    'shrink-0 flex-row items-center transition duration-normal ease-standard',
+                                    phone
+                                        ? cx(
+                                              'h-[42px] gap-1.5 rounded-xl border px-3.5',
+                                              selected
+                                                  ? 'border-content-primary bg-content-primary'
+                                                  : 'border-stroke-subtle bg-surface-raised',
+                                          )
+                                        : cx(
+                                              'h-12 gap-2 rounded-[14px] px-[18px]',
+                                              selected
+                                                  ? 'bg-content-primary'
+                                                  : 'hover:bg-surface-base',
+                                          ),
                                 )}
                             >
                                 <RNText
@@ -69,12 +85,31 @@ export function StorefrontTabs<T extends string>({
                                     className={cx(
                                         'text-sm font-semibold text-start',
                                         selected
-                                            ? 'text-content-primary'
+                                            ? 'text-surface-base'
                                             : 'text-content-secondary hover:text-content-primary',
                                     )}
                                 >
                                     {item.label}
                                 </RNText>
+                                {item.count === undefined ? null : (
+                                    <View
+                                        className={cx(
+                                            'h-5 min-w-[22px] items-center justify-center rounded-full px-1.5',
+                                            selected ? 'bg-surface-brand' : 'bg-surface-base',
+                                        )}
+                                    >
+                                        <RNText
+                                            className={cx(
+                                                'text-xs font-bold tabular-nums',
+                                                selected
+                                                    ? 'text-content-on-brand'
+                                                    : 'text-content-primary',
+                                            )}
+                                        >
+                                            {item.count}
+                                        </RNText>
+                                    </View>
+                                )}
                             </Pressable>
                         );
                     })}

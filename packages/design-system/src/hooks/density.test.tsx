@@ -57,7 +57,7 @@ describe('compact density', () => {
             );
             const classes: string = screen.getByTestId('save').props.className;
 
-            expect(classes).toContain(`h-control-${size}`);
+            expect(classes).toContain({ sm: 'h-desk-toolbar', md: 'h-10', lg: 'h-11' }[size]);
             // No touch floor, and no padding-derived height competing with the token.
             expect(classes).not.toContain('min-h-touch');
             expect(classes).not.toMatch(/\bpy-/);
@@ -103,8 +103,8 @@ describe('compact density', () => {
             </>,
         );
 
-        // 8px controls, the panel radius on panels.
-        expect(screen.getByTestId('save').props.className).toMatch(/(^|\s)rounded(\s|$)/);
+        // Pill buttons, the panel radius on panels.
+        expect(screen.getByTestId('save').props.className).toContain('rounded-full');
         const panel: string = screen.getByTestId('panel').props.className;
         expect(panel).toMatch(/\brounded\b/);
         expect(panel).not.toContain('rounded-xl');

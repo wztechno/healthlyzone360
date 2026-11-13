@@ -164,6 +164,30 @@ it('falls back to the customer\'s own phone when the order named no contact', fu
         ->and($row['assigned_at'])->toBeNull();
 });
 
+it('passes over an order contact that is retired or not a phone', function (string $kind): void {
+    // The desk retires a number when it is corrected, and an address could name
+    // an email. Either way the driver gets the live phone, not a dead one.
+    $accountId = (string) $this->world->customer->account->getKey();
+
+    $named = $kind === 'retired'
+        ? ContactPoint::factory()->phone()->forCustomerAccount($accountId)->create(['retired_at' => now()])
+        : ContactPoint::factory()->forCustomerAccount($accountId)->create();
+    $live = ContactPoint::factory()->phone()->forCustomerAccount($accountId)->create(['is_primary' => true]);
+
+    $order = Order::factory()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'customer_account_id' => $accountId,
+        'sales_channel_id' => $this->world->channel->getKey(),
+        'delivery_contact_point_id' => $named->getKey(),
+    ]);
+
+    smokeJob($this, $order, ['driver_user_id' => $this->world->tenant->user->getKey()]);
+
+    $row = $this->getJson('/api/v1/driver/jobs', $this->headers)->assertOk()->json('data.jobs.0');
+
+    expect($row['delivery']['phone'])->toBe($live->value_normalised);
+})->with(['retired', 'email']);
+
 it('keeps finished runs off the driver\'s sheet', function (): void {
     // A driver's list is what is left to do. The dispatch board is where a
     // completed run stays visible.
@@ -240,7 +264,7 @@ it('closes the order when the driver hands it over, with the cash against the dr
     ]);
     $job = smokeJob($this, $order, ['status' => 'assigned', 'tracking_status' => 'en_route', 'driver_user_id' => $driverId]);
 
-    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", [], $this->headers)
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", ['collected_minor' => $order->total_minor], $this->headers)
         ->assertOk()
         ->assertJsonPath('data.job.status', 'delivered');
 
@@ -263,7 +287,7 @@ it('leaves a cancelled order cancelled when its run is still marked delivered', 
     ]);
     $job = smokeJob($this, $order, ['status' => 'assigned', 'tracking_status' => 'en_route', 'driver_user_id' => $driverId]);
 
-    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", [], $this->headers)->assertOk();
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", ['collected_minor' => $order->total_minor], $this->headers)->assertOk();
 
     expect($order->refresh()->status)->toBe(OrderStatus::Cancelled)
         ->and(OrderPaymentReceipt::query()->where('order_id', $order->getKey())->count())->toBe(0)
@@ -357,7 +381,7 @@ it('tells the customer and the kitchen each step of the drive (HA-19)', function
         ->and($mine['delivered_at'])->toBeNull();
 
     $this->actingAs($this->world->tenant->user);
-    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", [], $this->headers)->assertOk();
+    $this->postJson("/api/v1/driver/jobs/{$job->getKey()}/deliver", ['collected_minor' => $order->total_minor], $this->headers)->assertOk();
 
     $this->actingAs($shopper);
     $mine = $this->getJson($orderPath, firstPartyHeaders())->assertOk()->json('data.order');

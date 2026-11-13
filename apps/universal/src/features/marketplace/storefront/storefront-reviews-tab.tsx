@@ -5,118 +5,78 @@ import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
 /**
- * The storefront's Reviews tab — HealthZone `§isStorefront` `storeIsReviews`: a summary card (the
- * average, its stars, the count, a bar per star) beside the list of written reviews.
- *
- * ## What the contract carries
- *
- * `Kitchen.rating` and `ratingCount` — the average and how many ratings make it, `null` until there
- * are enough. Nothing serves the per-star distribution or a single written review: no public
- * endpoint lists one. So:
- *
- * * the average and its stars are the kitchen's own, or "—" and "Not rated yet";
- * * the five bars are drawn empty with "—" for their share, because a distribution nobody published
- *   is not a zero distribution;
- * * the list holds one card saying there are no written reviews — never the design's samples.
+ * The storefront's Reviews tab, as the accepted shop board draws it: no public endpoint lists a
+ * written review, so the tab is the board's dashed empty card — "No reviews yet" — with the
+ * kitchen's own average and count above it once it has them. Never the board's sample reviews, and
+ * never a per-star breakdown nobody published.
  */
 export interface StorefrontReviewsTabProps {
     readonly kitchen: Kitchen;
 }
 
-const STARS = [5, 4, 3, 2, 1] as const;
+const STARS = [1, 2, 3, 4, 5] as const;
 
 export function StorefrontReviewsTab({ kitchen }: StorefrontReviewsTabProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const rating = kitchen.rating;
     const filled = rating === null ? 0 : Math.round(rating);
-    const none = t('marketplace:storefront.facts.none');
 
     return (
-        <View testID="kitchen-reviews-tab" className="flex-row flex-wrap items-start gap-4">
-            <View
-                testID="kitchen-reviews-summary"
-                className="min-w-[260px] flex-1 grow basis-[40%] rounded-xl border border-stroke bg-surface-raised p-5"
-            >
+        <View testID="kitchen-reviews-tab" className="flex-col gap-4">
+            {rating === null ? null : (
                 <View
-                    className="flex-row items-baseline gap-2.5"
+                    testID="kitchen-reviews-summary"
+                    className="flex-row flex-wrap items-center gap-4 rounded-3xl border border-stroke-subtle bg-surface-raised p-5"
                     accessible
-                    accessibilityLabel={
-                        rating === null
-                            ? t('marketplace:storefront.reviews.notRated')
-                            : t('marketplace:storefront.reviews.outOfFive', {
-                                  rating: formatter.formatNumber(rating),
-                              })
-                    }
+                    accessibilityLabel={t('marketplace:storefront.reviews.outOfFive', {
+                        rating: formatter.formatNumber(rating),
+                    })}
                 >
                     <RNText
                         testID="kitchen-reviews-average"
-                        className="font-display text-5xl font-bold tracking-display tabular-nums text-content-primary text-start"
+                        className="font-display text-5xl font-bold tabular-nums text-content-primary"
                     >
-                        {rating === null
-                            ? none
-                            : formatter.formatNumber(rating, {
-                                  minimumFractionDigits: 1,
-                                  maximumFractionDigits: 1,
-                              })}
+                        {formatter.formatNumber(rating, {
+                            minimumFractionDigits: 1,
+                            maximumFractionDigits: 1,
+                        })}
                     </RNText>
-                    <View className="flex-row gap-0.5" aria-hidden>
-                        {STARS.map((star) => (
-                            <Icon
-                                key={star}
-                                name={6 - star <= filled ? 'star' : 'starOutline'}
-                                size="sm"
-                                className="text-rating"
-                            />
-                        ))}
+                    <View className="flex-col gap-1">
+                        <View className="flex-row gap-0.5" aria-hidden>
+                            {STARS.map((star) => (
+                                <Icon
+                                    key={star}
+                                    name={star <= filled ? 'star' : 'starOutline'}
+                                    size="sm"
+                                    className="text-rating"
+                                />
+                            ))}
+                        </View>
+                        <RNText
+                            testID="kitchen-reviews-count"
+                            className="text-sm text-content-secondary text-start"
+                        >
+                            {t('marketplace:storefront.reviews.count', {
+                                count: kitchen.ratingCount,
+                                formattedCount: formatter.formatNumber(kitchen.ratingCount),
+                            })}
+                        </RNText>
                     </View>
                 </View>
-                <RNText
-                    testID="kitchen-reviews-count"
-                    className="text-sm text-content-secondary text-start"
-                >
-                    {rating === null
-                        ? t('marketplace:storefront.reviews.notRated')
-                        : t('marketplace:storefront.reviews.count', {
-                              count: kitchen.ratingCount,
-                              formattedCount: formatter.formatNumber(kitchen.ratingCount),
-                          })}
+            )}
+
+            <View
+                testID="kitchen-reviews-empty"
+                className="items-center gap-2 rounded-3xl border-2 border-dashed border-stroke px-6 py-12"
+            >
+                <Icon name="starOutline" size="lg" className="text-content-secondary" />
+                <RNText className="mt-2 font-display text-xl font-bold text-content-primary">
+                    {t('marketplace:storefront.reviews.emptyTitle')}
                 </RNText>
-
-                <View className="mt-4 flex-col gap-2" testID="kitchen-reviews-bars">
-                    {STARS.map((star) => (
-                        <View
-                            key={star}
-                            className="flex-row items-center gap-2.5"
-                            accessible
-                            accessibilityLabel={t('marketplace:storefront.reviews.barLabel', {
-                                star: formatter.formatNumber(star),
-                            })}
-                        >
-                            <RNText className="w-[18px] text-xs font-medium tabular-nums text-content-secondary text-start">
-                                {formatter.formatNumber(star)}
-                            </RNText>
-                            <View className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-sunken" />
-                            <RNText className="w-9 text-xs font-medium tabular-nums text-content-secondary text-end">
-                                {none}
-                            </RNText>
-                        </View>
-                    ))}
-                </View>
-            </View>
-
-            <View className="min-w-[260px] flex-1 grow basis-[40%] flex-col gap-3">
-                <View
-                    testID="kitchen-reviews-empty"
-                    className="flex-col gap-2 rounded-xl border border-stroke bg-surface-raised px-5 py-4"
-                >
-                    <RNText className="font-display text-base font-bold text-content-primary text-start">
-                        {t('marketplace:storefront.reviews.emptyTitle')}
-                    </RNText>
-                    <RNText className="text-sm leading-normal text-content-secondary text-start">
-                        {t('marketplace:storefront.reviews.emptyBody')}
-                    </RNText>
-                </View>
+                <RNText className="max-w-[420px] text-center text-sm text-content-secondary">
+                    {t('marketplace:storefront.reviews.emptyBody')}
+                </RNText>
             </View>
         </View>
     );

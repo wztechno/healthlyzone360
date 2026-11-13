@@ -87,6 +87,7 @@ export const QUERY_ROOTS = [
     'driverJobs',
     'accessAdmin',
     'kitchenCustomers',
+    'staffAlerts',
 ] as const;
 export type QueryRoot = (typeof QUERY_ROOTS)[number];
 
@@ -264,6 +265,9 @@ export const queryKeys = {
             ['commerce', 'subscription', 'quote', request] as const,
         subscriptionMealChoices: (subscriptionId: SubscriptionId, date: string) =>
             ['commerce', 'subscription', subscriptionId, 'meal-choices', date] as const,
+        /** The customer's meals, day by day — under the subscription, so every mutation refreshes it. */
+        subscriptionDays: (subscriptionId: SubscriptionId) =>
+            ['commerce', 'subscription', subscriptionId, 'days'] as const,
     },
 
     /**
@@ -348,6 +352,9 @@ export const queryKeys = {
         recipes: (filter?: QueryScope) => ['kitchenAdmin', 'recipes', scope(filter)] as const,
         recipeTechnicalSheet: (recipeId: RecipeId, versionId: string) =>
             ['kitchenAdmin', 'recipe', recipeId, 'technical-sheet', versionId] as const,
+        /** Up to twenty recipes' sheets in one read, for printing; the ids sorted so order is not identity. */
+        recipeTechnicalSheets: (recipeIds: readonly string[]) =>
+            ['kitchenAdmin', 'recipe-technical-sheets', [...recipeIds].sort().join(',')] as const,
         recipesPage: (filter: QueryScope | undefined, page: number) =>
             ['kitchenAdmin', 'recipes', 'page', scope(filter), page] as const,
         recipe: (recipeId: RecipeId) => ['kitchenAdmin', 'recipe', recipeId] as const,
@@ -371,6 +378,7 @@ export const queryKeys = {
         itemChannelPrices: (itemId: string) =>
             ['kitchenAdmin', 'itemChannelPrices', itemId] as const,
         sellableChannels: () => ['kitchenAdmin', 'sellableChannels'] as const,
+        itemPacks: (itemId: string) => ['kitchenAdmin', 'itemPacks', itemId] as const,
 
         priceLists: (filter?: QueryScope) =>
             ['kitchenAdmin', 'price-lists', scope(filter)] as const,
@@ -388,15 +396,6 @@ export const queryKeys = {
         plansPage: (filter: QueryScope | undefined, page: number) =>
             ['kitchenAdmin', 'plans', 'page', scope(filter), page] as const,
         plan: (planId: SubscriptionPlanId) => ['kitchenAdmin', 'plan', planId] as const,
-        /**
-         * The plan's fixed menu — its own entry rather than part of the record.
-         *
-         * `getPlan` does not carry it and the editor's other four sections do not need it, so
-         * folding it into the detail key would make every plan read fetch a menu nobody asked for.
-         * Saving the menu invalidates both: the write moves the *item's* lock version, which is the
-         * number the other four sections send with their next save.
-         */
-        planMenu: (planId: SubscriptionPlanId) => ['kitchenAdmin', 'plan-menu', planId] as const,
 
         zones: (filter?: QueryScope) => ['kitchenAdmin', 'zones', scope(filter)] as const,
         zonesPage: (filter: QueryScope | undefined, page: number) =>
@@ -440,8 +439,19 @@ export const queryKeys = {
     kitchenOps: {
         all: () => ['kitchenOps'] as const,
         stockItems: () => ['kitchenOps', 'stock-items'] as const,
-        stockLevels: () => ['kitchenOps', 'stock-levels'] as const,
-        lowStockCount: () => ['kitchenOps', 'low-stock-count'] as const,
+        activity: (filter?: QueryScope) => ['kitchenOps', 'activity', scope(filter)] as const,
+        stockActivity: (filter?: QueryScope) =>
+            ['kitchenOps', 'stock-activity', scope(filter)] as const,
+        /**
+         * Keyed on the branch: the server narrows the levels through `X-Branch-Id`, and nothing
+         * clears the cache when the picker switches branch, so without the branch in the key the
+         * second branch would read the first one's shelves until a refetch happened to run.
+         */
+        stockLevels: (branchId: string | null) =>
+            ['kitchenOps', 'stock-levels', branchId ?? ''] as const,
+        /** Keyed on the branch for the same reason as `stockLevels` above. */
+        lowStockCount: (branchId: string | null) =>
+            ['kitchenOps', 'low-stock-count', branchId ?? ''] as const,
         suppliers: (filter: object = {}) => ['kitchenOps', 'suppliers', filter] as const,
         supplier: (supplierId: SupplierId) => ['kitchenOps', 'supplier', supplierId] as const,
         procurementReference: () => ['kitchenOps', 'procurement-reference'] as const,
@@ -525,9 +535,15 @@ export const queryKeys = {
          */
         spendSummary: (filter: object = {}) => ['kitchenOps', 'spend-summary', filter] as const,
         costReport: (filter: object = {}) => ['kitchenOps', 'cost-report', filter] as const,
+        payables: () => ['kitchenOps', 'payables'] as const,
+        dishMargins: () => ['kitchenOps', 'dish-margins'] as const,
+        analytics: (from: string, to: string) => ['kitchenOps', 'analytics', from, to] as const,
         consumptionExceptions: (filter: object = {}) =>
             ['kitchenOps', 'consumption-exceptions', filter] as const,
         consumptionExceptionCount: () => ['kitchenOps', 'consumption-exception-count'] as const,
+        duplicateStock: () => ['kitchenOps', 'duplicate-stock'] as const,
+        branchClosures: () => ['kitchenOps', 'branch-closures'] as const,
+        kitchenSetup: () => ['kitchenOps', 'kitchen-setup'] as const,
         consumptionExceptionTotals: () => ['kitchenOps', 'consumption-exception-totals'] as const,
         /*
          * The desk queue is filtered (status, branch, page), so the filter is
@@ -555,6 +571,10 @@ export const queryKeys = {
         inventoryValue: () => ['kitchenOps', 'inventory-value'] as const,
         pendingProductionValuations: () => ['kitchenOps', 'pending-production-valuations'] as const,
         qualityChecks: () => ['kitchenOps', 'quality-checks'] as const,
+        temperatureLog: (month?: string) =>
+            month === undefined
+                ? (['kitchenOps', 'temperature-log'] as const)
+                : (['kitchenOps', 'temperature-log', month] as const),
     },
 
     /**
@@ -579,6 +599,9 @@ export const queryKeys = {
         all: () => ['kitchenOrders'] as const,
         list: (filter?: QueryScope) => ['kitchenOrders', 'list', scope(filter)] as const,
         order: (orderId: OrderId) => ['kitchenOrders', 'order', orderId] as const,
+        refunds: (orderId: OrderId) => ['kitchenOrders', 'refunds', orderId] as const,
+        complaints: () => ['kitchenOrders', 'complaints'] as const,
+        display: () => ['kitchenOrders', 'display'] as const,
     },
 
     /**
@@ -624,11 +647,14 @@ export const queryKeys = {
          * the request body's size, not about whether it changes anything.
          */
         quote: (request?: QueryScope) => ['orderDesk', 'quote', scope(request)] as const,
+        dishChoices: (itemId: string) => ['orderDesk', 'dishChoices', itemId] as const,
+        dishOptions: (itemId: string) => ['orderDesk', 'dishOptions', itemId] as const,
         /**
          * The customer search behind the sale wizard. Keyed on the query text alone: the endpoint
          * takes nothing else, and the org scope is the transport's.
          */
         customers: (query: string) => ['orderDesk', 'customers', query] as const,
+        customerAllergies: (id: string) => ['orderDesk', 'customer-allergies', id] as const,
         /**
          * The same orders counted by *date* rather than by due-ness.
          *
@@ -638,6 +664,7 @@ export const queryKeys = {
          * week stay in cache while somebody arrows back and forth over a month.
          */
         calendar: (filter?: QueryScope) => ['orderDesk', 'calendar', scope(filter)] as const,
+        planMeals: (day: string) => ['orderDesk', 'planMeals', day] as const,
         /**
          * What one branch must buy for a window. Keyed on the whole filter (shape rule 3): the
          * range and the **branch** together are the view, and the branch in particular is not a
@@ -654,6 +681,8 @@ export const queryKeys = {
          */
         shortfallCount: (branchId: string | null) =>
             ['orderDesk', 'shortfall-count', branchId] as const,
+        /** The kitchen home's Today card; `null` keys the whole kitchen. */
+        today: (branchId: string | null) => ['orderDesk', 'today', branchId] as const,
         /** The latest weekly stock check for a branch; `null` keys "no shelf chosen". */
         weeklyCheck: (branchId: string | null) => ['orderDesk', 'weekly-check', branchId] as const,
         /**
@@ -681,6 +710,8 @@ export const queryKeys = {
          * disk.
          */
         cashReport: (filter?: QueryScope) => ['orderDesk', 'cash-report', scope(filter)] as const,
+        settlements: () => ['orderDesk', 'settlements'] as const,
+        closes: () => ['orderDesk', 'closes'] as const,
     },
 
     /**
@@ -719,6 +750,20 @@ export const queryKeys = {
     },
 
     /**
+     * ── staffAlerts: the top-bar bell and the service timings behind it ─────────────────────────
+     * ────────────────────────────────────────────────────────────────────────────────────────────
+     *
+     * Two entries under one root, invalidated apart, so reading an alert does not refetch the
+     * timings. **Never persisted**: the alerts are one person's, on a tablet the kitchen shares.
+     */
+    staffAlerts: {
+        all: () => ['staffAlerts'] as const,
+        list: () => ['staffAlerts', 'list'] as const,
+        serviceSettings: () => ['staffAlerts', 'service-settings'] as const,
+        storefrontProfile: () => ['staffAlerts', 'storefront-profile'] as const,
+    },
+
+    /**
      * ── account: the D2C account area (J1) ──────────────────────────────────────────────────────
      *
      * `overview` and `checklist` are separate entries over overlapping data on purpose. The
@@ -741,6 +786,8 @@ export const queryKeys = {
         addresses: () => ['account', 'addresses'] as const,
         address: (addressId: string) => ['account', 'address', addressId] as const,
         dietaryProfile: () => ['account', 'dietary-profile'] as const,
+        /** "Add a food": ingredients matching what the person typed. */
+        dietaryIngredients: (query: string) => ['account', 'dietary-ingredients', query] as const,
         consents: () => ['account', 'consents'] as const,
         /**
          * The closed list of areas an address may point at.
@@ -869,6 +916,25 @@ export const queryKeys = {
         all: () => ['platformAdmin'] as const,
         kitchens: (filter?: QueryScope) => ['platformAdmin', 'kitchens', scope(filter)] as const,
         kitchen: (kitchen: string) => ['platformAdmin', 'kitchen', kitchen] as const,
+    },
+
+    /**
+     * The platform reviewer's B2B onboarding queue and files.
+     *
+     * Its own root, never persisted: it carries applicants' identity documents' metadata, internal
+     * notes and contact details for companies the reader is not part of.
+     */
+    platformB2b: {
+        all: () => ['platformB2b'] as const,
+        applications: (filter?: QueryScope) =>
+            ['platformB2b', 'applications', scope(filter)] as const,
+        application: (applicationId: string) =>
+            ['platformB2b', 'application', applicationId] as const,
+        agreements: (applicationId: string) =>
+            ['platformB2b', 'agreements', applicationId] as const,
+        sellerPriceLists: () => ['platformB2b', 'sellerPriceLists'] as const,
+        invitations: (applicationId: string) =>
+            ['platformB2b', 'invitations', applicationId] as const,
     },
 
     /**

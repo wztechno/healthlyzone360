@@ -1,7 +1,6 @@
 import { PLAN_DURATION_KINDS } from '@healthy360/api-client/contracts';
 import type { PlanDurationKind } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     DataList,
     Icon,
     IconButton,
@@ -21,6 +20,7 @@ import { withDurationKind } from './plan-matrix.ts';
 import type { DurationDraft, DurationError, VariantDraft } from './plan-matrix.ts';
 import { UndoBar } from './row-editor-shell.tsx';
 
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * The plan editor's two repeated-row editors (K1.6): configurations and durations.
  *
@@ -119,7 +119,7 @@ export function PlanVariantRows({
                                 testID={rowTestId}
                                 title={t('kitchen:plans.variantNumber', { number: index + 1 })}
                                 badge={
-                                    <Badge
+                                    <DeskChip
                                         testID={`${rowTestId}-badge`}
                                         tone={row.isActive ? 'success' : 'neutral'}
                                         label={

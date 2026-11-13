@@ -108,6 +108,9 @@ final readonly class LastPurchasePriceQuery
      * dropping the row, because "bought, source not recorded" is a truer answer
      * than silence.
      *
+     * `$receivedBefore` asks what the last price was at that moment, which is what a
+     * delivery being compared needs: it must not find itself, or a newer one.
+     *
      * @param  list<string>  $stockItemIds
      * @return array<string, array{
      *     stock_item_id: string,
@@ -122,13 +125,14 @@ final readonly class LastPurchasePriceQuery
      *     supplier: array{id: string, code: string, name_en: string}|null
      * }>
      */
-    public function perItem(string $organisationId, array $stockItemIds): array
+    public function perItem(string $organisationId, array $stockItemIds, ?CarbonImmutable $receivedBefore = null): array
     {
         if ($stockItemIds === []) {
             return [];
         }
 
         $rows = $this->newestPricedLines($organisationId, $stockItemIds)
+            ->when($receivedBefore !== null, static fn (QueryBuilder $query): QueryBuilder => $query->where('receipt.received_at', '<', $receivedBefore))
             ->leftJoin('suppliers as supplier', 'supplier.id', '=', 'receipt.supplier_id')
             ->addSelect([
                 'supplier.id as supplier_id',

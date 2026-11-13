@@ -12,6 +12,7 @@ import type {
     IngredientAdmin,
     IngredientAdminFilter,
     IngredientAssistSuggestion,
+    ItemPacks,
     MealAdmin,
     NutritionReferenceCandidate,
     ProductAdmin,
@@ -35,6 +36,7 @@ import {
     IngredientId,
     KitchenId,
     MealId,
+    PriceListId,
     ProductId,
     RecipeId,
     RoleId,
@@ -72,8 +74,10 @@ import {
     unitsInDimension,
     withoutMinus,
 } from './format.ts';
+import { usePacksTab } from './packs-prices-section.tsx';
 import { RecipeEditScreen } from './screens/recipe-edit-screen.tsx';
 import { RecipesScreen } from './screens/recipes-screen.tsx';
+import { getRecordAction } from '../../testing/record-actions.ts';
 
 /**
  * The recipe half of the kitchen workspace, against a world this file declares.
@@ -206,10 +210,6 @@ const LINE_PICKER_TRIGGER = `${LINE_PICKER}-trigger`;
 
 /** The row testIDs the line table draws, one per drawn line. */
 const LINE_ROWS = /^kitchen-recipe-lines-table-row-.+-name$/;
-
-/** The same control on the Packaging tab — one component, two tabs, two testID roots. */
-const PACKAGING_PICKER = 'kitchen-recipe-packaging-table-picker';
-const PACKAGING_PICKER_TRIGGER = `${PACKAGING_PICKER}-trigger`;
 
 /** Every option the panel is currently offering. The panel scrolls; it no longer truncates. */
 const LINE_PICKER_OPTIONS = /^kitchen-recipe-lines-table-picker-option-/;
@@ -381,6 +381,9 @@ function recipeVersion({
         estimatedCost: { amount: 12, currency: 'AED' },
         derivationStale: false,
         publishedAt: null,
+        reviewReason: null,
+        previousLabel: null,
+        lockVersion: 1,
         ...overrides,
     };
 }
@@ -775,6 +778,24 @@ function computedFor(
             ingredientId: line.ingredientId,
             cost: complete ? packageCost : null,
         })),
+        /*
+         * One entry per pack sent, under its key: $0.95 of contents and $0.35 of packaging. A pack
+         * with no container is withheld as `packaging_unknown`, contents still stated — S5.
+         */
+        packs: (draft.packs ?? []).map((pack) => {
+            const known = pack.components.some((component) => component.isContainer);
+            return {
+                key: pack.key,
+                contents: complete ? usd(0.95) : null,
+                packaging: complete && known ? usd(0.35) : null,
+                cost: complete && known ? usd(1.3) : null,
+                withheldReason: !complete
+                    ? ('production_incomplete' as const)
+                    : known
+                      ? null
+                      : ('packaging_unknown' as const),
+            };
+        }),
     };
 }
 
@@ -980,6 +1001,28 @@ describe('recipe display helpers', () => {
         );
         expect(recipeRollupHash(boxed)).not.toBe(
             recipeRollupHash({ ...boxed, packagingWastePercent: 5 }),
+        );
+
+        // Each pack is costed under its key, so a fill changed on Packs & prices is a new question.
+        const packed: RecipeRollupDraft = {
+            ...draft,
+            packs: [
+                {
+                    key: 'new-1',
+                    fillQuantity: 0.5,
+                    fillUnit: 'kg',
+                    components: [
+                        { ingredientId: MAPPED_INGREDIENT.id, quantity: 1, isContainer: true },
+                    ],
+                },
+            ],
+        };
+        expect(recipeRollupHash(draft)).not.toBe(recipeRollupHash(packed));
+        expect(recipeRollupHash(packed)).not.toBe(
+            recipeRollupHash({
+                ...packed,
+                packs: [{ ...packed.packs![0]!, fillQuantity: 0.46 }],
+            }),
         );
     });
 
@@ -1205,26 +1248,33 @@ describe('the recipe list', () => {
             repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
         });
 
-        await untilVisible('kitchen-recipes-kind');
-        expect(screen.getByTestId('kitchen-recipes-kind-sauce')).toBeSelected();
-        expect(screen.getByTestId('kitchen-recipes-kind-all')).not.toBeSelected();
-        // The page asked for sauces — not only the strip's counts, which ask for one row each.
+        await untilVisible('kitchen-recipes-kind-trigger');
+        expect(screen.getByTestId('kitchen-recipes-kind-trigger')).toHaveTextContent(/Sauce/);
+        // The page asked for sauces — not only the picker's counts, which ask for one row each.
         await waitFor(() => {
             expect(
                 listing.filters.some((sent) => sent.kind === 'sauce' && sent.perPage !== 1),
             ).toBe(true);
         });
 
-        // The URL is the tab's only copy, so a press writes the URL and nothing else.
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipes-kind-meal'));
-        });
+        // The URL is the kind's only copy, so a pick writes the URL and nothing else.
+        // The URL is mocked, so a pick does not re-render the page: the menu may still be open.
+        const pick = async (kind: string) => {
+            if (screen.queryByTestId(`kitchen-recipes-kind-${kind}`) === null) {
+                await act(async () => {
+                    fireEvent.press(screen.getByTestId('kitchen-recipes-kind-trigger'));
+                });
+            }
+            await untilVisible(`kitchen-recipes-kind-${kind}`);
+            await act(async () => {
+                fireEvent.press(screen.getByTestId(`kitchen-recipes-kind-${kind}`));
+            });
+        };
+        await pick('meal');
         expect(routerMock.__setParams).toHaveBeenLastCalledWith({ kind: 'meal' });
 
         // All is the absence of a kind, written as an empty parameter rather than a stale one.
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipes-kind-all'));
-        });
+        await pick('all');
         expect(routerMock.__setParams).toHaveBeenLastCalledWith({ kind: '' });
     });
 
@@ -1263,19 +1313,20 @@ describe('the recipe list', () => {
             repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
         });
 
-        // The figure is an annotation, out of the tab's accessible name, so it is asked for as such.
-        const count = (tab: string) =>
-            screen.getByTestId(`kitchen-recipes-kind-${tab}-count`, {
-                includeHiddenElements: true,
-            });
-        await waitFor(() => {
-            expect(count('sauce')).toHaveTextContent('2');
+        // The counts ride on the Kind picker's options.
+        await untilVisible('kitchen-recipes-kind-trigger');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-kind-trigger'));
         });
-        expect(count('meal')).toHaveTextContent('1');
-        expect(count('dressing')).toHaveTextContent('0');
-        expect(count('frozen_meal')).toHaveTextContent('0');
-        expect(count('preparation')).toHaveTextContent('1');
-        expect(count('all')).toHaveTextContent('4');
+        const count = (kind: string) => screen.getByTestId(`kitchen-recipes-kind-${kind}`);
+        await waitFor(() => {
+            expect(count('sauce')).toHaveTextContent(/· 2$/);
+        });
+        expect(count('meal')).toHaveTextContent(/· 1$/);
+        expect(count('dressing')).toHaveTextContent(/· 0$/);
+        expect(count('frozen_meal')).toHaveTextContent(/· 0$/);
+        expect(count('preparation')).toHaveTextContent(/· 1$/);
+        expect(count('all')).toHaveTextContent(/· 4$/);
         // One row per kind: the count is the pager's own `totalCount`, so nothing walks pages.
         expect(listing.filters).toContainEqual({ kind: 'dressing', page: 1, perPage: 1 });
     });
@@ -1300,24 +1351,93 @@ describe('the recipe list', () => {
             repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
         });
 
-        // The card is drawn while the page loads, with a placeholder where its figure goes; the
-        // figure is what says the listing has landed.
-        await untilVisible('kitchen-recipes-stats-onSale-value');
+        // The figure is drawn while the page loads, with a placeholder where its number goes; the
+        // number is what says the listing has landed.
+        await untilVisible('kitchen-recipes-toolbar-figure-onSale-value');
         // The sauce's item is live; the meal's is a draft, and the marination sells nothing.
-        expect(screen.getByTestId('kitchen-recipes-stats-onSale-value')).toHaveTextContent('1');
-        expect(screen.getByTestId('kitchen-recipes-stats-review')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-recipes-toolbar-figure-onSale-value')).toHaveTextContent(
+            '1',
+        );
+        expect(screen.getByTestId('kitchen-recipes-toolbar-figure-review')).toBeTruthy();
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipes-stats-onSale'));
+            fireEvent.press(screen.getByTestId('kitchen-recipes-toolbar-figure-onSale'));
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-recipes-stats-shown-value')).toHaveTextContent('1');
+            expect(screen.getByTestId('kitchen-recipes-toolbar-result')).toHaveTextContent(
+                '1 of 1',
+            );
         });
         expect(listing.filters.some((sent) => sent.sellingStatus === 'published')).toBe(true);
+        // The filter shows as a token, and the token lets go of it.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-toolbar-token-onSale-remove'));
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-recipes-toolbar-result')).toHaveTextContent(
+                '3 of 3',
+            );
+        });
     });
 
-    it('trades Awaiting review for No pack on a packaged tab', async () => {
+    it('narrows to a status from its figure without zeroing the other figures', async () => {
+        const listing = recordedListing(() => [
+            recipe({ ordinal: 1, name: 'Tabbouleh', overrides: { meta: meta() } }),
+            recipe({
+                ordinal: 2,
+                name: 'Fattoush',
+                overrides: { meta: meta({ status: 'published' }) },
+            }),
+            recipe({
+                ordinal: 3,
+                name: 'Hummus',
+                overrides: { meta: meta({ status: 'published' }) },
+            }),
+        ]);
+
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listRecipes: listing.listRecipes } },
+        });
+
+        await untilVisible('kitchen-recipes-toolbar-figure-draft-value');
+        expect(screen.getByTestId('kitchen-recipes-toolbar-figure-draft-value')).toHaveTextContent(
+            '1',
+        );
+        expect(
+            screen.getByTestId('kitchen-recipes-toolbar-figure-published-value'),
+        ).toHaveTextContent('2');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-toolbar-figure-draft'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-recipes-toolbar-result')).toHaveTextContent(
+                '1 of 1',
+            );
+        });
+        expect(listing.filters.some((sent) => sent.statuses?.includes('draft') === true)).toBe(
+            true,
+        );
+        // Published still counts the scope, not the narrowed list.
+        expect(
+            screen.getByTestId('kitchen-recipes-toolbar-figure-published-value'),
+        ).toHaveTextContent('2');
+        expect(screen.getByTestId('kitchen-recipes-toolbar-token-status-draft')).toBeTruthy();
+
+        // Clear lets go of the status; the kind, a scope, would stay.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipes-toolbar-clear'));
+        });
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-recipes-toolbar-token-status-draft')).toBeNull();
+        });
+        expect(screen.queryByTestId('kitchen-recipes-toolbar-clear')).toBeNull();
+    });
+
+    it('adds No pack on a packaged tab, keeping Awaiting review like every catalogue page', async () => {
         routerState.params = { kind: 'sauce' };
         const listing = recordedListing(() => [
             recipe({
@@ -1350,9 +1470,11 @@ describe('the recipe list', () => {
 
         // A sauce with no pack has nothing a price list can point at — the figure the sauces page
         // showed in this slot. Read-only, because the contract has no parameter for it.
-        await untilVisible('kitchen-recipes-stats-noPack-value');
-        expect(screen.getByTestId('kitchen-recipes-stats-noPack-value')).toHaveTextContent('1');
-        expect(screen.queryByTestId('kitchen-recipes-stats-review')).toBeNull();
+        await untilVisible('kitchen-recipes-toolbar-figure-noPack-value');
+        expect(screen.getByTestId('kitchen-recipes-toolbar-figure-noPack-value')).toHaveTextContent(
+            '1',
+        );
+        expect(screen.getByTestId('kitchen-recipes-toolbar-figure-review')).toBeTruthy();
     });
 
     it.each(RECIPE_KINDS)(
@@ -1427,9 +1549,9 @@ describe('the recipe list', () => {
         });
 
         await untilVisible('kitchen-recipes-table');
-        expect(screen.queryByTestId('kitchen-recipes-kind')).toBeNull();
-        expect(screen.queryByTestId('kitchen-recipes-stats-onSale')).toBeNull();
-        expect(screen.getByTestId('kitchen-recipes-stats-review')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-recipes-kind-trigger')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipes-toolbar-figure-onSale')).toBeNull();
+        expect(screen.getByTestId('kitchen-recipes-toolbar-figure-review')).toBeTruthy();
 
         // Not hidden but absent: the picker does not offer the seller tracks at all.
         await act(async () => {
@@ -1452,6 +1574,50 @@ describe('the recipe list', () => {
 /* ------------------------------------------------------------------------------------------------
  * The list at desk width
  * ---------------------------------------------------------------------------------------------- */
+
+describe('the recipe list — technical sheets', () => {
+    const TOOLBAR = 'kitchen-recipes-toolbar';
+
+    async function pressSheets(book: readonly RecipeAdmin[]) {
+        await renderStubScreen(<RecipesScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { listRecipes: recipeListing(() => book) } },
+        });
+        await untilVisible('kitchen-recipes-table');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-export`));
+        });
+        await untilVisible(`${TOOLBAR}-export-pdf-sheets`);
+        // Disabled until the whole filtered set — every page, not this one — has landed.
+        await waitFor(() => {
+            expect(screen.getByTestId(`${TOOLBAR}-export-pdf-sheets`)).not.toBeDisabled();
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-export-pdf-sheets`));
+        });
+    }
+
+    it('opens one sheet per recipe the list holds, in the order it shows them', async () => {
+        // Authored out of order; the book sorts by reference, digits as numbers.
+        await pressSheets([3, 1, 2].map((ordinal) => recipe({ ordinal })));
+
+        const ids = [1, 2, 3].map((ordinal) => String(recipeIdentifier(ordinal)));
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            `/kitchen/recipes/sheets?recipes=${ids.join(',')}`,
+        );
+    });
+
+    it('refuses a batch over the server’s cap with a toast, and navigates nowhere', async () => {
+        await pressSheets(Array.from({ length: 21 }, (_, index) => recipe({ ordinal: index + 1 })));
+
+        await untilVisible('kitchen-recipes-sheets-too-many-toast');
+        expect(screen.getByTestId('kitchen-recipes-sheets-too-many-toast')).toHaveTextContent(
+            /up to 20 recipes at a time; this list has 21/,
+        );
+        expect(routerMock.__push).not.toHaveBeenCalled();
+    });
+});
 
 /**
  * `/kitchen/recipes` is a desk surface, and above `md` the Catalogue draws a record as tracks
@@ -1656,7 +1822,7 @@ describe('the recipe list at desk width', () => {
         // Allergens filters but does not sort, so its arrow is never the black one a sorted column
         // earns: `-affordance`, never `-sorted`, and pointing up until something is applied.
         expect(screen.queryByTestId('kitchen-recipes-column-allergens-sorted', hidden)).toBeNull();
-        expect(glyph('kitchen-recipes-column-allergens-affordance')).toBe('\u2191');
+        expect(glyph('kitchen-recipes-column-allergens-affordance')).toBe('\u2304');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipes-column-allergens-trigger'));
@@ -1672,7 +1838,7 @@ describe('the recipe list at desk width', () => {
         // The arrow turns over. A shape, not a shade — a filtered column a reader cannot see is a
         // filter they cannot clear.
         await waitFor(() => {
-            expect(glyph('kitchen-recipes-column-allergens-affordance')).toBe('\u2193');
+            expect(glyph('kitchen-recipes-column-allergens-affordance')).not.toBe('\u2304');
         });
 
         // And the way out is inside the menu the mark points at.
@@ -1685,7 +1851,7 @@ describe('the recipe list at desk width', () => {
         });
 
         await waitFor(() => {
-            expect(glyph('kitchen-recipes-column-allergens-affordance')).toBe('\u2191');
+            expect(glyph('kitchen-recipes-column-allergens-affordance')).toBe('\u2304');
         });
     });
 
@@ -1865,8 +2031,9 @@ describe('the recipe list at desk width', () => {
         await untilVisible('kitchen-recipes-view');
         expect(routerMock.__setParams).toHaveBeenLastCalledWith({ view: String(kept.id) });
 
+        const action = await getRecordAction('kitchen-recipes-view', 'kitchen-recipes-view-edit');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipes-view-edit'));
+            fireEvent.press(action);
         });
         // The editor's Cancel, Save and trail come back to this record's page, not the bare list.
         expect(routerMock.__push).toHaveBeenCalledWith(
@@ -1891,7 +2058,8 @@ describe('the recipe list at desk width', () => {
         });
 
         await untilVisible('kitchen-recipes-view');
-        expect(screen.queryByTestId('kitchen-recipes-table')).toBeNull();
+        // A pop-up over the list: the list stays mounted behind it.
+        expect(screen.getByTestId('kitchen-recipes-table')).toBeTruthy();
     });
 
     it('shows the label a meal seller carries in the shop, read off the meal itself', async () => {
@@ -2090,14 +2258,17 @@ describe('the recipe list at desk width', () => {
             /doesn't lower stock: no pack weight or amount per sale/,
         );
 
-        await untilVisible(`kitchen-recipes-unformulated-${String(MEAL_ID)}`);
+        // A card in the page's tray, under a group that counts them.
+        await withDeskWidth(async () => {
+            await untilVisible(`kitchen-recipes-unformulated-${String(MEAL_ID)}`);
+            expect(screen.getByTestId('kitchen-recipes-unformulated')).toHaveTextContent(
+                /On the menu without a recipe · 1 item/,
+            );
+            expect(
+                screen.getByTestId(`kitchen-recipes-unformulated-${String(MEAL_ID)}`),
+            ).toHaveTextContent(/Tiramisu/);
+        });
         expect(asked).toContainEqual({ withoutRecipe: true });
-        expect(screen.getByTestId('kitchen-recipes-unformulated')).toHaveTextContent(
-            /On the menu without a recipe · 1 item/,
-        );
-        expect(
-            screen.getByTestId(`kitchen-recipes-unformulated-${String(MEAL_ID)}`),
-        ).toHaveTextContent('Tiramisu');
     });
 
     it('narrows the book by its own filing word, through the request', async () => {
@@ -2404,9 +2575,8 @@ describe('creating a recipe', () => {
             // no way to correct. `EMPTY_DETAILS` records the decision.
             yieldUnit: 'kg',
             wastePercent: 0,
-            // The column's own default, sent rather than left to it: the rate the Costing tab
-            // priced the draft at is the rate the version is saved with.
-            packagingWastePercent: 0,
+            // No packaging waste: the per-batch packaging table and its rate are gone from the
+            // editor, so the column keeps its own default.
         });
         expect(created.currentVersion.versionNumber).toBe(1);
         expect(created.meta.status).toBe('draft');
@@ -2457,6 +2627,56 @@ describe('creating a recipe', () => {
         expect(repositories.kitchenAdmin.createRecipe).toHaveBeenCalledTimes(1);
         expect(onCreated).toHaveBeenCalledTimes(1);
     });
+
+    it.each([
+        ['preparation', true],
+        ['sauce', undefined],
+    ] as const)(
+        'creating a %s asks for its own ingredient twin: %s',
+        async (kind, producesIngredient) => {
+            const created = recipe({
+                ordinal: 9,
+                name: 'Basil pesto',
+                currentVersion: recipeVersion({
+                    recipeOrdinal: 9,
+                    overrides: { lines: [], allergens: [] },
+                }),
+            });
+
+            const { repositories } = await renderStubScreen(
+                <RecipeEditScreen recipe="new" kind={kind} />,
+                {
+                    session: kitchenManagerSession(),
+                    repositories: {
+                        kitchenAdmin: {
+                            listIngredients: ingredientListing(() => LIBRARY),
+                            nextReference: async () => 'RC-0012',
+                            createRecipe: async () => created,
+                        },
+                    },
+                },
+            );
+
+            await untilVisible('kitchen-recipe-name-en-input');
+            await act(async () => {
+                fireEvent.changeText(
+                    screen.getByTestId('kitchen-recipe-name-en-input'),
+                    'Basil pesto',
+                );
+            });
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
+            });
+
+            await waitFor(() => {
+                expect(repositories.kitchenAdmin.createRecipe).toHaveBeenCalledTimes(1);
+            });
+            // A sauce's twin comes with its listing, so it is not asked for here.
+            const [request] = (repositories.kitchenAdmin.createRecipe as jest.Mock).mock
+                .calls[0] as [{ readonly producesIngredient?: boolean }];
+            expect(request.producesIngredient).toBe(producesIngredient);
+        },
+    );
 });
 
 /* ------------------------------------------------------------------------------------------------
@@ -2525,11 +2745,6 @@ describe('versions', () => {
         await openTab('production');
         await untilVisible('kitchen-recipe-lines-table');
         expect(screen.queryByTestId(LINE_PICKER_TRIGGER)).toBeNull();
-
-        // The packaging table too: rows typed here on a published version vanished on save (HA-36).
-        await openTab('packaging');
-        await untilVisible('kitchen-recipe-packaging-table');
-        expect(screen.queryByTestId('kitchen-recipe-packaging-table-picker')).toBeNull();
 
         await openTab('description');
         await act(async () => {
@@ -2816,6 +3031,211 @@ describe('the line editor', () => {
 });
 
 /* ------------------------------------------------------------------------------------------------
+ * Preparations as lines
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('preparations as lines', () => {
+    /** The recipe that makes the pesto — not yet published, so a line is costed from its typed price. */
+    const PESTO_RECIPE_ID = recipeIdentifier(8);
+    const PESTO = ingredient(7, {
+        name: { en: 'Pesto', ar: 'بيستو' },
+        categoryCode: 'preparation',
+        measurementUnit: 'kg',
+        // Assessed, so the only thing the row says is about where its cost came from.
+        allergensAssessedClear: true,
+        producedByRecipe: {
+            id: PESTO_RECIPE_ID,
+            name: { en: 'Pesto', ar: 'بيستو' },
+            isPublished: false,
+        },
+    });
+    const WITH_PESTO: readonly IngredientAdmin[] = [...LIBRARY, PESTO];
+    const RECIPE_HREF = new RegExp(`^/kitchen/recipes/${String(PESTO_RECIPE_ID)}\\?returnTo=`);
+
+    function pestoPasta(lines: readonly RecipeLine[]) {
+        return recipe({
+            ordinal: 4,
+            name: 'Pesto pasta',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 4,
+                overrides: { yieldUnit: 'kg', lines, allergens: [] },
+            }),
+        });
+    }
+
+    it('lists raw materials and preparations apart, and a picked preparation leads to its recipe', async () => {
+        const stored = pestoPasta([]);
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListing(() => WITH_PESTO),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+        await untilVisible(LINE_PICKER_TRIGGER);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(LINE_PICKER_TRIGGER));
+        });
+        await untilVisible(`${LINE_PICKER}-option-${String(PESTO.id)}`);
+
+        // Two headed groups, what is bought first, and every option still offered.
+        expect(screen.getByTestId(`${LINE_PICKER}-section-0`)).toHaveTextContent('Raw materials');
+        expect(screen.getByTestId(`${LINE_PICKER}-section-1`)).toHaveTextContent('Preparations');
+        expect(
+            screen.getAllByTestId(LINE_PICKER_OPTIONS).map((option) => option.props.testID),
+        ).toEqual([
+            `${LINE_PICKER}-option-${String(MAPPED_INGREDIENT.id)}`,
+            `${LINE_PICKER}-option-${String(UNMAPPED_INGREDIENT.id)}`,
+            `${LINE_PICKER}-option-${String(PESTO.id)}`,
+        ]);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${LINE_PICKER}-option-${String(PESTO.id)}`));
+        });
+
+        const row = 'kitchen-recipe-lines-table-row-row-1';
+        await untilVisible(`${row}-preparation`);
+        expect(screen.getByTestId(`${row}-preparation`)).toHaveTextContent('Preparation');
+        // A raw material carries no chip.
+        expect(
+            screen.queryByTestId('kitchen-recipe-lines-table-row-line-0-preparation'),
+        ).toBeNull();
+
+        // Its name opens the recipe that makes it, not the ingredient form.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${row}-open`));
+        });
+        expect(routerMock.__push).toHaveBeenLastCalledWith(expect.stringMatching(RECIPE_HREF));
+    });
+
+    it('says when a preparation is costed from its typed price, and its Fix opens the recipe', async () => {
+        const stored = pestoPasta([line(PESTO, { quantity: 0.2, unit: 'kg' })]);
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListing(() => WITH_PESTO),
+                    // S6: the recipe is unpublished, so the server fell back to the typed price.
+                    previewRecipeRollup: async (draft) => {
+                        const cost = computedFor(draft);
+                        return rollupPreview({
+                            allergenSources: [],
+                            computedCost: {
+                                ...cost,
+                                production: {
+                                    ...cost.production,
+                                    lines: cost.production.lines.map((entry) => ({
+                                        ...entry,
+                                        costSource: 'ingredient_fallback' as const,
+                                    })),
+                                },
+                            },
+                        });
+                    },
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+
+        const row = 'kitchen-recipe-lines-table-row-line-0';
+        await waitFor(() => {
+            // After the line's warning glyph.
+            expect(screen.getByTestId(`${row}-issue`)).toHaveTextContent(
+                /Costed from its typed price, not its recipe · Fix$/,
+            );
+        });
+        expect(screen.getByTestId(`${row}-preparation`)).toBeTruthy();
+        // The price is still the server's.
+        expect(screen.getByTestId(`${row}-total`)).toHaveTextContent(/^\$4\.000/);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${row}-issue`));
+        });
+        expect(routerMock.__push).toHaveBeenLastCalledWith(expect.stringMatching(RECIPE_HREF));
+    });
+
+    it('sends an uncosted preparation’s Fix to its recipe, not to the ingredient form', async () => {
+        const stored = pestoPasta([line(PESTO, { quantity: 0.2, unit: 'kg' })]);
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListing(() => WITH_PESTO),
+                    previewRecipeRollup: async (draft) =>
+                        rollupPreview({
+                            allergenSources: [],
+                            computedCost: computedFor(draft, { uncosted: [1] }),
+                        }),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+
+        const row = 'kitchen-recipe-lines-table-row-line-0';
+        await untilVisible(`${row}-issue`);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${row}-issue`));
+        });
+        expect(routerMock.__push).toHaveBeenLastCalledWith(expect.stringMatching(RECIPE_HREF));
+    });
+
+    it('draws no source and no chip on an ordinary raw-material line', async () => {
+        const stored = pestoPasta([line(MAPPED_INGREDIENT)]);
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListing(() => WITH_PESTO),
+                    previewRecipeRollup: async (draft) => {
+                        const cost = computedFor(draft);
+                        return rollupPreview({
+                            allergenSources: [],
+                            computedCost: {
+                                ...cost,
+                                production: {
+                                    ...cost.production,
+                                    lines: cost.production.lines.map((entry) => ({
+                                        ...entry,
+                                        costSource: 'ingredient_fallback' as const,
+                                    })),
+                                },
+                            },
+                        });
+                    },
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await openTab('production');
+
+        const row = 'kitchen-recipe-lines-table-row-line-0';
+        await waitFor(() => {
+            expect(screen.getByTestId(`${row}-total`)).toHaveTextContent(/^\$4\.000/);
+        });
+        expect(screen.queryByTestId(`${row}-preparation`)).toBeNull();
+        expect(screen.queryByTestId(`${row}-issue`)).toBeNull();
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
  * The tab row as a sequence
  * ---------------------------------------------------------------------------------------------- */
 
@@ -2836,8 +3256,9 @@ describe('the steps', () => {
 
         // A shelf life that does not parse is flagged as it is typed, under the field, and the tab
         // it is on says so — spoken as well as drawn, because a pill a screen reader cannot hear is
-        // not a signal. Nothing lists it a second time under the header.
-        await openTab('packaging');
+        // not a signal. Nothing lists it a second time under the header. The shelf life sits with
+        // the yield on Production now that Packs & prices replaced the Packaging tab.
+        await openTab('production');
         await untilVisible('kitchen-recipe-expiry-input');
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), 'abc');
@@ -2845,18 +3266,22 @@ describe('the steps', () => {
         await waitFor(
             () => {
                 expect(
-                    screen.getByTestId('kitchen-recipe-tab-packaging').props.accessibilityLabel,
-                ).toBe('Packaging, 1 to fix');
+                    screen.getByTestId('kitchen-recipe-tab-production').props.accessibilityLabel,
+                ).toMatch(/1 to fix/);
             },
             { timeout: 10_000 },
         );
         expect(screen.getByTestId('kitchen-recipe-expiry-error')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-recipe-issues')).toBeNull();
 
-        // Save, from anywhere, takes the reader back to it.
+        // Save, from anywhere, says what stops it; its Show me takes the reader back to it.
         await openTab('sheet');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
+        });
+        await untilVisible('kitchen-recipe-tray-blocked');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-tray-blocked-show-me'));
         });
         await untilVisible('kitchen-recipe-expiry-input');
         expect(screen.getByTestId('kitchen-recipe-expiry-error')).toBeTruthy();
@@ -2872,7 +3297,7 @@ describe('the steps', () => {
 
         await untilVisible('kitchen-recipe-tabs');
         await openTab('costing');
-        await untilVisible('kitchen-recipe-package-costs');
+        await untilVisible('kitchen-recipe-cost-cascade');
         expect(screen.queryByTestId('kitchen-recipe-coefficients')).toBeNull();
         expect(screen.queryByTestId('kitchen-recipe-b2b-price-input')).toBeNull();
         expect(screen.queryByTestId('kitchen-recipe-b2c-price-input')).toBeNull();
@@ -2880,7 +3305,7 @@ describe('the steps', () => {
         expect(screen.queryByTestId('kitchen-recipe-issues-margin')).toBeNull();
     });
 
-    it('puts each waste rate on the tab whose lines it applies to', async () => {
+    it('keeps the yield, the waste and the shelf life together, and draws no packaging tab for a recipe nothing sells', async () => {
         const stored = recipe({ ordinal: 5, name: 'Mujaddara' });
 
         await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
@@ -2891,17 +3316,16 @@ describe('the steps', () => {
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
         await untilVisible('kitchen-recipe-yield-quantity');
-        // Yield & waste: the production loss sits beside the yield it is taken from, above the
-        // lines it applies to.
+        // Yield & waste: the production loss and the shelf life sit beside the yield, above the
+        // lines. The packaging waste went with the per-batch packaging table.
         expect(screen.getByTestId('kitchen-recipe-yield-pieces')).toBeTruthy();
         expect(screen.getByTestId('kitchen-recipe-waste')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-recipe-expiry')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-recipe-packaging-waste')).toBeNull();
 
-        await openTab('packaging');
-        await untilVisible('kitchen-recipe-packaging-coefficients');
-        expect(screen.getByTestId('kitchen-recipe-packaging-waste')).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-recipe-waste')).toBeNull();
-        expect(screen.queryByTestId('kitchen-recipe-yield-quantity')).toBeNull();
+        // Packs & prices is drawn only for a recipe something sells; this one is the screen alone.
+        expect(screen.queryByTestId('kitchen-recipe-tab-packaging')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-packaging-coefficients')).toBeNull();
     });
 
     it('checks the draft in the issue tray before anything is saved', async () => {
@@ -2988,11 +3412,57 @@ describe('the steps', () => {
 });
 
 /* ------------------------------------------------------------------------------------------------
- * Packaging, and what it costs
+ * Packs & prices, and what each pack costs
  * ---------------------------------------------------------------------------------------------- */
 
-describe('the packaging tab', () => {
-    /** A yield in kilograms, so a capacity recorded in kilograms is convertible to it. */
+/**
+ * The editor as a cooked-item host draws it: the recipe, and the sold item's Packs & prices handed
+ * over through `usePacksTab` — the same hook `cooked-item-edit-screen.tsx` calls.
+ */
+function SoldRecipe({
+    recipe: recipeId,
+    item,
+}: {
+    readonly recipe: string;
+    readonly item: ProductId;
+}) {
+    const packs = usePacksTab(item, String(item));
+    return <RecipeEditScreen recipe={recipeId} packs={packs} />;
+}
+
+const SOLD_ITEM = ProductId.unsafe('0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e1c77');
+const SOLD_PACK = 'pack-0001';
+
+/** The sold item's packs: one Bottle 750 pack at $4.50 on the Home shop, sold there. */
+function soldPacks(box: IngredientAdmin): ItemPacks {
+    return {
+        lockVersion: 4,
+        places: {
+            home: {
+                salesChannelId: 'web-shop',
+                priceListId: PriceListId.unsafe('retail-usd'),
+                currency: 'USD',
+                offered: true,
+            },
+            business: null,
+            counter: null,
+        },
+        packs: [
+            {
+                id: SOLD_PACK,
+                code: 'PK-750',
+                name: { en: 'Bottle 750', ar: 'زجاجة' },
+                isDefault: true,
+                fill: { quantity: 0.75, unit: 'kg' },
+                components: [{ ingredientId: box.id, quantity: 1, isContainer: true }],
+                prices: { home: { amountMinor: 450, inherited: false }, business: null },
+            },
+        ],
+    };
+}
+
+describe('the packs & prices tab', () => {
+    /** A yield in kilograms, so a pack's fill in kilograms divides it. */
     function packagedRecipe(ordinal: number, overrides: Partial<RecipeVersionAdmin> = {}) {
         return recipe({
             ordinal,
@@ -3004,166 +3474,155 @@ describe('the packaging tab', () => {
         });
     }
 
-    it('asks the server about the box just picked, and draws its figures beside that row', async () => {
-        const box = packagingItem(3, { name: { en: 'Kraft box 750', ar: 'علبة كرافت' } });
+    it('is drawn only for a sold recipe, keeps its key, and takes the new name', async () => {
+        const box = packagingItem(3, { name: { en: 'Bottle 750', ar: 'زجاجة' } });
         const stored = packagedRecipe(8);
 
+        await renderStubScreen(<SoldRecipe recipe={String(stored.id)} item={SOLD_ITEM} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListingByCategory(LIBRARY, [box]),
+                    getItemPacks: async () => soldPacks(box),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-tab-packaging');
+        expect(screen.getByTestId('kitchen-recipe-tab-packaging')).toHaveTextContent(
+            /Packs & prices/,
+        );
+        // The per-batch packaging table and its waste field are gone with the old tab.
+        await openTab('packaging');
+        await untilVisible(`kitchen-packs-${SOLD_PACK}-fill-input`);
+        expect(screen.queryByTestId('kitchen-recipe-packaging-table')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-packaging-waste')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-packaging-coefficients')).toBeNull();
+    });
+
+    it('costs the packs with the draft and never sends or rewrites the stored packaging lines', async () => {
+        const box = packagingItem(3, { name: { en: 'Bottle 750', ar: 'زجاجة' } });
+        // A version that still carries a stored per-batch line: left exactly as it is.
+        const stored = packagedRecipe(9, {
+            packaging: [
+                {
+                    ingredientId: box.id,
+                    basis: 'per_batch',
+                    quantity: 2,
+                    unit: 'piece',
+                    comment: null,
+                },
+            ],
+        });
+
         const { repositories } = await renderStubScreen(
-            <RecipeEditScreen recipe={String(stored.id)} />,
+            <SoldRecipe recipe={String(stored.id)} item={SOLD_ITEM} />,
             {
                 session: kitchenManagerSession(),
                 repositories: {
                     kitchenAdmin: {
                         ...editorReads(() => stored),
                         listIngredients: ingredientListingByCategory(LIBRARY, [box]),
-                        getIngredient: ingredientShow([...LIBRARY, box]),
+                        getItemPacks: async () => soldPacks(box),
                         previewRecipeRollup: async (draft) =>
                             rollupPreview({ computedCost: computedFor(draft) }),
+                        updateRecipe: async () => stored,
                     },
                 },
             },
         );
 
         await untilVisible('kitchen-recipe-editor-screen-header');
-        await openTab('packaging');
-        await untilVisible(PACKAGING_PICKER_TRIGGER);
-        await pickFrom(PACKAGING_PICKER, String(box.id));
-
-        const row = 'kitchen-recipe-packaging-table-row-row-1';
-        await untilVisible(row);
-
-        // The box is part of the question. Left out of the draft, the Costing tab priced a batch that
-        // ships in nothing while this tab listed its boxes.
         await waitFor(() => {
             expect(repositories.kitchenAdmin.previewRecipeRollup).toHaveBeenLastCalledWith(
                 expect.objectContaining({
-                    packaging: [
+                    packs: [
                         expect.objectContaining({
-                            ingredientId: box.id,
-                            basis: 'per_batch',
-                            quantity: 1,
+                            key: SOLD_PACK,
+                            fillQuantity: 0.75,
+                            fillUnit: 'kg',
+                            components: [{ ingredientId: box.id, quantity: 1, isContainer: true }],
                         }),
                     ],
                 }),
             );
         });
+        const calls = (repositories.kitchenAdmin.previewRecipeRollup as jest.Mock).mock.calls;
+        const sent = calls[calls.length - 1]?.[0] as RecipeRollupDraft;
+        expect(sent.packaging).toBeUndefined();
+        expect(sent.packagingWastePercent).toBeUndefined();
 
-        /*
-         * The row draws what the server said about line 1 — never a price worked out here.
-         *
-         * Per issued box and not per pack is the server's rule (`RecipeVersionService::
-         * packagingCostOf`, pinned in Pest). The unit cell is still this screen's to get right: the
-         * line is stored in the item's own default unit, so it reads the issued unit, not `pack`.
-         */
-        await waitFor(() => {
-            expect(screen.getByTestId(`${row}-unit-price`)).toHaveTextContent('$0.25');
-        });
-        expect(screen.getByTestId(`${row}-total`)).toHaveTextContent(/^\$0\.250/);
-        // `Pc`, the abbreviated label for `piece` — the issued unit, not `Pack`. A regex, because
-        // the matcher compares a *string* argument against the whole node.
-        expect(screen.getByTestId(row)).toHaveTextContent(/Pc/);
-        expect(screen.getByTestId(row)).not.toHaveTextContent(/Pack/);
-
-        // And the Costing tab draws what one filled box costs, one tile per line the server costed.
-        await openTab('costing');
-        await waitFor(() => {
-            expect(screen.getAllByTestId(/^kitchen-recipe-package-cost-/)).toHaveLength(1);
-        });
-    });
-
-    it('names and prices a saved line whose item the catalogue page does not carry', async () => {
-        /*
-         * The other half of "not all packaging is showing".
-         *
-         * The pool used to be one numbered page of eighteen against a catalogue of thirty-one, so a
-         * saved line naming row nineteen drew "Unnamed line" with no price — and its cost silently
-         * left the cascade. The listing here returns *no* packaging at all, which is the same shape
-         * of miss taken to its limit; the by-id read is what has to close it.
-         */
-        const offPage = packagingItem(4, { name: { en: 'Sleeve 1000', ar: 'كيس' } });
-        const stored = packagedRecipe(9, {
-            packaging: [
-                {
-                    ingredientId: offPage.id,
-                    basis: 'per_batch',
-                    quantity: 2,
-                    unit: 'piece',
-                    comment: null,
-                },
-            ],
-        });
-
-        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    ...editorReads(() => stored),
-                    listIngredients: ingredientListingByCategory(LIBRARY, []),
-                    getIngredient: ingredientShow([...LIBRARY, offPage]),
-                    previewRecipeRollup: async (draft) =>
-                        rollupPreview({ computedCost: computedFor(draft) }),
-                },
-            },
-        });
-
-        await untilVisible('kitchen-recipe-editor-screen-header');
+        // The tab's tile reads the server's figure for its own key.
         await openTab('packaging');
-
-        const row = 'kitchen-recipe-packaging-table-row-packaging-0';
-        await untilVisible(`${row}-name`);
         await waitFor(() => {
-            expect(screen.getByTestId(`${row}-name`)).toHaveTextContent('Sleeve 1000');
-        });
-        await waitFor(() => {
-            expect(screen.getByTestId(`${row}-unit-price`)).toHaveTextContent('$0.25');
+            expect(screen.getByTestId(`kitchen-packs-${SOLD_PACK}-cost`)).toHaveTextContent(
+                /\$1\.30/,
+            );
         });
 
-        // The same by-id read is what the Costing tab's per-package card hangs from: a saved line
-        // resolves to its record's capacity exactly as a freshly picked one does.
-        await openTab('costing');
-        await waitFor(() => {
-            expect(screen.getAllByTestId(/^kitchen-recipe-package-cost-/)).toHaveLength(1);
+        // A recipe save writes the recipe and nothing of the stored packaging.
+        await openTab('description');
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-recipe-name-en-input'),
+                'Garlic aioli',
+            );
         });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
+        });
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateRecipe).toHaveBeenCalled();
+        });
+        expect(repositories.kitchenAdmin.setRecipePackaging).not.toHaveBeenCalled();
+        expect(repositories.kitchenAdmin.updateRecipe).toHaveBeenCalledWith(
+            stored.id,
+            expect.not.objectContaining({ packagingWastePercent: expect.anything() }),
+        );
     });
 
-    it('names a packaging line whose record does not say what one item holds', async () => {
-        const lid = packagingItem(5, { name: { en: 'Lid 750', ar: 'غطاء' }, capacity: null });
-        const stored = packagedRecipe(6, {
-            packaging: [
-                {
-                    ingredientId: lid.id,
-                    basis: 'per_batch',
-                    quantity: 2,
-                    unit: 'piece',
-                    comment: null,
+    it('counts a sold recipe’s publish blockers on the tab and takes Fix to the field', async () => {
+        const box = packagingItem(3, { name: { en: 'Bottle 750', ar: 'زجاجة' } });
+        // One digit: `recipeIdentifier` pads to a fixed width, and 10 is not a UUID.
+        const stored = packagedRecipe(7);
+        const unpriced: ItemPacks = {
+            ...soldPacks(box),
+            packs: soldPacks(box).packs.map((pack) => ({
+                ...pack,
+                prices: { home: null, business: null },
+            })),
+        };
+
+        await withDeskWidth(async () => {
+            await renderStubScreen(<SoldRecipe recipe={String(stored.id)} item={SOLD_ITEM} />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        listIngredients: ingredientListingByCategory(LIBRARY, [box]),
+                        getItemPacks: async () => unpriced,
+                    },
                 },
-            ],
+            });
+
+            // Home shop is ticked and no pack carries a price for it: the server's
+            // `place_unpriced`, said before Publish is pressed.
+            await untilVisible('kitchen-recipe-issues-publish-packs-place_unpriced-home');
+            expect(
+                screen.getByTestId('kitchen-recipe-issues-publish-packs-place_unpriced-home'),
+            ).toHaveTextContent(/Price a pack for Home shop/);
+            expect(
+                screen.getByTestId('kitchen-recipe-tab-packaging').props.accessibilityLabel,
+            ).toMatch(/1/);
+
+            // Publish over it explains instead of opening the dialog.
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-recipe-publish'));
+            });
+            expect(screen.queryByTestId('kitchen-recipe-publish-dialog-confirm')).toBeNull();
+            expect(screen.queryByTestId('kitchen-recipe-publish-confirm')).toBeNull();
         });
-
-        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    ...editorReads(() => stored),
-                    listIngredients: ingredientListingByCategory(LIBRARY, [lid]),
-                    getIngredient: ingredientShow([...LIBRARY, lid]),
-                    // The server answers for the lid with no figure: it holds nothing.
-                    previewRecipeRollup: async (draft) =>
-                        rollupPreview({ computedCost: computedFor(draft, { packageCost: null }) }),
-                },
-            },
-        });
-
-        await untilVisible('kitchen-recipe-editor-screen-header');
-        await openTab('costing');
-
-        // A lid holds nothing, so there is no filled-package figure for it — and the caption names
-        // the record to open rather than announcing that no line qualifies.
-        await untilVisible('kitchen-recipe-package-costs-none');
-        expect(screen.getByTestId('kitchen-recipe-package-costs-none')).toHaveTextContent(
-            /Lid 750/,
-        );
-        expect(screen.queryAllByTestId(/^kitchen-recipe-package-cost-/)).toHaveLength(0);
     });
 });
 
@@ -3220,12 +3679,11 @@ describe('costing', () => {
             /\$2\.0600/,
         );
 
-        // A total short by an unpriced line reads exactly like a complete one, so there is none,
-        // and the line keeping it back is named — in the issue tray, docked beside the page at a
-        // desk's width, as what stands between this draft and Publish.
-        expect(screen.getByTestId('kitchen-recipe-cost-cards-total')).not.toHaveTextContent(
-            /\$2\.1850/,
-        );
+        // Production is the one card: the Packaging and Total cards went with the per-batch
+        // packaging table. The line keeping the cost back is named — in the issue tray, docked
+        // beside the page at a desk's width, as what stands between this draft and Publish.
+        expect(screen.queryByTestId('kitchen-recipe-cost-cards-total')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-cost-cards-packaging')).toBeNull();
         await withDeskWidth(async () => {
             await untilVisible('kitchen-recipe-issues-publish-costs');
             expect(screen.getByTestId('kitchen-recipe-issues-publish-costs')).toHaveTextContent(
@@ -3237,6 +3695,46 @@ describe('costing', () => {
         expect(screen.getByTestId('kitchen-recipe-cost-cascade')).toHaveTextContent(
             /purchase price/,
         );
+    });
+
+    it('names an unpriced line on a published version too, rather than reading "All set"', async () => {
+        const stored = recipe({
+            ordinal: 2,
+            name: 'Tahini sauce',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 2,
+                overrides: {
+                    yieldUnit: 'kg',
+                    allergens: [],
+                    status: 'published',
+                    publishedAt: '2026-08-02T09:00:00.000Z',
+                },
+            }),
+            overrides: { meta: meta({ status: 'published', lockVersion: 3 }) },
+        });
+
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    previewRecipeRollup: async (draft) =>
+                        rollupPreview({
+                            allergenSources: [],
+                            computedCost: computedFor(draft, { uncosted: [2] }),
+                        }),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-recipe-issues-uncosted');
+            expect(screen.getByTestId('kitchen-recipe-issues-uncosted')).toHaveTextContent(
+                /Not costed: Olive oil/,
+            );
+            expect(screen.queryByTestId('kitchen-recipe-tray-clear')).toBeNull();
+        });
     });
 
     it('says costs are hidden to a member who may not see them, rather than drawing dashes', async () => {
@@ -3258,55 +3756,45 @@ describe('costing', () => {
 
         await untilVisible('kitchen-recipe-costs-hidden');
         expect(screen.queryByTestId('kitchen-recipe-cost-cards')).toBeNull();
-        expect(screen.queryByTestId('kitchen-recipe-package-costs')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-pack-costs')).toBeNull();
     });
 
-    it('reads the packaging waste rate off the version, and saves it there', async () => {
+    it('draws one row per pack: its cost, and each price with the margin it leaves', async () => {
         /*
-         * It used to be session-only, starting at 5 % while every saved version carried 0 %, so the
-         * Costing tab priced packaging about five per cent above the technical sheet for the same
-         * lines. One stored rate, read and written, is what makes the two agree.
+         * The server costs the pack at $1.30 (`computedFor`); the Home shop charges $4.50, so the
+         * margin is (4.50 − 1.30) ÷ 4.50 = 71 %. Business is not sold and has no column of its own
+         * figure — a dash. There is no Counter column: it charges the Home shop's price.
          */
+        const box = packagingItem(3, { name: { en: 'Bottle 750', ar: 'زجاجة' } });
         const stored = recipe({
             ordinal: 2,
             name: 'Bottled tahini',
-            currentVersion: recipeVersion({
-                recipeOrdinal: 2,
-                overrides: { packagingWastePercent: 2 },
-            }),
+            currentVersion: recipeVersion({ recipeOrdinal: 2, overrides: { yieldUnit: 'kg' } }),
         });
 
-        const { repositories } = await renderStubScreen(
-            <RecipeEditScreen recipe={String(stored.id)} />,
-            {
-                session: kitchenManagerSession(),
-                repositories: {
-                    kitchenAdmin: {
-                        ...editorReads(() => stored),
-                        updateRecipe: async () => stored,
-                    },
+        await renderStubScreen(<SoldRecipe recipe={String(stored.id)} item={SOLD_ITEM} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    listIngredients: ingredientListingByCategory(LIBRARY, [box]),
+                    getItemPacks: async () => soldPacks(box),
+                    previewRecipeRollup: async (draft) =>
+                        rollupPreview({ computedCost: computedFor(draft) }),
                 },
             },
-        );
+        });
 
         await untilVisible('kitchen-recipe-editor-screen-header');
-        await openTab('packaging');
-        await untilVisible('kitchen-recipe-packaging-waste-input');
-        expect(screen.getByTestId('kitchen-recipe-packaging-waste-input').props.value).toBe('2');
-
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-recipe-packaging-waste-input'), '5');
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-save'));
-        });
-
+        await openTab('costing');
+        const table = 'kitchen-recipe-pack-costs-table';
         await waitFor(() => {
-            expect(repositories.kitchenAdmin.updateRecipe).toHaveBeenCalledWith(
-                stored.id,
-                expect.objectContaining({ packagingWastePercent: 5 }),
-            );
+            expect(screen.getByTestId(`${table}-${SOLD_PACK}-cost`)).toHaveTextContent('$1.30');
         });
+        expect(screen.getByTestId(`${table}-${SOLD_PACK}-pack`)).toHaveTextContent(/Bottle 750/);
+        expect(screen.getByTestId(`${table}-${SOLD_PACK}-home`)).toHaveTextContent(/\$4\.50 · 71%/);
+        expect(screen.getByTestId(`${table}-${SOLD_PACK}-business`)).toHaveTextContent('—');
+        expect(screen.queryByTestId(`${table}-${SOLD_PACK}-counter`)).toBeNull();
     });
 });
 
@@ -3343,7 +3831,7 @@ describe('the shelf life', () => {
         );
 
         await untilVisible('kitchen-recipe-editor-screen-header');
-        await openTab('packaging');
+        await openTab('production');
         await untilVisible('kitchen-recipe-expiry-input');
         expect(screen.getByTestId('kitchen-recipe-expiry-input').props.value).toBe('5');
 
@@ -3364,7 +3852,7 @@ describe('the shelf life', () => {
         await untilVisible('kitchen-recipe-saved-toast');
 
         // An emptied box is "nobody has said", sent as a clear rather than left out.
-        await openTab('packaging');
+        await openTab('production');
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '');
         });
@@ -3410,11 +3898,11 @@ describe('the shelf life', () => {
         // Nothing to write yet, and every version field is closed. Save is in the header.
         expect(save().props.accessibilityState.disabled).toBe(true);
 
-        await openTab('packaging');
-        await untilVisible('kitchen-recipe-packaging-waste-input');
-        expect(screen.getByTestId('kitchen-recipe-packaging-waste-input').props.editable).toBe(
-            false,
-        );
+        // On Production, beside the yield: the version's waste is closed, the recipe's shelf life
+        // is not.
+        await openTab('production');
+        await untilVisible('kitchen-recipe-waste-input');
+        expect(screen.getByTestId('kitchen-recipe-waste-input').props.editable).toBe(false);
 
         await untilVisible('kitchen-recipe-expiry-input');
         expect(screen.getByTestId('kitchen-recipe-expiry-input').props.editable).toBe(true);
@@ -3455,7 +3943,7 @@ describe('the shelf life', () => {
         );
 
         await untilVisible('kitchen-recipe-editor-screen-header');
-        await openTab('packaging');
+        await openTab('production');
         await untilVisible('kitchen-recipe-expiry-input');
 
         for (const typed of ['3.5', '4000']) {
@@ -3474,7 +3962,7 @@ describe('the shelf life', () => {
         });
         expect(repositories.kitchenAdmin.updateRecipe).not.toHaveBeenCalled();
 
-        await openTab('packaging');
+        await openTab('production');
         await act(async () => {
             fireEvent.changeText(screen.getByTestId('kitchen-recipe-expiry-input'), '30');
         });
@@ -3559,7 +4047,8 @@ describe('the sections this screen no longer edits', () => {
         await untilVisible('kitchen-recipe-editor-screen-header');
 
         // Every tab, because "it is on another tab" is the one way this assertion could be wrong.
-        for (const tab of ['description', 'production', 'packaging', 'costing', 'sheet'] as const) {
+        // A recipe nothing sells has no Packs & prices tab to open.
+        for (const tab of ['description', 'production', 'costing', 'sheet'] as const) {
             await openTab(tab);
             expect(screen.queryByTestId('kitchen-recipe-steps')).toBeNull();
             expect(screen.queryByTestId('kitchen-recipe-outputs')).toBeNull();
@@ -4008,6 +4497,239 @@ describe('publishing', () => {
         });
         expect(repositories.kitchenAdmin.publishRecipe).not.toHaveBeenCalled();
     });
+
+    /** A quarantined recipe whose label gained gluten and lost sesame since it was published. */
+    function quarantinedRecipe(overrides: Partial<RecipeVersionAdmin> = {}): RecipeAdmin {
+        return recipe({
+            ordinal: 5,
+            name: 'Contested tabbouleh',
+            currentVersion: recipeVersion({
+                recipeOrdinal: 5,
+                overrides: {
+                    status: 'review_required',
+                    reviewReason: 'Gluten was added; sesame was removed.',
+                    previousLabel: { sesame: 'contains' },
+                    lockVersion: 4,
+                    ...overrides,
+                },
+            }),
+            overrides: { meta: meta({ status: 'review_required', lockVersion: 6 }) },
+        });
+    }
+
+    async function openRelease() {
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-recipe-release-open');
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-recipe-release-open'));
+            });
+        });
+        await untilVisible('kitchen-recipe-release-dialog');
+    }
+
+    it('releases a quarantine only once the manager has ticked that the labels were compared', async () => {
+        const stored = quarantinedRecipe();
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        releaseRecipeVersion: async () => stored,
+                    },
+                },
+            },
+        );
+
+        await openRelease();
+        // Both labels, each claim in words as well as tone.
+        expect(screen.getByTestId('kitchen-recipe-release-old-sesame')).toHaveTextContent(
+            /sesame · Contains/,
+        );
+        expect(screen.getByTestId('kitchen-recipe-release-new-gluten')).toHaveTextContent(
+            /gluten · Contains/,
+        );
+
+        const confirm = () => screen.getByTestId('kitchen-recipe-release-confirm');
+        expect(confirm().props.accessibilityState.disabled).toBe(true);
+        await act(async () => {
+            fireEvent.press(confirm());
+        });
+        expect(repositories.kitchenAdmin.releaseRecipeVersion).not.toHaveBeenCalled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-check-control'));
+        });
+        expect(confirm().props.accessibilityState.disabled).toBe(false);
+        await act(async () => {
+            fireEvent.press(confirm());
+        });
+        // The version's own lock, not the recipe's.
+        expect(repositories.kitchenAdmin.releaseRecipeVersion).toHaveBeenCalledWith(
+            stored.id,
+            stored.currentVersion.id,
+            4,
+        );
+    });
+
+    it('offers no release, and no publish, to a chef who may edit the recipe but not publish it', async () => {
+        const stored = quarantinedRecipe();
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession({
+                activeContext: testActiveContext({
+                    permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                        (code) => code !== 'recipe.publish_organisation',
+                    ),
+                }),
+            }),
+            repositories: { kitchenAdmin: editorReads(() => stored) },
+        });
+
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-recipe-quarantine');
+        });
+        expect(screen.queryByTestId('kitchen-recipe-release-open')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-publish')).toBeNull();
+    });
+
+    it('holds Release while the new label is still being recomputed', async () => {
+        const stored = quarantinedRecipe({ derivationStale: true });
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        releaseRecipeVersion: async () => stored,
+                    },
+                },
+            },
+        );
+
+        await openRelease();
+        expect(screen.getByTestId('kitchen-recipe-release-recomputing')).toBeTruthy();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-check-control'));
+        });
+        expect(
+            screen.getByTestId('kitchen-recipe-release-confirm').props.accessibilityState.disabled,
+        ).toBe(true);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-confirm'));
+        });
+        expect(repositories.kitchenAdmin.releaseRecipeVersion).not.toHaveBeenCalled();
+    });
+
+    it('says a release refused over a label still being recomputed in the tray', async () => {
+        // A quarantine older than the stored label: the reason stands in for the old label.
+        const stored = quarantinedRecipe({ previousLabel: null });
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => stored),
+                    releaseRecipeVersion: async () =>
+                        throwFailure(
+                            conflictFailure({ reason: 'derivation_stale', currentLockVersion: 5 }),
+                        ),
+                },
+            },
+        });
+
+        await openRelease();
+        expect(screen.getByTestId('kitchen-recipe-release-reason')).toHaveTextContent(
+            /Gluten was added; sesame was removed\./,
+        );
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-check-control'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-confirm'));
+        });
+
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-recipe-release-error');
+        });
+        expect(screen.getByTestId('kitchen-recipe-release-error')).toHaveTextContent(
+            /label is being worked out again/,
+        );
+        // Not a lost race: the reload-or-keep question is not asked.
+        expect(screen.queryByTestId('kitchen-recipe-editor-screen-conflict-dialog')).toBeNull();
+    });
+
+    it('refetches the version after a 409 and makes the manager compare the fresh labels again', async () => {
+        let stored = quarantinedRecipe();
+        let calls = 0;
+        const { repositories } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(stored.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => stored),
+                        releaseRecipeVersion: async () => {
+                            calls += 1;
+                            if (calls > 1) return stored;
+                            // A recompute landed while the dialog was open: the label moved, and so
+                            // did the version's lock.
+                            stored = quarantinedRecipe({
+                                lockVersion: 6,
+                                allergens: [
+                                    GLUTEN_DECLARATION,
+                                    {
+                                        allergenCode: AllergenCode.parse('sesame'),
+                                        containment: 'may_contain',
+                                        origin: 'derived',
+                                        sourceIngredientIds: [],
+                                    },
+                                ],
+                            });
+                            return throwFailure(conflictFailure({ currentLockVersion: 6 }));
+                        },
+                    },
+                },
+            },
+        );
+
+        await openRelease();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-check-control'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-confirm'));
+        });
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-recipe-release-error');
+        });
+        expect(screen.getByTestId('kitchen-recipe-release-error')).toHaveTextContent(
+            /changed since you opened it/,
+        );
+        expect(screen.queryByTestId('kitchen-recipe-editor-screen-conflict-dialog')).toBeNull();
+
+        // Opened again: the refetched label, and the tick asked for afresh.
+        await openRelease();
+        await untilVisible('kitchen-recipe-release-new-sesame');
+        expect(screen.getByTestId('kitchen-recipe-release-new-sesame')).toHaveTextContent(
+            /sesame · May contain/,
+        );
+        expect(
+            screen.getByTestId('kitchen-recipe-release-confirm').props.accessibilityState.disabled,
+        ).toBe(true);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-check-control'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-recipe-release-confirm'));
+        });
+        // Never the stale lock: the second attempt carries the refetched one.
+        expect(repositories.kitchenAdmin.releaseRecipeVersion).toHaveBeenLastCalledWith(
+            stored.id,
+            stored.currentVersion.id,
+            6,
+        );
+    });
 });
 
 /* ------------------------------------------------------------------------------------------------
@@ -4326,6 +5048,7 @@ describe('adding an ingredient from the line picker', () => {
         suitable: true,
         reasons: [],
         missing_nutrients: [],
+        unsupported_basis: false,
         source_hash: 'b'.repeat(64),
         retrieved_at: '2026-10-22T00:00:00Z',
     };
@@ -4345,6 +5068,9 @@ describe('adding an ingredient from the line picker', () => {
                 relation: 'same',
                 reason: 'Ground sumac.',
             },
+            unit: null,
+            gramsPerUnit: null,
+            allergens: { candidates: [], notices: [], pick: null, codes: null, reason: null },
             unavailable: [],
             ...overrides,
         };
@@ -4662,33 +5388,61 @@ describe('adding an ingredient from the line picker', () => {
         expect(screen.queryByTestId(QUICK_ADD)).toBeNull();
     });
 
-    it('names a line ingredient that still owes its nutrition reference in the publish dialog', async () => {
+    it('names a line ingredient that still owes its nutrition reference when Publish is pressed', async () => {
         const owed = ingredient(4, {
             name: { en: 'Sumac', ar: 'سماق' },
             pendingNutrition: { suggestion: null },
         });
         const record = stored(6, [line(owed)]);
 
-        await renderStubScreen(<RecipeEditScreen recipe={String(record.id)} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    ...editorReads(() => record),
-                    getIngredient: ingredientShow([...LIBRARY, owed]),
+        const { repositories, queryClient } = await renderStubScreen(
+            <RecipeEditScreen recipe={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => record),
+                        getIngredient: ingredientShow([...LIBRARY, owed]),
+                    },
                 },
             },
-        });
+        );
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('sheet');
         await untilVisible('kitchen-recipe-publish');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-publish'));
-        });
+        // What the line owes is read off its ingredient, which loads after the version: until
+        // Sumac's read has landed there is nothing to name, so the press waits for it.
+        await waitFor(
+            () => {
+                expect(repositories.kitchenAdmin.getIngredient).toHaveBeenCalledWith(owed.id);
+                expect(queryClient.isFetching()).toBe(0);
+            },
+            { timeout: 10000 },
+        );
+        // Even then, what the draft owes is gathered a render after the read lands, and a press
+        // before that opens the publish dialog as for a draft that owes nothing. Such a press is
+        // closed and made again until the notice answers it.
+        await waitFor(
+            () => {
+                if (screen.queryByTestId('kitchen-recipe-publish-dialog') !== null) {
+                    fireEvent.press(screen.getByTestId('kitchen-recipe-publish-cancel'));
+                }
+                if (screen.queryByTestId('kitchen-recipe-tray-blocked') === null) {
+                    fireEvent.press(screen.getByTestId('kitchen-recipe-publish'));
+                }
+                expect(screen.getByTestId('kitchen-recipe-tray-blocked')).toBeTruthy();
+            },
+            { timeout: 10000 },
+        );
 
-        await untilVisible('kitchen-recipe-publish-blocked');
-        expect(screen.getByTestId('kitchen-recipe-publish-blocked')).toHaveTextContent(
+        // Owed by the draft on screen, so the notice says it rather than the publish dialog.
+        expect(screen.getByTestId('kitchen-recipe-tray-blocked-title')).toHaveTextContent(
+            '1 thing before publishing',
+        );
+        expect(screen.getByTestId('kitchen-recipe-tray-blocked-list')).toHaveTextContent(
             /Sumac needs its nutrition confirmed/,
         );
+        expect(screen.queryByTestId('kitchen-recipe-publish-dialog')).toBeNull();
     });
 });

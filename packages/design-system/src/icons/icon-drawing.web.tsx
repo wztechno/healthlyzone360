@@ -108,6 +108,13 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
             <path d="m9 9 6 6" />
         </>
     ),
+    printer: (
+        <>
+            <path d="M6 9V3h12v6" />
+            <rect x="3" y="9" width="18" height="8" rx="2" />
+            <path d="M7 14h10v7H7z" />
+        </>
+    ),
     truck: (
         <>
             <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
@@ -177,6 +184,25 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
         <>
             <circle cx="12" cy="12" r="10" />
             <path d="M4.929 4.929 19.07 19.071" />
+        </>
+    ),
+    thumbsDown: (
+        <>
+            <path d="M17 14V2" />
+            <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H20a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2.76a2 2 0 0 0-1.79 1.11L12 22a3.13 3.13 0 0 1-3-3.88Z" />
+        </>
+    ),
+    cornerDownLeft: (
+        <>
+            <path d="M20 4v7a4 4 0 0 1-4 4H4" />
+            <path d="m9 10-5 5 5 5" />
+        </>
+    ),
+    typeText: (
+        <>
+            <path d="M12 4v16" />
+            <path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" />
+            <path d="M9 20h6" />
         </>
     ),
     infoCircle: (
@@ -699,6 +725,12 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
             <path d="m11 8 2.3-2.3a2.4 2.4 0 0 1 3.404.004L18.6 7.6a2.4 2.4 0 0 1 .026 3.434L9.9 19.8" />
         </>
     ),
+    bell: (
+        <>
+            <path d="M10.268 21a2 2 0 0 0 3.464 0" />
+            <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" />
+        </>
+    ),
     signOut: (
         <>
             <path d="m16 17 5-5-5-5" />
@@ -706,10 +738,136 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
         </>
     ),
+    person: (
+        <>
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+            <circle cx="12" cy="7" r="4" />
+        </>
+    ),
+    heart: (
+        <path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" />
+    ),
+    house: (
+        <>
+            <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
+            <path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        </>
+    ),
+    briefcase: (
+        <>
+            <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+            <rect width="20" height="14" x="2" y="6" rx="2" />
+        </>
+    ) /*
+     * The brand's leaf (the shop's logo, a diet filter, a snack slot) and the theme switch's sun and
+     * moon. Their glyphs (♣ ☀ ☾) drew in whatever font the platform fell back to, and the logo read
+     * as a card suit. Lucide's `leaf`, `sun` and `moon`; native keeps the glyphs.
+     */,
+    leaf: (
+        <>
+            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
+            <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12" />
+        </>
+    ),
+    sun: (
+        <>
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2" />
+            <path d="M12 20v2" />
+            <path d="m4.93 4.93 1.41 1.41" />
+            <path d="m17.66 17.66 1.41 1.41" />
+            <path d="M2 12h2" />
+            <path d="M20 12h2" />
+            <path d="m6.34 17.66-1.41 1.41" />
+            <path d="m19.07 4.93-1.41 1.41" />
+        </>
+    ),
+    moon: <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />,
+    arrowForward: (
+        <>
+            <path d="M5 12h14" />
+            <path d="m12 5 7 7-7 7" />
+        </>
+    ),
+    // The shop pop-ups' head tiles: pause, resume, skip a delivery, remove. Lucide.
+    pause: (
+        <>
+            <rect x="14" y="3" width="5" height="18" rx="1" />
+            <rect x="5" y="3" width="5" height="18" rx="1" />
+        </>
+    ),
+    play: (
+        <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
+    ),
+    skipForward: (
+        <>
+            <path d="M21 4v16" />
+            <path d="M6.029 4.285A2 2 0 0 0 3 6v12a2 2 0 0 0 3.029 1.715l9.997-5.998a2 2 0 0 0 .003-3.432z" />
+        </>
+    ),
+    // The menu card's calories pill. Lucide's `flame`.
+    flame: (
+        <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+    ),
+    // The shop's state cards: a list that failed to load, and its Try again. Lucide.
+    cloudAlert: (
+        <>
+            <path d="M12 12v4" />
+            <path d="M12 20h.01" />
+            <path d="M17 18h.5a1 1 0 0 0 0-9h-1.79A7 7 0 1 0 7 17.708" />
+        </>
+    ),
+    // The guest order page's reference chip. Lucide.
+    /** The workspace frame's Workspaces control — nine dots, Lucide's `grip`. */
+    gridDots: (
+        <>
+            <circle cx="5" cy="5" r="1.5" />
+            <circle cx="12" cy="5" r="1.5" />
+            <circle cx="19" cy="5" r="1.5" />
+            <circle cx="5" cy="12" r="1.5" />
+            <circle cx="12" cy="12" r="1.5" />
+            <circle cx="19" cy="12" r="1.5" />
+            <circle cx="5" cy="19" r="1.5" />
+            <circle cx="12" cy="19" r="1.5" />
+            <circle cx="19" cy="19" r="1.5" />
+        </>
+    ),
+    /** The page panel's close — Lucide's `chevrons-left`, turned round in Arabic. */
+    chevronsBackward: (
+        <>
+            <path d="m11 17-5-5 5-5" />
+            <path d="m18 17-5-5 5-5" />
+        </>
+    ),
+    copy: (
+        <>
+            <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+            <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+        </>
+    ),
+    rotateCw: (
+        <>
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+        </>
+    ),
+    trash: (
+        <>
+            <path d="M10 11v6" />
+            <path d="M14 11v6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+            <path d="M3 6h18" />
+            <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+        </>
+    ),
 };
 
 /** Drawings that point along the line of reading, and so face the other way in Arabic. */
-const MIRRORED_IN_RTL: ReadonlySet<IconName> = new Set(['signOut']);
+const MIRRORED_IN_RTL: ReadonlySet<IconName> = new Set([
+    'signOut',
+    'arrowForward',
+    'chevronsBackward',
+]);
 
 /** 13px at `sm` is `iconSize.sm` in `control.ts` — the row-action size the handoff names. */
 const PIXELS: Readonly<Record<IconSize, number>> = { sm: 13, md: 16, lg: 20 };

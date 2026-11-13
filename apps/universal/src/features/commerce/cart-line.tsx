@@ -1,29 +1,30 @@
-import { Icon, IconButton } from '@healthy360/design-system';
+import { Icon, cx } from '@healthy360/design-system';
 import type { CartItem } from '@healthy360/api-client/contracts';
-import { useFormatter } from '@healthy360/i18n';
+import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
-import { Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { useMealQuery } from '../../data/catalogue-hooks.ts';
 import { EntityImage } from '../../media/entity-image.tsx';
-import { TextLink } from './checkout-frame.tsx';
+import { dishOptionsLine } from '../../ui/dish-choices.tsx';
+import { TINT_FILL, TINT_INK, shelfTint } from '../catalogue/shelf-tints.ts';
+import { formatMoney } from '../marketplace/format.ts';
 import { YourAllergens } from './my-allergens.tsx';
 
 /**
- * One basket line, as HealthZone's `cart` draws it: the 88px photograph, the name with its line
- * total level beside it, the modifiers line, then the quantity stepper and the line's two text
- * actions in one row.
+ * One basket line, as the accepted Basket board draws it: the 104px photograph, the name with its
+ * shelf chip and its price each, Remove under them, the stepper — whose minus becomes a bin at one —
+ * and the line total, with "2 × $9.00" under it when there is more than one.
  *
- * ## The second line reads "No changes"
+ * ## The second line
  *
- * The design's grey line lists a line's modifiers, and says "No changes" when there are none. A
- * `CartItem` has no modifiers — the contract carries a meal, a quantity and two prices — so every
- * line is honestly the design's own no-modifier case.
+ * The design's grey line lists a line's options and its note, and says "No changes" when there are
+ * none.
  *
  * ## "View meal", not "Edit options"
  *
- * The design's underlined link opens the meal to change its options. There are no options to
- * change, so the same link, in the same place, says what it does: it opens the dish.
+ * A line's options are part of what it is: changing them is another line. So the link opens the
+ * dish, and says so.
  *
  * ## The photograph is the meal's, fetched by id
  *
@@ -43,19 +44,45 @@ export interface CartLineProps {
     readonly onQuantity: (quantity: number) => void;
     readonly onRemove: () => void;
     readonly onOpen: () => void;
+    /** The first line of the card draws no rule above it. */
+    readonly first?: boolean | undefined;
 }
 
-export function CartLine({ item, priceText, busy, onQuantity, onRemove, onOpen }: CartLineProps) {
+export function CartLine({
+    item,
+    priceText,
+    busy,
+    onQuantity,
+    onRemove,
+    onOpen,
+    first = false,
+}: CartLineProps) {
     const { t } = useTranslation();
+    const { locale } = useLocale();
+    const formatter = useFormatter();
     const meal = useMealQuery(item.mealId);
     const testID = `cart-line-${item.id}`;
+    const category = meal.data?.publishedCategory ?? null;
+    const tint = shelfTint(category?.code);
+    const unit = formatMoney(formatter, item.unitPrice);
+    const mods = [dishOptionsLine(item.options, locale, t), item.note]
+        .filter((part) => part != null && part !== '')
+        .join(t('catalogue:dishOptions.separator'));
 
     return (
         <View
             testID={testID}
-            className="flex-row items-start gap-4 border-b border-stroke-subtle p-4 sm:p-5"
+            className={cx(
+                'flex-row flex-wrap items-center gap-x-[18px] gap-y-3 px-5 py-4',
+                first ? '' : 'border-t border-stroke-subtle',
+            )}
         >
-            <View className="h-16 w-16 shrink-0 overflow-hidden rounded-lg sm:h-[88px] sm:w-[88px]">
+            <Pressable
+                accessibilityElementsHidden
+                importantForAccessibility="no-hide-descendants"
+                onPress={onOpen}
+                className="h-[84px] w-[104px] overflow-hidden rounded-[18px]"
+            >
                 <EntityImage
                     testID={`${testID}-image`}
                     assetId={meal.data?.imagePlaceholderId}
@@ -63,63 +90,102 @@ export function CartLine({ item, priceText, busy, onQuantity, onRemove, onOpen }
                     variant="card"
                     seed={meal.data?.slug ?? String(item.mealId)}
                     label={t('marketplace:menu.imageLabel', { meal: item.name })}
-                    aspect="square"
                     decorative
                     flush
+                    className="h-full w-full"
                 />
-            </View>
+            </Pressable>
 
-            <View className="min-w-0 flex-1 flex-col">
-                <View className="flex-row items-baseline justify-between gap-3">
+            <View className="min-w-[160px] flex-1 flex-col items-start">
+                <Pressable
+                    testID={`${testID}-open`}
+                    role="link"
+                    accessibilityRole="link"
+                    accessibilityHint={t('commerce:cart.viewMeal')}
+                    onPress={onOpen}
+                >
                     <RNText
                         testID={`${testID}-name`}
-                        className="min-w-0 shrink font-display text-lg font-bold tracking-display text-content-primary text-start"
+                        className="font-display text-lg font-bold text-content-primary text-start hover:text-content-on-brand-subtle"
                     >
                         {item.name}
                     </RNText>
-                    <RNText
-                        testID={`${testID}-total`}
-                        className="font-display text-lg font-bold tabular-nums text-content-primary text-end"
-                    >
-                        {priceText}
+                </Pressable>
+                <View className="mt-1.5 flex-row flex-wrap items-center gap-2">
+                    {category === null ? null : (
+                        <View
+                            className={cx(
+                                'h-[22px] justify-center rounded-full px-2',
+                                TINT_FILL[tint],
+                            )}
+                        >
+                            <RNText className={cx('text-xs font-bold', TINT_INK[tint])}>
+                                {category.name}
+                            </RNText>
+                        </View>
+                    )}
+                    <RNText className="text-sm tabular-nums text-content-secondary">
+                        {t('commerce:cart.each', { price: unit })}
                     </RNText>
                 </View>
-
                 <RNText
                     testID={`${testID}-mods`}
-                    className="mt-1 text-sm text-content-secondary text-start"
+                    numberOfLines={2}
+                    className="mt-1 text-xs text-content-secondary text-start"
                 >
-                    {t('commerce:cart.noChanges')}
+                    {mods === '' ? t('commerce:cart.noChanges') : mods}
                 </RNText>
-
                 <YourAllergens
                     allergens={item.allergens}
                     testID={`${testID}-your-allergens`}
                     className="mt-1"
+                    variant="tag"
                 />
+                <Pressable
+                    testID={`${testID}-remove`}
+                    role="button"
+                    accessibilityRole="button"
+                    accessibilityHint={t('commerce:cart.removeHint', { meal: item.name })}
+                    accessibilityState={{ disabled: busy }}
+                    disabled={busy}
+                    onPress={onRemove}
+                    className="group mt-2 h-8 flex-row items-center gap-1 rounded-[10px] pe-2.5 ps-1.5 hover:bg-danger-subtle"
+                >
+                    <Icon
+                        name="close"
+                        size="sm"
+                        className="text-content-secondary group-hover:text-danger-on-subtle"
+                    />
+                    <RNText className="text-sm font-semibold text-content-secondary group-hover:text-danger-on-subtle">
+                        {t('commerce:cart.remove')}
+                    </RNText>
+                </Pressable>
+            </View>
 
-                <View className="mt-3 flex-row flex-wrap items-center gap-x-4 gap-y-2">
-                    <LineQuantity
-                        testID={`${testID}-quantity`}
-                        meal={item.name}
-                        value={item.quantity}
-                        disabled={busy}
-                        onChange={onQuantity}
-                    />
-                    <TextLink
-                        testID={`${testID}-open`}
-                        label={t('commerce:cart.viewMeal')}
-                        onPress={onOpen}
-                    />
-                    <TextLink
-                        testID={`${testID}-remove`}
-                        tone="muted"
-                        label={t('commerce:cart.remove')}
-                        accessibilityHint={t('commerce:cart.removeHint', { meal: item.name })}
-                        disabled={busy}
-                        onPress={onRemove}
-                    />
-                </View>
+            <LineQuantity
+                testID={`${testID}-quantity`}
+                meal={item.name}
+                value={item.quantity}
+                disabled={busy}
+                onChange={onQuantity}
+                onRemove={onRemove}
+            />
+
+            <View className="w-24 items-end">
+                <RNText
+                    testID={`${testID}-total`}
+                    className="font-display text-lg font-bold tabular-nums text-content-primary text-end"
+                >
+                    {priceText}
+                </RNText>
+                {item.quantity > 1 ? (
+                    <RNText className="text-xs font-medium tabular-nums text-content-secondary text-end">
+                        {t('commerce:cart.timesUnit', {
+                            count: formatter.formatNumber(item.quantity),
+                            price: unit,
+                        })}
+                    </RNText>
+                ) : null}
             </View>
         </View>
     );
@@ -130,38 +196,50 @@ interface LineQuantityProps {
     readonly value: number;
     readonly disabled: boolean;
     readonly onChange: (next: number) => void;
+    /** At one, the minus is a bin: one fewer is none. */
+    readonly onRemove: () => void;
     readonly testID: string;
 }
 
-/**
- * The design's compact stepper: one outlined pill holding minus, the count and plus.
- *
- * Not `NumberStepper`. That control is a labelled form field around a text input, which is right
- * where somebody types a number and wrong on a basket line — a visible "How many portions of…"
- * label over every line, and a keystroke-per-request input on something that sends a mutation per
- * change. A line moves one portion at a time; the buttons say which meal they change, and the
- * count announces itself when it moves. The buttons keep the 44px floor.
- */
-function LineQuantity({ meal, value, disabled, onChange, testID }: LineQuantityProps) {
+/** The board's stepper: a sunken track, a white minus (a bin at one), the count, a brand plus. */
+function LineQuantity({ meal, value, disabled, onChange, onRemove, testID }: LineQuantityProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const atOne = value <= MIN_LINE_QUANTITY;
+    const atMost = value >= MAX_LINE_QUANTITY;
 
     return (
         <View
             testID={testID}
-            className="flex-row items-center rounded-lg border border-stroke-strong bg-surface-raised"
+            role="group"
+            aria-label={t('commerce:cart.quantityValue', {
+                meal,
+                quantity: formatter.formatNumber(value),
+            })}
+            className="h-12 flex-row items-center rounded-2xl border border-stroke-subtle bg-surface-base p-1"
         >
-            <IconButton
+            <Pressable
                 testID={`${testID}-decrement`}
-                variant="ghost"
-                size="sm"
-                label={t('commerce:cart.decrease', { meal })}
-                icon={<Icon name="minus" size="sm" />}
-                disabled={disabled || value <= MIN_LINE_QUANTITY}
+                role="button"
+                accessibilityRole="button"
+                accessibilityLabel={
+                    atOne
+                        ? t('commerce:cart.removeHint', { meal })
+                        : t('commerce:cart.decrease', { meal })
+                }
+                accessibilityState={{ disabled }}
+                disabled={disabled}
                 onPress={() => {
+                    if (atOne) {
+                        onRemove();
+                        return;
+                    }
                     onChange(Math.max(MIN_LINE_QUANTITY, value - 1));
                 }}
-            />
+                className="h-10 w-10 items-center justify-center rounded-xl bg-surface-raised shadow-elevation-1 active:scale-90"
+            >
+                <Icon name={atOne ? 'close' : 'minus'} size="sm" className="text-content-primary" />
+            </Pressable>
             <RNText
                 testID={`${testID}-value`}
                 aria-live="polite"
@@ -170,21 +248,27 @@ function LineQuantity({ meal, value, disabled, onChange, testID }: LineQuantityP
                     meal,
                     quantity: formatter.formatNumber(value),
                 })}
-                className="min-w-6 text-center text-sm font-semibold tabular-nums text-content-primary"
+                className="w-10 text-center font-display text-lg font-bold tabular-nums text-content-primary"
             >
                 {formatter.formatNumber(value)}
             </RNText>
-            <IconButton
+            <Pressable
                 testID={`${testID}-increment`}
-                variant="ghost"
-                size="sm"
-                label={t('commerce:cart.increase', { meal })}
-                icon={<Icon name="plus" size="sm" />}
-                disabled={disabled || value >= MAX_LINE_QUANTITY}
+                role="button"
+                accessibilityRole="button"
+                accessibilityLabel={t('commerce:cart.increase', { meal })}
+                accessibilityState={{ disabled: disabled || atMost }}
+                disabled={disabled || atMost}
                 onPress={() => {
                     onChange(Math.min(MAX_LINE_QUANTITY, value + 1));
                 }}
-            />
+                className={cx(
+                    'h-10 w-10 items-center justify-center rounded-xl bg-surface-brand shadow-elevation-1 active:scale-90',
+                    atMost ? 'opacity-40' : '',
+                )}
+            >
+                <Icon name="plus" size="sm" className="text-content-on-brand" />
+            </Pressable>
         </View>
     );
 }

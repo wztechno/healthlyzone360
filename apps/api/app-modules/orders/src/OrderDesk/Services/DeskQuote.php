@@ -5,21 +5,29 @@ declare(strict_types=1);
 namespace Healthy360\Orders\OrderDesk\Services;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Audit\Enums\PurposeOfUse;
+use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Cart\Services\ChannelCurrency;
 use Healthy360\Cart\Services\LineProbe;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Catalogues\Services\DishOptions;
 use Healthy360\Customers\Enums\CustomerAddressType;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Services\ZoneResolver;
 use Healthy360\Delivery\Services\ZoneWindowService;
+use Healthy360\Orders\Contracts\BuyerAllergenCheck;
 use Healthy360\Orders\Contracts\HeldStockLookup;
-use Healthy360\Orders\Contracts\OrderSchedulingLookup;
 use Healthy360\Orders\Enums\FulfilmentType;
+use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Services\ComposedLine;
+use Healthy360\Orders\Services\DeliveryPhone;
+use Healthy360\Orders\Services\OrderTimingRules;
 use Healthy360\Orders\Services\SellerContext;
+use Healthy360\Support\Enums\DataClassification;
+use Healthy360\Tenancy\TenantContext;
 
 /**
  * What a desk sale would cost, and everything standing in the way of it.
@@ -77,9 +85,27 @@ use Healthy360\Orders\Services\SellerContext;
  * `OrderPlacementService::agreementReasons()` — and running it would mean
  * quoting a corporate minimum against a counter sale.
  *
+ * **The lead time and the zone minimum.** A cashier is talking to the kitchen,
+ * and staff may agree a small order.
+ *
  * Everything else runs: the shape rules, the address and zone questions on a
- * delivery, and the branch cut-off on a delivery or a pickup. Those are the
- * three families the agent can do something about.
+ * delivery, and `OrderTimingRules` on a delivery or a pickup, which is the same
+ * call `composeNow()` makes. Those are the three families the agent can do
+ * something about.
+ *
+ * ## The two brakes are warnings here
+ *
+ * A pause and a full window refuse a customer and warn the desk, so
+ * `service_warnings` sits beside `refusals` in the same `{reason, …}` shape and
+ * leaves `quotable` alone. The agent reads it and decides: that is the override.
+ *
+ * ## Allergen conflicts are not refusals
+ *
+ * A refusal means the sale cannot go ahead as it stands, and `quotable` says so.
+ * A conflict can: the agent tells the customer, ticks the box and sells it. So
+ * `allergen_conflicts` sits beside `refusals`, in the shape the checkout preview
+ * uses, and leaves `quotable` alone. It names a customer's allergens to staff, so
+ * the read is recorded.
  */
 final readonly class DeskQuote
 {
@@ -89,9 +115,14 @@ final readonly class DeskQuote
         private ChannelCurrency $currencies,
         private ZoneResolver $zones,
         private ZoneWindowService $zoneWindows,
-        private OrderSchedulingLookup $scheduling,
+        private OrderTimingRules $timing,
         private SellerContext $seller,
         private HeldStockLookup $held,
+        private BuyerAllergenCheck $allergenCheck,
+        private AuditRecorder $audit,
+        private TenantContext $context,
+        private DishOptions $options,
+        private DeliveryPhone $phones,
     ) {}
 
     /**
@@ -104,7 +135,13 @@ final readonly class DeskQuote
      * Stating it once is the alternative to this class quietly depending on the
      * caller having a tenant context at all, which a console command would not.
      *
-     * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string}>  $lines
+     * **Editing an order** (`$amending`) prices on that order's own channel —
+     * the caller passes it — and quotes what `OrderPlacementService::amend()`
+     * would save: a delivery with no new address keeps its stored zone and fee,
+     * the slot is checked only when it moved, and a passed cut-off is not a
+     * refusal because staff may override it.
+     *
+     * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string, option_ids?: list<string>, note?: string|null}>  $lines
      * @return array{
      *     lines: list<array<string, mixed>>,
      *     subtotal_minor: int,
@@ -113,7 +150,9 @@ final readonly class DeskQuote
      *     currency_code: string,
      *     refusals: list<array<string, mixed>>,
      *     quotable: bool,
-     *     offered_window_codes: list<string>|null
+     *     offered_window_codes: list<string>|null,
+     *     allergen_conflicts: list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>,
+     *     service_warnings: list<array<string, mixed>>
      * }
      */
     public function for(
@@ -125,16 +164,17 @@ final readonly class DeskQuote
         ?string $branchId = null,
         ?CarbonImmutable $requestedDate = null,
         ?string $deliveryWindowCode = null,
+        ?Order $amending = null,
     ): array {
         return $this->seller->during(
             (string) $channel->organisation_id,
             $branchId,
-            fn (): array => $this->quoteNow($channel, $fulfilmentType, $lines, $account, $address, $branchId, $requestedDate, $deliveryWindowCode),
+            fn (): array => $this->quoteNow($channel, $fulfilmentType, $lines, $account, $address, $branchId, $requestedDate, $deliveryWindowCode, $amending),
         );
     }
 
     /**
-     * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string}>  $lines
+     * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string, option_ids?: list<string>, note?: string|null}>  $lines
      * @return array{
      *     lines: list<array<string, mixed>>,
      *     subtotal_minor: int,
@@ -143,7 +183,9 @@ final readonly class DeskQuote
      *     currency_code: string,
      *     refusals: list<array<string, mixed>>,
      *     quotable: bool,
-     *     offered_window_codes: list<string>|null
+     *     offered_window_codes: list<string>|null,
+     *     allergen_conflicts: list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>,
+     *     service_warnings: list<array<string, mixed>>
      * }
      */
     private function quoteNow(
@@ -155,6 +197,7 @@ final readonly class DeskQuote
         ?string $branchId,
         ?CarbonImmutable $requestedDate,
         ?string $deliveryWindowCode,
+        ?Order $amending = null,
     ): array {
         $now = CarbonImmutable::now();
 
@@ -170,10 +213,39 @@ final readonly class DeskQuote
         // the two agreeing is what makes the quoted total the charged total.
         $currencyCode = $this->currencies->for($channel);
 
-        $refusals = $this->shapeRefusals($fulfilmentType, $account, $address);
+        // An edit with no new address still has one: the stored snapshot.
+        $keepsStoredAddress = $amending instanceof Order && $address === null && $fulfilmentType->requiresAddress();
+
+        $refusals = array_values(array_filter(
+            $this->shapeRefusals($fulfilmentType, $account, $address),
+            static fn (array $refusal): bool => ! ($keepsStoredAddress && $refusal['reason'] === 'address_required'),
+        ));
 
         $fee = null;
         $offeredWindowCodes = null;
+        $zone = null;
+
+        if ($keepsStoredAddress) {
+            $fee = $amending->delivery_fee_minor;
+            $storedZone = $amending->delivery_zone_id === null
+                ? null
+                : DeliveryZone::query()->whereKey($amending->delivery_zone_id)->first();
+            $zone = $storedZone;
+
+            if ($storedZone instanceof DeliveryZone) {
+                $offeredWindowCodes = $this->zoneWindows->offeredCodes($storedZone);
+
+                if ($deliveryWindowCode !== null
+                    && $deliveryWindowCode !== $amending->delivery_window_code
+                    && ! in_array($deliveryWindowCode, $offeredWindowCodes, true)) {
+                    $refusals[] = [
+                        'reason' => 'window_not_offered',
+                        'delivery_window_code' => $deliveryWindowCode,
+                        'delivery_zone_id' => (string) $storedZone->getKey(),
+                    ];
+                }
+            }
+        }
 
         if ($fulfilmentType->requiresAddress() && $address instanceof CustomerAddress) {
             // The one half of `addressReasons()` that survives explicit
@@ -191,6 +263,13 @@ final readonly class DeskQuote
 
             [$zone, $zoneRefusals] = $this->zoneFor($branchId, $address);
             $refusals = [...$refusals, ...$zoneRefusals];
+
+            // The placement's own `phone_required`. Not on an edit: the order
+            // already left the desk with whatever number it had.
+            if (! $amending instanceof Order
+                && ! $this->phones->resolves($address->contact_point_id, $account === null ? null : (string) $account->getKey())) {
+                $refusals[] = ['reason' => 'phone_required'];
+            }
 
             // The slots this address may be given, and the placement's own
             // `window_not_offered` when the agent picked one it does not run.
@@ -223,13 +302,41 @@ final readonly class DeskQuote
             }
         }
 
+        $dateMoved = $amending instanceof Order
+            && $requestedDate instanceof CarbonImmutable
+            && $requestedDate->toDateString() !== $amending->requested_delivery_date?->toDateString();
+
         // Delivery and pickup, never a counter sale — the cut-off is about when
-        // the food can be *made*, and a counter sale is handed over now.
-        if ($fulfilmentType !== FulfilmentType::Counter) {
-            $refusals = [...$refusals, ...$this->scheduleRefusals($branchId, $requestedDate, $now)];
+        // the food can be *made*, and a counter sale is handed over now. An edit
+        // re-asks only for a day or slot that moved, and staff may override the
+        // cut-off — exactly as the save will.
+        $asksTiming = ! $amending instanceof Order || $dateMoved || $deliveryWindowCode !== $amending->delivery_window_code;
+
+        $timingDate = $requestedDate ?? $amending?->requested_delivery_date;
+
+        if ($fulfilmentType !== FulfilmentType::Counter && $asksTiming && $timingDate instanceof CarbonImmutable) {
+            $refusals = [...$refusals, ...$this->timing->refusals(
+                (string) $channel->organisation_id,
+                $branchId,
+                $zone,
+                $timingDate,
+                $deliveryWindowCode,
+                $now,
+                leadTime: false,
+                waiveCutOff: $amending instanceof Order,
+            )];
         }
 
-        [$quoted, $lineRefused] = $this->lines($channel, $lines, $currencyCode, $requestedDate, $account, $branchId);
+        // The same exemption the save gives a line the order already holds.
+        $heldItemIds = $amending instanceof Order && ! $dateMoved
+            ? array_values($amending->lines()->pluck('catalogue_item_id')->map(static fn (mixed $id): string => (string) $id)->all())
+            : [];
+
+        // A counter sale is for now. Anything else with no day yet has no day
+        // for the calendar to rule out, and "today" would be a guess.
+        $asksCalendar = $requestedDate instanceof CarbonImmutable || $fulfilmentType === FulfilmentType::Counter;
+
+        [$quoted, $lineRefused] = $this->lines($channel, $lines, $currencyCode, $requestedDate, $account, $branchId, $asksCalendar, $heldItemIds);
 
         $subtotal = 0;
 
@@ -255,7 +362,38 @@ final readonly class DeskQuote
             'quotable' => $refusals === [] && ! $lineRefused,
             // Null unless a delivery address resolved to a serving zone.
             'offered_window_codes' => $offeredWindowCodes,
+            'allergen_conflicts' => $this->allergenConflicts($account, $quoted),
+            'service_warnings' => $amending instanceof Order ? [] : [
+                ...$this->timing->pauseRefusals((string) $channel->organisation_id, $now),
+                ...$this->timing->capacityRefusals((string) $channel->organisation_id, $timingDate, $deliveryWindowCode),
+            ],
         ];
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $quoted
+     * @return list<array{catalogue_item_id: string, reason: string, allergen_codes: list<string>}>
+     */
+    private function allergenConflicts(?CustomerAccount $account, array $quoted): array
+    {
+        if (! $account instanceof CustomerAccount) {
+            return [];
+        }
+
+        $conflicts = $this->allergenCheck->conflicts($account, array_column($quoted, 'catalogue_item_id'), array_column($quoted, 'option_ids'));
+
+        if ($conflicts !== []) {
+            $this->audit->recordAccessDaily(
+                'customer.allergen_conflicts_read',
+                PurposeOfUse::OrderFulfilment,
+                DataClassification::SpecialCategory,
+                $this->context->userId(),
+                'customer_account',
+                (string) $account->getKey(),
+            );
+        }
+
+        return $conflicts;
     }
 
     /**
@@ -267,7 +405,8 @@ final readonly class DeskQuote
      * merged them into one line of three would be a total the customer was shown
      * and a total they were charged, differing for a reason nobody could see.
      *
-     * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string}>  $lines
+     * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string, option_ids?: list<string>, note?: string|null}>  $lines
+     * @param  list<string>  $heldItemIds  articles an order being edited already holds for that day
      * @return array{0: list<array<string, mixed>>, 1: bool}
      */
     private function lines(
@@ -277,6 +416,8 @@ final readonly class DeskQuote
         ?CarbonImmutable $on,
         ?CustomerAccount $account,
         ?string $branchId,
+        bool $asksCalendar,
+        array $heldItemIds,
     ): array {
         $quoted = [];
         $anyRefused = false;
@@ -290,12 +431,20 @@ final readonly class DeskQuote
                 $on,
                 $currencyCode,
                 $account,
+                enforceCalendar: $asksCalendar && ! in_array($line->catalogueItemId, $heldItemIds, true),
+                enforceAssessment: ! in_array($line->catalogueItemId, $heldItemIds, true),
             );
 
             $item = $result->item;
             $price = $result->price;
 
-            $refused = $result->refusals !== [] || ! $item instanceof CatalogueItem || $price === null;
+            $lineRefusals = $result->refusals;
+
+            if ($this->options->snapshot($line->catalogueItemId, $line->optionIds) === null) {
+                $lineRefusals[] = ['reason' => $this->options->refusal($line->catalogueItemId, $line->optionIds), 'catalogue_item_id' => $line->catalogueItemId];
+            }
+
+            $refused = $lineRefusals !== [] || ! $item instanceof CatalogueItem || $price === null;
 
             if ($refused) {
                 $anyRefused = true;
@@ -321,10 +470,17 @@ final readonly class DeskQuote
                 // where there is not — a refused line still has to say what the
                 // rest of the basket is denominated in.
                 'currency_code' => $price->currencyCode ?? $currencyCode,
-                'refusals' => $this->attributed($result->refusals, $line),
-                // A warning, never a refusal (owner decision, 13 Oct 2026): the
-                // ingredients this line would draw that have stock on quality hold.
-                'held_stock' => $refused || ! $item instanceof CatalogueItem
+                'option_ids' => $line->optionIds,
+                'note' => $line->note,
+                'refusals' => $this->attributed($lineRefusals, $line),
+                // What the line is sold with, never refused for: `stock_short`
+                // when it needs more than the free stock. The checkout preview's
+                // warning, told to the agent too.
+                'warnings' => $this->attributed($result->warnings, $line),
+                // The ingredients this line would draw that have stock on quality
+                // hold: a warning (owner decision, 13 Oct 2026), and the names
+                // behind a `quality_hold` refusal when nothing free is left.
+                'held_stock' => ! $item instanceof CatalogueItem
                     ? []
                     : $this->held->heldFor((string) $channel->organisation_id, $branchId, $item, $line->quantity),
             ];
@@ -412,28 +568,5 @@ final readonly class DeskQuote
             'reason' => 'area_not_served',
             'delivery_area_id' => $areaId,
         ]]];
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function scheduleRefusals(?string $branchId, ?CarbonImmutable $requestedDate, CarbonImmutable $now): array
-    {
-        if ($branchId === null || ! $requestedDate instanceof CarbonImmutable) {
-            return [];
-        }
-
-        $schedule = $this->scheduling->explain($branchId, $requestedDate, $now);
-
-        if ($schedule['accepted']) {
-            return [];
-        }
-
-        return [[
-            'reason' => $schedule['reason'] ?? 'cut_off_passed',
-            'branch_id' => $branchId,
-            'requested_date' => $requestedDate->toDateString(),
-            'cut_off_at' => $schedule['cut_off_at'],
-        ]];
     }
 }

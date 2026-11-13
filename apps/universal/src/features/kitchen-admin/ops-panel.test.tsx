@@ -2,12 +2,17 @@ import type { ItemLatestPurchase, StockItem, StockLevel } from '@healthy360/api-
 import { GoodsReceiptId, SupplierId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
+import { queryKeys } from '../../data/query-keys.ts';
 import { kitchenManagerSession, testActiveContext } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { TEST_BRANCH_ID } from '../../testing/session-fixtures.ts';
 import { stockItemRowTestId } from './ops-format.ts';
+import { canSaveFiles } from './save-download.ts';
 import { StockScreen } from './screens/stock-screen.tsx';
+
+// jest-expo runs as iOS, where nothing can be saved; the Export tests below say this build can.
+jest.mock('./save-download.ts');
 
 /** The desk width the kitchen list is built for; narrower, `CatalogueList` draws its phone rows. */
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
@@ -17,6 +22,9 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
 
 jest.mock('expo-router', () => ({
     __esModule: true,
+    useSegments: () => [],
+    useGlobalSearchParams: () => ({}),
+    useNavigation: () => ({}),
     useRouter: () => ({
         push: jest.fn(),
         replace: jest.fn(),
@@ -112,7 +120,12 @@ describe('ops panels', () => {
         });
 
         // Live counts over the rows in hand, not fabricated KPIs.
-        expect(screen.getByTestId('kitchen-stock-stats')).toHaveTextContent(/Shown/);
+        expect(screen.getByTestId('kitchen-stock-toolbar-figure-all-value')).toHaveTextContent('3');
+        expect(screen.getByTestId('kitchen-stock-toolbar-figure-ok-value')).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-stock-toolbar-figure-low-value')).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-stock-toolbar-figure-none-value')).toHaveTextContent(
+            '1',
+        );
         const rowFor = (ordinal: number) => stockItemRowTestId(String(stockItem(ordinal).id));
         expect(screen.getByTestId(`${rowFor(1)}-status`)).toHaveTextContent(/In stock/);
         expect(screen.getByTestId(`${rowFor(2)}-status`)).toHaveTextContent(/Low/);
@@ -131,12 +144,12 @@ describe('ops panels', () => {
         expect(screen.getByTestId(`${rowFor(4)}-name`)).toBeTruthy();
         expect(screen.queryByTestId(`${rowFor(1)}-name`)).toBeNull();
 
-        // The level segments narrow within the book.
+        // The level figures narrow within the book.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-stock-kind-ingredients'));
         });
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-stock-toolbar-status-low'));
+            fireEvent.press(screen.getByTestId('kitchen-stock-toolbar-figure-low'));
         });
         expect(screen.getByTestId(`${rowFor(2)}-name`)).toBeTruthy();
         expect(screen.queryByTestId(`${rowFor(1)}-name`)).toBeNull();
@@ -192,6 +205,30 @@ describe('ops panels', () => {
                 Array.from({ length: 9 }, (_, index) => stockItem(index + 19).id),
             );
         });
+    });
+
+    it('keys the shelves on the active branch, so switching branch never serves the last one', async () => {
+        const { queryClient } = await renderStubScreen(<StockScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listStockItems: async () => [stockItem(1)],
+                    listStockLevels: async () => [],
+                    listItemLatestPurchases: async () => [],
+                },
+                kitchenAdmin: { listIngredients: async () => page([]) },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-stock-table')).toBeTruthy();
+        });
+
+        const levels = queryClient
+            .getQueryCache()
+            .findAll({ queryKey: ['kitchenOps', 'stock-levels'] })
+            .map((query) => query.queryKey);
+        expect(levels).toEqual([queryKeys.kitchenOps.stockLevels(TEST_BRANCH_ID)]);
     });
 
     it('offers no way to declare a stock item — a shelf follows an ingredient or a product', async () => {
@@ -332,13 +369,13 @@ describe('ops panels', () => {
         await type('kitchen-stock-movement-quantity-input', '-2');
         expect(screen.getByTestId('kitchen-stock-movement-quantity-input').props.value).toBe('2');
         expect(screen.getByTestId('kitchen-stock-editor-summary-movement')).toHaveTextContent(
-            /−2 kg|-2 kg/,
+            /−2 Kg|-2 Kg/,
         );
 
         // Wasting more than the four kilograms on the shelf is refused before it is posted.
         await type('kitchen-stock-movement-quantity-input', '5');
         expect(screen.getByTestId('kitchen-stock-movement-quantity-error')).toHaveTextContent(
-            /Only 4 kg is on the shelf/,
+            /Only 4 Kg is on the shelf/,
         );
         expect(screen.getByTestId('kitchen-stock-editor-save')).toBeDisabled();
 
@@ -356,7 +393,7 @@ describe('ops panels', () => {
         await type('kitchen-stock-movement-quantity-input', '6.5');
         expect(screen.queryByTestId('kitchen-stock-movement-quantity-error')).toBeNull();
         expect(screen.getByTestId('kitchen-stock-editor-summary-movement')).toHaveTextContent(
-            /\+2\.5 kg/,
+            /\+2\.5 Kg/,
         );
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-stock-editor-save'));
@@ -369,6 +406,44 @@ describe('ops panels', () => {
         });
         expect(repositories.kitchenOps.recordStockWaste).not.toHaveBeenCalled();
         expect(repositories.kitchenOps.recordStockAdjustment).not.toHaveBeenCalled();
+    });
+
+    it('opens a shelf sent by its id on Count, the way a duplicate pair asks for it', async () => {
+        await renderStubScreen(
+            <StockScreen
+                shelf={String(stockItem(2).id)}
+                direction="count"
+                returnTo="/kitchen/stock-duplicates"
+            />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        listStockItems: async () => [stockItem(1), stockItem(2)],
+                        listStockLevels: async () => [
+                            stockLevel(1),
+                            stockLevel(2, { quantity: '4.000' }),
+                        ],
+                        listItemLatestPurchases: async () => [],
+                    },
+                    kitchenAdmin: { listIngredients: async () => page([]) },
+                },
+            },
+        );
+
+        // The editor opens on its own, on the shelf the id names, already on Count.
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('kitchen-stock-movement-direction-trigger'),
+            ).toHaveTextContent(/Count/);
+        });
+        // A count states the shelf: typing zero against the four kilograms reads as taking them off.
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-stock-movement-quantity-input'), '0');
+        });
+        expect(screen.getByTestId('kitchen-stock-editor-summary-movement')).toHaveTextContent(
+            /−4 Kg|-4 Kg/,
+        );
     });
 
     it('shows an honest empty state for each book when the world has neither', async () => {
@@ -489,5 +564,65 @@ describe('ops panels', () => {
         expect(screen.queryByTestId(`${testID}-price`)).toBeNull();
         // A link into a ledger this reader may not open would be a promise it refuses.
         expect(screen.queryByTestId(`${testID}-history`)).toBeNull();
+    });
+});
+
+describe('the stock count — import and export', () => {
+    const TOOLBAR = 'kitchen-stock-toolbar';
+    const canSave = jest.mocked(canSaveFiles);
+
+    beforeEach(() => {
+        canSave.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+        canSave.mockReset();
+    });
+
+    async function renderStock() {
+        const rendered = await renderStubScreen(<StockScreen />, {
+            session: kitchenManagerSession({ activeContext: testActiveContext() }),
+            repositories: {
+                kitchenOps: {
+                    listStockItems: async () => [stockItem(1)],
+                    listStockLevels: async () => [stockLevel(1)],
+                    listItemLatestPurchases: async () => [],
+                },
+                kitchenAdmin: {
+                    listIngredients: async () => page([]),
+                    exportStock: async () => ({
+                        blob: new Blob(['x']),
+                        filename: 'stock-count.xlsx',
+                    }),
+                },
+            },
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId(`${TOOLBAR}-export`)).toBeTruthy();
+        });
+        return rendered;
+    }
+
+    async function openExport() {
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-export`));
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId(`${TOOLBAR}-export-excel`)).toBeTruthy();
+        });
+    }
+
+    it('with a branch, downloads that branch’s count sheet', async () => {
+        const { repositories } = await renderStock();
+
+        await openExport();
+        expect(screen.getByTestId(`${TOOLBAR}-export-excel`)).not.toBeDisabled();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-export-excel`));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.exportStock).toHaveBeenCalled();
+        });
     });
 });

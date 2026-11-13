@@ -51,6 +51,10 @@ function organisationTemplateRoleCodes(): array
         // neither reads across a tenant boundary. Both are assembled entirely
         // from codes that already existed.
         'procurement_manager', 'finance_manager',
+
+        // P1 Wave A: the own-driver job. Organisation-scoped and code-free apart
+        // from the own-scope set: the run sheet narrows by `driver_user_id`.
+        'kitchen_driver',
     ];
 }
 
@@ -147,6 +151,7 @@ it('lets the order desk read the range it sells without deciding it', function (
         'order.view_customer_contact_organisation',
         'subscription.view_organisation',
         'inventory.view_organisation',
+        'order.settle_cash_organisation',
     ]);
 
     foreach ([
@@ -183,7 +188,7 @@ it('separates the administrator from the owner by the identity of the business',
     $admin = $templates['organisation_admin']['permissions'];
 
     expect($admin)->not->toEqualCanonicalizing($owner)
-        ->and(array_values(array_diff($owner, $admin)))->toBe(['organisation.update_current'])
+        ->and(array_values(array_diff($owner, $admin)))->toEqualCanonicalizing(['organisation.update_current', 'order.approve_refund_organisation'])
         ->and(array_diff($admin, $owner))->toBe([])
         ->and($admin)->toContain('role.manage_organisation');
 });
@@ -237,9 +242,10 @@ it('lets the buyer spend the kitchen\'s money without seeing what it charges', f
 });
 
 it('gives finance every number and no way to change one', function (): void {
-    // Almost entirely reads, and the single exception is the point:
+    // Almost entirely reads, and the two exceptions are the point:
     // `recipe.view_costs_organisation` gates the read *and* the write of line
-    // unit costs by design (K1.3), and finance is who knows what a thing cost.
+    // unit costs by design (K1.3), and finance is who knows what a thing cost;
+    // `inventory.approve_payables_organisation` is finance paying the supplier.
     $finance = PermissionRegistry::templateRoles()['finance_manager']['permissions'];
 
     expect($finance)->toEqualCanonicalizing([
@@ -254,6 +260,7 @@ it('gives finance every number and no way to change one', function (): void {
         'b2b_quotation.view_organisation',
         'inventory.view_organisation',
         'inventory.view_costs_organisation',
+        'inventory.approve_payables_organisation',
         'audit.view_organisation',
     ]);
 
@@ -311,29 +318,31 @@ function templateRolesHolding(string $code): array
 it('grants each template role the expected number of codes', function (string $role, int $expectedGrants): void {
     expect(PermissionRegistry::templateRoles()[$role]['permissions'])->toHaveCount($expectedGrants);
 })->with([
-    'organisation owner grants every organisation permission' => ['organisation_owner', 46],
-    // Forty-five either way, which is why this row stayed green through AA1 while
+    'organisation owner grants every organisation permission' => ['organisation_owner', 51],
+    // The same count either way, which is why this row stayed green through AA1 while
     // its name stopped being true: the console swapped `role.manage_organisation`
     // in and `organisation.update_current` out, one for one. The count is the
     // weakest half of the pin; `separates the administrator from the owner`
     // above names which code is missing.
-    'organisation administrator runs everything except the legal identity of the business' => ['organisation_admin', 45],
-    'branch manager is limited to its branch and roster' => ['branch_manager', 3],
+    'organisation administrator runs everything except the legal identity of the business' => ['organisation_admin', 49],
+    'branch manager runs the service: its branch, the wall, the order book, the counter and the reads they stand on' => ['branch_manager', 15],
     'member holds the organisation view plus the own-scope permissions' => ['member', 7],
-    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 31],
+    'kitchen manager runs the catalogue, publishes it and its recipes, prices it, designs its plans, draws the delivery map, reads the subscription book, runs inventory including its costs, orders its supplies and holds the order desk in full' => ['kitchen_manager', 34],
     // Nine since PROD1: the chef gained `production.view_organisation` and
     // `production.manage_organisation` and not the costs code. Running the line
     // is the job; what the line cost is the commercial side's, which is the same
     // line `inventory.view_costs_organisation` already draws through this role.
-    'chef edits recipes and their costs and runs inventory and batches, but never publishes and never sees a price or a cost outside a recipe' => ['kitchen_chef', 9],
-    'kitchen staff read the catalogue, recipes and stock quantities, and no money at all' => ['kitchen_staff', 3],
+    'chef edits recipes and their costs, runs inventory, batches and the wall, but never publishes and never sees a price or a cost outside a recipe' => ['kitchen_chef', 10],
+    // Five since 8 Nov 2026: `production.view_organisation`, so the cook opens
+    // the batch on the line and records its core temperature.
+    'cook reads the catalogue, recipes, stock quantities and batches, works the wall, and sees no money at all' => ['kitchen_staff', 5],
     'commercial manager reads the catalogue and its costs, decides the range, writes the tariff, owns the plans, prices delivery, reads the subscription book, reads inventory and its costs and sees who is buying' => ['commercial_manager', 16],
     // Eight, not seven: the role gained `catalogue.view_organisation` with the
     // sale wizard's item picker, which reads the kitchen's own catalogue to
     // find out what there is to sell and 403s without it. Reading the range is
     // still not deciding it — the manage and publish codes stay absent, which
     // is the half of this row the name is about.
-    'order desk agent works the queue, sells across the counter and opens accounts for cold callers, reads the range and decides neither it nor the tariff' => ['order_desk_agent', 8],
+    'order desk agent works the queue, sells across the counter and opens accounts for cold callers, reads the range and decides neither it nor the tariff' => ['order_desk_agent', 9],
     // AA1's two. They were absent from this dataset for a day after the console
     // shipped — and a dataset only asserts about the rows it lists, so their
     // absence was silent rather than red. `classifies every template role as
@@ -342,8 +351,57 @@ it('grants each template role the expected number of codes', function (string $r
     // Eight since the recipe book: `recipe.view_organisation`, so the buyer keeps
     // the meal, sauce, dressing and frozen-meal lists that merged into it.
     'purchasing manager spends the kitchen money without seeing what it charges, and reads the recipe book' => ['procurement_manager', 8],
-    'finance manager reads every number and can change exactly one, the unit cost of a recipe line' => ['finance_manager', 12],
+    'finance manager reads every number and can change exactly one, the unit cost of a recipe line' => ['finance_manager', 13],
+    'driver signs in and sees their own account, and the run sheet does the rest' => ['kitchen_driver', 7],
 ]);
+
+it('gives cash settlement to the cashier and the managers above them', function (): void {
+    expect(templateRolesHolding('order.settle_cash_organisation'))->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'branch_manager', 'order_desk_agent',
+    ]);
+});
+
+it('gives refund approval to the owner and to nobody else', function (): void {
+    expect(templateRolesHolding('order.approve_refund_organisation'))->toBe(['organisation_owner']);
+});
+
+it('gives order supervision to the owner, the administrator and both managers and to nobody else', function (): void {
+    expect(templateRolesHolding('order.supervise_organisation'))->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'branch_manager',
+    ]);
+});
+
+it('gives the kitchen display to the line without the order book or the money', function (): void {
+    // The split the audit's refused Branch Manager exposed. The wall's own code
+    // reaches the chef and the cook; the order book's read does not, because the
+    // read carries totals and neither role sees a price on any other surface.
+    expect(templateRolesHolding('order.prepare_organisation'))->toEqualCanonicalizing([
+        'organisation_owner', 'organisation_admin', 'kitchen_manager', 'branch_manager',
+        'kitchen_chef', 'kitchen_staff',
+    ])->and(templateRolesHolding('order.view_organisation'))->not->toContain('kitchen_chef', 'kitchen_staff')
+        ->and(templateRolesHolding('order.manage_organisation'))->not->toContain('kitchen_chef', 'kitchen_staff');
+});
+
+it('hides a retired template only while nobody uses it', function (): void {
+    $hidden = PermissionRegistry::isHiddenRole(...);
+
+    expect($hidden('commercial_manager', null, null, 0))->toBeTrue()
+        ->and($hidden('branch_manager', null, null, 0))->toBeTrue()
+        // Somebody holds it, or an administrator made or changed it.
+        ->and($hidden('commercial_manager', null, null, 1))->toBeFalse()
+        ->and($hidden('commercial_manager', 'someone', null, 0))->toBeFalse()
+        ->and($hidden('commercial_manager', null, 'someone', 0))->toBeFalse()
+        // Every job on the owner's list stays offered.
+        ->and($hidden('kitchen_manager', null, null, 0))->toBeFalse();
+});
+
+it('gives every template a name and a plain description in both languages', function (): void {
+    foreach (PermissionRegistry::templateRoles() as $code => $template) {
+        foreach (['name_en', 'name_ar', 'description_en', 'description_ar'] as $field) {
+            expect(trim($template[$field]))->not->toBe('', "{$code} has no {$field}.");
+        }
+    }
+});
 
 it('gives the delivery map to the two commercial roles and the branch hours to the kitchen manager', function (): void {
     // K1.7's half of the same split. Where a kitchen delivers and what it

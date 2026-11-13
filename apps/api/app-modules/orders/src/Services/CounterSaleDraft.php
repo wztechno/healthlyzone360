@@ -72,6 +72,7 @@ final readonly class CounterSaleDraft
      * @param  list<ComposedLine>  $lines  already aggregated by `DeskBasket`; `order_lines` is unique per article
      * @param  string  $placedOnBehalfBy  the agent's `users` id — the idempotency subject, never null
      * @param  string|null  $idempotencyKey  the caller's replay key, carried through to `placeComposed()`
+     * @param  bool  $allergenConflictsAcknowledged  see `ComposedPlacement`
      */
     public function __construct(
         public string $organisationId,
@@ -85,5 +86,7 @@ final readonly class CounterSaleDraft
         public ?string $reference = null,
         public ?string $notes = null,
         public ?string $idempotencyKey = null,
+        public ?string $allergyNote = null,
+        public bool $allergenConflictsAcknowledged = false,
     ) {}
 }

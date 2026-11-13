@@ -102,6 +102,7 @@ function receipt(
         invoiceDate: null,
         varianceNote: null,
         purchaseOrderId: null,
+        purchaseOrderNumber: null,
         receivedAt: `${receivedOn}T09:00:00Z`,
         receivedOn,
         costStatus: 'complete',
@@ -124,6 +125,8 @@ function receipt(
             unitPriceAmount: null,
             lineTotalAmount: null,
             costCurrencyCode: null,
+            lastUnitPriceAmount: null,
+            priceVariancePercent: null,
             costedAt: null,
             valuationPendingFx: false,
             gtin: null,
@@ -207,7 +210,7 @@ describe('open a quality check', () => {
         await press(`kitchen-qc-subject-${FRESH}`);
         await untilVisible('kitchen-qc-create-cover');
         expect(screen.getAllByText('Chicken breast, fresh')).toHaveLength(2);
-        expect(screen.getByText('24 kg')).toBeTruthy();
+        expect(screen.getByText('24 Kg')).toBeTruthy();
         // Three named, the fourth counted — a hold stops all four.
         expect(screen.getByTestId('kitchen-qc-create-cover-more')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-qc-create-duplicate')).toBeNull();

@@ -1,5 +1,7 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+
+import { safeReturnTo } from '../../navigation/return-to.ts';
 
 /**
  * The record a list's View page is showing, as an address: `?view=<id>`.
@@ -19,7 +21,12 @@ import { useEffect, useState } from 'react';
  * - Read by its id when the list settles without it. A refresh starts the list over — page one, no
  *   search, the default sort — so the record a link names is often on a page nobody has loaded.
  *   Only a record that read refuses (or a list with no such read) counts as gone: the list shows
- *   rather than an empty record, and the address stops naming it.
+ *   rather than an empty record, and the address stops naming it. A record read this way is held
+ *   like a row, so a list that refetches (a poll) never closes it.
+ * - Closed back to where it came from. A record another page opened — an order from a customer,
+ *   a complaint from an order, an ingredient from Requirements — arrives as `?view=` with that
+ *   page's `?returnTo=`. Closing *that* record goes back there rather than leaving the reader on a
+ *   list they never asked for. Records opened by hand on the list close onto the list as before.
  */
 export interface ViewedRecord<Row> {
     readonly viewing: Row | null;
@@ -63,6 +70,10 @@ export function useViewedRecord<Row>(
 ): ViewedRecord<Row> {
     const router = useRouter();
     const named = view === undefined || view === '' ? null : view;
+    const rawReturn = useLocalSearchParams().returnTo;
+    const returnTo = safeReturnTo(Array.isArray(rawReturn) ? rawReturn[0] : rawReturn);
+    // The record the page was opened on, by another page that handed its way back.
+    const [arrival] = useState(() => (returnTo === null ? null : named));
     const [viewingId, setViewingId] = useState<string | null>(
         () => named ?? (seed === null ? null : idOf(seed)),
     );
@@ -75,13 +86,18 @@ export function useViewedRecord<Row>(
     const found = viewingId === null ? null : (rows.find((row) => idOf(row) === viewingId) ?? null);
     const [held, setHeld] = useState<Row | null>(seed);
     if (found !== null && found !== held) setHeld(found);
-    const kept = found ?? (held !== null && idOf(held) === viewingId ? held : null);
+    const heldMatch = held !== null && idOf(held) === viewingId ? held : null;
 
-    // Asked only once the list has answered without it, so a record on the page costs no request.
-    const lookup = useLookup(viewingId !== null && kept === null && settled ? viewingId : null);
+    // Asked only once the list has answered without it, so a record on the page costs no request —
+    // and still asked while it is shown, so a refetch of the list (a poll) never drops it.
+    const lookup = useLookup(
+        viewingId !== null && found === null && (settled || heldMatch !== null) ? viewingId : null,
+    );
     const looked =
         lookup.data !== undefined && idOf(lookup.data) === viewingId ? lookup.data : null;
-    const viewing = kept ?? looked;
+    // Held as well, so it is still there for the frame a lookup has nothing to answer.
+    if (looked !== null && looked !== held) setHeld(looked);
+    const viewing = found ?? looked ?? heldMatch;
     if (viewingId !== null && viewing === null && settled && lookup.isError) {
         setViewingId(null);
     }
@@ -97,6 +113,10 @@ export function useViewedRecord<Row>(
         setViewing: (row) => {
             const next = row === null ? null : idOf(row);
             if (next === viewingId) return;
+            if (next === null && arrival !== null && viewingId === arrival && returnTo !== null) {
+                router.dismissTo(returnTo as never);
+                return;
+            }
             // A row opened by hand is shown even when this page of the list does not hold it.
             if (row !== null) setHeld(row);
             setViewingId(next);

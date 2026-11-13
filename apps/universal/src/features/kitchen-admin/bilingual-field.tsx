@@ -1,7 +1,6 @@
 import type { LocalisedText } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     FormField,
     Inline,
     Stack,
@@ -16,6 +15,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TextInput, View } from 'react-native';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * The two halves of a bilingual entity name, each written in its own direction.
  *
@@ -239,7 +239,8 @@ export function BilingualField({
         const text = placeholder?.[language];
         return text === undefined ? {} : { placeholder: text };
     };
-    const arabicMissing = value.ar.trim() === '';
+    // The English copied across is not a translation, and publication treats it the same way.
+    const arabicMissing = value.ar.trim() === '' || value.ar.trim() === value.en.trim();
     const row = layout === 'row';
 
     if (layout === 'fill') {
@@ -389,7 +390,7 @@ export function BilingualField({
                     />
                 ) : null}
                 {disabled ? null : (
-                    <Button
+                    <DeskButton
                         testID={`${testID}-copy-english`}
                         size="sm"
                         variant="ghost"

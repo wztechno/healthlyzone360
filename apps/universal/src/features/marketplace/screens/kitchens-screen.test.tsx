@@ -19,6 +19,7 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import type { CustomerAddress, DietaryProfile } from '@healthy360/api-client/contracts';
 
+import { withDeskWidth } from '../../../testing/desk-width.ts';
 import { forgetQueries, lastQuery } from '../../../navigation/last-query.ts';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import type { ExpoRouterMock } from '../../../testing/expo-router-mock.ts';
@@ -299,32 +300,35 @@ function cardOrder(): string[] {
 
 describe('KitchensScreen — the finder', () => {
     it('opens on the title, the count and the consumer directory', async () => {
-        const { repositories } = await renderStubScreen(<KitchensScreen />, {
-            repositories: REPOSITORIES,
+        // The desk directory: the count pill, the address control and the hover Quick look.
+        await withDeskWidth(async () => {
+            const { repositories } = await renderStubScreen(<KitchensScreen />, {
+                repositories: REPOSITORIES,
+            });
+
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchens-grid')).toBeTruthy();
+            });
+
+            expect(repositories.marketplace.listKitchens).toHaveBeenCalledWith(
+                expect.objectContaining({ channels: ['b2c', 'marketplace'] }),
+            );
+            expect(screen.getByTestId('kitchens-header-title')).toHaveTextContent('Kitchens');
+            expect(screen.getByTestId('kitchens-results-count')).toHaveTextContent('3 kitchens');
+            // Top rated, the unrated last.
+            expect(cardOrder()).toEqual(['bravo', 'alpha', 'charlie']);
+            expect(screen.getByTestId('kitchens-sort')).toBeTruthy();
+
+            // A visitor is offered an address rather than shown one — through signing in, which comes
+            // back here (AUTH-14).
+            expect(screen.getByTestId('kitchens-address-value')).toHaveTextContent('Add address');
+            await fireEvent.press(screen.getByTestId('kitchens-address'));
+            expect(routerMock.__push).toHaveBeenCalledWith(withReturnTo('/sign-in', '/kitchens'));
+
+            // "Open {kitchen}" is the card's link to the storefront.
+            await fireEvent.press(screen.getByTestId('kitchen-card-alpha-open'));
+            expect(routerMock.__push).toHaveBeenCalledWith(`/kitchens/${String(ALPHA.id)}`);
         });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchens-grid')).toBeTruthy();
-        });
-
-        expect(repositories.marketplace.listKitchens).toHaveBeenCalledWith(
-            expect.objectContaining({ channels: ['b2c', 'marketplace'] }),
-        );
-        expect(screen.getByTestId('kitchens-header-title')).toHaveTextContent('Kitchens');
-        expect(screen.getByTestId('kitchens-results-count')).toHaveTextContent('3 kitchens');
-        // Top rated, the unrated last.
-        expect(cardOrder()).toEqual(['bravo', 'alpha', 'charlie']);
-        expect(screen.getByTestId('kitchens-sort')).toBeTruthy();
-
-        // A visitor is offered an address rather than shown one — through signing in, which comes
-        // back here (AUTH-14).
-        expect(screen.getByTestId('kitchens-address-value')).toHaveTextContent('Add address');
-        await fireEvent.press(screen.getByTestId('kitchens-address'));
-        expect(routerMock.__push).toHaveBeenCalledWith(withReturnTo('/sign-in', '/kitchens'));
-
-        // The whole card is the link to the storefront.
-        await fireEvent.press(screen.getByTestId('kitchen-card-alpha'));
-        expect(routerMock.__push).toHaveBeenCalledWith(`/kitchens/${String(ALPHA.id)}`);
     });
 
     it('sorts by the order the URL names, unrated and unpublished figures last', async () => {
@@ -345,7 +349,6 @@ describe('KitchensScreen — the finder', () => {
             expect(screen.getByTestId('kitchen-card-bravo')).toBeTruthy();
         });
         expect(cardOrder()).toEqual(['bravo']);
-        expect(screen.getByText('Matching kitchens')).toBeTruthy();
         await waitFor(() => {
             expect(screen.getByTestId('kitchens-results-count')).toHaveTextContent(
                 '1 of 3 kitchens',
@@ -387,21 +390,30 @@ describe('KitchensScreen — the finder', () => {
         expect(screen.queryByTestId('kitchen-card-charlie-today')).toBeNull();
     });
 
-    it('states the delivery terms a kitchen publishes and none it does not', async () => {
-        await renderStubScreen(<KitchensScreen />, { repositories: REPOSITORIES });
+    it('states in Quick look the delivery terms a kitchen publishes and none it does not', async () => {
+        // The desk directory: the count pill, the address control and the hover Quick look.
+        await withDeskWidth(async () => {
+            await renderStubScreen(<KitchensScreen />, { repositories: REPOSITORIES });
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchens-grid')).toBeTruthy();
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchens-grid')).toBeTruthy();
+            });
+            expect(screen.getByTestId('kitchen-card-bravo-verified')).toBeTruthy();
+            // The card shows no terms; its Quick look does.
+            expect(screen.queryByTestId('kitchen-card-alpha-facts')).toBeNull();
+            await fireEvent.press(screen.getByTestId('kitchen-card-alpha-quick-look'));
+            expect(screen.getByTestId('kitchen-card-alpha-facts')).toHaveTextContent(
+                /^40 min · .*15\.00 fee · Min .*50\.00$/,
+            );
+            await fireEvent.press(screen.getByTestId('kitchen-card-alpha-quick-close'));
+
+            // No estimate is published, so no time is drawn — not a dash, not a guess.
+            await fireEvent.press(screen.getByTestId('kitchen-card-charlie-quick-look'));
+            expect(screen.getByTestId('kitchen-card-charlie-facts')).toHaveTextContent(
+                /^Free delivery · Min .*50\.00$/,
+            );
+            expect(screen.getByTestId('kitchen-card-charlie-unrated')).toBeTruthy();
         });
-        expect(screen.getByTestId('kitchen-card-alpha-facts')).toHaveTextContent(
-            /^40 min · .*15\.00 fee · Min .*50\.00$/,
-        );
-        // No estimate is published, so no time is drawn — not a dash, not a guess.
-        expect(screen.getByTestId('kitchen-card-charlie-facts')).toHaveTextContent(
-            /^Free delivery · Min .*50\.00$/,
-        );
-        expect(screen.getByTestId('kitchen-card-charlie-unrated')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-card-bravo-verified')).toBeTruthy();
     });
 
     it('writes the search term and the toggles to the URL', async () => {
@@ -440,101 +452,89 @@ describe('KitchensScreen — the finder', () => {
         expect(screen.getByTestId('kitchens-filter-fast')).toHaveProp('aria-pressed', true);
     });
 
-    it('lands each goal tile on a filter the meals catalogue reads', async () => {
-        await renderStubScreen(<KitchensScreen />, { repositories: REPOSITORIES });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchens-goals')).toBeTruthy();
-        });
-        await fireEvent.press(screen.getByTestId('kitchens-goal-high_protein'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/meals?diet=high_protein');
-        await fireEvent.press(screen.getByTestId('kitchens-goal-under500'));
-        expect(routerMock.__push).toHaveBeenCalledWith('/meals?energyMax=500');
-        // The count is the catalogue's own total for the same filter.
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchens-goal-high_protein-count')).toHaveTextContent(
-                '2 meals →',
-            );
-        });
-    });
-
     it('orders by a signed-in shopper’s declared diets and names their address', async () => {
-        const profile: DietaryProfile = {
-            dietCategoryCode: 'halal_friendly',
-            allergens: [],
-            excludedIngredientIds: [],
-            updatedAt: '2026-09-01T09:00:00.000Z',
-        };
-        const home = {
-            id: 'address-1',
-            label: 'Home',
-            areaId: 'area-1',
-            areaName: 'Jumeirah 1',
-            line1: '14 Al Wasl Road',
-            line2: null,
-            building: null,
-            floor: null,
-            notes: null,
-            isDefault: true,
-            isDeliverable: true,
-        } as unknown as CustomerAddress;
+        // The desk directory: the count pill, the address control and the hover Quick look.
+        await withDeskWidth(async () => {
+            const profile: DietaryProfile = {
+                dietCategoryCode: 'halal_friendly',
+                allergens: [],
+                exclusions: [],
+                updatedAt: '2026-09-01T09:00:00.000Z',
+            };
+            const home = {
+                id: 'address-1',
+                label: 'Home',
+                areaId: 'area-1',
+                areaName: 'Jumeirah 1',
+                line1: '14 Al Wasl Road',
+                line2: null,
+                building: null,
+                floor: null,
+                notes: null,
+                isDefault: true,
+                isDeliverable: true,
+            } as unknown as CustomerAddress;
 
-        await renderStubScreen(<KitchensScreen />, {
-            session: testMeResponse(),
-            repositories: {
-                ...REPOSITORIES,
-                account: {
-                    getDietaryProfile: async () => profile,
-                    listAddresses: async () => [home],
+            await renderStubScreen(<KitchensScreen />, {
+                session: testMeResponse(),
+                repositories: {
+                    ...REPOSITORIES,
+                    account: {
+                        getDietaryProfile: async () => profile,
+                        listAddresses: async () => [home],
+                    },
                 },
-            },
-        });
+            });
 
-        // Best match is the landing order: the kitchen cooking the shopper's diet first.
-        await waitFor(() => {
-            expect(cardOrder()[0]).toBe('alpha');
-        });
+            // Best match is the landing order: the kitchen cooking the shopper's diet first.
+            await waitFor(() => {
+                expect(cardOrder()[0]).toBe('alpha');
+            });
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchens-address-value')).toHaveTextContent(
-                '14 Al Wasl Road',
-            );
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchens-address-value')).toHaveTextContent(
+                    'Home · Jumeirah 1',
+                );
+            });
+            await fireEvent.press(screen.getByTestId('kitchens-address'));
+            // A change, made in the account's address section.
+            expect(routerMock.__push).toHaveBeenCalledWith('/customer/account?section=addresses');
         });
-        await fireEvent.press(screen.getByTestId('kitchens-address'));
-        // A change, made in the account's address section.
-        expect(routerMock.__push).toHaveBeenCalledWith('/customer/account?section=addresses');
     });
 
     it('opens the address form for a signed-in shopper with none, coming back here', async () => {
-        const { repositories } = await renderStubScreen(<KitchensScreen />, {
-            session: testMeResponse(),
-            repositories: {
-                ...REPOSITORIES,
-                account: {
-                    getDietaryProfile: async (): Promise<DietaryProfile> => ({
-                        dietCategoryCode: null,
-                        allergens: [],
-                        excludedIngredientIds: [],
-                        updatedAt: '2026-09-01T09:00:00.000Z',
-                    }),
-                    listAddresses: async () => [],
+        // The desk directory: the count pill, the address control and the hover Quick look.
+        await withDeskWidth(async () => {
+            const { repositories } = await renderStubScreen(<KitchensScreen />, {
+                session: testMeResponse(),
+                repositories: {
+                    ...REPOSITORIES,
+                    account: {
+                        getDietaryProfile: async (): Promise<DietaryProfile> => ({
+                            dietCategoryCode: null,
+                            allergens: [],
+                            exclusions: [],
+                            updatedAt: '2026-09-01T09:00:00.000Z',
+                        }),
+                        listAddresses: async () => [],
+                    },
                 },
-            },
-        });
+            });
 
-        // "Add address" reads the same signed out, so wait for the empty address book itself: the
-        // control is busy from the moment it is asked for until it answers.
-        await waitFor(() => {
-            expect(repositories.account.listAddresses).toHaveBeenCalled();
+            // "Add address" reads the same signed out, so wait for the empty address book itself: the
+            // control is busy from the moment it is asked for until it answers.
+            await waitFor(() => {
+                expect(repositories.account.listAddresses).toHaveBeenCalled();
+            });
+            await waitFor(() => {
+                expect(screen.getByTestId('kitchens-address')).not.toBeDisabled();
+            });
+            expect(screen.getByTestId('kitchens-address-value')).toHaveTextContent('Add address');
+            await fireEvent.press(screen.getByTestId('kitchens-address'));
+            expect(routerMock.__push).toHaveBeenCalledWith(
+                withReturnTo('/customer/account/addresses/new', '/kitchens'),
+            );
         });
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchens-address')).not.toBeDisabled();
-        });
-        expect(screen.getByTestId('kitchens-address-value')).toHaveTextContent('Add address');
-        await fireEvent.press(screen.getByTestId('kitchens-address'));
-        expect(routerMock.__push).toHaveBeenCalledWith(
-            withReturnTo('/customer/account/addresses/new', '/kitchens'),
-        );
     });
 
     /*
@@ -577,6 +577,12 @@ describe('kitchen-finder', () => {
     it('narrows with every selected diet, not any', () => {
         expect(narrowByDiets([ALPHA, BRAVO, CHARLIE], ['high_protein']).length).toBe(3);
         expect(narrowByDiets([ALPHA, BRAVO, CHARLIE], ['high_protein', 'vegan'])).toEqual([BRAVO]);
+    });
+
+    it('drops Top rated from a directory nobody has rated', () => {
+        expect(parseKitchenSort(undefined, [], false)).toBe('name');
+        expect(parseKitchenSort('rating', [], false)).toBe('name');
+        expect(parseKitchenSort('rating', [], true)).toBe('rating');
     });
 
     it('offers best match only to a profile, and reads only known diet codes from it', () => {

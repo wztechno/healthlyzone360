@@ -4,22 +4,31 @@ import { createContext, useContext } from 'react';
 
 import { availableWorkspaceAreas } from '../../navigation/items.ts';
 
-/**
- * The areas a shopper has. Holding one of these and nothing else, a person shops: a customer, and a
- * business buyer, who orders at their wholesale prices from the shop as well as from `/corporate`.
- */
-const SHOPPER_AREAS: ReadonlySet<RouteArea> = new Set(['customer', 'corporate']);
+/** The one area a shopper has. Holding it and nothing else, a person shops. */
+const SHOPPER_AREAS: ReadonlySet<RouteArea> = new Set(['customer']);
 
 /**
- * Whether the web shop is view-only for this person: staff — anybody who can open a workspace
- * beyond a shopper's — look at the shop to see what customers see, and buy nothing from it.
+ * Whether the web shop is view-only for this person: anybody who belongs to an organisation, or
+ * can open a workspace beyond a shopper's, looks at the shop and buys nothing from it.
+ *
+ * - **Staff** look at the shop to see what customers see.
+ * - **Business buyers** — a member of a corporate customer — browse it read-only too. They order
+ *   at their wholesale prices from `/corporate`, whose checkout (`/customer/checkout?channel=
+ *   wholesale`) is the one customer page they keep (`app/customer/_layout.tsx`).
+ *
+ * Any active membership counts, before an organisation is chosen as much as after: the server
+ * refuses retail trading to the same people (`CartLocator::assertShopperMayUseChannel`), so an Add
+ * offered here would only ever fail.
  *
  * View-only means everything a customer can *do* is gone: the basket, the account, Add, choosing
  * and setting up a plan. Everything a customer can *see* stays exactly as drawn, because seeing it
- * as drawn is the reason staff came.
+ * as drawn is the reason they came.
  */
 export function isShopViewOnly(state: AccessState): boolean {
-    return availableWorkspaceAreas(state).some((option) => !SHOPPER_AREAS.has(option.area));
+    return (
+        state.hasActiveMembership ||
+        availableWorkspaceAreas(state).some((option) => !SHOPPER_AREAS.has(option.area))
+    );
 }
 
 /**

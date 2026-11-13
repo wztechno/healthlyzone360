@@ -123,6 +123,19 @@ it('serves a zone with its area count and addresses it by code', function (): vo
         ->assertJsonPath('meta.area_count', 2);
 });
 
+it('counts each zone on the list, withdrawn areas apart', function (): void {
+    $zone = DeliveryWorld::zone($this->a->organisation, 'beirut-inner');
+    DeliveryWorld::claim($zone, DeliveryWorld::area('achrafieh'));
+    DeliveryWorld::claim($zone, DeliveryWorld::area('badaro', active: false));
+    DeliveryWorld::zone($this->a->organisation, 'empty');
+
+    $rows = collect($this->getJson('/api/v1/catalogue/delivery-zones', $this->headers)->assertOk()->json('data'))->keyBy('code');
+
+    expect($rows['beirut-inner']['area_count'])->toBe(2)
+        ->and($rows['beirut-inner']['inactive_area_count'])->toBe(1)
+        ->and($rows['empty']['area_count'])->toBe(0);
+});
+
 it('renames a zone without touching its code', function (): void {
     $zone = DeliveryWorld::zone($this->a->organisation, 'beirut-inner');
 

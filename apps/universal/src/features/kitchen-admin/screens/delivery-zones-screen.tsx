@@ -5,8 +5,6 @@ import type {
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
     EmptyState,
     ErrorState,
@@ -22,6 +20,7 @@ import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -38,10 +37,11 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
+import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
+import type { StatusLensSource } from '../catalogue/lens-status.ts';
+import { inStatuses, statusTally, withoutStatuses } from '../catalogue/use-catalogue-filters.ts';
 import {
     compareNumber,
     compareText,
@@ -54,6 +54,7 @@ import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entit
 import {
     ZONE_STATUS_FILTERS,
     displayName,
+    statusKey,
     statusShortKey,
     statusTone,
     zoneRowTestId,
@@ -71,6 +72,8 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /** The zone `?view=` names, read on its own when the loaded page does not hold it. */
 function useZoneById(id: string | null) {
     const parsed = DeliveryZoneId.safeParse(id);
@@ -83,8 +86,8 @@ function useZoneById(id: string | null) {
  *
  * ```
  *                                                                [ + New delivery zone ]
- * ┌ SHOWN ┐ ┌ NO AREAS ┐ ┌ NO WINDOWS ┐
- * [ ⌕ search ]  [ All | Live | Draft | Archived ]
+ * (All zones 40) │ ● Published ● Draft ● Archived │ ● No areas ● No active windows   [+ New]
+ * [ ⌕ search ] [Status: Draft ×]                                    18 of 40  Clear │ ▤
  * ZONE    AREAS COVERED   FEE AND MINIMUM            DELIVERY WINDOWS          ESTIMATED   ◉ ✎
  * ```
  *
@@ -114,8 +117,7 @@ export function DeliveryZonesScreen({ view }: { readonly view?: string | undefin
 }
 
 const NO_WINDOWS: readonly DeliveryWindow[] = [];
-
-const SEGMENT_STATUSES: readonly PublishableStatus[] = ['published', 'draft', 'retired'];
+const NO_ZONES: readonly DeliveryZoneAdmin[] = [];
 type StatusSegmentValue = PublishableStatus | 'all';
 
 function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
@@ -144,7 +146,15 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
     useRestoredPageFallback(memory, page, zones.isError, () => {
         setPage(1);
     });
-    const wholeSet = useDeliveryZoneWholeSetQuery(filter);
+    // Without the status, so the figures count every state in scope; `everyZone` re-applies it.
+    const wholeSet = useDeliveryZoneWholeSetQuery(withoutStatuses(filter));
+    const scopeZones = wholeSet.data ?? NO_ZONES;
+    const statuses = useMemo(
+        (): readonly PublishableStatus[] => (status === 'all' ? [] : [status]),
+        [status],
+    );
+    const everyZone = useMemo(() => inStatuses(scopeZones, statuses), [scopeZones, statuses]);
+    const statusCounts = useMemo(() => statusTally(scopeZones), [scopeZones]);
     // A zone carries window identifiers; the windows themselves are the kitchen's list.
     const kitchenWindows = useDeliveryWindowsQuery();
     const allWindows = kitchenWindows.data ?? NO_WINDOWS;
@@ -200,7 +210,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                             {name.value}
                         </Text>
                         {name.isFallback ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${testID}-missing-arabic`}
                                 tone="warning"
                                 label={t('kitchen:list.missingArabic')}
@@ -217,18 +227,19 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
             priority: 80,
             value: (row) => areasText(row, t),
             sort: (left, right, direction) =>
-                compareNumber(left.areas.length, right.areas.length, direction),
+                compareNumber(areaCountOf(left), areaCountOf(right), direction),
             render: (row) => {
                 const testID = zoneRowTestId(String(row.id));
-                const inactive = row.areas.filter((area) => !area.isActive).length;
-                return row.areas.length === 0 ? (
+                const inactive =
+                    row.inactiveAreaCount ?? row.areas.filter((area) => !area.isActive).length;
+                return areaCountOf(row) === 0 ? (
                     <Text tone="secondary" testID={`${testID}-areas-none`}>
                         {t('kitchen:zones.noAreas')}
                     </Text>
                 ) : (
                     <Stack space="none">
                         <Text testID={`${testID}-area-count`}>
-                            {t('kitchen:zones.areaCount', { count: row.areas.length })}
+                            {t('kitchen:zones.areaCount', { count: areaCountOf(row) })}
                         </Text>
                         {inactive === 0 ? null : (
                             <Text
@@ -336,6 +347,12 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
             value: (row) => t(statusShortKey(row.meta.status)),
             // The status the request already carries, so the header and the segments are one
             // filter: narrowing the loaded page instead would misreport every page after it.
+            sort: (left, right, direction) =>
+                compareText(
+                    t(statusShortKey(left.meta.status)),
+                    t(statusShortKey(right.meta.status)),
+                    direction,
+                ),
             filter: {
                 values: () =>
                     ZONE_STATUS_FILTERS.map((value) => ({
@@ -351,7 +368,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                 },
             },
             render: (row) => (
-                <Badge
+                <DeskChip
                     testID={`${zoneRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
                     label={t(statusShortKey(row.meta.status))}
@@ -364,58 +381,36 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
     const failure = toFailure(zones.error);
     const unfiltered = trimmed === '' && status === 'all';
 
-    const statusSegments: readonly CatalogueStatusSegment<StatusSegmentValue>[] = [
-        { value: 'all', label: t('kitchen:toolbar.statusAll') },
-        ...SEGMENT_STATUSES.map((value) => ({ value, label: t(statusShortKey(value)) })),
-    ];
-
     // Counted over every page the filters match, not the eighteen rows on this one.
-    const everyZone = wholeSet.data ?? [];
-    const noAreas = everyZone.filter((row) => row.areas.length === 0).length;
+    const noAreas = everyZone.filter((row) => areaCountOf(row) === 0).length;
     const noWindows = everyZone.filter((row) => coverageOf(row).weekdays.length === 0).length;
-    // Rows up to the end of this page: 18 of 40 on the first, 36 on the second.
-    const shownSoFar = Math.min(page * KITCHEN_PAGE_SIZE, total ?? controls.rows.length);
-    const cards: readonly CatalogueStatCard[] = [
-        {
-            key: 'shown',
-            label: t('kitchen:list.statShown'),
-            value: String(shownSoFar),
-            unit: t('kitchen:list.statShownUnit', { total: total ?? shownSoFar }),
-            caption: unfiltered
-                ? t('kitchen:list.statShownUnfiltered')
-                : t('kitchen:list.statShownFiltered'),
-            mark: 'list',
-            tone: 'brand',
-            onPress: () => {
-                setQuery('');
-                setStatus('all');
-            },
-            accessibilityLabel: t('kitchen:list.statShownAction'),
+    const lens: StatusLensSource = {
+        total,
+        scopeCount: scopeZones.length,
+        statusCounts,
+        countsPending: wholeSet.isPending,
+        statuses,
+        setStatuses: (next) => {
+            setStatus(next[0] ?? 'all');
+            setViewing(null);
         },
-        {
-            key: 'noAreas',
-            label: t('kitchen:zones.noAreas'),
-            value: String(noAreas),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:zones.statNoAreasCaption'),
-            mark: 'alert',
-            tone: noAreas === 0 ? 'default' : 'warning',
-        },
-        {
-            key: 'noWindows',
-            label: t('kitchen:zones.noActiveWindows'),
-            value: String(noWindows),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:zones.statNoWindowsCaption'),
-            mark: 'clock',
-            tone: noWindows === 0 ? 'default' : 'warning',
-        },
-    ];
+    };
+    const figures = lensFigures(lens, t, {
+        noAreas,
+        noWindows,
+        pending: wholeSet.isPending || kitchenWindows.isPending,
+    });
 
-    if (viewing !== null) {
-        return (
+    // The list carries a count of areas; the board names them, so the open zone is read on its own.
+    const viewedZone = useAdminZoneQuery(viewing?.id ?? null);
+    const viewedAreas = viewedZone.data?.areas ?? viewing?.areas ?? [];
+
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-zones-view"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowZones')}
                 onBack={() => {
                     setViewing(null);
                 }}
@@ -467,9 +462,9 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                 ]}
                 chipsLabel={t('kitchen:zones.columnAreas')}
                 chips={
-                    viewing.areas.length === 0
-                        ? [{ key: 'none', label: t('kitchen:zones.noAreas') }]
-                        : viewing.areas.map((area) => ({
+                    viewedAreas.length === 0
+                        ? [{ key: 'count', label: areasText(viewing, t) }]
+                        : viewedAreas.map((area) => ({
                               key: String(area.id),
                               label: displayName(area.name, locale).value,
                           }))
@@ -482,119 +477,149 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                 }}
             />
         );
-    }
+
+    // The table closes the toolbar's card only when it is drawn.
+    const joined = !zones.isPending && controls.rows.length > 0;
 
     return (
         <Cascade space="md" testID="kitchen-zones-screen">
-            {failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-zones-stats"
-                    cards={cards}
-                    pending={zones.isPending}
-                    countsPending={wholeSet.isPending || kitchenWindows.isPending}
-                />
-            )}
-
-            <CatalogueToolbar<StatusSegmentValue>
-                testID="kitchen-zones-toolbar"
-                search={query}
-                onSearchChange={(next) => {
-                    setQuery(next);
-                    setViewing(null);
-                }}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={statusSegments}
-                status={status}
-                onStatusChange={(next) => {
-                    setStatus(next);
-                    setViewing(null);
-                }}
-            >
-                <ColumnPicker {...controls.picker} />
-                {canManage ? (
-                    <Button
-                        testID="kitchen-zones-toolbar-create"
-                        label={t('kitchen:zones.create')}
-                        iconStart={<Icon name="plus" size="sm" />}
-                        onPress={() => {
-                            router.push('/kitchen/delivery-zones/new' as never);
-                        }}
-                    />
-                ) : null}
-            </CatalogueToolbar>
-
-            {zones.isPending ? (
-                <TableSkeleton testID="kitchen-zones-loading" partTestID="kitchen-zones" />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-zones-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void zones.refetch();
+            {/*
+             * The Lens bar — figures, mix, query row and actions as one object directly over the
+             * list it narrows (`lens-bar.tsx`), as on the product list.
+             */}
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-zones-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={figures}
+                    mix={statusLensMix(lens, t).mix}
+                    mixLabel={t('kitchen:lens.zoneMix', {
+                        published: statusCounts.published,
+                        draft: statusCounts.draft,
+                        archived: statusCounts.retired,
+                    })}
+                    search={query}
+                    onSearchChange={(next) => {
+                        setQuery(next);
+                        setViewing(null);
                     }}
-                    retrying={zones.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-zones-empty"
-                    title={
-                        unfiltered
-                            ? t('kitchen:zones.emptyTitle')
-                            : t('kitchen:zones.filteredEmptyTitle')
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:zones.searchPlaceholder')}
+                    tokens={statusLensTokens(lens, t)}
+                    result={
+                        total === null
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: Math.min(page * KITCHEN_PAGE_SIZE, total),
+                                  total,
+                              })
                     }
-                    body={
-                        unfiltered
-                            ? t('kitchen:zones.emptyBody')
-                            : t('kitchen:zones.filteredEmptyBody')
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered
+                        ? {}
+                        : {
+                              onClear: () => {
+                                  setQuery('');
+                                  setStatus('all');
+                                  setViewing(null);
+                              },
+                          })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canManage ? (
+                            <DeskButton
+                                testID="kitchen-zones-toolbar-create"
+                                label={t('kitchen:zones.create')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={() => {
+                                    router.push('/kitchen/delivery-zones/new' as never);
+                                }}
+                            />
+                        ) : undefined
                     }
                 />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList<DeliveryZoneAdmin>
-                        testID="kitchen-zones-table"
-                        label={t('kitchen:zones.caption')}
-                        columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => String(row.id)}
-                        density="sm"
-                        highlightedId={lastOpenedId}
-                        onRowPress={openEditor}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'view',
-                                label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
-                                testID: `${zoneRowTestId(String(row.id))}-view`,
-                                onSelect: () => {
-                                    rememberOpened(String(row.id));
-                                    setViewing(row);
-                                },
-                            },
-                            {
-                                key: 'edit',
-                                label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
-                                testID: `${zoneRowTestId(String(row.id))}-open`,
-                                onSelect: () => {
-                                    openEditor(row);
-                                },
-                            },
-                        ]}
-                    />
-                    <CataloguePager
-                        testID="kitchen-zones-pagination"
-                        page={page}
-                        totalPages={totalPages}
-                        onPageChange={(next) => {
-                            setPage(next);
-                            setViewing(null);
+
+                {zones.isPending ? (
+                    <TableSkeleton testID="kitchen-zones-loading" partTestID="kitchen-zones" />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-zones-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void zones.refetch();
                         }}
-                        label={t('kitchen:catalogue.pagerLabel')}
+                        retrying={zones.isFetching}
                     />
-                </Stack>
-            )}
+                ) : controls.rows.length === 0 ? (
+                    <EmptyState
+                        testID="kitchen-zones-empty"
+                        title={
+                            unfiltered
+                                ? t('kitchen:zones.emptyTitle')
+                                : t('kitchen:zones.filteredEmptyTitle')
+                        }
+                        body={
+                            unfiltered
+                                ? t('kitchen:zones.emptyBody')
+                                : t('kitchen:zones.filteredEmptyBody')
+                        }
+                    />
+                ) : (
+                    <Stack space="sm">
+                        <CatalogueList<DeliveryZoneAdmin>
+                            testID="kitchen-zones-table"
+                            joined
+                            label={t('kitchen:zones.caption')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => String(row.id)}
+                            density="sm"
+                            highlightedId={lastOpenedId}
+                            onRowPress={(row) => {
+                                rememberOpened(String(row.id));
+                                setViewing(row);
+                            }}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            rowActions={(row): readonly MenuItem[] => [
+                                {
+                                    key: 'view',
+                                    label: t('kitchen:list.view'),
+                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    testID: `${zoneRowTestId(String(row.id))}-view`,
+                                    onSelect: () => {
+                                        rememberOpened(String(row.id));
+                                        setViewing(row);
+                                    },
+                                },
+                                {
+                                    key: 'edit',
+                                    label: t('kitchen:catalogue.edit'),
+                                    icon: CATALOGUE_ROW_ICONS.edit,
+                                    testID: `${zoneRowTestId(String(row.id))}-open`,
+                                    onSelect: () => {
+                                        openEditor(row);
+                                    },
+                                },
+                            ]}
+                        />
+                        <CataloguePager
+                            testID="kitchen-zones-pagination"
+                            page={page}
+                            totalPages={totalPages}
+                            onPageChange={(next) => {
+                                setPage(next);
+                                setViewing(null);
+                            }}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
+                    </Stack>
+                )}
+            </View>
+
+            {viewPopup}
         </Cascade>
     );
 }
@@ -648,10 +673,15 @@ function minimumText(row: DeliveryZoneAdmin, t: TFunction, formatter: Formatter)
     });
 }
 
+/** The list carries a count and no areas, the record the other way round. */
+function areaCountOf(row: DeliveryZoneAdmin): number {
+    return row.areaCount ?? row.areas.length;
+}
+
 function areasText(row: DeliveryZoneAdmin, t: TFunction): string {
-    return row.areas.length === 0
+    return areaCountOf(row) === 0
         ? t('kitchen:zones.noAreas')
-        : t('kitchen:zones.areaCount', { count: row.areas.length });
+        : t('kitchen:zones.areaCount', { count: areaCountOf(row) });
 }
 
 function windowsText(coverage: WindowCoverage, t: TFunction): string {
@@ -668,4 +698,44 @@ function estimatedText(row: DeliveryZoneAdmin, t: TFunction, formatter: Formatte
         : t('kitchen:zones.estimatedMinutes', {
               minutes: formatter.formatNumber(row.estimatedMinutes),
           });
+}
+
+/**
+ * The Lens bar's figures: All · Published · Draft · Archived — the zone lifecycle has no review —
+ * then the two gaps that keep a zone from taking an order, counted over every page the filters
+ * match, the status included.
+ */
+function lensFigures(
+    lens: StatusLensSource,
+    t: TFunction,
+    gaps: { readonly noAreas: number; readonly noWindows: number; readonly pending: boolean },
+): readonly LensFigure[] {
+    const counted = (count: number) => (gaps.pending ? null : count);
+    return [
+        ...statusLensFigures(lens, t, { allLabel: t('kitchen:lens.allZones') }),
+        {
+            key: 'retired',
+            label: t(statusKey('retired')),
+            value: lens.countsPending ? null : lens.statusCounts.retired,
+            tone: 'neutral',
+            active: lens.statuses.length === 1 && lens.statuses[0] === 'retired',
+            onPress: () => {
+                lens.setStatuses(['retired']);
+            },
+            accessibilityLabel: t('kitchen:lens.archivedAction'),
+        },
+        {
+            key: 'noAreas',
+            label: t('kitchen:zones.noAreas'),
+            value: counted(gaps.noAreas),
+            tone: 'warning',
+            separated: true,
+        },
+        {
+            key: 'noWindows',
+            label: t('kitchen:zones.noActiveWindows'),
+            value: counted(gaps.noWindows),
+            tone: 'warning',
+        },
+    ];
 }

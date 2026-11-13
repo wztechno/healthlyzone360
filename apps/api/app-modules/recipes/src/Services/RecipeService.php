@@ -52,6 +52,7 @@ final readonly class RecipeService
         private TenantContext $context,
         private AuditRecorder $audit,
         private RecipeUsageRegistry $usage,
+        private RecipeTwinOutputs $twins,
     ) {}
 
     /**
@@ -70,8 +71,11 @@ final readonly class RecipeService
      *     source_kind?: string|null,
      *     confidentiality?: string|null,
      *     notes?: string|null,
-     *     shelf_life_days?: int|null
-     * }  $attributes
+     *     shelf_life_days?: int|null,
+     *     produces_ingredient?: bool|null
+     * }  $attributes  `produces_ingredient` creates the recipe as a preparation with its own
+     *                 ingredient twin ({@see RecipeTwinOutputs::giveTwin()}); a sold recipe's twin
+     *                 is its listing's, so the flag is false by default
      * @return array{recipe: Recipe, version: RecipeVersion}
      *
      * @throws ApiException
@@ -101,6 +105,13 @@ final readonly class RecipeService
             $recipe->lock_version = 0;
             $recipe->created_by = $this->context->userId();
             $recipe->updated_by = $this->context->userId();
+
+            // A preparation is made to be used inside other recipes, and a line names an
+            // ingredient: it gets its own twin now, before any yield exists to state on an output.
+            if ((bool) ($attributes['produces_ingredient'] ?? false)) {
+                $this->twins->giveTwin($recipe);
+            }
+
             $recipe->save();
 
             $version = new RecipeVersion;

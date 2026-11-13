@@ -53,15 +53,18 @@ class StoreCartItemRequest extends FormRequest
             'catalogue_item_variant_id' => ['nullable', 'uuid'],
             'quantity' => ['nullable', 'numeric', 'gt:0'],
             'delivery_date' => ['nullable', 'date_format:Y-m-d'],
+            'option_ids' => ['nullable', 'array', 'max:40'],
+            'option_ids.*' => ['uuid'],
+            'note' => ['nullable', 'string', 'max:300'],
         ];
     }
 
     /**
-     * @return array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity?: int|float|string|null, delivery_date?: string|null}
+     * @return array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity?: int|float|string|null, delivery_date?: string|null, option_ids?: list<string>|null, note?: string|null}
      */
     public function payload(): array
     {
-        /** @var array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity?: int|float|string|null, delivery_date?: string|null} $validated */
+        /** @var array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity?: int|float|string|null, delivery_date?: string|null, option_ids?: list<string>|null, note?: string|null} $validated */
         $validated = $this->validated();
 
         return $validated;

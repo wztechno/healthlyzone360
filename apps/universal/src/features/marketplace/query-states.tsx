@@ -1,9 +1,21 @@
-import { Card, EmptyState, ErrorState, Skeleton, Stack } from '@healthy360/design-system';
+import type { IconName } from '@healthy360/design-system';
 import type { ApiFailureCode } from '@healthy360/api-client';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
+import {
+    ShopCardSkeletons,
+    ShopFiguresSkeleton,
+    ShopFormSkeleton,
+    ShopKitchenSkeletons,
+    ShopLinesSkeleton,
+    ShopPageSkeleton,
+    ShopPlanSkeletons,
+    ShopRowSkeletons,
+} from '../../ui/shop-skeletons.tsx';
+import { ShopErrorCard, ShopStateCard } from '../../ui/shop-state.tsx';
 
 /**
  * The four states every data-driven screen has to render, in one place.
@@ -41,6 +53,26 @@ export interface QueryStatesProps {
      */
     readonly treatFailuresAsEmpty?: readonly ApiFailureCode[] | undefined;
     readonly skeletonCount?: number | undefined;
+    /**
+     * The shape of what arrives, in the shop's one skeleton look (`ui/shop-skeletons.tsx`):
+     * - `cards` (the default): dish cards in the grid's columns, Shop · Menu pin 11;
+     * - `plans` / `kitchens`: plan or kitchen cards;
+     * - `rows`: a card of list rows (orders, addresses, basket lines);
+     * - `lines`: a price summary, label-and-amount lines over a total;
+     * - `page`: a detail page's opening (meal, plan, kitchen, order, subscription);
+     * - `form`: label-and-field pairs and a save button;
+     * - `figures`: a row of figure tiles (a calculator's result).
+     */
+    readonly skeleton?:
+        'cards' | 'plans' | 'kitchens' | 'rows' | 'lines' | 'page' | 'form' | 'figures' | undefined;
+    /** The empty state's disc. Defaults to a search lens: "nothing here matched". */
+    readonly emptyIcon?: IconName | undefined;
+    /** The empty disc's tint: `warning` when the person can fix it by going back a step. */
+    readonly emptyTone?: 'brand' | 'warning' | undefined;
+    /** A state inside a panel: no card frame, a smaller disc. */
+    readonly compact?: boolean | undefined;
+    /** The list's own loading shape, where none of the stock skeletons draws what it loads. */
+    readonly loading?: ReactNode | undefined;
     readonly testID: string;
     readonly children: ReactNode;
 }
@@ -53,26 +85,41 @@ export function QueryStates({
     emptyActions,
     treatFailuresAsEmpty,
     skeletonCount = 3,
+    skeleton = 'cards',
+    emptyIcon = 'searchLens',
+    emptyTone = 'brand',
+    compact = false,
+    loading,
     testID,
     children,
 }: QueryStatesProps) {
-    if (query.isPending) {
+    if (query.isPending && loading !== undefined) {
         return (
-            <Stack space="sm" testID={`${testID}-loading`}>
-                {Array.from({ length: skeletonCount }, (_, index) => (
-                    <Card key={index} padding="md">
-                        <Stack space="sm">
-                            <Skeleton
-                                testID={`${testID}-skeleton-${String(index + 1)}`}
-                                heightClassName="h-24"
-                                variant="shimmer"
-                            />
-                            <Skeleton heightClassName="h-4" widthClassName="w-1/2" />
-                        </Stack>
-                    </Card>
-                ))}
-            </Stack>
+            <View testID={`${testID}-loading`} aria-busy>
+                {loading}
+            </View>
         );
+    }
+    if (query.isPending) {
+        const id = `${testID}-loading`;
+        switch (skeleton) {
+            case 'plans':
+                return <ShopPlanSkeletons count={skeletonCount} testID={id} />;
+            case 'kitchens':
+                return <ShopKitchenSkeletons count={skeletonCount} testID={id} />;
+            case 'rows':
+                return <ShopRowSkeletons count={skeletonCount} testID={id} />;
+            case 'lines':
+                return <ShopLinesSkeleton testID={id} />;
+            case 'page':
+                return <ShopPageSkeleton testID={id} />;
+            case 'form':
+                return <ShopFormSkeleton testID={id} />;
+            case 'figures':
+                return <ShopFiguresSkeleton count={skeletonCount} testID={id} />;
+            default:
+                return <ShopCardSkeletons count={skeletonCount} testID={id} />;
+        }
     }
 
     const failure = toFailure(query.error);
@@ -83,9 +130,10 @@ export function QueryStates({
 
     if (failure !== null && !softEmpty) {
         return (
-            <ErrorState
+            <ShopErrorCard
                 testID={`${testID}-error`}
                 failure={failure}
+                small={compact}
                 onRetry={() => {
                     void query.refetch();
                 }}
@@ -96,11 +144,14 @@ export function QueryStates({
 
     if (isEmpty || softEmpty) {
         return (
-            <EmptyState
+            <ShopStateCard
                 testID={`${testID}-empty`}
+                icon={emptyIcon}
+                tone={emptyTone}
+                small={compact}
                 title={emptyTitle}
-                {...(emptyBody === undefined ? {} : { body: emptyBody })}
-                {...(emptyActions === undefined ? {} : { actions: emptyActions })}
+                body={emptyBody}
+                actions={emptyActions}
             />
         );
     }

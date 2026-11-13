@@ -18,9 +18,9 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  * Each reason is `{reason, …context}` — a stable machine key plus whatever
  * identifies the offending row — so a client can name the article rather than
  * printing a sentence about it. The vocabulary is `item_unknown`,
- * `item_not_published`, `variant_unknown`, `variant_not_active`,
- * `channel_not_trading`, `channel_unavailable`, `unpriced` and
- * `currency_mismatch`.
+ * `item_not_published`, `item_not_assessed`, `quality_hold`, `variant_unknown`, `variant_not_active`,
+ * `option_unknown`, `channel_not_trading`, `channel_unavailable`, `item_unavailable_on_date`,
+ * `unpriced` and `currency_mismatch`.
  *
  * Carried under `ErrorCode::CartLineRefused` (`cart.line_refused`, 422) since
  * C1's HTTP layer. It was `validation.failed` while the vocabulary was still

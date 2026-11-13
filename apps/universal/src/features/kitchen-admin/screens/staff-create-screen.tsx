@@ -1,21 +1,21 @@
 import type { CreateStaffAccountRequest } from '@healthy360/api-client/contracts';
 import {
-    Button,
-    Callout,
     Cascade,
     Dialog,
     FormGrid,
     FormSection,
     Icon,
     IconButton,
+    IssueTrayFrame,
     SegmentedControl,
     Select,
     Stack,
     Text,
     TextInputField,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { TabItem } from '@healthy360/design-system';
+import type { IssueCardItem, IssueTrayContent, TabItem } from '@healthy360/design-system';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -36,8 +36,10 @@ import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.ts
 import { RoleChoiceList } from '../role-choice-list.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/team/new` — letting somebody in, two ways (AA1).
  *
@@ -164,6 +166,11 @@ function StaffCreateForm() {
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
+    // The page's issue tray; a refused invitation or login opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(invite.error ?? create.error, nudgeTray);
+
     useKitchenTrailLeaf(t('accessAdmin:add.title'));
 
     // Whichever the caller may actually do. A person holding only one of the two codes is shown one
@@ -289,7 +296,7 @@ function StaffCreateForm() {
     /*
      * Where a refused commit takes the reader: the step holding the first field the server named —
      * the targets are listed in step order — with that field focused. A refusal that names no
-     * field is the callout's, which every step shows.
+     * field is the tray's card, beside every step.
      */
     function showRefusal(error: unknown) {
         const refused = serverFieldErrors(toFailure(error), serverTargets);
@@ -433,6 +440,7 @@ function StaffCreateForm() {
         const first = issues[0];
         if (first !== undefined) {
             goToIssue(first);
+            nudgeTray();
             return;
         }
         submit();
@@ -470,8 +478,29 @@ function StaffCreateForm() {
         };
     });
 
+    /*
+     * The page's problems, in its issue tray. What stops the commit is the opening's
+     * (`RecordFormOpening` registers it); a refusal that named no field keeps the server's words.
+     */
+    const saveCards: IssueCardItem[] =
+        failure === null || (server.isValidation && server.unplaced === null)
+            ? []
+            : [
+                  {
+                      key: 'create-error',
+                      tone: 'danger',
+                      label: server.unplaced ?? failure.message,
+                      testID: 'kitchen-staff-create-error',
+                  },
+              ];
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-staff-create-tray',
+        groups: [{ key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards }],
+    };
+
     return (
-        <>
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
             <Cascade space="md" testID="kitchen-staff-create-screen">
                 <RecordFormOpening<StaffStep>
                     testID="kitchen-staff-create"
@@ -479,7 +508,7 @@ function StaffCreateForm() {
                     dirty={guard.isDirty}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-staff-create-cancel"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -488,7 +517,7 @@ function StaffCreateForm() {
                                 }}
                             />
                             {/* The commit, last, on every step. */}
-                            <Button
+                            <DeskButton
                                 testID="kitchen-staff-create-submit"
                                 label={t(
                                     mode === 'invite'
@@ -529,21 +558,12 @@ function StaffCreateForm() {
                     }}
                 />
 
-                {failure === null || (server.isValidation && server.unplaced === null) ? null : (
-                    <Callout
-                        testID="kitchen-staff-create-error"
-                        tone="danger"
-                        role="alert"
-                        title={server.unplaced ?? failure.message}
-                    />
-                )}
-
                 {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
                 <View className="z-auto flex-col">
                     {step !== 'signIn' ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-staff-create-access"
                             title={stepLabels.signIn}
                             description={t(
@@ -682,7 +702,7 @@ function StaffCreateForm() {
                     {step !== 'person' || mode !== 'create' ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-staff-create-person"
                             title={stepLabels.person}
                         >
@@ -718,7 +738,7 @@ function StaffCreateForm() {
                     {step !== 'role' ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-staff-create-role-section"
                             title={stepLabels.role}
                         >
@@ -753,6 +773,7 @@ function StaffCreateForm() {
             <EditorGuardDialogs testID="kitchen-staff-create" guard={guard} />
 
             <Dialog
+                look="card"
                 testID="kitchen-staff-create-password-dialog"
                 open={issued !== null}
                 // No backdrop dismissal: this is the only time the password exists, and losing it to
@@ -765,7 +786,7 @@ function StaffCreateForm() {
                 title={t('accessAdmin:add.passwordTitle')}
                 description={t('accessAdmin:add.passwordBody', { name: issued?.name ?? '' })}
                 actions={
-                    <Button
+                    <DeskButton
                         testID="kitchen-staff-create-password-acknowledge"
                         label={t('accessAdmin:add.passwordAcknowledge')}
                         onPress={() => {
@@ -785,6 +806,6 @@ function StaffCreateForm() {
                     {issued?.password ?? ''}
                 </Text>
             </Dialog>
-        </>
+        </IssueTrayFrame>
     );
 }

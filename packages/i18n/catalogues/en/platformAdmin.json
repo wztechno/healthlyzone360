@@ -2,7 +2,8 @@
     "title": "Platform administration",
     "nav": {
         "kitchens": "Kitchens",
-        "showcase": "Design system"
+        "showcase": "Design system",
+        "b2b": "B2B applications"
     },
     "kitchens": {
         "title": "Kitchen organisations",
@@ -148,5 +149,239 @@
         "submitting": "Creating…",
         "created": "{{name}} is ready. Invite an owner to hand it over.",
         "ownerNext": "Invite an owner"
+    },
+    "b2b": {
+        "title": "B2B applications",
+        "subtitle": "Companies asking to buy wholesale — review them, agree terms with a kitchen, and open their account.",
+        "tabsLabel": "Queue",
+        "tabAll": "All",
+        "searchLabel": "Search",
+        "searchPlaceholder": "Company or reference",
+        "emptyTitle": "Nothing here",
+        "emptyBody": "No application matches this tab and search.",
+        "emptyQueueBody": "No application is waiting to be picked up.",
+        "unnamed": "Unnamed company",
+        "unclaimed": "Unclaimed",
+        "claimed": "Claimed",
+        "open": "Open {{reference}}",
+        "yes": "Yes",
+        "no": "No",
+        "cancel": "Cancel",
+        "internalNoteHint": "Only the platform sees this.",
+        "column": {
+            "company": "Company",
+            "country": "Country",
+            "submitted": "Submitted",
+            "status": "Status",
+            "reviewer": "Reviewer"
+        },
+        "status": {
+            "draft": "Draft",
+            "submitted": "Submitted",
+            "in_review": "In review",
+            "info_requested": "Information requested",
+            "approved": "Approved",
+            "declined": "Declined",
+            "withdrawn": "Withdrawn"
+        },
+        "detail": {
+            "back": "All applications",
+            "errorTitle": "This application could not be loaded",
+            "reference": "Reference {{reference}}",
+            "duplicatesTitle_one": "{{count}} other application has the same registration or tax number",
+            "duplicatesTitle_other": "{{count}} other applications have the same registration or tax number",
+            "duplicatesBody": "Check whether this company has applied before. Nothing is done about it automatically.",
+            "conflictTitle": "Someone else changed this application",
+            "conflictBody": "Reload to see the latest version, then try again.",
+            "reload": "Reload"
+        },
+        "stages": {
+            "label": "Where this application is",
+            "submitted": "Submitted",
+            "in_review": "In review",
+            "approved": "Approved",
+            "agreement_sent": "Agreement sent",
+            "signed": "Signed",
+            "provisioned": "Account open"
+        },
+        "actions": {
+            "claim": "Claim",
+            "approve": "Approve",
+            "requestInformation": "Request information",
+            "decline": "Decline",
+            "draftAgreement": "Draft the agreement"
+        },
+        "next": {
+            "claim": {
+                "title": "Waiting to be picked up",
+                "body": "Claim it so other reviewers know you are working on it."
+            },
+            "decide": {
+                "title": "Your decision",
+                "body": "Check the company and its documents, then approve, ask for more, or decline."
+            },
+            "waiting_applicant": {
+                "title": "Waiting for the applicant",
+                "body": "They have been asked for more information. The application comes back to the queue when they send it."
+            },
+            "draft_agreement": {
+                "title": "Agree the terms",
+                "body": "Draft the trading agreement: which kitchen's negotiated price list the company buys at, and on what payment terms."
+            },
+            "send_agreement": {
+                "title": "Send the agreement",
+                "body": "The draft is not visible to the applicant yet. Send it when the terms are right — they are emailed a link to sign."
+            },
+            "waiting_signature": {
+                "title": "Waiting for the signature",
+                "body": "The applicant has been sent the agreement. Revise it if the terms need to change before they sign."
+            },
+            "provision": {
+                "title": "Open the account",
+                "body": "The agreement is signed. Opening the account creates the company, makes the applicant its owner and emails the other contacts."
+            },
+            "provisioned": {
+                "title": "Account open",
+                "body": "The company can order. Contacts who have not accepted their invitation can be sent a fresh link below."
+            },
+            "closed": {
+                "title": "Closed",
+                "body": "This application was declined or withdrawn. Nothing more can be done with it."
+            }
+        },
+        "toast": {
+            "claimed": "Claimed. It is yours to review.",
+            "sent": "Agreement sent. The applicant has been emailed a link to sign.",
+            "provisioned_one": "{{company}} is open, and {{count}} invitation was emailed.",
+            "provisioned_other": "{{company}} is open, and {{count}} invitations were emailed."
+        },
+        "decision": {
+            "title": "Decision",
+            "submitted": "Submitted",
+            "decided": "Decided",
+            "informationRequest": "Information requested",
+            "applicantMessage": "Message to the applicant",
+            "internalNote": "Internal note"
+        },
+        "agreement": {
+            "title": "Agreement",
+            "none": "No agreement has been drafted yet.",
+            "version": "Version {{version}} — {{title}}",
+            "seller": "Buys from",
+            "creditLimit": "Credit limit",
+            "minimumOrder": "Minimum order",
+            "signedBy": "Signed by",
+            "send": "Send for signature",
+            "edit": "Edit the draft",
+            "revise": "Revise the terms",
+            "sendTitle": "Send the agreement for signature?",
+            "sendBody": "The applicant is emailed a link to read and sign it. After this, changing the terms means revising it into a new version.",
+            "reviseTitle": "Revise the agreement?",
+            "reviseBody": "The version waiting for signature is withdrawn and kept on record, and a new draft opens with the same terms for you to change.",
+            "paymentTerms": "Payment terms"
+        },
+        "agreementStatus": {
+            "draft": "Draft",
+            "pending_signature": "Waiting for signature",
+            "active": "Signed",
+            "suspended": "Suspended",
+            "terminated": "Withdrawn"
+        },
+        "invitations": {
+            "title": "Invitations",
+            "body": "The applicant owns the account. Everybody else named on the application was emailed an invitation.",
+            "none": "Nobody else was invited.",
+            "resend": "Send a new link",
+            "resent": "A new invitation was emailed to {{email}}.",
+            "status": {
+                "live": "Waiting",
+                "accepted": "Accepted",
+                "revoked": "Replaced",
+                "expired": "Expired"
+            }
+        },
+        "contacts": {
+            "title": "Contacts",
+            "none": "No contacts were named.",
+            "roles": {
+                "primary": "Primary",
+                "signatory": "Signatory",
+                "billing": "Billing",
+                "operations": "Operations"
+            }
+        },
+        "locations": {
+            "title": "Delivery locations",
+            "none": "No delivery locations were given.",
+            "primary": "Primary",
+            "billing": "Billing address"
+        },
+        "documents": {
+            "missing": "Not uploaded: {{kinds}}",
+            "none": "No documents yet.",
+            "mismatch": "File type differs from what was declared",
+            "expired": "Expired",
+            "view": "View",
+            "accept": "Accept",
+            "reject": "Reject",
+            "rejectTitle": "Reject this document?",
+            "rejectBody": "The applicant sees the reason and can upload a replacement.",
+            "reason": "Reason",
+            "note": "Note for the applicant"
+        },
+        "request": {
+            "title": "Request more information",
+            "body": "The applicant can edit only the sections you name. Name none to ask for documents.",
+            "confirm": "Send request",
+            "message": "What do you need?",
+            "messageHint": "The applicant reads this exactly as written.",
+            "sections": "Sections to reopen"
+        },
+        "approve": {
+            "title": "Approve this application?",
+            "body": "Approval records the decision. The account is opened later, once the agreement is signed.",
+            "documentsWarning_one": "{{count}} required document is missing or not accepted yet.",
+            "documentsWarning_other": "{{count}} required documents are missing or not accepted yet.",
+            "applicantMessageHint": "Optional. Emailed to the applicant with the approval."
+        },
+        "decline": {
+            "title": "Decline this application?",
+            "body": "This cannot be undone. The applicant is told why.",
+            "applicantMessageHint": "Required. Say what was wrong so the applicant can act on it."
+        },
+        "provision": {
+            "title": "Open the account for {{company}}?",
+            "body": "This cannot be undone. It creates:",
+            "confirm": "Open the account",
+            "organisation": "The company {{company}}, active",
+            "account": "Its business trading account",
+            "owner": "The applicant as its owner",
+            "invitations": "Emailed invitations for everybody else named on the application"
+        },
+        "editor": {
+            "defaultTitle": "Supply agreement — {{company}}",
+            "listTaken": "Already prices another company",
+            "newTitle": "Draft the agreement",
+            "editTitle": "Edit agreement version {{version}}",
+            "save": "Save draft",
+            "intro": "The applicant sees nothing until you send it.",
+            "title": "Title",
+            "priceList": "Seller price list",
+            "priceListHint": "A kitchen's negotiated price list. Choosing it chooses who the company buys from and in which currency.",
+            "priceListPlaceholder": "Choose a kitchen price list",
+            "noListsTitle": "No kitchen has a negotiated price list yet",
+            "noListsBody": "A kitchen creates one in Wholesale setup. Each list prices exactly one company.",
+            "requested": "The applicant asked for {{value}}.",
+            "inCurrency": "In {{currency}}",
+            "leadTime": "Delivery lead time (days)",
+            "noticePeriod": "Notice period (days)",
+            "startsOn": "Starts on",
+            "endsOn": "Ends on",
+            "datePlaceholder": "YYYY-MM-DD",
+            "autoRenews": "Renews automatically",
+            "summary": "Summary of terms",
+            "summaryHint": "Shown to the signatory above the terms.",
+            "notANumber": "Enter a number, zero or more."
+        }
     }
 }

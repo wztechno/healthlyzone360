@@ -121,6 +121,7 @@ final readonly class GoodsReceiptService
         private UnitConversionService $conversion,
         private AuditRecorder $audit,
         private TenantContext $context,
+        private ReceiptPriceControl $priceControl,
     ) {}
 
     /**
@@ -267,6 +268,9 @@ final readonly class GoodsReceiptService
                     $settledLineCount++;
                 }
             }
+
+            $this->priceControl->review($receipt);
+            $this->priceControl->openPayable($receipt);
 
             $receipt->cost_status = $this->costStatus(count($prepared), $settledLineCount);
             $receipt->save();

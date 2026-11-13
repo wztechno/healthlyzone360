@@ -50,6 +50,9 @@ export const KITCHEN_MANAGER_PERMISSIONS: readonly string[] = [
     'order.create_on_behalf_organisation',
     'customer.create_on_behalf_organisation',
     'order.view_customer_contact_organisation',
+    'order.supervise_organisation',
+    'order.settle_cash_organisation',
+    'order.prepare_organisation',
     // B1/B4. The backend grants this pair to `kitchen_manager` alongside the tariff pair — reading
     // what corporate buyers submitted against this kitchen's programmes, and naming a price against
     // it. Absent here until the kitchen gained a screen that needed them, which is exactly the drift
@@ -148,6 +151,11 @@ export const ORGANISATION_OWNER_PERMISSIONS: readonly string[] = [
     'order.view_customer_contact_organisation',
     'order.create_on_behalf_organisation',
     'customer.create_on_behalf_organisation',
+    'order.supervise_organisation',
+    'order.prepare_organisation',
+    'order.settle_cash_organisation',
+    'order.approve_refund_organisation',
+    'inventory.approve_payables_organisation',
     'b2b_quotation.view_organisation',
     'b2b_quotation.quote_organisation',
     'inventory.view_organisation',
@@ -206,6 +214,9 @@ export const PERMISSIONS_ADMINISTRATOR_PERMISSIONS: readonly string[] = [
     'order.view_customer_contact_organisation',
     'order.create_on_behalf_organisation',
     'customer.create_on_behalf_organisation',
+    'order.supervise_organisation',
+    'order.prepare_organisation',
+    'order.settle_cash_organisation',
     'b2b_quotation.view_organisation',
     'b2b_quotation.quote_organisation',
     'inventory.view_organisation',
@@ -288,6 +299,19 @@ export const PLATFORM_ADMINISTRATOR_PERMISSIONS: readonly string[] = [
     'session.revoke_own',
 ];
 
+/**
+ * A platform operator who also works the B2B onboarding queue — every authority on it, the way
+ * the seeded `reference_editor` role holds them.
+ */
+export const PLATFORM_B2B_REVIEWER_PERMISSIONS: readonly string[] = [
+    ...PLATFORM_ADMINISTRATOR_PERMISSIONS,
+    'b2b_application.view_platform',
+    'b2b_application.review_platform',
+    'b2b_application.decide_platform',
+    'b2b_application.provision_platform',
+    'kyc_document.view_platform',
+];
+
 /** What a consumer holds on their global identity, outside any organisation (plan §9 / D1). */
 export const CONSUMER_PERMISSIONS: readonly string[] = ['device.manage_own', 'session.revoke_own'];
 
@@ -361,6 +385,7 @@ export function testMembership(overrides: Partial<Membership> = {}): Membership 
                 name: 'Kitchen manager',
             },
         ],
+        branchId: null,
         branches: [],
         startsAt: null,
         expiresAt: null,

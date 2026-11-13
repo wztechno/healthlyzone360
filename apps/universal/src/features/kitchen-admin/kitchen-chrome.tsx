@@ -1,13 +1,17 @@
-import { Badge } from '@healthy360/design-system';
 import type { IconName, NavigationItem } from '@healthy360/design-system';
 import { usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { useCan } from '../../access/gate.tsx';
 import { useReviewQueueQuery } from '../../data/kitchen-admin-hooks.ts';
-import { useConsumptionExceptionCountQuery } from '../../data/kitchen-ops-hooks.ts';
+import { useCashWaiting } from '../../data/order-desk-hooks.ts';
+import {
+    useConsumptionExceptionCountQuery,
+    useKitchenSetupQuery,
+} from '../../data/kitchen-ops-hooks.ts';
 import { guardNavigation } from '../../navigation/use-unsaved-guard.ts';
-import { AreaBrandBlock, AreaRailTop, DESK_SIDEBAR_WIDTH } from '../../shell/area-brand-block.tsx';
+import { DESK_SIDEBAR_WIDTH } from '../../shell/area-brand-block.tsx';
 import { useAccessState } from '../../session/session-provider.tsx';
 import {
     OVERVIEW_HREF,
@@ -15,6 +19,7 @@ import {
     isKitchenNavActive,
     kitchenNavSections,
 } from './kitchen-nav.ts';
+import { ORDER_SETTLE_CASH_PERMISSION } from './entity-registry.ts';
 import type { EntityGroup } from './entity-registry.ts';
 import { buildReviewQueue } from './review-queue.ts';
 
@@ -37,25 +42,14 @@ const GROUP_ICONS: Readonly<Record<EntityGroup, IconName>> = {
     catalogue: 'chefHat',
     commercial: 'tag',
     operations: 'package',
+    buying: 'shoppingCart',
+    foodSafety: 'badgeCheck',
+    reports: 'chartColumn',
     access: 'shield',
 };
 
-/** KITCHEN.md sidebar spec: the family rail is 232px. */
+/** The admin frame's page panel width, shared by every desk area. */
 export const KITCHEN_SIDEBAR_WIDTH = DESK_SIDEBAR_WIDTH;
-
-/** The top of the green module rail: empty — see `AreaRailTop`. */
-export function KitchenRailTop() {
-    return <AreaRailTop testID="kitchen-rail-top" />;
-}
-
-/**
- * Brand block at the top of the rail. No branch name — the access state carries only branch ids,
- * and a made-up label would be worse than none.
- */
-export function KitchenBrandBlock() {
-    const { t } = useTranslation();
-    return <AreaBrandBlock testID="kitchen-rail-brand" subtitle={t('kitchen:nav.railTitle')} />;
-}
 
 /**
  * The rail's destinations: Overview, then the permitted families in their registry groups. The
@@ -74,10 +68,25 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
     const pathname = usePathname();
     const state = useAccessState();
 
-    const sections = useMemo(() => kitchenNavSections(state), [state]);
+    const allSections = useMemo(() => kitchenNavSections(state), [state]);
     const permitted = useMemo(
-        () => new Set(sections.flatMap((section) => section.items.map((item) => item.key))),
-        [sections],
+        () => new Set(allSections.flatMap((section) => section.items.map((item) => item.key))),
+        [allSections],
+    );
+    const setup = useKitchenSetupQuery(permitted.has('setup'));
+    const isLive = setup.data?.isLive === true;
+    // Setup is done once the kitchen is live: drop it, and the section if it empties.
+    const sections = useMemo(
+        () =>
+            isLive
+                ? allSections
+                      .map((section) => ({
+                          ...section,
+                          items: section.items.filter((item) => item.key !== 'setup'),
+                      }))
+                      .filter((section) => section.items.length > 0)
+                : allSections,
+        [allSections, isLive],
     );
 
     const reviewSources = useReviewQueueQuery(permitted.has('review'));
@@ -97,6 +106,12 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
         }).total;
     }, [reviewSources.data]);
     const exceptionTotal = exceptions.data ?? null;
+    // The Cash row adds up what its tabs say is waiting. Only for whoever may settle.
+    const cashWaiting = useCashWaiting(useCan(ORDER_SETTLE_CASH_PERMISSION));
+    const cashTotal =
+        cashWaiting.settle === null && cashWaiting.close === null
+            ? null
+            : (cashWaiting.settle ?? 0) + (cashWaiting.close ?? 0);
 
     return useMemo(() => {
         const activeHref = activeKitchenNavHref(
@@ -107,6 +122,7 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
         const queueCount = (key: string): number | null => {
             if (key === 'review') return reviewTotal;
             if (key === 'consumption-exceptions') return exceptionTotal;
+            if (key === 'cash') return cashTotal === 0 ? null : cashTotal;
             return null;
         };
 
@@ -123,17 +139,7 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                 icon: item.icon,
                 active: item.href === activeHref,
                 testID: `nav-${item.key}`,
-                ...(count === null || count === 0
-                    ? {}
-                    : {
-                          badge: (
-                              <Badge
-                                  testID={`nav-${item.key}-badge`}
-                                  tone="warning"
-                                  label={String(count)}
-                              />
-                          ),
-                      }),
+                ...(count === null ? {} : { count }),
                 onPress: () => {
                     guardNavigation(() => {
                         router.push(item.href as never);
@@ -163,5 +169,5 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
                 })),
             ),
         ];
-    }, [sections, pathname, reviewTotal, exceptionTotal, router, t]);
+    }, [sections, pathname, reviewTotal, exceptionTotal, cashTotal, router, t]);
 }

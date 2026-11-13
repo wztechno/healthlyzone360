@@ -1,18 +1,5 @@
-import {
-    Badge,
-    Button,
-    Callout,
-    Card,
-    Checkbox,
-    Heading,
-    Inline,
-    Select,
-    SegmentedControl,
-    Stack,
-    Stepper,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
+import { Icon, TextInputField, cx } from '@healthy360/design-system';
+import type { IconName } from '@healthy360/design-system';
 import type {
     ClosureBlocker,
     ClosureReasonCode,
@@ -23,6 +10,8 @@ import { CLOSURE_REASON_CODES } from '@healthy360/api-client/contracts';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { Pressable, Text as RNText, View } from 'react-native';
+import type { DimensionValue } from 'react-native';
 
 import {
     toFailure,
@@ -36,10 +25,15 @@ import { queryKeys } from '../../../data/query-keys.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { createSessionDraftStore } from '../../../navigation/session-draft.ts';
 import { usePreviousEntry } from '../../../navigation/use-return-to.ts';
+import { AuthCheck, AuthError, AuthTick } from '../../../ui/auth-form.tsx';
 import { OtpChallengePanel } from '../../verification/otp-challenge-panel.tsx';
+import { ExtraButton, ExtraCard, ExtraChip, ExtraLink, ExtraPage } from '../account-extra.tsx';
 
 /**
- * `/customer/account/close/{step}` — leaving, in four steps and one short-circuit.
+ * `/customer/account/close/{step}` — leaving, in four steps and one short-circuit, drawn as the
+ * accepted Close-account board: the red header, the five-dot progress line, the reasons as radio
+ * tiles, the two scope cards (the marketing opt-out first, closing in red), the checks with their
+ * chips, the code, and the done card.
  *
  * ## The short-circuit is the point of step two
  *
@@ -249,18 +243,17 @@ export function ClosureWizardScreen({ step, scope: doneParam }: ClosureWizardScr
     };
 
     const keepButton = (
-        <Button
+        <ExtraLinkButton
             testID={`${TEST_ID}-${current}-keep`}
-            variant="quiet"
             label={t('account:closure.keepAccount')}
-            loading={cancel.isPending}
+            busy={cancel.isPending}
             onPress={keepAccount}
         />
     );
     const backButton = (
-        <Button
+        <ExtraButton
             testID={`${TEST_ID}-${current}-back`}
-            variant="ghost"
+            tone="secondary"
             label={t('account:closure.back')}
             onPress={stepBack}
         />
@@ -272,191 +265,246 @@ export function ClosureWizardScreen({ step, scope: doneParam }: ClosureWizardScr
     const canClose = preconditions.data?.canClose ?? false;
 
     return (
-        <Stack space="lg" testID={`${TEST_ID}-screen`}>
-            <Stack space="xs">
-                <Heading level={1} testID={`${TEST_ID}-title`}>
-                    {t('account:closure.title')}
-                </Heading>
-                <Text tone="secondary">{t('account:closure.subtitle')}</Text>
-            </Stack>
-
-            <Stepper
-                testID={`${TEST_ID}-stepper`}
-                label={t('account:closure.stepperLabel')}
-                current={CLOSURE_STEPS.indexOf(current) + 1}
-                total={CLOSURE_STEPS.length}
-                stepLabel={t(`account:closure.steps.${current}`)}
-            />
+        <ExtraPage
+            testID={`${TEST_ID}-screen`}
+            backTestID={`${TEST_ID}-trail-up`}
+            backLabel={t('account:title')}
+            onBack={keepAccount}
+            icon="signOut"
+            tone="danger"
+            title={t('account:closure.title')}
+            titleTestID={`${TEST_ID}-title`}
+        >
+            <ClosureSteps current={current} />
 
             {failure === null ? null : (
-                <Callout
-                    testID={`${TEST_ID}-error`}
-                    role="alert"
-                    tone="danger"
-                    icon="warning"
-                    title={t('account:closure.failedTitle')}
-                    body={failure.message}
-                />
+                <View className="mt-[18px]">
+                    <AuthError
+                        testID={`${TEST_ID}-error`}
+                        message={`${t('account:closure.failedTitle')} ${failure.message}`}
+                    />
+                </View>
             )}
 
             {/* ── 1. why ─────────────────────────────────────────────────────────────────────── */}
             {current === 'reason' ? (
-                <Card padding="md" testID={`${TEST_ID}-reason`}>
-                    <Stack space="md">
-                        <Select
-                            testID={`${TEST_ID}-reason-select`}
-                            label={t('account:closure.reasonLabel')}
-                            hint={t('account:closure.reasonHint')}
-                            value={reasonCode}
-                            onChange={(next) => {
-                                update({ reasonCode: next as ClosureReasonCode });
-                            }}
-                            options={CLOSURE_REASON_CODES.map((code) => ({
-                                value: code,
-                                label: t(`account:closure.reasons.${code}`),
-                            }))}
-                        />
+                <ExtraCard testID={`${TEST_ID}-reason`} title={t('account:closure.reasonLabel')}>
+                    <View
+                        role="radiogroup"
+                        aria-label={t('account:closure.reasonLabel')}
+                        className="mt-3 flex-row flex-wrap"
+                    >
+                        {CLOSURE_REASON_CODES.map((code) => {
+                            const on = reasonCode === code;
+                            return (
+                                <View key={code} className="w-full p-1 sm:w-1/2">
+                                    <Pressable
+                                        testID={`${TEST_ID}-reason-select-option-${code}`}
+                                        role="radio"
+                                        aria-checked={on}
+                                        accessibilityState={{ checked: on }}
+                                        onPress={() => {
+                                            update({ reasonCode: code });
+                                        }}
+                                        className={cx(
+                                            'min-h-[52px] flex-row items-center gap-2.5 rounded-[14px] border-[1.5px] px-3.5',
+                                            on
+                                                ? 'border-surface-brand bg-surface-brand-subtle'
+                                                : 'border-stroke bg-surface-raised hover:border-surface-brand',
+                                        )}
+                                    >
+                                        <View
+                                            className={cx(
+                                                'h-5 w-5 items-center justify-center rounded-full border-2',
+                                                on ? 'border-surface-brand' : 'border-stroke',
+                                            )}
+                                        >
+                                            {on ? (
+                                                <View className="h-2.5 w-2.5 rounded-full bg-surface-brand" />
+                                            ) : null}
+                                        </View>
+                                        <RNText
+                                            className={cx(
+                                                'min-w-0 flex-1 text-sm font-semibold text-start',
+                                                on
+                                                    ? 'text-content-on-brand-subtle'
+                                                    : 'text-content-primary',
+                                            )}
+                                        >
+                                            {t(`account:closure.reasons.${code}`)}
+                                        </RNText>
+                                    </Pressable>
+                                </View>
+                            );
+                        })}
+                    </View>
 
-                        {/* Only `other` invites a note — the backend's own rule, not a guess. */}
-                        {reasonCode !== null && NOTE_REASONS.has(reasonCode) ? (
+                    {/* Only `other` invites a note — the backend's own rule, not a guess. */}
+                    {reasonCode !== null && NOTE_REASONS.has(reasonCode) ? (
+                        <View className="mt-3.5">
                             <TextInputField
                                 testID={`${TEST_ID}-reason-note`}
                                 label={t('account:closure.noteLabel')}
                                 placeholder={t('account:closure.notePlaceholder')}
-                                hint={t('account:closure.noteHint')}
                                 value={reasonNote}
                                 onChangeText={(next) => {
                                     update({ reasonNote: next });
                                 }}
                                 multiline
                             />
-                        ) : null}
+                        </View>
+                    ) : null}
 
-                        <Inline space="sm" wrap>
-                            <Button
-                                testID={`${TEST_ID}-reason-next`}
-                                label={t('account:closure.next')}
-                                disabled={reasonCode === null}
-                                onPress={() => {
-                                    go('scope');
-                                }}
-                            />
-                            {keepButton}
-                        </Inline>
-                    </Stack>
-                </Card>
+                    <View className="mt-5 flex-row flex-wrap items-center gap-2.5">
+                        <ExtraButton
+                            testID={`${TEST_ID}-reason-next`}
+                            label={t('account:closure.next')}
+                            icon="chevronForward"
+                            disabled={reasonCode === null}
+                            onPress={() => {
+                                go('scope');
+                            }}
+                        />
+                        {keepButton}
+                    </View>
+                </ExtraCard>
             ) : null}
 
             {/* ── 2. how far ─────────────────────────────────────────────────────────────────── */}
             {current === 'scope' ? (
-                <Card padding="md" testID={`${TEST_ID}-scope`}>
-                    <Stack space="md">
-                        <SegmentedControl
-                            testID={`${TEST_ID}-scope-picker`}
-                            label={t('account:closure.scopeLabel')}
-                            block
-                            value={scope}
-                            onChange={(next) => {
-                                update({ scope: next as ClosureScope });
-                            }}
-                            items={[
-                                {
-                                    value: 'marketing_opt_out',
-                                    label: t('account:closure.scopes.marketing_opt_out'),
-                                    testID: `${TEST_ID}-scope-marketing`,
-                                },
-                                {
-                                    value: 'full',
-                                    label: t('account:closure.scopes.full'),
-                                    testID: `${TEST_ID}-scope-full`,
-                                },
-                            ]}
-                        />
+                <ExtraCard testID={`${TEST_ID}-scope`} title={t('account:closure.scopeLabel')}>
+                    <View
+                        testID={`${TEST_ID}-scope-picker`}
+                        role="radiogroup"
+                        className="mt-3 flex-col gap-3 sm:flex-row"
+                    >
+                        {(['marketing_opt_out', 'full'] as const).map((value) => {
+                            const on = scope === value;
+                            const danger = value === 'full';
+                            return (
+                                <Pressable
+                                    key={value}
+                                    testID={`${TEST_ID}-scope-${danger ? 'full' : 'marketing'}`}
+                                    role="radio"
+                                    aria-checked={on}
+                                    accessibilityState={{ checked: on }}
+                                    onPress={() => {
+                                        update({ scope: value });
+                                    }}
+                                    className={cx(
+                                        'min-w-0 flex-1 flex-col gap-2 rounded-[20px] border-[1.5px] p-[18px] transition duration-normal ease-standard hover:-translate-y-0.5',
+                                        on
+                                            ? danger
+                                                ? 'border-danger-border bg-danger-subtle'
+                                                : 'border-surface-brand bg-surface-brand-subtle'
+                                            : 'border-stroke bg-surface-raised',
+                                    )}
+                                >
+                                    <View
+                                        className={cx(
+                                            'h-11 w-11 items-center justify-center rounded-[14px]',
+                                            danger ? 'bg-danger-subtle' : 'bg-surface-brand-subtle',
+                                        )}
+                                    >
+                                        <Icon
+                                            name={danger ? 'signOut' : 'send'}
+                                            size="md"
+                                            className={
+                                                danger
+                                                    ? 'text-danger-on-subtle'
+                                                    : 'text-content-on-brand-subtle'
+                                            }
+                                        />
+                                    </View>
+                                    <RNText className="font-display text-lg font-bold text-content-primary text-start">
+                                        {t(`account:closure.scopes.${value}`)}
+                                    </RNText>
+                                    <RNText className="text-sm font-medium leading-5 text-content-secondary text-start">
+                                        {t(`account:closure.scopeExplainer.${value}.body`)}
+                                    </RNText>
+                                </Pressable>
+                            );
+                        })}
+                    </View>
 
-                        <Callout
-                            testID={`${TEST_ID}-scope-explainer`}
-                            role="note"
-                            tone={scope === 'full' ? 'warning' : 'info'}
-                            icon={scope === 'full' ? 'warning' : 'info'}
-                            title={t(`account:closure.scopeExplainer.${scope}.title`)}
-                            body={t(`account:closure.scopeExplainer.${scope}.body`)}
-                        />
-
-                        <Inline space="sm" wrap>
-                            <Button
-                                testID={`${TEST_ID}-scope-next`}
-                                label={
-                                    scope === 'marketing_opt_out'
-                                        ? t('account:closure.optOutConfirm')
-                                        : t('account:closure.next')
+                    <View className="mt-5 flex-row flex-wrap items-center gap-2.5">
+                        {backButton}
+                        <ExtraButton
+                            testID={`${TEST_ID}-scope-next`}
+                            tone={scope === 'full' ? 'danger' : 'brand'}
+                            label={
+                                scope === 'marketing_opt_out'
+                                    ? t('account:closure.optOutConfirm')
+                                    : t('account:closure.next')
+                            }
+                            busy={request.isPending}
+                            // Reached without a reason — a deep link, or an expired draft —
+                            // there is nothing to send. Back walks to the step that asks.
+                            disabled={reasonCode === null}
+                            onPress={() => {
+                                if (reasonCode === null) return;
+                                if (scope === 'full') {
+                                    go('checks');
+                                    return;
                                 }
-                                loading={request.isPending}
-                                // Reached without a reason — a deep link, or an expired draft —
-                                // there is nothing to send. Back walks to the step that asks.
-                                disabled={reasonCode === null}
-                                onPress={() => {
-                                    if (reasonCode === null) return;
-                                    if (scope === 'full') {
-                                        go('checks');
-                                        return;
-                                    }
-                                    // The short-circuit. It completes in one write: nothing is
-                                    // destroyed, so there is nothing to step up for.
-                                    request.mutate(
-                                        {
-                                            reasonCode,
-                                            scope: 'marketing_opt_out',
-                                            ...(reasonNote.trim().length === 0
-                                                ? {}
-                                                : { reasonNote: reasonNote.trim() }),
-                                        },
-                                        { onSuccess: finishOptOut },
-                                    );
-                                }}
-                            />
-                            {backButton}
-                            {keepButton}
-                        </Inline>
-                    </Stack>
-                </Card>
+                                // The short-circuit. It completes in one write: nothing is
+                                // destroyed, so there is nothing to step up for.
+                                request.mutate(
+                                    {
+                                        reasonCode,
+                                        scope: 'marketing_opt_out',
+                                        ...(reasonNote.trim().length === 0
+                                            ? {}
+                                            : { reasonNote: reasonNote.trim() }),
+                                    },
+                                    { onSuccess: finishOptOut },
+                                );
+                            }}
+                        />
+                        {keepButton}
+                    </View>
+                </ExtraCard>
             ) : null}
 
             {/* ── 3. what is in the way ──────────────────────────────────────────────────────── */}
             {current === 'checks' ? (
-                <Stack space="md" testID={`${TEST_ID}-checks`}>
+                <View testID={`${TEST_ID}-checks`}>
                     <BlockerList blockers={blockers} />
 
                     <RetainedRecords codes={preconditions.data?.retainedRecordCodes ?? []} />
 
                     {advisories.length === 0 ? null : (
-                        <Checkbox
-                            testID={`${TEST_ID}-acknowledge`}
-                            label={t('account:closure.acknowledge', {
-                                count: advisories.length,
-                            })}
-                            checked={acknowledged}
-                            onChange={(next) => {
-                                update({ acknowledged: next });
-                            }}
-                        />
+                        <View className="mt-3.5">
+                            <AuthCheck
+                                testID={`${TEST_ID}-acknowledge`}
+                                label={t('account:closure.acknowledge', {
+                                    count: advisories.length,
+                                })}
+                                checked={acknowledged}
+                                onChange={(next) => {
+                                    update({ acknowledged: next });
+                                }}
+                            />
+                        </View>
                     )}
 
                     {blocking.length === 0 ? null : (
-                        <Callout
-                            testID={`${TEST_ID}-blocked`}
-                            role="alert"
-                            tone="danger"
-                            icon="warning"
-                            title={t('account:closure.blockedTitle', { count: blocking.length })}
-                            body={t('account:closure.blockedBody')}
-                        />
+                        <View className="mt-3.5">
+                            <AuthError
+                                testID={`${TEST_ID}-blocked`}
+                                message={`${t('account:closure.blockedTitle', { count: blocking.length })} ${t('account:closure.blockedBody')}`}
+                            />
+                        </View>
                     )}
 
-                    <Inline space="sm" wrap>
-                        <Button
+                    <View className="mt-5 flex-row flex-wrap items-center gap-2.5">
+                        {backButton}
+                        <ExtraButton
                             testID={`${TEST_ID}-checks-next`}
+                            tone="danger"
                             label={t('account:closure.startClosure')}
-                            loading={request.isPending}
+                            icon="chevronForward"
+                            busy={request.isPending}
                             // The server's verdict, plus the acknowledgement this screen owns, plus
                             // the reason the request needs.
                             disabled={
@@ -484,29 +532,29 @@ export function ClosureWizardScreen({ step, scope: doneParam }: ClosureWizardScr
                                 );
                             }}
                         />
-                        {backButton}
                         {keepButton}
-                    </Inline>
-                </Stack>
+                    </View>
+                </View>
             ) : null}
 
             {/* ── 4. the code ────────────────────────────────────────────────────────────────── */}
             {current === 'verify' ? (
-                <Card padding="md" testID={`${TEST_ID}-verify`}>
-                    <Stack space="md">
-                        <Callout
+                <ExtraCard testID={`${TEST_ID}-verify`} title={t('account:closure.codeTitle')}>
+                    <View className="mt-3">
+                        <AuthError
                             testID={`${TEST_ID}-irreversible`}
-                            role="alert"
-                            tone="danger"
-                            icon="warning"
-                            title={t('account:closure.irreversibleTitle')}
-                            body={t('account:closure.irreversibleBody')}
+                            message={`${t('account:closure.irreversibleTitle')} ${t('account:closure.irreversibleBody')}`}
                         />
+                    </View>
 
+                    <View className="mt-4">
                         {ticket?.challenge == null ? (
-                            <Text tone="secondary" testID={`${TEST_ID}-no-challenge`}>
+                            <RNText
+                                testID={`${TEST_ID}-no-challenge`}
+                                className="text-sm font-medium text-content-secondary text-start"
+                            >
                                 {t('account:closure.noChallenge')}
-                            </Text>
+                            </RNText>
                         ) : (
                             <OtpChallengePanel
                                 testID={`${TEST_ID}-otp`}
@@ -547,61 +595,154 @@ export function ClosureWizardScreen({ step, scope: doneParam }: ClosureWizardScr
                                 onResend={() => undefined}
                             />
                         )}
+                    </View>
 
-                        <Inline space="sm" wrap>
-                            {backButton}
-                            {keepButton}
-                        </Inline>
-                    </Stack>
-                </Card>
+                    <View className="mt-5 flex-row flex-wrap items-center gap-2.5">
+                        {backButton}
+                        {keepButton}
+                    </View>
+                </ExtraCard>
             ) : null}
 
             {/* ── 5. done ────────────────────────────────────────────────────────────────────── */}
             {current === 'done' && doneScope !== null ? (
-                <Stack space="md" testID={`${TEST_ID}-done`}>
-                    <Callout
-                        testID={`${TEST_ID}-done-callout`}
-                        role="status"
-                        tone="success"
-                        title={t(
-                            doneScope === 'marketing_opt_out'
-                                ? 'account:closure.optOutDoneTitle'
-                                : 'account:closure.closedTitle',
-                        )}
-                        body={t(
-                            doneScope === 'marketing_opt_out'
-                                ? 'account:closure.optOutDoneBody'
-                                : 'account:closure.closedBody',
-                        )}
-                    />
-
-                    <Button
-                        testID={`${TEST_ID}-done-home`}
-                        label={t('account:closure.finish')}
-                        onPress={() => {
-                            // An opt-out leaves the account as it was: back to the switches the
-                            // person came from, which now read off. A replace — the wizard is over.
-                            router.replace(
-                                (doneScope === 'marketing_opt_out'
-                                    ? CLOSURE_HOME
-                                    : '/discover') as never,
-                            );
-                        }}
-                    />
-                </Stack>
+                <View testID={`${TEST_ID}-done`}>
+                    <ExtraCard testID={`${TEST_ID}-done-callout`}>
+                        <View role="status" className="flex-col items-center px-5 pb-2.5 pt-7">
+                            <AuthTick />
+                            <RNText className="mt-6 font-display text-2xl font-bold text-content-primary text-center">
+                                {t(
+                                    doneScope === 'marketing_opt_out'
+                                        ? 'account:closure.optOutDoneTitle'
+                                        : 'account:closure.closedTitle',
+                                )}
+                            </RNText>
+                            <RNText className="mb-5 mt-1.5 max-w-[440px] text-base font-medium leading-6 text-content-secondary text-center">
+                                {t(
+                                    doneScope === 'marketing_opt_out'
+                                        ? 'account:closure.optOutDoneBody'
+                                        : 'account:closure.closedBody',
+                                )}
+                            </RNText>
+                            <ExtraButton
+                                testID={`${TEST_ID}-done-home`}
+                                label={t('account:closure.finish')}
+                                onPress={() => {
+                                    // An opt-out leaves the account as it was: back to the switches
+                                    // the person came from, which now read off. A replace — the
+                                    // wizard is over.
+                                    router.replace(
+                                        (doneScope === 'marketing_opt_out'
+                                            ? CLOSURE_HOME
+                                            : '/discover') as never,
+                                    );
+                                }}
+                            />
+                        </View>
+                    </ExtraCard>
+                </View>
             ) : null}
-        </Stack>
+        </ExtraPage>
     );
 }
 
-/** Four statuses, four tones, and no collapsing. */
-const BLOCKER_TONE: Readonly<
-    Record<ClosureBlocker['status'], 'danger' | 'success' | 'warning' | 'neutral'>
+/**
+ * The board's progress line: five numbered dots under a line that fills to the step in hand, each
+ * finished dot a brand disc with a tick.
+ */
+function ClosureSteps({ current }: { readonly current: ClosureStep }) {
+    const { t } = useTranslation();
+    const index = CLOSURE_STEPS.indexOf(current);
+    const filled = (index / (CLOSURE_STEPS.length - 1)) * 80;
+    return (
+        <View
+            testID={`${TEST_ID}-stepper`}
+            accessibilityLabel={`${t('account:closure.stepperLabel')}: ${t(`account:closure.steps.${current}`)}`}
+            className="relative mt-[22px] flex-row"
+        >
+            <View className="absolute end-[10%] start-[10%] top-[15px] h-[3px] rounded-full bg-stroke-subtle" />
+            <View
+                className="absolute start-[10%] top-[15px] h-[3px] rounded-full bg-surface-brand"
+                style={{ width: `${String(filled)}%` as DimensionValue }}
+            />
+            {CLOSURE_STEPS.map((step, position) => {
+                const done = position < index;
+                const now = position === index;
+                return (
+                    <View key={step} className="flex-1 flex-col items-center gap-1.5">
+                        <View
+                            className={cx(
+                                'h-8 w-8 items-center justify-center rounded-full border-2',
+                                done
+                                    ? 'border-surface-brand bg-surface-brand'
+                                    : now
+                                      ? 'border-surface-brand bg-surface-raised'
+                                      : 'border-stroke bg-surface-raised',
+                            )}
+                        >
+                            {done ? (
+                                <Icon name="check" size="sm" className="text-content-on-brand" />
+                            ) : (
+                                <RNText className="text-sm font-bold text-content-primary">
+                                    {String(position + 1)}
+                                </RNText>
+                            )}
+                        </View>
+                        <RNText
+                            className={cx(
+                                'text-xs font-semibold text-center',
+                                now ? 'text-content-primary' : 'text-content-secondary',
+                            )}
+                        >
+                            {t(`account:closure.steps.${step}`)}
+                        </RNText>
+                    </View>
+                );
+            })}
+        </View>
+    );
+}
+
+/** "Keep my account" — the quiet way out on every step, in brand ink. */
+function ExtraLinkButton({
+    testID,
+    label,
+    busy,
+    onPress,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly busy: boolean;
+    readonly onPress: () => void;
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            accessibilityLabel={label}
+            disabled={busy}
+            aria-busy={busy}
+            accessibilityState={{ disabled: busy, busy }}
+            onPress={onPress}
+            className="min-h-touch justify-center rounded-full px-3 hover:bg-surface-brand-subtle"
+        >
+            <RNText className="text-sm font-semibold text-content-on-brand-subtle">{label}</RNText>
+        </Pressable>
+    );
+}
+
+/** The check's state, as the board's tile and chip. Four statuses, and no collapsing. */
+const BLOCKER_LOOK: Readonly<
+    Record<
+        ClosureBlocker['status'],
+        { readonly chip: 'ok' | 'bad' | 'amber' | 'mute'; readonly icon: IconName }
+    >
 > = {
-    blocking: 'danger',
-    clear: 'success',
-    advisory: 'warning',
-    not_applicable: 'neutral',
+    blocking: { chip: 'bad', icon: 'close' },
+    clear: { chip: 'ok', icon: 'check' },
+    advisory: { chip: 'amber', icon: 'warning' },
+    not_applicable: { chip: 'mute', icon: 'minus' },
 };
 
 interface BlockerListProps {
@@ -613,47 +754,67 @@ function BlockerList({ blockers }: BlockerListProps) {
     const router = useRouter();
 
     return (
-        <Stack space="sm" testID={`${TEST_ID}-blockers`}>
-            <Text variant="label">{t('account:closure.checksTitle')}</Text>
-
-            {blockers.map((blocker) => (
-                <Card key={blocker.code} padding="sm" testID={`${TEST_ID}-blocker-${blocker.code}`}>
-                    <Stack space="xs">
-                        <Inline space="sm" align="center" justify="between">
-                            <Text variant="bodyStrong">
-                                {t(`account:closure.blockers.${blocker.code}`)}
-                            </Text>
-                            <Badge
-                                tone={BLOCKER_TONE[blocker.status]}
-                                label={t(`account:closure.blockerStatuses.${blocker.status}`)}
-                                testID={`${TEST_ID}-blocker-${blocker.code}-status`}
-                            />
-                        </Inline>
-
-                        {/*
-                         * The server's own reason string, translated. `not_applicable` always
-                         * carries one, and it is the sentence that stops a neutral badge reading
-                         * as a pass.
-                         */}
-                        {blocker.reason === null ? null : (
-                            <Text
-                                tone="secondary"
-                                variant="caption"
-                                testID={`${TEST_ID}-blocker-${blocker.code}-reason`}
-                            >
-                                {t(`account:closure.reasonsWhy.${blocker.reason}`, {
-                                    count: blocker.count,
-                                    defaultValue: blocker.reason,
-                                })}
-                            </Text>
+        <ExtraCard testID={`${TEST_ID}-blockers`} title={t('account:closure.checksTitle')}>
+            {blockers.map((blocker, index) => {
+                const look = BLOCKER_LOOK[blocker.status];
+                return (
+                    <View
+                        key={blocker.code}
+                        testID={`${TEST_ID}-blocker-${blocker.code}`}
+                        className={cx(
+                            'flex-row items-center gap-3 py-3',
+                            index === 0 ? '' : 'border-t border-stroke-subtle',
                         )}
-
-                        {blocker.status === 'blocking' && blocker.resolveHref !== null ? (
-                            <Inline space="sm">
-                                <Button
+                    >
+                        <View
+                            className={cx(
+                                'h-10 w-10 items-center justify-center rounded-[13px]',
+                                look.chip === 'ok'
+                                    ? 'bg-surface-brand-subtle'
+                                    : look.chip === 'bad'
+                                      ? 'bg-danger-subtle'
+                                      : look.chip === 'amber'
+                                        ? 'bg-warning-subtle'
+                                        : 'bg-surface-base',
+                            )}
+                        >
+                            <Icon
+                                name={look.icon}
+                                size="md"
+                                className={
+                                    look.chip === 'ok'
+                                        ? 'text-content-on-brand-subtle'
+                                        : look.chip === 'bad'
+                                          ? 'text-danger-on-subtle'
+                                          : look.chip === 'amber'
+                                            ? 'text-warning-on-subtle'
+                                            : 'text-content-secondary'
+                                }
+                            />
+                        </View>
+                        <View className="min-w-0 flex-1">
+                            <RNText className="text-base font-semibold text-content-primary text-start">
+                                {t(`account:closure.blockers.${blocker.code}`)}
+                            </RNText>
+                            {/*
+                             * The server's own reason string, translated. `not_applicable` always
+                             * carries one, and it is the sentence that stops a neutral chip reading
+                             * as a pass.
+                             */}
+                            {blocker.reason === null ? null : (
+                                <RNText
+                                    testID={`${TEST_ID}-blocker-${blocker.code}-reason`}
+                                    className="mt-0.5 text-sm font-medium text-content-secondary text-start"
+                                >
+                                    {t(`account:closure.reasonsWhy.${blocker.reason}`, {
+                                        count: blocker.count,
+                                        defaultValue: blocker.reason,
+                                    })}
+                                </RNText>
+                            )}
+                            {blocker.status === 'blocking' && blocker.resolveHref !== null ? (
+                                <ExtraLink
                                     testID={`${TEST_ID}-blocker-${blocker.code}-resolve`}
-                                    size="sm"
-                                    variant="secondary"
                                     label={t('account:closure.resolve')}
                                     onPress={() => {
                                         // A detour: the page that sorts it out offers the way
@@ -666,12 +827,17 @@ function BlockerList({ blockers }: BlockerListProps) {
                                         );
                                     }}
                                 />
-                            </Inline>
-                        ) : null}
-                    </Stack>
-                </Card>
-            ))}
-        </Stack>
+                            ) : null}
+                        </View>
+                        <ExtraChip
+                            testID={`${TEST_ID}-blocker-${blocker.code}-status`}
+                            tone={look.chip}
+                            label={t(`account:closure.blockerStatuses.${blocker.status}`)}
+                        />
+                    </View>
+                );
+            })}
+        </ExtraCard>
     );
 }
 
@@ -692,20 +858,20 @@ function RetainedRecords({ codes }: RetainedRecordsProps) {
     if (codes.length === 0) return null;
 
     return (
-        <Card padding="sm" testID={`${TEST_ID}-retained`}>
-            <Stack space="xs">
-                <Text variant="label">{t('account:closure.retainedTitle')}</Text>
+        <ExtraCard testID={`${TEST_ID}-retained`} title={t('account:closure.retainedTitle')}>
+            <View className="mt-1 flex-col gap-1.5">
                 {codes.map((code) => (
-                    <Text
-                        key={code}
-                        tone="secondary"
-                        variant="caption"
-                        testID={`${TEST_ID}-retained-${code}`}
-                    >
-                        {t(`account:closure.retained.${code}`, { defaultValue: code })}
-                    </Text>
+                    <View key={code} className="flex-row items-start gap-2">
+                        <Icon name="info" size="sm" className="mt-0.5 text-content-secondary" />
+                        <RNText
+                            testID={`${TEST_ID}-retained-${code}`}
+                            className="min-w-0 flex-1 text-sm font-medium text-content-secondary text-start"
+                        >
+                            {t(`account:closure.retained.${code}`, { defaultValue: code })}
+                        </RNText>
+                    </View>
                 ))}
-            </Stack>
-        </Card>
+            </View>
+        </ExtraCard>
     );
 }

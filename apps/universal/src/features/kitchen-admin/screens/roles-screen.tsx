@@ -1,8 +1,6 @@
 import type { OrganisationRoleSummary } from '@healthy360/api-client/contracts';
-import { isDeletableRole, isEditableRole } from '@healthy360/api-client/contracts';
+import { isDeletableRole } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
     EmptyState,
     ErrorState,
@@ -19,16 +17,17 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
-import { useOrganisationRolesQuery } from '../../../data/access-admin-hooks.ts';
+import {
+    useIsBranchBoundAdmin,
+    useOrganisationRolesQuery,
+} from '../../../data/access-admin-hooks.ts';
 import { toFailure } from '../../../data/hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import {
     compareNumber,
     compareText,
@@ -36,33 +35,27 @@ import {
 } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { ROLE_MANAGE_PERMISSION, ROLE_VIEW_PERMISSION } from '../entity-registry.ts';
-import {
-    useListMemory,
-    useRememberedFilter,
-    useRememberedOpened,
-    useRememberedQuery,
-} from '../list-memory.ts';
+import { useListMemory, useRememberedOpened, useRememberedQuery } from '../list-memory.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/roles` — what each job title is allowed to reach (AA1), on the Catalogue list.
  *
  * ```
- * ┌ SHOWN ┐ ┌ THIS KITCHEN'S ┐ ┌ STANDARD ┐ ┌ UNASSIGNED ┐
- * [ ⌕ search ]  [ All | This kitchen's | Standard ]  [ ▦ ]  [ + New role ]
- * ROLE     DESCRIPTION     TYPE     HELD BY     PERMISSIONS     ⧉ ✎
+ * All roles 9 │ ○ Unassigned 2                                              [ + New role ]
+ * [ ⌕ search                                   ]                          9 of 9 │ ▦
+ * ROLE     DESCRIPTION     HELD BY     PERMISSIONS     ⧉ ✎
  * ```
  *
- * ## Templates and the kitchen's own are one list with a segment, not two tables
+ * ## Every role is the kitchen's own
  *
- * The endpoint serves both in one list, because from the *assigning* side they are one set. From the
- * *editing* side they are not: a template is defined by the platform and cannot be changed from
- * inside a tenant — the policy refuses it and the row-level-security policy refuses it again — so
- * those rows offer **Copy** and never Edit. The Type column and the segment say which is which; the
- * row's actions follow from it.
+ * Each kitchen holds its own copy of every standard role, made when the kitchen was created, so
+ * every row here is editable — owner and chef included — and editing one changes nothing for any
+ * other kitchen. Copy stays as a second action: it is how a kitchen starts a new role from an
+ * existing one.
  *
- * Forking a template into a role of your own is the supported way to change what it means inside
- * one kitchen: acceptance prefers a tenant's own role over the template of the same code, so a copy
- * that keeps the code takes its place everywhere.
+ * A role is shared by every branch, so an administrator bound to one branch sees the book
+ * read-only (`useIsBranchBoundAdmin`) — the server refuses their writes too.
  *
  * ## Search is client-side
  *
@@ -88,28 +81,22 @@ export function roleRowTestId(roleId: string): string {
     return `kitchen-roles-row-${roleId}`;
 }
 
-type RoleSegment = 'all' | 'own' | 'templates';
-
 function holdersText(row: OrganisationRoleSummary, t: TFunction): string {
     return row.holderCount === 0
         ? t('accessAdmin:roles.holdersNone')
         : t('accessAdmin:roles.holders', { count: row.holderCount });
 }
 
-function kindText(row: OrganisationRoleSummary, t: TFunction): string {
-    return row.isSystem ? t('accessAdmin:roles.kindTemplate') : t('accessAdmin:roles.kindOwn');
-}
-
 function RolesList() {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const router = useRouter();
-    const canManage = useCan(ROLE_MANAGE_PERMISSION);
+    const branchBound = useIsBranchBoundAdmin();
+    const canManage = useCan(ROLE_MANAGE_PERMISSION) && !branchBound;
 
-    // Search, segment, page and the role last opened survive leaving the list for a role.
+    // Search, page and the role last opened survive leaving the list for a role.
     const memory = useListMemory('kitchen.roles');
     const [query, setQuery] = useRememberedQuery(memory);
-    const [segment, setSegment] = useRememberedFilter<RoleSegment>(memory, 'segment', 'all');
     const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const roles = useOrganisationRolesQuery();
@@ -120,9 +107,7 @@ function RolesList() {
 
     const trimmed = query.trim().toLocaleLowerCase(locale);
     const searched = useMemo(() => {
-        const rows = (roles.data ?? []).filter((row) =>
-            segment === 'own' ? !row.isSystem : segment === 'templates' ? row.isSystem : true,
-        );
+        const rows = roles.data ?? [];
         if (trimmed === '') return rows;
         // Both names and the code, whatever the reading language: a manager reading Arabic may type
         // the English title printed on a rota.
@@ -131,7 +116,7 @@ function RolesList() {
                 field.toLocaleLowerCase(locale).includes(trimmed),
             ),
         );
-    }, [roles.data, segment, trimmed, locale]);
+    }, [roles.data, trimmed, locale]);
 
     const openRole = (row: OrganisationRoleSummary) => {
         rememberOpened(String(row.id));
@@ -188,34 +173,6 @@ function RolesList() {
             },
         },
         {
-            key: 'kind',
-            role: 'status',
-            badge: true,
-            label: t('accessAdmin:roles.columns.kind'),
-            width: 110,
-            priority: 80,
-            value: (row) => kindText(row, t),
-            sort: (left, right, direction) =>
-                compareText(kindText(left, t), kindText(right, t), direction),
-            filter: {
-                values: () => [
-                    { key: 'own', label: t('accessAdmin:roles.kindOwn') },
-                    { key: 'template', label: t('accessAdmin:roles.kindTemplate') },
-                ],
-                match: (row, value) => (value === 'template') === row.isSystem,
-            },
-            render: (row) => (
-                <Badge
-                    testID={`${roleRowTestId(String(row.id))}-kind`}
-                    tone={row.isSystem ? 'neutral' : 'success'}
-                    // A mark only on the kitchen's own: "Standard" is the resting state, and the
-                    // tick is what a reader scanning for editable rows is looking for.
-                    icon={row.isSystem ? null : undefined}
-                    label={kindText(row, t)}
-                />
-            ),
-        },
-        {
             key: 'holders',
             role: 'metric',
             label: t('accessAdmin:roles.columns.holders'),
@@ -252,212 +209,176 @@ function RolesList() {
 
     const controls = useColumnControls(searched, columns, 'kitchen-roles');
     const failure = toFailure(roles.error);
-    const unfiltered = trimmed === '' && segment === 'all' && !controls.filtered;
-
-    const segments: readonly CatalogueStatusSegment<RoleSegment>[] = [
-        { value: 'all', label: t('accessAdmin:roles.segmentAll') },
-        { value: 'own', label: t('accessAdmin:roles.segmentOwn') },
-        { value: 'templates', label: t('accessAdmin:roles.segmentTemplates') },
-    ];
+    const unfiltered = trimmed === '' && !controls.filtered;
 
     const createRole = () => {
         router.push('/kitchen/roles/new' as never);
     };
 
+    // The table closes the toolbar's card once the list has loaded.
+    const joined = !roles.isPending && failure === null;
+
     return (
         <Cascade space="md" testID="kitchen-roles-screen">
-            {failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-roles-stats"
-                    cards={statCards({
-                        all: roles.data ?? [],
-                        shown: controls.rows.length,
-                        unfiltered,
-                        t,
-                        clear: () => {
-                            setQuery('');
-                            setSegment('all');
-                            controls.clearFilters();
-                        },
-                        setSegment,
-                    })}
-                    pending={roles.isPending}
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-roles-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures(roles.data, roles.isPending, t)}
+                    search={query}
+                    onSearchChange={setQuery}
+                    searchLabel={t('accessAdmin:roles.searchLabel')}
+                    searchPlaceholder={t('accessAdmin:roles.searchHint')}
+                    result={
+                        roles.isPending
+                            ? null
+                            : failure !== null
+                              ? t('kitchen:list.noValue')
+                              : t('kitchen:lens.result', {
+                                    shown: controls.rows.length,
+                                    total: roles.data?.length ?? 0,
+                                })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered
+                        ? {}
+                        : {
+                              onClear: () => {
+                                  setQuery('');
+                                  controls.clearFilters();
+                              },
+                          })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canManage ? (
+                            <DeskButton
+                                testID="kitchen-roles-create"
+                                label={t('accessAdmin:roles.create')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={createRole}
+                            />
+                        ) : undefined
+                    }
                 />
-            )}
 
-            <CatalogueToolbar<RoleSegment>
-                testID="kitchen-roles-toolbar"
-                search={query}
-                onSearchChange={setQuery}
-                searchLabel={t('accessAdmin:roles.searchLabel')}
-                searchPlaceholder={t('accessAdmin:roles.searchHint')}
-                statusLabel={t('accessAdmin:roles.segmentLabel')}
-                statusSegments={segments}
-                status={segment}
-                onStatusChange={setSegment}
-            >
-                <ColumnPicker {...controls.picker} />
-                {canManage ? (
-                    <Button
-                        testID="kitchen-roles-create"
-                        label={t('accessAdmin:roles.create')}
-                        iconStart={<Icon name="plus" size="sm" />}
-                        onPress={createRole}
+                {roles.isPending ? (
+                    <TableSkeleton testID="kitchen-roles-loading" partTestID="kitchen-roles" />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-roles-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void roles.refetch();
+                        }}
+                        retrying={roles.isFetching}
                     />
-                ) : null}
-            </CatalogueToolbar>
-
-            {roles.isPending ? (
-                <TableSkeleton testID="kitchen-roles-loading" partTestID="kitchen-roles" />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-roles-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void roles.refetch();
-                    }}
-                    retrying={roles.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                // "No roles of your own" is the one empty state worth its own words: it is the
-                // ordinary state of a new kitchen, and the way out is Copy, not New.
-                segment === 'own' && trimmed === '' && !controls.filtered ? (
-                    <EmptyState
-                        testID="kitchen-roles-own-empty"
-                        title={t('accessAdmin:roles.emptyTitle')}
-                        body={t('accessAdmin:roles.emptyBody')}
+                ) : controls.rows.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-roles-empty-list"
+                        label={t('kitchen:lens.label')}
+                        columns={controls.columns}
+                        rows={[]}
+                        rowKey={() => ''}
+                        density="sm"
+                        joined
+                        frameEmpty
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-roles-empty"
+                                title={t('accessAdmin:roles.filteredEmptyTitle')}
+                                body={t('accessAdmin:roles.filteredEmptyBody')}
+                            />
+                        }
                     />
                 ) : (
-                    <EmptyState
-                        testID="kitchen-roles-empty"
-                        title={t('accessAdmin:roles.filteredEmptyTitle')}
-                        body={t('accessAdmin:roles.filteredEmptyBody')}
-                    />
-                )
-            ) : (
-                <CatalogueList<OrganisationRoleSummary>
-                    testID="kitchen-roles-table"
-                    label={t('accessAdmin:roles.caption')}
-                    columns={controls.columns}
-                    rows={controls.rows}
-                    rowKey={(row) => String(row.id)}
-                    density="sm"
-                    highlightedId={lastOpenedId}
-                    initialPage={memory.initial.page}
-                    onPageChange={(page) => {
-                        memory.remember({ page });
-                    }}
-                    onRowPress={openRole}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                    rowActions={(row): readonly MenuItem[] => [
-                        /*
-                         * Copy on a template, Edit on your own. Never both, and never Edit on a
-                         * template: the server would answer 404, and offering a door that slams is
-                         * worse than not drawing it. Somebody who cannot manage roles gets Open,
-                         * which is the read-only editor.
-                         */
-                        ...(canManage && !isEditableRole(row)
-                            ? [
-                                  {
-                                      key: 'copy',
-                                      label: t('accessAdmin:roles.copy'),
-                                      icon: 'layers' as const,
-                                      testID: `${roleRowTestId(String(row.id))}-copy`,
-                                      onSelect: () => {
-                                          copyRole(row);
-                                      },
-                                  },
-                              ]
-                            : []),
-                        {
-                            key: 'open',
-                            label:
-                                canManage && isEditableRole(row)
+                    <CatalogueList<OrganisationRoleSummary>
+                        testID="kitchen-roles-table"
+                        joined
+                        label={t('accessAdmin:roles.caption')}
+                        columns={controls.columns}
+                        rows={controls.rows}
+                        rowKey={(row) => String(row.id)}
+                        density="sm"
+                        highlightedId={lastOpenedId}
+                        initialPage={memory.initial.page}
+                        onPageChange={(page) => {
+                            memory.remember({ page });
+                        }}
+                        onRowPress={openRole}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        rowActions={(row): readonly MenuItem[] => [
+                            /*
+                             * Edit on every role for somebody who may manage them; Open — the
+                             * read-only editor — for everybody else. Copy starts a new role from
+                             * this one.
+                             */
+                            {
+                                key: 'open',
+                                label: canManage
                                     ? t('accessAdmin:roles.edit')
                                     : t('accessAdmin:roles.open'),
-                            icon:
-                                canManage && isEditableRole(row)
+                                icon: canManage
                                     ? CATALOGUE_ROW_ICONS.edit
                                     : CATALOGUE_ROW_ICONS.view,
-                            testID: `${roleRowTestId(String(row.id))}-open`,
-                            onSelect: () => {
-                                openRole(row);
+                                testID: `${roleRowTestId(String(row.id))}-open`,
+                                onSelect: () => {
+                                    openRole(row);
+                                },
                             },
-                        },
-                    ]}
-                />
-            )}
+                            ...(canManage
+                                ? [
+                                      {
+                                          key: 'copy',
+                                          label: t('accessAdmin:roles.copy'),
+                                          icon: 'layers' as const,
+                                          testID: `${roleRowTestId(String(row.id))}-copy`,
+                                          onSelect: () => {
+                                              copyRole(row);
+                                          },
+                                      },
+                                  ]
+                                : []),
+                        ]}
+                    />
+                )}
+            </View>
         </Cascade>
     );
 }
 
 /**
- * Counted over the whole role book, which is all in hand: the list is unpaged. Shown is the one
- * card that follows the search; the other three describe the book, and two of them narrow to it.
+ * Counted over the whole role book, which is all in hand: the list is unpaged. A failed read counts
+ * nothing, so its figures are dashes rather than zeros.
  */
-function statCards({
-    all,
-    shown,
-    unfiltered,
-    t,
-    clear,
-    setSegment,
-}: {
-    readonly all: readonly OrganisationRoleSummary[];
-    readonly shown: number;
-    readonly unfiltered: boolean;
-    readonly t: TFunction;
-    readonly clear: () => void;
-    readonly setSegment: (segment: RoleSegment) => void;
-}): readonly CatalogueStatCard[] {
-    const own = all.filter((role) => !role.isSystem).length;
-    const unheld = all.filter((role) => role.holderCount === 0).length;
+function lensFigures(
+    all: readonly OrganisationRoleSummary[] | undefined,
+    pending: boolean,
+    t: TFunction,
+): readonly LensFigure[] {
+    const figure = (count: (roles: readonly OrganisationRoleSummary[]) => number) =>
+        pending
+            ? { value: null }
+            : all === undefined
+              ? { value: 0, display: t('kitchen:list.noValue') }
+              : { value: count(all) };
 
     return [
         {
-            key: 'shown',
-            label: t('kitchen:list.statShown'),
-            value: String(shown),
-            unit: t('kitchen:list.statShownUnit', { total: all.length }),
-            caption: unfiltered
-                ? t('kitchen:list.statShownUnfiltered')
-                : t('kitchen:list.statShownFiltered'),
-            mark: 'list',
-            tone: 'brand',
-            onPress: clear,
-            accessibilityLabel: t('kitchen:list.statShownAction'),
-        },
-        {
-            key: 'own',
-            label: t('accessAdmin:roles.statOwn'),
-            value: String(own),
-            unit: t('accessAdmin:roles.statRoles'),
-            caption: t('accessAdmin:roles.statOwnCaption'),
-            mark: 'keyRound',
-            onPress: () => {
-                setSegment('own');
-            },
-            accessibilityLabel: t('accessAdmin:roles.segmentOwn'),
-        },
-        {
-            key: 'templates',
-            label: t('accessAdmin:roles.statTemplates'),
-            value: String(all.length - own),
-            unit: t('accessAdmin:roles.statRoles'),
-            caption: t('accessAdmin:roles.statTemplatesCaption'),
-            mark: 'shield',
-            onPress: () => {
-                setSegment('templates');
-            },
-            accessibilityLabel: t('accessAdmin:roles.segmentTemplates'),
+            key: 'all',
+            label: t('kitchen:lens.allRoles'),
+            ...figure((roles) => roles.length),
         },
         {
             key: 'unheld',
             label: t('accessAdmin:roles.statUnheld'),
-            value: String(unheld),
-            unit: t('accessAdmin:roles.statRoles'),
-            caption: t('accessAdmin:roles.statUnheldCaption'),
-            mark: 'users',
+            ...figure((roles) => roles.filter((role) => role.holderCount === 0).length),
+            tone: 'neutral',
+            separated: true,
         },
     ];
 }

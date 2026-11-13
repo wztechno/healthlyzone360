@@ -12,9 +12,23 @@ import {
     SupplierId,
     UserId,
 } from '@healthy360/domain-types';
+import type {
+    CookingTemperature,
+    RecordCookingTemperatureRequest,
+    RecordTemperatureRequest,
+    TemperatureLog,
+    TemperatureUnitDraft,
+} from '../contracts/temperature-logs.ts';
+import type {
+    CookingTemperature as WireCookingTemperature,
+    TemperatureLog as WireTemperatureLog,
+} from '../generated/types.ts';
+import type { CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
+    ActivityPage,
+    ActivityWindow,
     CompleteProductionOrderRequest,
     ConsumptionException,
     ConsumptionExceptionFilter,
@@ -36,6 +50,9 @@ import type {
     ReceivableOrderFilter,
     ReceivableOrderLine,
     ItemLatestPurchase,
+    KitchenAnalyticsFilter,
+    KitchenAnalyticsReport,
+    KitchenAnalyticsTotals,
     KitchenOpsRepository,
     AddIngredientBarcodeRequest,
     BarcodeScan,
@@ -72,6 +89,12 @@ import type {
     RecipientSnapshotContact,
     ResolveConsumptionExceptionRequest,
     ConsumptionExceptionTotals,
+    AddBranchClosureRequest,
+    BranchClosure,
+    CreateBranchRequest,
+    KitchenSetup,
+    KitchenSetupStep,
+    DuplicateStockGroup,
     SetStockThresholdRequest,
     SpendSummary,
     SpendSummaryCurrencyTotals,
@@ -99,8 +122,15 @@ import type {
     UpdatePurchaseOrderRequest,
     UpdateSupplierRequest,
     UpsertSupplierLinkRequest,
+    StockActivity,
+    DishMargin,
+    DishMargins,
+    Payable,
+    Payables,
 } from '../contracts/kitchen-ops.ts';
 import type {
+    KitchenActivityEnvelope,
+    StockActivityEnvelope,
     ConsumptionException as WireConsumptionException,
     GoodsReceipt as WireGoodsReceipt,
     GoodsReceiptDetail as WireGoodsReceiptDetail,
@@ -108,6 +138,8 @@ import type {
     IngredientBarcode as WireIngredientBarcode,
     IngredientBarcodeScan as WireIngredientBarcodeScan,
     ItemLatestPurchase as WireItemLatestPurchase,
+    KitchenAnalyticsReport as WireKitchenAnalyticsReport,
+    KitchenAnalyticsTotals as WireKitchenAnalyticsTotals,
     LastPurchase as WireLastPurchase,
     MonthlyCostReportRow as WireMonthlyCostReportRow,
     OrderProposalItem as WireOrderProposalItem,
@@ -140,6 +172,9 @@ import type {
     SupplierOption as WireSupplierOption,
     SupplierRef as WireSupplierRef,
     UnpricedReceipt as WireUnpricedReceipt,
+    DishMarginsEnvelope,
+    Payable as WirePayable,
+    PayablesEnvelope,
 } from '../generated/types.ts';
 import type { Transport } from './transport.ts';
 
@@ -154,6 +189,27 @@ import type { Transport } from './transport.ts';
  * inventing a follow-up read the contract does not ask for. A screen that needs the fresh row
  * re-reads the list, which is also how it discovers a row another kitchen tablet just created.
  */
+
+interface WireKitchenSetup {
+    readonly is_live: boolean;
+    readonly steps: readonly KitchenSetupStep[];
+}
+
+interface WireBranchClosure {
+    readonly id: string;
+    readonly closed_from: string;
+    readonly closed_to: string;
+    readonly note: string | null;
+}
+
+function mapBranchClosure(wire: WireBranchClosure): BranchClosure {
+    return {
+        id: wire.id,
+        closedFrom: wire.closed_from,
+        closedTo: wire.closed_to,
+        note: wire.note,
+    };
+}
 
 function mapStockItem(wire: WireStockItem): StockItem {
     return {
@@ -199,6 +255,42 @@ function mapStockMovement(wire: WireStockMovement): StockMovement {
  * and a form bound to `null` would render "null" in the Arabic box the first time somebody typed
  * into it. Empty is what "not translated yet" looks like everywhere else in this workspace.
  */
+function mapPayable(wire: WirePayable): Payable {
+    return {
+        id: wire.id,
+        supplierName: { en: wire.supplier_name_en ?? '', ar: wire.supplier_name_ar ?? '' },
+        documentRef: wire.document_ref,
+        supplierInvoiceRef: wire.supplier_invoice_ref,
+        receivedOn: wire.received_on,
+        dueOn: wire.due_on,
+        isOverdue: wire.is_overdue,
+        paymentStatus: wire.payment_status,
+        paidAt: wire.paid_at as IsoDateTime | null,
+        paidReference: wire.paid_reference,
+        priceApprovalStatus: wire.price_approval_status as Payable['priceApprovalStatus'],
+        amount: wire.amount,
+        currencyCode: wire.currency_code,
+        priceRises: wire.price_rises.map((rise) => ({
+            nameEn: rise.name_en,
+            lastUnitPriceAmount: rise.last_unit_price_amount,
+            unitPriceAmount: rise.unit_price_amount,
+            priceVariancePercent: rise.price_variance_percent,
+        })),
+    };
+}
+
+function mapPayables(wire: PayablesEnvelope['data']): Payables {
+    return {
+        today: wire.today,
+        totals: wire.totals.map((total) => ({
+            currencyCode: total.currency_code,
+            amount: total.amount,
+        })),
+        unpaid: wire.unpaid.map(mapPayable),
+        paid: wire.paid.map(mapPayable),
+    };
+}
+
 function mapSupplier(wire: WireSupplier): Supplier {
     return {
         id: SupplierId.unsafe(wire.id),
@@ -210,6 +302,7 @@ function mapSupplier(wire: WireSupplier): Supplier {
         address: wire.address,
         paymentTerms: wire.payment_terms,
         leadTimeDays: wire.lead_time_days,
+        paymentDueDays: wire.payment_due_days,
         notes: wire.notes,
         archivedAt: wire.archived_at,
         contactCount: wire.contact_count,
@@ -512,6 +605,9 @@ function wireSupplierFields(
         ...(request.address === undefined ? {} : { address: request.address }),
         ...(request.paymentTerms === undefined ? {} : { payment_terms: request.paymentTerms }),
         ...(request.leadTimeDays === undefined ? {} : { lead_time_days: request.leadTimeDays }),
+        ...(request.paymentDueDays === undefined
+            ? {}
+            : { payment_due_days: request.paymentDueDays }),
         ...(request.notes === undefined ? {} : { notes: request.notes }),
     };
 }
@@ -548,6 +644,8 @@ function mapGoodsReceiptLine(line: WireGoodsReceiptLine): GoodsReceiptLine {
         unitPriceAmount: line.unit_price_amount,
         lineTotalAmount: line.line_total_amount,
         costCurrencyCode: line.cost_currency_code,
+        lastUnitPriceAmount: line.last_unit_price_amount,
+        priceVariancePercent: line.price_variance_percent,
         // Work states, not money: they survive the cost redaction because whether a line still needs
         // somebody's attention is not the same question as what it cost.
         costedAt: line.costed_at,
@@ -625,6 +723,7 @@ function mapGoodsReceipt(wire: WireGoodsReceipt): GoodsReceipt {
         varianceNote: wire.variance_note,
         purchaseOrderId:
             wire.purchase_order_id === null ? null : PurchaseOrderId.unsafe(wire.purchase_order_id),
+        purchaseOrderNumber: wire.purchase_order_number,
         receivedAt: wire.received_at,
         receivedOn: wire.received_on,
         costStatus: wire.cost_status,
@@ -733,6 +832,7 @@ function mapPurchaseLedgerLine(wire: WirePurchaseLedgerLine): PurchaseLedgerLine
         documentRef: wire.document_ref,
         purchaseOrderId:
             wire.purchase_order_id === null ? null : PurchaseOrderId.unsafe(wire.purchase_order_id),
+        purchaseOrderNumber: wire.purchase_order_number,
         costStatus: wire.cost_status,
         stockItemId: StockItemId.unsafe(wire.stock_item_id),
         itemCode: wire.item_code,
@@ -743,12 +843,47 @@ function mapPurchaseLedgerLine(wire: WirePurchaseLedgerLine): PurchaseLedgerLine
         unitPriceAmount: wire.unit_price_amount,
         lineTotalAmount: wire.line_total_amount,
         costCurrencyCode: wire.cost_currency_code,
+        lastUnitPriceAmount: wire.last_unit_price_amount,
+        priceVariancePercent: wire.price_variance_percent,
         valuationPendingFx: wire.valuation_pending_fx,
         costsRedacted: wire.costs_redacted,
         gtin: wire.gtin,
         supplierLot: wire.supplier_lot,
         expiresOn: wire.expires_on,
         bestBeforeOn: wire.best_before_on,
+    };
+}
+
+function mapKitchenAnalyticsTotals(wire: WireKitchenAnalyticsTotals): KitchenAnalyticsTotals {
+    return {
+        orders: wire.orders,
+        units: wire.units,
+        cancelled: wire.cancelled,
+        fulfilled: wire.fulfilled,
+        open: wire.open,
+        fulfilledWithDue: wire.fulfilled_with_due,
+        onTime: wire.on_time,
+        avgLeadMinutes: wire.avg_lead_minutes,
+    };
+}
+
+function mapKitchenAnalyticsReport(wire: WireKitchenAnalyticsReport): KitchenAnalyticsReport {
+    return {
+        from: wire.from,
+        to: wire.to,
+        current: mapKitchenAnalyticsTotals(wire.current),
+        previous: mapKitchenAnalyticsTotals(wire.previous),
+        days: wire.days,
+        channels: wire.channels,
+        items: wire.items.map((item) => ({
+            catalogueItemId: item.catalogue_item_id,
+            nameEn: item.name_en,
+            nameAr: item.name_ar,
+            itemType: item.item_type,
+            orders: item.orders,
+            units: item.units,
+            lastOrderedAt: item.last_ordered_at,
+        })),
     };
 }
 
@@ -761,8 +896,12 @@ function mapMonthlyCostReportRow(wire: WireMonthlyCostReportRow): MonthlyCostRep
         wasteAmount: wire.waste_amount,
         wasteQuantity: wire.waste_quantity,
         revenueAmount: wire.revenue_amount,
+        refundsAmount: wire.refunds_amount,
+        courierExpenseAmount: wire.courier_expense_amount,
         grossMarginAmount: wire.gross_margin_amount,
         grossMarginPercent: wire.gross_margin_percent,
+        isMarginWithheld: wire.is_margin_withheld,
+        uncostedLineCount: wire.uncosted_line_count,
         mealRevenueAmount: wire.meal_revenue_amount,
         productRevenueAmount: wire.product_revenue_amount,
         otherRevenueAmount: wire.other_revenue_amount,
@@ -1070,16 +1209,30 @@ function batchReportBody(request: CompleteProductionOrderRequest): Record<string
     };
 }
 
+function mapCookingTemperature(row: WireCookingTemperature): CookingTemperature {
+    return {
+        id: row.id,
+        batchLabel: row.batch_label,
+        recipe: row.recipe,
+        celsius: row.celsius,
+        note: row.note,
+        recordedByName: row.recorded_by_name,
+        recordedAt: row.recorded_at as IsoDateTime,
+    };
+}
+
 function mapProductionOrderDetail(data: {
     readonly production_order: WireProductionOrder;
     readonly lines?: readonly WireProductionOrderLine[];
     readonly plan?: WireProductionPlan;
+    readonly cooking_temperatures?: readonly WireCookingTemperature[];
     readonly costs_visible?: boolean;
 }): ProductionOrderDetail {
     return {
         order: mapProductionOrder(data.production_order),
         lines: (data.lines ?? []).map(mapProductionOrderLine),
         plan: data.plan === undefined ? null : mapProductionPlan(data.plan),
+        coreTemperatures: (data.cooking_temperatures ?? []).map(mapCookingTemperature),
         costsVisible: 'estimated_cost_amount' in data.production_order,
     };
 }
@@ -1196,6 +1349,61 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             return mapStockMovement(envelope.data.movement);
         },
 
+        async getStockActivity(window: ActivityWindow): Promise<StockActivity> {
+            const envelope = await transport.requestEnvelope<StockActivityEnvelope['data']>({
+                method: 'GET',
+                path: `/catalogue/stock-activity?from=${window.from}&to=${window.to}`,
+            });
+            const { movements, waste, unvalued_waste_count: unvaluedWasteCount } = envelope.data;
+
+            return {
+                movements: movements.map((row) => ({
+                    id: row.id,
+                    at: row.at as IsoDateTime,
+                    itemName: row.item_name,
+                    unit: row.unit,
+                    reason: row.reason,
+                    quantityDelta: row.quantity_delta,
+                    costMinor: row.cost_minor,
+                    currencyCode: row.currency_code as CurrencyCode | null,
+                    notes: row.notes,
+                    wasteReason: row.waste_reason,
+                    orderId: row.order_id,
+                    orderNumber: row.order_number,
+                    wastedOrder: row.wasted_order,
+                    attributed: row.attributed,
+                    actorName: row.actor_name,
+                })),
+                waste: waste.map((total) => ({
+                    currencyCode: total.currency_code as CurrencyCode,
+                    amountMinor: total.amount_minor,
+                })),
+                unvaluedWasteCount,
+                truncated: (envelope.meta as StockActivityEnvelope['meta']).truncated,
+            };
+        },
+
+        async getActivity(window: ActivityWindow): Promise<ActivityPage> {
+            const envelope = await transport.requestEnvelope<KitchenActivityEnvelope['data']>({
+                method: 'GET',
+                path: `/catalogue/activity?from=${window.from}&to=${window.to}`,
+            });
+
+            return {
+                entries: envelope.data.map((row) => ({
+                    id: row.id,
+                    at: row.at as IsoDateTime,
+                    action: row.action,
+                    actorName: row.actor_name,
+                    subjectType: row.subject_type,
+                    orderId: row.order_id,
+                    orderNumber: row.order_number,
+                    metadata: row.metadata,
+                })),
+                truncated: (envelope.meta as KitchenActivityEnvelope['meta']).truncated,
+            };
+        },
+
         async recordStockWaste(request: StockWasteRequest): Promise<StockMovement> {
             const envelope = await transport.requestEnvelope<{
                 readonly movement: WireStockMovement;
@@ -1206,7 +1414,8 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                     branch_id: String(request.branchId),
                     stock_item_id: String(request.stockItemId),
                     quantity: request.quantity,
-                    ...(request.notes === undefined ? {} : { notes: request.notes }),
+                    reason: request.reason,
+                    notes: request.notes,
                 },
             });
             return mapStockMovement(envelope.data.movement);
@@ -1574,10 +1783,14 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
         },
 
         async listGoodsReceipts(filter: GoodsReceiptFilter = {}): Promise<readonly GoodsReceipt[]> {
-            const query =
-                filter.supplierLot === undefined || filter.supplierLot === ''
-                    ? ''
-                    : `?${new URLSearchParams({ supplier_lot: filter.supplierLot }).toString()}`;
+            const params = new URLSearchParams();
+            if (filter.supplierLot !== undefined && filter.supplierLot !== '') {
+                params.set('supplier_lot', filter.supplierLot);
+            }
+            if (filter.from !== undefined && filter.from !== '') params.set('from', filter.from);
+            if (filter.to !== undefined && filter.to !== '') params.set('to', filter.to);
+            const encoded = params.toString();
+            const query = encoded === '' ? '' : `?${encoded}`;
             const envelope = await transport.requestEnvelope<{
                 readonly goods_receipts: readonly WireGoodsReceipt[];
             }>({ method: 'GET', path: `/catalogue/procurement/goods-receipts${query}` });
@@ -1849,6 +2062,78 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             };
         },
 
+        async getDishMargins(): Promise<DishMargins> {
+            const wire = await transport.request<DishMarginsEnvelope['data']>({
+                method: 'GET',
+                path: '/catalogue/reports/dish-margins',
+            });
+
+            return {
+                targetPercent: wire.target_percent,
+                computedAt: wire.computed_at as IsoDateTime | null,
+                dishes: wire.dishes.map((dish) => ({
+                    id: dish.id,
+                    catalogueItemId: dish.catalogue_item_id,
+                    name: { en: dish.name_en, ar: dish.name_ar ?? '' },
+                    itemType: dish.item_type,
+                    place: dish.place,
+                    pack:
+                        dish.pack === null
+                            ? null
+                            : {
+                                  variantId: dish.pack.catalogue_item_variant_id,
+                                  label: dish.pack.label,
+                                  fill: dish.pack.fill,
+                              },
+                    priceAmount: dish.price_amount,
+                    contentsAmount: dish.contents_amount,
+                    costAmount: dish.cost_amount,
+                    currencyCode: dish.currency_code,
+                    marginPercent: dish.margin_percent,
+                    withheldReason: dish.withheld_reason as DishMargin['withheldReason'],
+                    isBelowTarget: dish.is_below_target,
+                })),
+            };
+        },
+
+        async getPayables(): Promise<Payables> {
+            return mapPayables(
+                await transport.request<PayablesEnvelope['data']>({
+                    method: 'GET',
+                    path: '/catalogue/procurement/payables',
+                }),
+            );
+        },
+
+        async approvePayablePrice(receiptId: string): Promise<Payables> {
+            return mapPayables(
+                await transport.request<PayablesEnvelope['data']>({
+                    method: 'POST',
+                    path: `/catalogue/procurement/payables/${encodeURIComponent(receiptId)}/approve-price`,
+                }),
+            );
+        },
+
+        async payPayable(receiptId: string, reference: string | null): Promise<Payables> {
+            return mapPayables(
+                await transport.request<PayablesEnvelope['data']>({
+                    method: 'POST',
+                    path: `/catalogue/procurement/payables/${encodeURIComponent(receiptId)}/pay`,
+                    body: { reference },
+                }),
+            );
+        },
+
+        async setPayableDueDate(receiptId: string, dueOn: string | null): Promise<Payables> {
+            return mapPayables(
+                await transport.request<PayablesEnvelope['data']>({
+                    method: 'PUT',
+                    path: `/catalogue/procurement/payables/${encodeURIComponent(receiptId)}/due-date`,
+                    body: { due_on: dueOn },
+                }),
+            );
+        },
+
         async listCostReport(
             filter: MonthlyCostReportFilter = {},
         ): Promise<readonly MonthlyCostReportRow[]> {
@@ -1865,6 +2150,16 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
             });
 
             return envelope.data.report.map(mapMonthlyCostReportRow);
+        },
+
+        async getKitchenAnalytics(filter: KitchenAnalyticsFilter): Promise<KitchenAnalyticsReport> {
+            const params = new URLSearchParams({ from: filter.from, to: filter.to });
+            const envelope = await transport.requestEnvelope<WireKitchenAnalyticsReport>({
+                method: 'GET',
+                path: `/catalogue/reports/kitchen-analytics?${params.toString()}`,
+            });
+
+            return mapKitchenAnalyticsReport(envelope.data);
         },
 
         async listConsumptionExceptions(
@@ -1912,6 +2207,102 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
                 hasMore: meta.has_more ?? false,
                 totalCount: null,
             };
+        },
+
+        async getKitchenSetup(): Promise<KitchenSetup> {
+            const envelope = await transport.requestEnvelope<WireKitchenSetup>({
+                method: 'GET',
+                path: '/kitchen/setup',
+            });
+            return { isLive: envelope.data.is_live, steps: envelope.data.steps };
+        },
+
+        async goLive(): Promise<KitchenSetup> {
+            const envelope = await transport.requestEnvelope<WireKitchenSetup>({
+                method: 'POST',
+                path: '/kitchen/setup/go-live',
+            });
+            return { isLive: envelope.data.is_live, steps: envelope.data.steps };
+        },
+
+        async listBranchClosures(): Promise<readonly BranchClosure[]> {
+            const envelope = await transport.requestEnvelope<readonly WireBranchClosure[]>({
+                method: 'GET',
+                path: '/kitchen/branch-closures',
+            });
+            return envelope.data.map(mapBranchClosure);
+        },
+
+        async addBranchClosure(request: AddBranchClosureRequest): Promise<BranchClosure> {
+            const envelope = await transport.requestEnvelope<WireBranchClosure>({
+                method: 'POST',
+                path: '/kitchen/branch-closures',
+                body: {
+                    closed_from: request.closedFrom,
+                    closed_to: request.closedTo,
+                    note: request.note,
+                },
+            });
+            return mapBranchClosure(envelope.data);
+        },
+
+        async removeBranchClosure(closureId: string): Promise<void> {
+            await transport.request({
+                method: 'DELETE',
+                path: `/kitchen/branch-closures/${encodeURIComponent(closureId)}`,
+            });
+        },
+
+        async createBranch(request: CreateBranchRequest): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: '/kitchen/branches',
+                body: { name: request.name, city: request.city },
+            });
+        },
+
+        async listDuplicateStock(): Promise<readonly DuplicateStockGroup[]> {
+            const envelope = await transport.requestEnvelope<
+                readonly {
+                    readonly name: string;
+                    readonly reason: DuplicateStockGroup['reason'];
+                    readonly shelves: readonly {
+                        readonly id: string;
+                        readonly code: string;
+                        readonly unit_code: string;
+                        readonly quantity: string;
+                        readonly has_history: boolean;
+                    }[];
+                }[]
+            >({ method: 'GET', path: '/catalogue/inventory/duplicates' });
+
+            return envelope.data.map((group) => ({
+                name: group.name,
+                reason: group.reason,
+                shelves: group.shelves.map((shelf) => ({
+                    id: shelf.id,
+                    code: shelf.code,
+                    unitCode: shelf.unit_code,
+                    quantity: shelf.quantity,
+                    hasHistory: shelf.has_history,
+                })),
+            }));
+        },
+
+        async mergeDuplicateStock(keepId: string, dropId: string): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: '/catalogue/inventory/duplicates/merge',
+                body: { keep_id: keepId, drop_id: dropId },
+            });
+        },
+
+        async dismissDuplicateStock(stockItemIds: readonly string[]): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: '/catalogue/inventory/duplicates/dismiss',
+                body: { stock_item_ids: stockItemIds },
+            });
         },
 
         async countUnresolvedConsumptionExceptions(): Promise<number> {
@@ -2162,6 +2553,76 @@ export function createApiKitchenOpsRepository(transport: Transport): KitchenOpsR
 
         async cancelProductionOrder(productionOrderId: ProductionOrderId, lockVersion: number) {
             return transitionProductionOrder(transport, productionOrderId, 'cancel', lockVersion);
+        },
+
+        async getTemperatureLog(month: string): Promise<TemperatureLog> {
+            const log = await transport.request<WireTemperatureLog>({
+                method: 'GET',
+                path: `/catalogue/quality-control/temperature-log?month=${encodeURIComponent(month)}`,
+            });
+            return {
+                units: log.units.map((unit) => ({
+                    id: unit.id,
+                    name: unit.name,
+                    kind: unit.kind,
+                    minC: unit.min_c,
+                    maxC: unit.max_c,
+                    active: unit.active,
+                })),
+                readings: log.readings.map((row) => ({
+                    id: row.id,
+                    unitId: row.temperature_unit_id,
+                    unitName: row.unit_name,
+                    readingDate: row.reading_date,
+                    slot: row.slot,
+                    celsius: row.celsius,
+                    outOfRange: row.out_of_range,
+                    note: row.note,
+                    recordedByName: row.recorded_by_name,
+                })),
+                cooking: log.cooking.map(mapCookingTemperature),
+            };
+        },
+
+        async recordTemperature(request: RecordTemperatureRequest) {
+            const payload = await transport.request<{
+                readonly reading: { readonly out_of_range: boolean };
+            }>({
+                method: 'POST',
+                path: '/catalogue/quality-control/temperature-readings',
+                body: {
+                    temperature_unit_id: request.unitId,
+                    slot: request.slot,
+                    celsius: request.celsius,
+                    note: request.note,
+                },
+            });
+            return { outOfRange: payload.reading.out_of_range };
+        },
+
+        async recordCookingTemperature(request: RecordCookingTemperatureRequest): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: '/catalogue/quality-control/cooking-temperatures',
+                body: { production_order_id: request.productionOrderId, celsius: request.celsius },
+            });
+        },
+
+        async saveTemperatureUnit(draft: TemperatureUnitDraft): Promise<void> {
+            await transport.request({
+                method: draft.id === null ? 'POST' : 'PATCH',
+                path:
+                    draft.id === null
+                        ? '/catalogue/quality-control/temperature-units'
+                        : `/catalogue/quality-control/temperature-units/${encodeURIComponent(draft.id)}`,
+                body: {
+                    name: draft.name,
+                    kind: draft.kind,
+                    min_c: draft.minC,
+                    max_c: draft.maxC,
+                    active: draft.active,
+                },
+            });
         },
 
         async listQualityChecks(): Promise<readonly QualityCheck[]> {

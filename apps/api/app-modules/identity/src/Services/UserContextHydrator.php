@@ -13,14 +13,17 @@ use Healthy360\Consent\Services\ConsentLedger;
 use Healthy360\Features\Services\FeatureEntitlementChecker;
 use Healthy360\Identity\Contracts\ProgrammeMembershipLookup;
 use Healthy360\Identity\Models\UserProfile;
+use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Enums\MembershipStatus;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Organisations\Presenters\OrganisationPresenter;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Healthy360\Tenancy\Exceptions\BranchOutsideMembershipScope;
 use Healthy360\Tenancy\Services\ContextValidator;
 use Healthy360\Tenancy\TenantContext;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 
 /**
@@ -43,6 +46,7 @@ final class UserContextHydrator
         private readonly ConsentLedger $consents,
         private readonly OrganisationPresenter $organisations,
         private readonly ProgrammeMembershipLookup $programmes,
+        private readonly DatabaseTenantContext $database,
     ) {}
 
     /**
@@ -142,12 +146,11 @@ final class UserContextHydrator
             ->get()
             ->keyBy(fn (Organisation $organisation): string => (string) $organisation->getKey());
 
-        $roleCodes = $this->roleCodesByMembership(array_values($memberships
-            ->map(static fn (OrganisationMembership $membership): string => (string) $membership->getKey())
-            ->all()));
+        $roleCodes = $this->roleCodesByMembership($user, $memberships);
+        $branches = $this->branchesByMembership($memberships);
 
         return array_values($memberships
-            ->map(function (OrganisationMembership $membership) use ($organisations, $roleCodes): ?array {
+            ->map(function (OrganisationMembership $membership) use ($organisations, $roleCodes, $branches): ?array {
                 $organisation = $organisations->get((string) $membership->organisation_id);
 
                 if (! $organisation instanceof Organisation) {
@@ -161,6 +164,7 @@ final class UserContextHydrator
                     'joined_at' => $membership->joined_at?->toIso8601String(),
                     'organisation' => $this->organisations->organisation($organisation),
                     'roles' => $roleCodes[(string) $membership->getKey()] ?? [],
+                    'branches' => $branches[(string) $membership->getKey()] ?? [],
                 ];
             })
             ->filter()
@@ -232,18 +236,98 @@ final class UserContextHydrator
     }
 
     /**
-     * @param  list<string>  $membershipIds
+     * The branches each membership may select: its own when it is scoped to
+     * one, otherwise every active branch of its organisation — the same set
+     * `ContextValidator::branch()` accepts a claim from.
+     *
+     * Without this list a client cannot offer the choice at all. An
+     * organisation-wide member of a kitchen with two branches is given no
+     * branch by default, and kitchen and KDS routes require one, so with
+     * nothing to pick from they were locked out of both for good.
+     *
+     * Only an active membership is answered: an invitation does not list the
+     * sites of an organisation the person has not joined. Read as each
+     * organisation in turn, for the reason the role codes are.
+     *
+     * @param  EloquentCollection<int, OrganisationMembership>  $memberships
+     * @return array<string, list<array{id: string, name: string, city: string|null, timezone: string, status: string}>>
+     */
+    private function branchesByMembership(EloquentCollection $memberships): array
+    {
+        $branches = [];
+
+        foreach ($memberships->where('status', MembershipStatus::Active) as $membership) {
+            $selectable = $this->database->during(
+                null,
+                (string) $membership->organisation_id,
+                null,
+                function () use ($membership): EloquentCollection {
+                    $query = OrganisationBranch::withoutTenancy()
+                        ->where('organisation_id', $membership->organisation_id)
+                        ->where('status', BranchStatus::Active)
+                        ->orderBy('name');
+
+                    if ($membership->branch_id !== null) {
+                        $query->whereKey($membership->branch_id);
+                    }
+
+                    return $query->get();
+                },
+            );
+
+            $branches[(string) $membership->getKey()] = array_values($selectable
+                ->map(fn (OrganisationBranch $branch): array => $this->organisations->branch($branch))
+                ->all());
+        }
+
+        return $branches;
+    }
+
+    /**
+     * Each membership's role codes.
+     *
+     * **Read as each organisation in turn.** A membership holds its
+     * organisation's own copy of a role (`OrganisationRoles::provision`), and
+     * `rls_role_select` admits a tenant row only inside that organisation's
+     * context, while /me spans organisations and may have none. So the codes
+     * are read inside `during()` for each organisation the person belongs to,
+     * on behalf of that person; outside it a role the person holds would read
+     * as no role at all.
+     *
+     * @param  EloquentCollection<int, OrganisationMembership>  $memberships
      * @return array<string, list<string>>
      */
-    private function roleCodesByMembership(array $membershipIds): array
+    private function roleCodesByMembership(User $user, EloquentCollection $memberships): array
     {
         $assignments = MembershipRole::withoutTenancy()
-            ->whereIn('membership_id', $membershipIds)
+            ->whereIn('membership_id', $memberships->map(
+                static fn (OrganisationMembership $membership): string => (string) $membership->getKey(),
+            )->all())
             ->get();
 
-        $roles = Role::withoutTenancy()
-            ->whereIn('id', $assignments->pluck('role_id')->all())
-            ->pluck('code', 'id');
+        $organisationOf = $memberships->mapWithKeys(static fn (OrganisationMembership $membership): array => [
+            (string) $membership->getKey() => (string) $membership->organisation_id,
+        ]);
+
+        /** @var array<string, string> $roles */
+        $roles = [];
+
+        foreach ($assignments->groupBy(fn (MembershipRole $assignment): string => (string) $organisationOf->get((string) $assignment->membership_id)) as $organisationId => $held) {
+            $codes = $this->database->during(
+                (string) $user->getKey(),
+                (string) $organisationId,
+                null,
+                fn (): Collection => Role::withoutTenancy()
+                    ->whereIn('id', $held->pluck('role_id')->all())
+                    ->pluck('code', 'id'),
+            );
+
+            foreach ($codes as $roleId => $code) {
+                $roles[(string) $roleId] = (string) $code;
+            }
+        }
+
+        $roles = collect($roles);
 
         return $assignments
             ->groupBy('membership_id')

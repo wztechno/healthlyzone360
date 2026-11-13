@@ -9,8 +9,6 @@ use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
-use Healthy360\Catalogues\Models\PlanMenuEntry;
-use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockLevel;
@@ -54,7 +52,7 @@ use Illuminate\Support\Facades\Mail;
 |
 |   * onions  ← a real order line
 |   * carrots ← an explicit meal choice on a claimed subscription day
-|   * flour   ← a plan-menu slot on a projected day nobody has chosen for
+|   * flour   ← a choice standing against a projected day
 |
 | The window is a fixed Monday-to-Sunday so the weekday arithmetic behind the
 | projection is stated rather than inherited from the day the suite happens to
@@ -205,6 +203,9 @@ beforeEach(function (): void {
             'customer_address_id' => $this->world->customer->address->getKey(),
             'currency_code' => 'USD',
             'weekdays' => $weekdays,
+            // One sitting a day, so one choice answers a day.
+            'captured_meals_per_day' => 1,
+            'captured_snacks_per_day' => 0,
         ]);
     };
 
@@ -231,31 +232,6 @@ beforeEach(function (): void {
             'catalogue_item_id' => $meal->getKey(),
             'source' => MealChoiceSource::Customer,
         ]);
-    };
-
-    /**
-     * Publish a menu on the world's plan, anchored so `$anchor` is cycle day 1.
-     *
-     * @param  list<array{0: int, 1: string, 2: CatalogueItem}>  $entries  [cycleDay, slot, dish]
-     */
-    $this->publishMenu = function (array $entries, CarbonImmutable $anchor, int $cycleDays = 7): void {
-        foreach ($entries as $index => [$cycleDay, $slot, $dish]) {
-            PlanMenuEntry::factory()->create([
-                'organisation_id' => $this->organisationId,
-                'catalogue_item_id' => $this->world->plan->getKey(),
-                'cycle_day' => $cycleDay,
-                'slot' => $slot,
-                'sequence' => $index + 1,
-                'meal_catalogue_item_id' => $dish->getKey(),
-            ]);
-        }
-
-        SubscriptionPlanProfile::withoutTenancy()
-            ->whereKey($this->world->plan->getKey())
-            ->update([
-                'menu_cycle_days' => $cycleDays,
-                'menu_cycle_anchor_date' => $anchor->toDateString(),
-            ]);
     };
 
     /** The forecast for the whole fixture week, at this world's branch. */
@@ -287,7 +263,7 @@ afterEach(function (): void {
 | 1. Three populations, three shelves, one window
 */
 
-it('counts a real order, an explicit choice and a plan-menu day as three separate demands', function (): void {
+it('counts a real order, a choice on a claimed day and a choice on a projected day as three separate demands', function (): void {
     [$onion, $onionShelf] = ($this->shelf)('sku-onion', $this->kg);
     [$carrot, $carrotShelf] = ($this->shelf)('sku-carrot', $this->kg);
     [$flour, $flourShelf] = ($this->shelf)('sku-flour', $this->kg);
@@ -309,11 +285,8 @@ it('counts a real order, an explicit choice and a plan-menu day as three separat
     ($this->claimedDay)($subscription, $this->tuesday);
     ($this->choice)($subscription, $this->tuesday, $stew);
 
-    // Population 3: Wednesday is projected, nobody has chosen, and the menu
-    // says pie. Anchored on Wednesday so that is cycle day 1; Tuesday falls on
-    // day 7, which the menu leaves empty, so the claimed day's own slot stays
-    // population 2's.
-    ($this->publishMenu)([[1, 'lunch', $pie]], anchor: $this->wednesday);
+    // And Wednesday is projected, and the customer chose the pie for it.
+    ($this->choice)($subscription, $this->wednesday, $pie);
 
     $result = ($this->week)();
 
@@ -439,7 +412,7 @@ it('sums a meal across orders and explodes it once, landing on the figure comput
 | 3. Holes, and the fact that they are never zeroes
 */
 
-it('records a plan with no menu as not computable rather than as nothing to buy', function (): void {
+it('records a day nobody chose meals for as not computable rather than as nothing to buy', function (): void {
     $subscription = ($this->subscription)(weekdays: [3]);
     ($this->claimedDay)($subscription, $this->tuesday);
 
@@ -449,10 +422,10 @@ it('records a plan with no menu as not computable rather than as nothing to buy'
     // hole: the claimed Tuesday and the projected Wednesday.
     expect($result->requirements)->toBe([])
         ->and($result->notComputableDays)->toBe(2)
-        ->and($result->reasons)->toBe(['plan_has_no_menu' => 2]);
+        ->and($result->reasons)->toBe(['meals_not_chosen' => 2]);
 });
 
-it('leaves a day alone when the plan has no menu but somebody chose for it', function (): void {
+it('leaves a day alone when somebody chose its meals', function (): void {
     [$carrot, $carrotShelf] = ($this->shelf)('sku-carrot', $this->kg);
     $stew = ($this->meal)('Stew', $carrot, '3', $this->kg);
     ($this->level)($carrotShelf, '100.0000');
@@ -463,31 +436,10 @@ it('leaves a day alone when the plan has no menu but somebody chose for it', fun
 
     $result = ($this->week)();
 
-    // Monday projects (weekday 1) and has neither a menu nor a choice, so it is
-    // the one hole. Tuesday is answered by the choice and raises nothing.
+    // Monday projects (weekday 1) and nobody chose for it, so it is the one
+    // hole. Tuesday is answered by the choice and raises nothing.
     expect(($this->row)($result, 'sku-carrot')['required'])->toBe('3.000000')
-        ->and($result->reasons)->toBe(['plan_has_no_menu' => 1])
-        ->and($result->notComputableDays)->toBe(1);
-});
-
-it('treats a withdrawn dish on the menu as a hole rather than as demand', function (): void {
-    [$flour, $flourShelf] = ($this->shelf)('sku-flour', $this->kg);
-    $pie = ($this->meal)('Pie', $flour, '5', $this->kg);
-    ($this->level)($flourShelf, '100.0000');
-
-    ($this->subscription)(weekdays: [3]);
-    ($this->publishMenu)([[1, 'lunch', $pie]], anchor: $this->wednesday);
-
-    // The kitchen takes the dish off sale after writing the menu. Generation
-    // would leave the slot empty; the forecast must not buy for it, and must
-    // not pretend the day is fully answered either.
-    $pie->status = CatalogueItemStatus::Retired;
-    $pie->save();
-
-    $result = ($this->week)();
-
-    expect($result->requirements)->toBe([])
-        ->and($result->reasons)->toBe(['menu_dish_withdrawn' => 1])
+        ->and($result->reasons)->toBe(['meals_not_chosen' => 1])
         ->and($result->notComputableDays)->toBe(1);
 });
 

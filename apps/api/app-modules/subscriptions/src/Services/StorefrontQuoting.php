@@ -206,7 +206,8 @@ final readonly class StorefrontQuoting
             'sales_channel_id' => $resolved[2],
             'duration' => $duration,
             'available_weekdays' => $this->availableWeekdays($organisationId, $branchId),
-            'allows_free_selection' => $profile->allows_free_selection,
+            // Every plan is choose-your-own: the customer picks each day's meals.
+            'allows_free_selection' => true,
             'change_cutoff_hours' => $profile->change_cutoff_hours,
             'earliest_start_date' => $this->earliestStartDate($catalogueItemId, $weekdays, $branchId, $on ?? CarbonImmutable::now()),
         ];
@@ -380,9 +381,7 @@ final readonly class StorefrontQuoting
             'sales_channel_id' => null,
             'duration' => $duration,
             'available_weekdays' => [],
-            'allows_free_selection' => $profile instanceof SubscriptionPlanProfile
-                ? $profile->allows_free_selection
-                : false,
+            'allows_free_selection' => true,
             'change_cutoff_hours' => $profile instanceof SubscriptionPlanProfile
                 ? $profile->change_cutoff_hours
                 : ChangeWindow::DEFAULT_CUTOFF_HOURS,

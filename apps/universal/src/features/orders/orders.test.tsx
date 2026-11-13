@@ -1,4 +1,5 @@
-import { ApiError, apiFailure } from '@healthy360/api-client';
+import { Dimensions } from 'react-native';
+import { ApiError, apiFailure, conflictFailure } from '@healthy360/api-client';
 import type { PlacedOrder } from '@healthy360/api-client/contracts';
 import { OrderId } from '@healthy360/domain-types';
 import { focusManager } from '@tanstack/react-query';
@@ -13,6 +14,23 @@ import {
     ORDER_HISTORY_HREF,
     ORDER_TRACKING_POLL_MS,
 } from './screens/customer-order-screen.tsx';
+
+/*
+ * These suites were written for the tabbed account and the order page's Back pill, which a
+ * tablet still draws; a phone draws the boards' menu of sections and its own top bar instead
+ * (see the phone cases in the shell and screen suites). So they run at a tablet's width.
+ */
+const phoneWindow = Dimensions.get('window');
+const phoneScreen = Dimensions.get('screen');
+beforeEach(() => {
+    Dimensions.set({
+        window: { ...phoneWindow, width: 820, height: 1180 },
+        screen: { ...phoneScreen, width: 820, height: 1180 },
+    });
+});
+afterEach(() => {
+    Dimensions.set({ window: phoneWindow, screen: phoneScreen });
+});
 
 /**
  * The signed-in order page, over the same tracking body the guest page draws.
@@ -130,13 +148,15 @@ describe('CustomerOrderScreen', () => {
         // Nobody is driving it yet, so there is no courier to message.
         expect(screen.queryByTestId('customer-order-message')).toBeNull();
         await fireEvent.press(screen.getByTestId('customer-order-help'));
-        expect(await screen.findByTestId('prototype-notice')).toHaveTextContent(/Not built yet/);
+        expect(await screen.findByTestId('prototype-notice')).toHaveTextContent(
+            /not available yet/,
+        );
 
         // A guest is told to keep the reference; an account holder has the history instead —
         // at the top of the page, under its own name, with the order as the current crumb.
         expect(screen.queryByTestId('customer-order-reference-keep')).toBeNull();
         expect(screen.getByTestId('customer-order-trail-up')).toHaveTextContent('Order history');
-        expect(screen.getByTestId('customer-order-trail')).toHaveTextContent(/H360-1042/);
+        expect(screen.getByTestId('customer-order-reference')).toHaveTextContent(/H360-1042/);
         await fireEvent.press(screen.getByTestId('customer-order-trail-up'));
         // Up to the history by name: popped to when it is underneath, never pushed on top.
         expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(ORDER_HISTORY_HREF);
@@ -298,8 +318,8 @@ describe('CustomerOrderScreen', () => {
         expect(await screen.findByTestId('customer-order-states-empty')).toBeTruthy();
         expect(repositories.commerce.getMyOrder).not.toHaveBeenCalled();
 
-        // Nothing to show, so the one action is the history — by name, as from the trail.
-        await fireEvent.press(screen.getByTestId('customer-order-history'));
+        // Nothing to show, and the Back pill still leads to the history — by name.
+        await fireEvent.press(screen.getByTestId('customer-order-trail-up'));
         expect(routerMock.__router.dismissTo).toHaveBeenCalledWith(ORDER_HISTORY_HREF);
     });
 
@@ -318,5 +338,130 @@ describe('CustomerOrderScreen', () => {
         expect(await screen.findByTestId('customer-order-states-empty')).toHaveTextContent(
             /could not find that order/,
         );
+    });
+});
+
+describe('the order page’s lines, wording and cancel (T17)', () => {
+    it('shows what each line changed and the note, and words a ready delivery as leaving soon', async () => {
+        await renderStubScreen(<CustomerOrderScreen orderId={ORDER_ID} />, {
+            session: testMeResponse(),
+            repositories: {
+                commerce: {
+                    getMyOrder: async () =>
+                        placedOrder({
+                            state: 'ready_for_pickup',
+                            fulfilmentType: 'delivery',
+                            lines: [
+                                {
+                                    id: 'line-1',
+                                    name: 'Chicken Shawarma',
+                                    quantity: 1,
+                                    unitPrice: { amount: 3000, currency: 'AED' },
+                                    lineTotal: { amount: 3000, currency: 'AED' },
+                                    options: [
+                                        {
+                                            id: 'opt-1',
+                                            kind: 'remove',
+                                            groupEn: null,
+                                            groupAr: null,
+                                            nameEn: 'Onions',
+                                            nameAr: 'بصل',
+                                        },
+                                    ],
+                                    note: 'Extra napkins',
+                                },
+                            ],
+                        }),
+                },
+            },
+        });
+
+        const mods = await screen.findByTestId('customer-order-line-line-1-mods');
+        expect(mods).toHaveTextContent(/Onions/);
+        expect(mods).toHaveTextContent(/Extra napkins/);
+        expect(screen.getByTestId('customer-order-timeline-ready_for_pickup')).toHaveTextContent(
+            /Ready, out soon/,
+        );
+        // Ready is not "placed", so the customer can no longer cancel here.
+        expect(screen.queryByTestId('customer-order-cancel')).toBeNull();
+    });
+
+    it('keeps "Ready for pickup" on a pickup order', async () => {
+        await renderStubScreen(<CustomerOrderScreen orderId={ORDER_ID} />, {
+            session: testMeResponse(),
+            repositories: {
+                commerce: {
+                    getMyOrder: async () =>
+                        placedOrder({ state: 'ready_for_pickup', fulfilmentType: 'pickup' }),
+                },
+            },
+        });
+
+        expect(
+            await screen.findByTestId('customer-order-timeline-ready_for_pickup'),
+        ).toHaveTextContent(/Ready for pickup/);
+    });
+
+    it('cancels a placed order behind the confirm dialog', async () => {
+        const cancelMyOrder = jest.fn(async () => placedOrder({ state: 'cancelled' }));
+        await renderStubScreen(<CustomerOrderScreen orderId={ORDER_ID} />, {
+            session: testMeResponse(),
+            repositories: {
+                commerce: {
+                    getMyOrder: async () => placedOrder({ state: 'placed' }),
+                    cancelMyOrder,
+                },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('customer-order-cancel'));
+        expect(await screen.findByTestId('customer-order-cancel-dialog')).toBeTruthy();
+        await fireEvent.press(screen.getByTestId('customer-order-cancel-confirm'));
+
+        await waitFor(() => {
+            expect(cancelMyOrder).toHaveBeenCalledWith(ORDER_ID);
+        });
+    });
+
+    it('says the kitchen got there first when the cancel loses the race', async () => {
+        await renderStubScreen(<CustomerOrderScreen orderId={ORDER_ID} />, {
+            session: testMeResponse(),
+            repositories: {
+                commerce: {
+                    getMyOrder: async () => placedOrder({ state: 'placed' }),
+                    cancelMyOrder: async () => {
+                        throw new ApiError(conflictFailure());
+                    },
+                },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('customer-order-cancel'));
+        await fireEvent.press(await screen.findByTestId('customer-order-cancel-confirm'));
+
+        expect(await screen.findByTestId('customer-order-cancel-too-late')).toHaveTextContent(
+            /already accepted/,
+        );
+    });
+
+    it('says the order is already cancelled when the kitchen cancelled it first', async () => {
+        await renderStubScreen(<CustomerOrderScreen orderId={ORDER_ID} />, {
+            session: testMeResponse(),
+            repositories: {
+                commerce: {
+                    getMyOrder: async () => placedOrder({ state: 'placed' }),
+                    cancelMyOrder: async () => {
+                        throw new ApiError(conflictFailure({ reason: 'order_already_cancelled' }));
+                    },
+                },
+            },
+        });
+
+        await fireEvent.press(await screen.findByTestId('customer-order-cancel'));
+        await fireEvent.press(await screen.findByTestId('customer-order-cancel-confirm'));
+
+        const callout = await screen.findByTestId('customer-order-cancel-too-late');
+        expect(callout).toHaveTextContent(/already cancelled/);
+        expect(callout).not.toHaveTextContent(/accepted/);
     });
 });

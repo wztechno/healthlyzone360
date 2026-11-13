@@ -137,6 +137,7 @@ html:lang(ar) * {
 }
 
 [data-testid$='-sidebar-scroll']::-webkit-scrollbar-thumb {
+    border: 0;
     background: transparent;
     border-radius: 9999px;
 }
@@ -144,6 +145,68 @@ html:lang(ar) * {
 [data-testid$='-sidebar-scroll']:hover::-webkit-scrollbar-thumb,
 [data-testid$='-sidebar-scroll']:focus-within::-webkit-scrollbar-thumb {
     background: rgb(var(--h360-color-on-sidebar-muted) / 0.45);
+}
+
+/* ================================================================================================
+   The thin scrollbar — the compact pop-up's (Orders redesign, 2026-11-10), for every scroller in
+   the web app since the same day: the shell's page, a pop-up, a list, a menu.
+
+   A thin, rounded bar that stays quiet in the border's ink and turns brand green when the pointer
+   reaches for it, with no arrow buttons — in place of the platform's grey slab. Written under
+   `:where(*)`, which weighs nothing, so a scroller with a bar of its own (the sidebar rail's, above)
+   still wins. A ScrollView whose test id ends in `-thin-scroll` also keeps its gutter, so its
+   content does not jump when the bar appears.
+   ============================================================================================== */
+[data-testid$='-thin-scroll'] {
+    scrollbar-gutter: stable;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+    :where(*) {
+        scrollbar-width: thin;
+        scrollbar-color: rgb(var(--h360-color-border-strong)) transparent;
+    }
+}
+
+:where(*)::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+:where(*)::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+:where(*)::-webkit-scrollbar-track:vertical {
+    margin: 10px 0;
+}
+
+:where(*)::-webkit-scrollbar-track:horizontal {
+    margin: 0 10px;
+}
+
+:where(*)::-webkit-scrollbar-thumb {
+    min-height: 40px;
+    min-width: 40px;
+    border: 4px solid transparent;
+    border-radius: 9999px;
+    background-color: rgb(var(--h360-color-border-strong));
+    background-clip: content-box;
+}
+
+:where(*)::-webkit-scrollbar-thumb:hover {
+    border-width: 3px;
+    background-color: rgb(var(--h360-color-brand-surface));
+}
+
+:where(*)::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+:where(*)::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
 /* ================================================================================================
@@ -176,6 +239,33 @@ input[data-picker-field]::-webkit-clear-button {
 input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     inset-inline-start: 0;
     width: 100%;
+}
+
+/* An open row menu: every row is a stacking context, so the row holding it goes above the later ones. */
+[role='row']:has([aria-haspopup='menu'][aria-expanded='true']),
+[data-testid$='-entrance']:has([aria-haspopup='menu'][aria-expanded='true']) {
+    z-index: 30;
+}
+
+/* The Setup road's next stop breathes, so the eye lands on what to do next. */
+[data-setup-road='next'] {
+    animation: setup-road-pulse 2s infinite;
+}
+
+@keyframes setup-road-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgb(var(--h360-color-brand-surface) / 0.4);
+    }
+    70%,
+    100% {
+        box-shadow: 0 0 0 16px rgb(var(--h360-color-brand-surface) / 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-setup-road='next'] {
+        animation: none;
+    }
 }
 
 /* ================================================================================================
@@ -252,7 +342,17 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     [data-testid='kitchen-production-label-screen'],
     [data-testid='kitchen-production-label-sheets'],
     [data-testid='kitchen-ingredient-label-screen'],
-    [data-testid='kitchen-ingredient-label-sheets'] {
+    [data-testid='kitchen-ingredient-label-sheets'],
+    [data-testid='kitchen-list-print-screen'],
+    [data-testid='kitchen-list-print-sheets'],
+    [data-testid='kitchen-recipe-sheets-print-screen'],
+    [data-testid='kitchen-recipe-sheets-print-sheets'],
+    /* The kitchen ticket prints from the KDS area too, whose shell is `kds-shell`. */
+    [data-testid='kds-shell'],
+    [data-testid='kds-shell-content'],
+    [data-testid='kds-shell-content'] > div,
+    [data-testid='kds-ticket-print-screen'],
+    [data-testid='kds-ticket-print-sheets'] {
         display: block !important;
         height: auto !important;
         max-height: none !important;
@@ -271,7 +371,10 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
        with it. */
     body :has([data-testid='kitchen-supply-print-sheets']),
     body :has([data-testid='kitchen-production-label-sheets']),
-    body :has([data-testid='kitchen-ingredient-label-sheets']) {
+    body :has([data-testid='kitchen-ingredient-label-sheets']),
+    body :has([data-testid='kitchen-list-print-sheets']),
+    body :has([data-testid='kitchen-recipe-sheets-print-sheets']),
+    body :has([data-testid='kds-ticket-print-sheets']) {
         display: block !important;
         height: auto !important;
         max-height: none !important;
@@ -293,7 +396,16 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     [data-testid='toast-region-assertive'],
     [data-testid='kitchen-supply-print-toolbar'],
     [data-testid='kitchen-production-label-toolbar'],
-    [data-testid='kitchen-ingredient-label-toolbar'] {
+    [data-testid='kitchen-ingredient-label-toolbar'],
+    [data-testid='kitchen-list-print-toolbar'],
+    [data-testid='kitchen-recipe-sheets-print-toolbar'],
+    [data-testid='kds-shell-topbar'],
+    [data-testid='kds-shell-sidebar'],
+    [data-testid='kds-shell-navigation'],
+    [data-testid='kds-shell-drawer'],
+    [data-testid='kds-shell-dock'],
+    [data-testid='kds-shell-rail-panel'],
+    [data-testid='kds-ticket-print-toolbar'] {
         display: none !important;
     }
 
@@ -324,6 +436,38 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
         page-break-after: auto;
     }
 
+    /* Technical sheets: one recipe per page, the same child-selector rule as the supply orders —
+       every id inside a sheet shares its `…-sheet-{id}` stem. The list print is one sheet, so it
+       only loses its card. */
+    [data-testid='kitchen-recipe-sheets-print-sheets']
+        > [data-testid^='kitchen-recipe-sheets-print-sheet-'] {
+        break-after: page;
+        page-break-after: always; /* Legacy alias — Safari and older WebKit ignore `break-after`. */
+        break-inside: auto;
+        margin: 0 !important;
+    }
+
+    [data-testid='kitchen-recipe-sheets-print-sheets']
+        > [data-testid^='kitchen-recipe-sheets-print-sheet-']:last-child {
+        break-after: auto;
+        page-break-after: auto;
+    }
+
+    [data-testid='kitchen-list-print-sheets'] > [data-testid='kitchen-list-print-sheet'],
+    [data-testid='kds-ticket-print-sheets'] > [data-testid='kds-ticket-print-sheet'] {
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+    }
+
+    /* Calibration knob: list type. A wide list at body size runs off A4; 9pt keeps ten columns. */
+    [data-testid='kitchen-list-print-sheets'] * {
+        font-size: 9pt !important;
+    }
+
     /* Monochrome by construction rather than by hoping the printer is colour. Borders stay black so
        the item rules and the signature lines survive; backgrounds go, because a tinted surface
        prints as grey wash and costs toner for nothing. Descendants are included by `*` because most
@@ -333,7 +477,13 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     [data-testid='kitchen-production-label-sheets'],
     [data-testid='kitchen-production-label-sheets'] *,
     [data-testid='kitchen-ingredient-label-sheets'],
-    [data-testid='kitchen-ingredient-label-sheets'] * {
+    [data-testid='kitchen-ingredient-label-sheets'] *,
+    [data-testid='kitchen-list-print-sheets'],
+    [data-testid='kitchen-list-print-sheets'] *,
+    [data-testid='kitchen-recipe-sheets-print-sheets'],
+    [data-testid='kitchen-recipe-sheets-print-sheets'] *,
+    [data-testid='kds-ticket-print-sheets'],
+    [data-testid='kds-ticket-print-sheets'] * {
         color: #000 !important;
         background-color: transparent !important;
         background-image: none !important;
@@ -343,7 +493,9 @@ input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
 
     /* Long orders continue onto further pages rather than being scaled down (§7), so a row must not
        be split across the fold — half a quantity on each page is worse than a shorter page. */
-    [data-testid='kitchen-supply-print-sheets'] [role='row'] {
+    [data-testid='kitchen-supply-print-sheets'] [role='row'],
+    [data-testid='kitchen-list-print-sheets'] [role='row'],
+    [data-testid='kitchen-recipe-sheets-print-sheets'] [role='row'] {
         break-inside: avoid;
         page-break-inside: avoid;
     }

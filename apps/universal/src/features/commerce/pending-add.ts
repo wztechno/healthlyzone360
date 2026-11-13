@@ -1,3 +1,4 @@
+import type { DishLineChoices } from '@healthy360/api-client/contracts';
 import { KitchenId, MealId } from '@healthy360/domain-types';
 
 import { createSessionDraftStore } from '../../navigation/session-draft.ts';
@@ -31,6 +32,8 @@ export interface PendingAdd {
     readonly quantity: number;
     /** The meal's kitchen, so the replay opens that kitchen's basket (browse-03). */
     readonly kitchenId?: KitchenId | undefined;
+    /** What the meal page chose, so signing in does not lose "no onions". */
+    readonly choices?: DishLineChoices | undefined;
     readonly recordedAt: string;
 }
 
@@ -45,7 +48,7 @@ const MAX_QUANTITY = 99;
 function parsePendingAdd(raw: unknown): PendingAdd | null {
     if (typeof raw !== 'object' || raw === null) return null;
     const value = raw as Record<string, unknown>;
-    const { mealId, quantity, kitchenId, recordedAt } = value;
+    const { mealId, quantity, kitchenId, choices, recordedAt } = value;
     if (typeof mealId !== 'string' || mealId === '') return null;
     if (
         typeof quantity !== 'number' ||
@@ -61,6 +64,9 @@ function parsePendingAdd(raw: unknown): PendingAdd | null {
         mealId: MealId.unsafe(mealId),
         quantity,
         ...(kitchenId === undefined ? {} : { kitchenId: KitchenId.unsafe(kitchenId) }),
+        ...(typeof choices === 'object' && choices !== null
+            ? { choices: choices as DishLineChoices }
+            : {}),
         recordedAt,
     };
 }
@@ -75,13 +81,15 @@ export interface PendingAddInput {
     readonly mealId: MealId;
     readonly quantity: number;
     readonly kitchenId?: KitchenId | undefined;
+    readonly choices?: DishLineChoices | undefined;
 }
 
-export function writePendingAdd({ mealId, quantity, kitchenId }: PendingAddInput): void {
+export function writePendingAdd({ mealId, quantity, kitchenId, choices }: PendingAddInput): void {
     store.write(KEY, {
         mealId,
         quantity,
         ...(kitchenId === undefined ? {} : { kitchenId }),
+        ...(choices === undefined ? {} : { choices }),
         recordedAt: new Date().toISOString(),
     });
 }

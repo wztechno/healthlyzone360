@@ -159,12 +159,11 @@ describe('EmptyState', () => {
         );
 
         const compact = String(screen.getByTestId('compact').props.className);
-        expect(compact).toContain('p-base');
+        expect(compact).toContain('py-11');
         expect(compact).toContain('rounded-panel');
+        expect(compact).not.toContain('border-dashed');
         expect(compact).not.toContain('p-8');
-        expect(String(screen.getByTestId('compact-title').props.className)).toContain(
-            'text-role-title',
-        );
+        expect(String(screen.getByTestId('compact-title').props.className)).toContain('font-bold');
     });
 
     describe('prototype variant', () => {

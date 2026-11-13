@@ -46,6 +46,10 @@ export interface BatchLinesPanelProps {
     readonly withOutcome: boolean;
     /** No hairline over the section: the first in its column. */
     readonly first?: boolean | undefined;
+    /** The table alone, with no heading or picker — under the batch page's Record lens. */
+    readonly bare?: boolean | undefined;
+    /** The flat panel a board draws around the table. */
+    readonly panel?: boolean | undefined;
 }
 
 type LineColumn = ControlledColumn<ProductionOrderLine, CatalogueColumn<ProductionOrderLine>>;
@@ -56,6 +60,8 @@ export function BatchLinesPanel({
     costsVisible,
     withOutcome,
     first = false,
+    bare = false,
+    panel = false,
 }: BatchLinesPanelProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -70,6 +76,7 @@ export function BatchLinesPanel({
             value,
             unitCode,
             noValue,
+            t,
         );
 
     /** By the figure the wire sends, blanks last either way: "not yet" is not the smallest. */
@@ -231,6 +238,8 @@ export function BatchLinesPanel({
     return (
         <ProductionTable<ProductionOrderLine>
             first={first}
+            bare={bare}
+            panel={panel}
             sectionTestID={testID}
             testID={`${testID}-table`}
             title={t('kitchen:ops.production.headingLines')}

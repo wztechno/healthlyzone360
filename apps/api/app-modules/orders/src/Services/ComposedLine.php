@@ -23,5 +23,8 @@ final readonly class ComposedLine
         public ?string $catalogueItemVariantId = null,
         public string $quantity = '1',
         public ?PriceOverride $price = null,
+        /** @var list<string> the dish's free options chosen */
+        public array $optionIds = [],
+        public ?string $note = null,
     ) {}
 }

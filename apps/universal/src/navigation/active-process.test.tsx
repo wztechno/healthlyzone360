@@ -2,6 +2,7 @@ import { renderHook } from '@testing-library/react-native';
 
 import {
     endProcess,
+    endProcessSavedOn,
     isOutsideProcess,
     readActiveProcess,
     startProcess,
@@ -73,6 +74,39 @@ describe('the active process', () => {
             useProcessStep(`${RECIPE}?tab=costing`, STOCK_GAPS);
         });
         expect(readActiveProcess()).toBeNull();
+    });
+
+    /*
+     * The process is there so leaving never loses work. Once the page has written it, Continue
+     * would only lead back to something already saved.
+     */
+    it('ends when the work it was keeping is saved', () => {
+        // The recipe a stock gap sent the reader to is saved: the fix's work is safe.
+        startProcess(stockGapFix());
+        endProcessSavedOn(RECIPE);
+        expect(readActiveProcess()).toBeNull();
+
+        // A recipe's ingredient detour ends when the recipe it began on is saved…
+        const detour: ActiveProcess = {
+            kind: 'recipeDetour',
+            subject: 'Bbq Sauce Dip',
+            resumeHref: `${INGREDIENT}?needs=allergens`,
+            originPath: RECIPE,
+            stepPaths: [INGREDIENT],
+        };
+        startProcess(detour);
+        endProcessSavedOn(RECIPE);
+        expect(readActiveProcess()).toBeNull();
+
+        // …but not when the ingredient is: the recipe's own drafts are still unsaved.
+        startProcess(detour);
+        endProcessSavedOn(INGREDIENT);
+        expect(readActiveProcess()).toEqual(detour);
+
+        // A page that is no part of it changes nothing.
+        startProcess(stockGapFix());
+        endProcessSavedOn('/kitchen/recipes/recipe-7');
+        expect(readActiveProcess()).toEqual(stockGapFix());
     });
 
     it('offers Continue only outside the process — its origin counts as outside', async () => {

@@ -25,7 +25,18 @@ import type {
     OpeningHours,
     PackSize,
 } from '../contracts/marketplace.ts';
+import type {
+    DishOption,
+    DishOptionAllergen,
+    DishPortion,
+    KitchenDishOption,
+} from '../contracts/dish-options.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
+import type {
+    DishOption as WireDishOption,
+    DishPortion as WireDishPortion,
+    KitchenDishOption as WireKitchenDishOption,
+} from '../generated/types.ts';
 import type {
     MarketplaceBranch as WireBranch,
     MarketplaceDeliveryZone as WireZone,
@@ -100,10 +111,8 @@ export const NO_NUTRITION_FACTS: NutritionFacts = {
         calculatedAt: UNKNOWN_ISO_DATE_TIME,
         prototype: true,
         rounding: 'none',
-        notes: [
-            'The platform holds no nutrition figures for this meal. Nothing here is estimated: a ' +
-                'figure would have to be invented, and an invented figure is worse than none.',
-        ],
+        // The panel says "no figures recorded" itself, in the reader's language.
+        notes: [],
     },
 };
 
@@ -273,6 +282,7 @@ export function mapKitchen(wire: WireKitchen): Kitchen {
         ratingCount: wire.rating_count,
         imagePlaceholderId: wire.image_placeholder_id,
         isVerified: wire.is_verified,
+        ...(wire.paused_until === undefined ? {} : { pausedUntil: wire.paused_until }),
     };
 }
 
@@ -359,6 +369,56 @@ export function mapMarketplaceMeal(wire: WireMeal): MarketplaceMeal | null {
         channels: mapSalesChannels(wire.channels),
         rating: wire.rating,
         ratingCount: wire.rating_count,
+        options: (wire.options ?? []).map(mapDishOption),
+        portions: (wire.portions ?? []).map(mapDishPortion),
+    };
+}
+
+/** A dish option off the wire, on a meal, a line or the desk's read. */
+export function mapDishOption(wire: WireDishOption): DishOption {
+    return {
+        id: wire.id,
+        kind: wire.kind,
+        groupEn: wire.group_en,
+        groupAr: wire.group_ar,
+        nameEn: wire.name_en,
+        nameAr: wire.name_ar,
+        ...(wire.allergens === undefined
+            ? {}
+            : { allergens: mapDishOptionAllergens(wire.allergens) }),
+    };
+}
+
+/**
+ * An option's label, keeping whether each allergen is in it or may be. A containment this build does
+ * not know reads as `contains`: over-declaring is the safe direction. `null` stays unassessed.
+ */
+function mapDishOptionAllergens(
+    wire: WireDishOption['allergens'],
+): readonly DishOptionAllergen[] | null {
+    if (wire === null || wire === undefined) return null;
+    return wire.map((entry) => ({
+        code: entry.allergen_code,
+        containment: entry.containment === 'may_contain' ? 'may_contain' : 'contains',
+    }));
+}
+
+/** A dish option as the kitchen's editor reads it: the recipe link and that recipe's allergens. */
+export function mapKitchenDishOption(wire: WireKitchenDishOption): KitchenDishOption {
+    return {
+        ...mapDishOption(wire),
+        recipeId: wire.recipe_id,
+        allergens: mapDishOptionAllergens(wire.allergens),
+    };
+}
+
+export function mapDishPortion(wire: WireDishPortion): DishPortion {
+    return {
+        catalogueItemVariantId: wire.catalogue_item_variant_id,
+        nameEn: wire.name_en,
+        nameAr: wire.name_ar,
+        unitPriceMinor: wire.unit_price_minor,
+        currencyCode: wire.currency_code as DishPortion['currencyCode'],
     };
 }
 

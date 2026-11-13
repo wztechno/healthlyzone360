@@ -36,6 +36,7 @@ final class StockLowStockCountController
         $count = StockLevel::query()
             ->whereNotNull('reorder_threshold')
             ->whereColumn('quantity', '<=', 'reorder_threshold')
+            ->whereHas('stockItem', static fn ($q) => $q->whereNull('merged_into_stock_item_id'))
             ->when($branchId !== null, fn ($q) => $q->where('branch_id', $branchId))
             ->count();
 

@@ -4,12 +4,16 @@ declare(strict_types=1);
 
 use App\Models\User;
 use Database\Seeders\KitchenReferenceSeeder;
+use Database\Seeders\VerdantProductCatalogueSeeder;
 use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\AccessControl\Services\PermissionRegistry;
 use Healthy360\Allergens\Models\Allergen;
+use Healthy360\Catalogues\Enums\CatalogueItemStatus;
+use Healthy360\Catalogues\Enums\ProductionMode;
+use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\ProductCategory;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Consent\Models\ConsentDefinition;
@@ -207,8 +211,11 @@ it('seeds the v6 platform ingredient library with its taxonomy', function (): vo
 
     $categories = IngredientCategory::withoutTenancy()->whereNull('organisation_id')->get();
 
-    expect($categories)->toHaveCount(79)
-        ->and($categories->whereNull('parent_id')->count())->toBe(18)
+    // The v6 taxonomy's 79, and "Preparations" — the top-level shelf a migration adds for the
+    // ingredient a preparation recipe produces.
+    expect($categories)->toHaveCount(80)
+        ->and($categories->whereNull('parent_id')->count())->toBe(19)
+        ->and($categories->where('code', 'preparation')->count())->toBe(1)
         ->and($categories->whereNotNull('parent_id')->count())->toBe(61)
         ->and($categories->where('code', 'packaging-disposables')->count())->toBe(1);
 
@@ -590,7 +597,18 @@ it('seeds exactly the registered permission set', function (): void {
     // advance, carries an estimated cost and blends a finished valuation into the
     // basis every sale is costed against. Whoever may count a shelf is not
     // thereby whoever may commit next Thursday's oil to a batch.
-    expect(Permission::query()->count())->toBe(58)
+    //
+    // P0 Stage 1 takes it to 59 with `order.supervise_organisation`, which also ships as a
+    // migration, because a deploy never seeds.
+    //
+    // P1 Wave A takes it to 60 with `order.prepare_organisation`, the kitchen
+    // display's own code, because a cook needs the wall and not the order book.
+    //
+    // P0 Stage 3 takes it to 62 with `order.settle_cash_organisation` and
+    // `order.approve_refund_organisation`.
+    //
+    // P1 Wave C adds one with `inventory.approve_payables_organisation`.
+    expect(Permission::query()->count())->toBe(63)
         ->and(Permission::query()->pluck('code')->all())
         ->toEqualCanonicalizing(PermissionRegistry::codes());
 });
@@ -687,10 +705,28 @@ it('grants the platform permissions only inside the platform operator organisati
     expect(MembershipRole::withoutTenancy()->where('membership_id', $membership->getKey())->where('role_id', $role->getKey())->exists())
         ->toBeTrue();
 
-    // And the only organisation-scoped role any seeder writes: platform codes
-    // are granted deliberately, inside a platform-operator organisation, and
-    // never through a template (master plan v2 §4.16).
-    expect(Role::withoutTenancy()->whereNotNull('organisation_id')->pluck('code')->all())->toBe(['reference_editor']);
+    // And the only role holding a platform code: platform codes are granted
+    // deliberately, inside a platform-operator organisation, and never through a
+    // template (master plan v2 §4.16). Every organisation also owns a copy of
+    // each template (`OrganisationRoles::provision`), so this is asserted of the
+    // grants rather than of which organisation-scoped roles exist.
+    $platformCodeIds = Permission::query()
+        ->pluck('code', 'id')
+        ->filter(fn (string $code): bool => str_ends_with($code, '_platform'))
+        ->keys();
+
+    $holders = Role::withoutTenancy()
+        ->whereIn('id', RolePermission::withoutTenancy()->whereIn('permission_id', $platformCodeIds)->select('role_id'))
+        ->get();
+
+    expect($holders->map(fn (Role $holder): string => $holder->organisation_id.' '.$holder->code)->all())
+        ->toBe([$platform->getKey().' reference_editor']);
+
+    // Beside it, organisations own copies of the templates and nothing else.
+    $templateCodes = Role::withoutTenancy()->whereNull('organisation_id')->pluck('code')->all();
+
+    expect(Role::withoutTenancy()->whereNotNull('organisation_id')->pluck('code')->unique()->values()->all())
+        ->toEqualCanonicalizing([...$templateCodes, 'reference_editor']);
 });
 
 it('seeds the feature catalogue', function (): void {
@@ -904,4 +940,23 @@ it('marks dependants stale when it fills facts used by a published version', fun
         ->toBe(DerivationState::Stale);
 
     Queue::assertPushed(RecomputeRecipeDerivations::class, 1);
+});
+
+it('leaves the products Verdant makes as unassessed drafts and publishes what it buys in', function (): void {
+    // "Assessed: contains none" is only true of a bought-in good. Honey Mustard
+    // and Mozzarella Sticks are made here, and the `Supplier & Production`
+    // chicken partly so, from recipes with allergens of their own, so the demo
+    // must not press that button for anything but a `Supplier` row.
+    $products = CatalogueItem::withoutTenancy()
+        ->where('source_system', VerdantProductCatalogueSeeder::SOURCE_SYSTEM)
+        ->get()
+        ->keyBy('name_en');
+
+    $made = $products->filter(static fn (CatalogueItem $item): bool => $item->production_mode !== ProductionMode::Supplier);
+
+    expect($made->keys()->all())->toContain('Honey Mustard Sauce', 'Mozzarella Sticks')
+        ->and($made->filter(static fn (CatalogueItem $item): bool => $item->allergens_assessed_at !== null))->toBeEmpty()
+        ->and($made->filter(static fn (CatalogueItem $item): bool => $item->status !== CatalogueItemStatus::Draft))->toBeEmpty()
+        ->and($products->get('Turkey Bacon')?->status)->toBe(CatalogueItemStatus::Published)
+        ->and($products->get('Turkey Bacon')?->allergens_assessed_at)->not->toBeNull();
 });

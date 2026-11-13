@@ -1,9 +1,10 @@
-import { NUTRITION_LEVELS, RAMPS, SEMANTIC_ROLES } from '../colour.ts';
+import { NUTRITION_LEVELS, RAMPS, SEMANTIC_ROLES, STAGE_INK_NAMES, TINT_NAMES } from '../colour.ts';
 import { ELEVATION_LEVELS, NAMED_ELEVATIONS, elevation, namedElevation } from '../elevation.ts';
 import {
     cardWidth,
     controlGap,
     controlHeight,
+    deskHeight,
     controlPaddingX,
     fieldWidth,
     iconSize,
@@ -116,6 +117,20 @@ function colours(): Record<string, unknown> {
         ]),
     );
 
+    // `bg-stage-orange` — the meal page's ring inks on the canopy.
+    result['stage'] = Object.fromEntries(
+        STAGE_INK_NAMES.map((name) => [name, variableReference(`stage-${name}`)]),
+    );
+
+    // `bg-tint-blue` for the fill, `text-tint-blue-on` for the ink on it, `bg-tint-blue-fill` for a bar.
+    result['tint'] = Object.fromEntries(
+        TINT_NAMES.flatMap((name) => [
+            [name, variableReference(`tint-${name}`)],
+            [`${name}-on`, variableReference(`tint-${name}-on`)],
+            [`${name}-fill`, variableReference(`tint-${name}-fill`)],
+        ]),
+    );
+
     return result;
 }
 
@@ -177,7 +192,10 @@ export function renderTailwindPreset(): string {
                     // kept so a caller that means "a figure" keeps saying so. The first entry is the
                     // loader key React Native addresses; the web skips it (the web registers
                     // families by name) and lands on the stack — see `displayFamilies`.
-                    display: [displayFamilies.latin.bold, ...displayFamilies.latin.stack.split(', ')],
+                    display: [
+                        displayFamilies.latin.bold,
+                        ...displayFamilies.latin.stack.split(', '),
+                    ],
                     mono: [monoFamilies.latin.regular, ...monoFamilies.latin.stack.split(', ')],
                 },
                 fontSize: {
@@ -254,10 +272,15 @@ export function renderTailwindPreset(): string {
                     ...Object.fromEntries(
                         Object.entries(iconSize).map(([k, v]) => [`icon-${k}`, px(v)]),
                     ),
+                    ...Object.fromEntries(
+                        Object.entries(deskHeight).map(([k, v]) => [`desk-${k}`, px(v)]),
+                    ),
                 },
                 width: {
                     // `w-field` is the no-stretch rule's one fixed width.
                     field: px(fieldWidth),
+                    'desk-step-mark': px(deskHeight['step-mark']),
+                    'desk-tile-mark': px(deskHeight['tile-mark']),
                     ...Object.fromEntries(
                         Object.entries(iconSize).map(([k, v]) => [`icon-${k}`, px(v)]),
                     ),

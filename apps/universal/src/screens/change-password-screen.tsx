@@ -1,4 +1,3 @@
-import { Button, Card, Heading, PasswordInput, Stack, Text } from '@healthy360/design-system';
 import {
     PASSWORD_MIN_LENGTH,
     makeUpdatePasswordSchema,
@@ -6,6 +5,7 @@ import {
 } from '@healthy360/validation';
 import type { UpdatePasswordValues } from '@healthy360/validation';
 import { useCallback, useState } from 'react';
+import { View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 
@@ -13,6 +13,17 @@ import { toFailure, useUpdatePasswordMutation } from '../data/hooks.ts';
 import { availableWorkspaceAreas } from '../navigation/items.ts';
 import { useCompleteAuth, useReturnTo } from '../navigation/use-return-to.ts';
 import { useAccessState } from '../session/session-provider.tsx';
+import {
+    AuthBadge,
+    AuthError,
+    AuthField,
+    AuthHint,
+    AuthLink,
+    AuthSubmit,
+    AuthText,
+    AuthTick,
+    AuthTitle,
+} from '../ui/auth-form.tsx';
 import {
     applyServerFailure,
     useFailureMessage,
@@ -32,13 +43,16 @@ export interface ChangePasswordScreenProps {
 }
 
 /**
- * Change password, from inside a live session.
+ * Change password, from inside a live session, drawn as the accepted Change-password board in the
+ * sign-in frame (`ui/auth-frame.tsx`): the key badge, the title, the three fields with one eye for
+ * the new password and its confirmation, the length hint and "Save and continue"; then the tick and
+ * "Password changed".
  *
  * This is where `resolveLandingRoute()` parks a person whose account an administrator opened for
- * them. The distinction it draws matters: an account that *must* change reads as an obligation
- * with the reason stated — somebody else knows this password — while anybody arriving here by
- * choice gets an ordinary settings form. Same fields, different sentence, and the difference is
- * what stops the forced case reading like an error the person caused.
+ * them. The distinction it draws matters: an account that *must* change reads as an obligation —
+ * "Choose your own password", over "The password you were given" — while anybody arriving here by
+ * choice gets "Change your password" and a Cancel. Same fields, different words, and the difference
+ * is what stops the forced case reading like an error the person caused.
  *
  * Unlike a reset, the session survives, so success continues into the application rather than
  * bouncing back to the sign-in form.
@@ -64,6 +78,8 @@ export function ChangePasswordScreen({ returnTo }: ChangePasswordScreenProps = {
     const describeFailure = useFailureMessage();
     const { formError, setFormError } = useFieldErrors();
     const [done, setDone] = useState<'forced' | 'voluntary' | null>(null);
+    // The board's one eye for the new password and its confirmation: shown together or not at all.
+    const [revealed, setRevealed] = useState(false);
 
     const accessState = useAccessState();
     const forced = accessState.mustChangePassword === true;
@@ -109,70 +125,65 @@ export function ChangePasswordScreen({ returnTo }: ChangePasswordScreenProps = {
         [describeFailure, forced, form, setFormError, update],
     );
 
+    const eye = {
+        revealed,
+        onToggleReveal: () => {
+            setRevealed((value) => !value);
+        },
+        showLabel: t('auth:changePassword.showPassword'),
+        hideLabel: t('auth:changePassword.hidePassword'),
+    };
+
     if (done !== null) {
         return (
-            <Stack testID="change-password-screen" space="lg">
-                <Heading level={1} testID="change-password-success-title">
+            <View testID="change-password-screen" className="flex-col items-center gap-3.5">
+                <AuthTick />
+                <AuthTitle testID="change-password-success-title" centred>
                     {t('auth:changePassword.successTitle')}
-                </Heading>
-                <Card tone="brand" padding="md">
-                    <Text role="status" aria-live="polite">
-                        {t('auth:changePassword.successBody')}
-                    </Text>
-                </Card>
-                <Button
-                    testID="change-password-continue"
-                    block
-                    label={t('auth:changePassword.continueLabel')}
-                    onPress={() => {
-                        if (done === 'forced') completeAuth(back.returnTo);
-                        else back.finish();
-                    }}
-                />
-            </Stack>
+                </AuthTitle>
+                <View role="status" aria-live="polite">
+                    <AuthText centred>{t('auth:changePassword.successBody')}</AuthText>
+                </View>
+                <View className="mt-2 w-full">
+                    <AuthSubmit
+                        testID="change-password-continue"
+                        label={t('auth:changePassword.continueLabel')}
+                        onPress={() => {
+                            if (done === 'forced') completeAuth(back.returnTo);
+                            else back.finish();
+                        }}
+                    />
+                </View>
+            </View>
         );
     }
 
     return (
-        <Stack testID="change-password-screen" space="lg">
-            <Stack space="xs">
-                <Heading level={1} testID="change-password-title">
-                    {forced
-                        ? t('auth:changePassword.title')
-                        : t('auth:changePassword.optionalTitle')}
-                </Heading>
-                <Text tone="secondary" testID="change-password-subtitle">
-                    {forced
-                        ? t('auth:changePassword.subtitle')
-                        : t('auth:changePassword.optionalSubtitle')}
-                </Text>
-            </Stack>
+        <View testID="change-password-screen" className="flex-col gap-3.5">
+            <AuthBadge icon="keyRound" />
+            <AuthTitle testID="change-password-title">
+                {forced ? t('auth:changePassword.title') : t('auth:changePassword.optionalTitle')}
+            </AuthTitle>
 
             {formError === null ? null : (
-                <Card tone="danger" padding="sm">
-                    <Text
-                        testID="change-password-error"
-                        tone="danger"
-                        role="alert"
-                        aria-live="assertive"
-                    >
-                        {formError}
-                    </Text>
-                </Card>
+                <AuthError testID="change-password-error" message={formError} />
             )}
 
             <Controller
                 control={form.control}
                 name="current_password"
                 render={({ field, fieldState }) => (
-                    <PasswordInput
+                    <AuthField
                         testID="change-password-current"
-                        id="change-password-current"
-                        label={t('auth:changePassword.currentLabel')}
+                        label={
+                            forced
+                                ? t('auth:changePassword.currentLabel')
+                                : t('auth:changePassword.optionalCurrentLabel')
+                        }
+                        icon="lock"
                         placeholder={t('auth:changePassword.currentPlaceholder')}
-                        {...(forced ? { hint: t('auth:changePassword.currentHint') } : {})}
                         autoComplete="current-password"
-                        required
+                        secret
                         value={field.value}
                         onChangeText={field.onChange}
                         onBlur={field.onBlur}
@@ -185,14 +196,14 @@ export function ChangePasswordScreen({ returnTo }: ChangePasswordScreenProps = {
                 control={form.control}
                 name="password"
                 render={({ field, fieldState }) => (
-                    <PasswordInput
+                    <AuthField
                         testID="change-password-new"
-                        id="change-password-new"
                         label={t('auth:changePassword.passwordLabel')}
+                        icon="lock"
                         placeholder={t('auth:changePassword.passwordPlaceholder')}
-                        hint={t('auth:register.passwordHint', { count: PASSWORD_MIN_LENGTH })}
                         autoComplete="new-password"
-                        required
+                        secret
+                        {...eye}
                         value={field.value}
                         onChangeText={field.onChange}
                         onBlur={field.onBlur}
@@ -205,13 +216,14 @@ export function ChangePasswordScreen({ returnTo }: ChangePasswordScreenProps = {
                 control={form.control}
                 name="password_confirmation"
                 render={({ field, fieldState }) => (
-                    <PasswordInput
+                    <AuthField
                         testID="change-password-confirmation"
-                        id="change-password-confirmation"
                         label={t('auth:changePassword.passwordConfirmationLabel')}
+                        icon="lock"
                         placeholder={t('auth:changePassword.passwordConfirmationPlaceholder')}
                         autoComplete="new-password"
-                        required
+                        secret
+                        {...eye}
                         value={field.value}
                         onChangeText={field.onChange}
                         onBlur={field.onBlur}
@@ -220,25 +232,24 @@ export function ChangePasswordScreen({ returnTo }: ChangePasswordScreenProps = {
                 )}
             />
 
-            <Button
+            <AuthHint>{t('auth:register.passwordHint', { count: PASSWORD_MIN_LENGTH })}</AuthHint>
+
+            <AuthSubmit
                 testID="change-password-submit"
-                block
                 label={t('auth:changePassword.submit')}
-                loading={update.isPending}
+                busy={update.isPending}
                 onPress={() => {
                     void form.handleSubmit(onSubmit)();
                 }}
             />
 
             {forced ? null : (
-                <Button
+                <AuthLink
                     testID="change-password-cancel"
-                    block
-                    variant="secondary"
                     label={t('common:action.cancel')}
                     onPress={back.leave}
                 />
             )}
-        </Stack>
+        </View>
     );
 }

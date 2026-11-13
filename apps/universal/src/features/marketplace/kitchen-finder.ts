@@ -25,25 +25,39 @@ import { deliveryTerms, fastestDeliveryMinutes, hoursToday } from './storefront-
 export const KITCHEN_SORTS = ['match', 'fastest', 'rating', 'fee', 'name'] as const;
 export type KitchenSort = (typeof KITCHEN_SORTS)[number];
 
-/** The order a visitor lands on: best match when there is a profile to match, else rating. */
-export function defaultKitchenSort(profileDiets: readonly DietClassification[]): KitchenSort {
-    return profileDiets.length > 0 ? 'match' : 'rating';
+/**
+ * The order a visitor lands on: best match when there is a profile to match, else rating. A
+ * directory nobody has rated yet falls back to the name: "Top rated" over unrated kitchens is a
+ * claim with nothing behind it.
+ */
+export function defaultKitchenSort(
+    profileDiets: readonly DietClassification[],
+    hasRatings = true,
+): KitchenSort {
+    if (profileDiets.length > 0) return 'match';
+    return hasRatings ? 'rating' : 'name';
 }
 
-/** The orders this visitor can choose — "best match" only when there is something to match. */
+/** The orders this visitor can choose — only those with something to sort on. */
 export function availableKitchenSorts(
     profileDiets: readonly DietClassification[],
+    hasRatings = true,
 ): readonly KitchenSort[] {
-    return profileDiets.length > 0 ? KITCHEN_SORTS : KITCHEN_SORTS.filter((s) => s !== 'match');
+    return KITCHEN_SORTS.filter(
+        (s) => (s !== 'match' || profileDiets.length > 0) && (s !== 'rating' || hasRatings),
+    );
 }
 
 export function parseKitchenSort(
     raw: string | undefined,
     profileDiets: readonly DietClassification[] = [],
+    hasRatings = true,
 ): KitchenSort {
-    return (availableKitchenSorts(profileDiets) as readonly string[]).includes(raw ?? '')
+    return (availableKitchenSorts(profileDiets, hasRatings) as readonly string[]).includes(
+        raw ?? '',
+    )
         ? (raw as KitchenSort)
-        : defaultKitchenSort(profileDiets);
+        : defaultKitchenSort(profileDiets, hasRatings);
 }
 
 /** A profile's diet codes narrowed to the vocabulary kitchens are classified in. */

@@ -4,7 +4,6 @@ import {
     Checkbox,
     DateField,
     Icon,
-    Skeleton,
     Text,
     TextInputField,
 } from '@healthy360/design-system';
@@ -65,6 +64,7 @@ import {
 } from '../contact.ts';
 import type { GuestContactChannel, GuestContactValues } from '../contact.ts';
 import { GuestChallenge } from '../guest-challenge.tsx';
+import { Bone } from '../../../ui/shop-skeletons.tsx';
 
 /**
  * `/guest-checkout` — ordering without an account, as HealthZone's `guest` screen draws it: the
@@ -683,8 +683,8 @@ export function GuestCheckoutScreen() {
 
                 {basket === undefined ? (
                     <View testID={`${TEST_ID}-rail-loading`} className="flex-col gap-2">
-                        <Skeleton heightClassName="h-4" />
-                        <Skeleton heightClassName="h-4" widthClassName="w-1/2" />
+                        <Bone heightClassName="h-4" />
+                        <Bone heightClassName="h-4" widthClassName="w-1/2" />
                     </View>
                 ) : basketIsEmpty ? (
                     <View testID={`${TEST_ID}-rail-empty`} className="flex-col items-start gap-3">
@@ -711,7 +711,7 @@ export function GuestCheckoutScreen() {
                             }))}
                         />
                         {preview.data === undefined ? (
-                            <Skeleton heightClassName="h-10" />
+                            <Bone heightClassName="h-10" />
                         ) : (
                             <View
                                 testID={`${TEST_ID}-summary`}

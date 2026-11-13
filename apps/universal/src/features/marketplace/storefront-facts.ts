@@ -76,6 +76,18 @@ export function hoursToday(kitchen: Kitchen, weekday = isoWeekdayToday()): Openi
     return opensAt === null || closesAt === null ? null : { opensAt, closesAt };
 }
 
+/**
+ * The next day any branch opens, a day ahead at the nearest, as an ISO weekday. `null` when the
+ * kitchen publishes no hours in the week, which is a kitchen with nothing to promise.
+ */
+export function nextOpenWeekday(kitchen: Kitchen, weekday = isoWeekdayToday()): number | null {
+    for (let ahead = 1; ahead <= 7; ahead += 1) {
+        const candidate = ((weekday + ahead - 1) % 7) + 1;
+        if (hoursToday(kitchen, candidate) !== null) return candidate;
+    }
+    return null;
+}
+
 export interface OpeningWindow {
     readonly opensAt: string;
     readonly closesAt: string;

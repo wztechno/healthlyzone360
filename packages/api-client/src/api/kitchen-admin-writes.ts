@@ -1,4 +1,5 @@
 import {
+    AllergenCode,
     DeliveryZoneId,
     IngredientId,
     MealId,
@@ -15,6 +16,7 @@ import type {
 import type { MeasureUnit } from '@healthy360/nutrition';
 
 import type {
+    AllergenReferenceCandidate,
     BranchOperating,
     CostAmount,
     CreateDeliveryWindowRequest,
@@ -30,6 +32,9 @@ import type {
     DeliveryZoneAdmin,
     IngredientAdmin,
     IngredientAllergenMapping,
+    ImportReport,
+    ImportRowOutcomeKind,
+    ImportUpload,
     KitchenAdminRepository,
     AllergenReferenceSearchResult,
     NutritionReferenceCandidate,
@@ -38,7 +43,6 @@ import type {
     LockedRequest,
     MealAdmin,
     PlanAdmin,
-    PlanMenu,
     PriceListAdmin,
     PriceListEntry,
     ProductAdmin,
@@ -46,11 +50,12 @@ import type {
     RecipeAdmin,
     RecipeRollupDraft,
     RecipeRollupPreview,
-    ReplacePlanMenuRequest,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
     ItemChannelPrices,
+    ItemPacks,
     SetItemChannelPricesRequest,
+    SetItemPacksRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
     SetPlanCombinationsRequest,
@@ -63,6 +68,7 @@ import type {
     SetRecipeStepsRequest,
     SetZoneAreasRequest,
     SetZoneWindowsRequest,
+    TransferResource,
     UpdateDeliveryWindowRequest,
     UpdateDeliveryZoneRequest,
     UpdateIngredientRequest,
@@ -84,8 +90,6 @@ import type {
     IngredientCategory,
     MealCombinationOption,
     PlanDurationOption,
-    PlanMenuCycle as WirePlanMenuCycle,
-    PlanMenuEntry as WirePlanMenuEntry,
     PlanVariantCell,
     ProcurementReference,
     RecipeRollupPreview as RecipeRollupPreviewWire,
@@ -93,16 +97,19 @@ import type {
 import {
     buildCategoryLookup,
     mapDeliveryWindow,
-    mapPlanMenu,
     mapRecipeRollupPreview,
     mapItemChannelPrices,
+    mapItemPacks,
     mapMeasureUnit,
     pickCurrentRecipeVersion,
     salesChannelIdFor,
     type CategoryLookup,
     type WireItemChannelPrices,
+    type WireItemPacks,
 } from './kitchen-admin-mappers.ts';
 import { createApiKitchenAdminReads } from './kitchen-admin-repository.ts';
+import { createApiKitchenAdminWholesale } from './kitchen-admin-wholesale.ts';
+import type { ApiKitchenAdminWholesale } from './kitchen-admin-wholesale.ts';
 import { MultipartBody } from './transport.ts';
 import type { Transport } from './transport.ts';
 
@@ -114,6 +121,7 @@ export type ApiKitchenAdminWrites = Pick<
     | 'createIngredient'
     | 'updateIngredient'
     | 'setRecordPhoto'
+    | 'importRecords'
     | 'removeRecordPhoto'
     | 'archiveIngredient'
     | 'forkIngredient'
@@ -133,18 +141,21 @@ export type ApiKitchenAdminWrites = Pick<
     | 'previewRecipeRollup'
     | 'publishRecipe'
     | 'retireRecipe'
+    | 'releaseRecipeVersion'
     | 'createProduct'
     | 'updateProduct'
     | 'publishProduct'
     | 'archiveProduct'
     | 'setProductChannelAvailability'
     | 'setItemChannelPrices'
+    | 'setItemPacks'
     | 'setPriceListEntries'
     | 'publishPriceList'
     | 'createMeal'
     | 'updateMeal'
     | 'publishMeal'
     | 'retireMeal'
+    | 'markAllergensAssessed'
     | 'setMealAvailability'
     | 'createPlan'
     | 'updatePlan'
@@ -153,7 +164,6 @@ export type ApiKitchenAdminWrites = Pick<
     | 'setPlanVariants'
     | 'setPlanDurations'
     | 'setPlanCombinations'
-    | 'replacePlanMenu'
     | 'createZone'
     | 'updateZone'
     | 'archiveZone'
@@ -163,7 +173,8 @@ export type ApiKitchenAdminWrites = Pick<
     | 'updateDeliveryWindow'
     | 'archiveDeliveryWindow'
     | 'setBranchOperating'
->;
+> &
+    ApiKitchenAdminWholesale;
 
 function ifMatch(lockVersion: number): Readonly<Record<string, string>> {
     return { 'If-Match': `"${lockVersion}"` };
@@ -408,6 +419,29 @@ const PHOTO_PATHS: Readonly<Record<RecordPhotoSubject, string>> = {
     recipe: '/catalogue/recipes',
     catalogue_item: '/catalogue/items',
 };
+
+/** Where each resource's workbook is uploaded. */
+const IMPORT_PATHS: Readonly<Record<TransferResource, string>> = {
+    ingredients: '/catalogue/ingredients/imports',
+    recipes: '/catalogue/recipes/imports',
+    stock: '/catalogue/inventory/counts/imports',
+};
+
+/** An import's report as the server answers it. */
+interface WireImportReport {
+    readonly created: number;
+    readonly updated: number;
+    readonly unchanged: number;
+    readonly skipped: number;
+    readonly failed: number;
+    readonly ignored_columns?: readonly string[] | null;
+    readonly rows: ReadonlyArray<{
+        readonly row: number;
+        readonly outcome: ImportRowOutcomeKind;
+        readonly reference?: string | null;
+        readonly message?: string | null;
+    }>;
+}
 
 export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdminWrites {
     const reads = createApiKitchenAdminReads(transport);
@@ -707,6 +741,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
     }
 
     return {
+        ...createApiKitchenAdminWholesale(transport),
         async searchAllergenReferences(request) {
             const params = new URLSearchParams();
             if (request.barcode) params.set('barcode', request.barcode);
@@ -762,6 +797,20 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                               relation: wire.nutrition.relation,
                               reason: wire.nutrition.reason,
                           },
+                unit: wire.unit,
+                gramsPerUnit: wire.grams_per_unit,
+                allergens: {
+                    candidates: wire.allergens
+                        .candidates as unknown as readonly AllergenReferenceCandidate[],
+                    notices: wire.allergens.notices,
+                    pick: wire.allergens.pick,
+                    codes:
+                        wire.allergens.codes?.map((entry) => ({
+                            allergenCode: AllergenCode.unsafe(entry.code),
+                            containment: entry.containment,
+                        })) ?? null,
+                    reason: wire.allergens.reason,
+                },
                 unavailable: wire.unavailable,
             };
         },
@@ -789,6 +838,35 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 body: new MultipartBody(form),
             });
             return wire.photo.url;
+        },
+
+        async importRecords(
+            resource: TransferResource,
+            upload: ImportUpload,
+        ): Promise<ImportReport> {
+            const form = new FormData();
+            // The cast covers React Native's `{uri, name, type}` triple, which its `FormData`
+            // accepts in a `Blob`'s place.
+            form.append('file', upload.file as Blob, upload.fileName);
+            const wire = await transport.request<WireImportReport>({
+                method: 'POST',
+                path: IMPORT_PATHS[resource],
+                body: new MultipartBody(form),
+            });
+            return {
+                created: wire.created,
+                updated: wire.updated,
+                unchanged: wire.unchanged,
+                skipped: wire.skipped,
+                failed: wire.failed,
+                ignoredColumns: wire.ignored_columns ?? [],
+                rows: wire.rows.map((row) => ({
+                    row: row.row,
+                    outcome: row.outcome,
+                    reference: row.reference ?? null,
+                    message: row.message ?? null,
+                })),
+            };
         },
 
         async removeRecordPhoto(subject: RecordPhotoSubject, recordId: string): Promise<void> {
@@ -830,6 +908,9 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                         : { ingredient_subcategory_id: subcategoryId }),
                     default_unit_id: unitId,
                     ...(purchaseUnitId === null ? {} : { purchase_unit_id: purchaseUnitId }),
+                    ...(request.composition === undefined
+                        ? {}
+                        : { composition: request.composition }),
                     // `items_per_unit` was on the contract and never sent — a gap, not a decision:
                     // a create that stated the pack size silently dropped it and the first save
                     // after had to state it again.
@@ -1044,6 +1125,7 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                     ...(request.shelfLifeDays === undefined
                         ? {}
                         : { shelf_life_days: request.shelfLifeDays }),
+                    ...(request.producesIngredient === true ? { produces_ingredient: true } : {}),
                 },
             });
 
@@ -1288,6 +1370,20 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             return reads.getRecipe(recipeId);
         },
 
+        async releaseRecipeVersion(
+            recipeId: RecipeId,
+            versionId: RecipeVersionId,
+            lockVersion: number,
+        ): Promise<RecipeAdmin> {
+            await transport.request({
+                method: 'POST',
+                path: `/catalogue/recipes/${encodeURIComponent(String(recipeId))}/versions/${encodeURIComponent(String(versionId))}/release`,
+                headers: ifMatch(lockVersion),
+                body: { confirmed: true },
+            });
+            return reads.getRecipe(recipeId);
+        },
+
         async createProduct(request: CreateProductRequest): Promise<ProductAdmin> {
             const envelope = await transport.requestEnvelope<{ readonly item: AdminCatalogueItem }>(
                 {
@@ -1458,6 +1554,31 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             return mapItemChannelPrices(data);
         },
 
+        async setItemPacks(
+            itemId: ProductId | MealId,
+            request: SetItemPacksRequest,
+        ): Promise<ItemPacks> {
+            const data = await transport.request<WireItemPacks>({
+                method: 'PUT',
+                path: `/catalogue/items/${encodeURIComponent(String(itemId))}/packs`,
+                headers: ifMatch(request.lockVersion),
+                body: {
+                    places: request.places,
+                    packs: request.packs.map((pack) => ({
+                        ...(pack.id === undefined ? {} : { id: pack.id }),
+                        fill: { quantity: pack.fill.quantity, unit: pack.fill.unit },
+                        components: pack.components.map((component) => ({
+                            ingredient_id: String(component.ingredientId),
+                            quantity: component.quantity,
+                            is_container: component.isContainer,
+                        })),
+                        prices: { home: pack.prices.home, business: pack.prices.business },
+                    })),
+                },
+            });
+            return mapItemPacks(data);
+        },
+
         async setPriceListEntries(
             priceListId: PriceListId,
             request: SetPriceListEntriesRequest,
@@ -1578,6 +1699,13 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                 headers: ifMatch(request.lockVersion),
             });
             return reads.getMeal(mealId);
+        },
+
+        async markAllergensAssessed(itemId: ProductId | MealId): Promise<void> {
+            await transport.request({
+                method: 'POST',
+                path: `/catalogue/items/${encodeURIComponent(String(itemId))}/allergens-assessed`,
+            });
         },
 
         async createPlan(request: CreatePlanRequest): Promise<PlanAdmin> {
@@ -1934,46 +2062,6 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
             return reads.getPlan(planId);
         },
 
-        /**
-         * Replaces the plan's fixed menu, or withdraws it.
-         *
-         * One request, unlike its three plan siblings: the menu is a single document on a single
-         * endpoint, so there is no vocabulary to reconcile first and nothing to re-read afterwards
-         * — the response carries the plan, the cycle it now runs on and every entry it now has, with
-         * the item's new lock version in it.
-         *
-         * All three fields are sent on every call, `null` and `[]` included. The server takes
-         * `present` rather than `required` on each of them precisely so that "no menu" can be
-         * *stated*; omitting a field because it happens to be empty would send half a document and
-         * be refused as an accident rather than honoured as a decision.
-         */
-        async replacePlanMenu(
-            planId: SubscriptionPlanId,
-            request: ReplacePlanMenuRequest,
-        ): Promise<PlanMenu> {
-            const envelope = await transport.requestEnvelope<{
-                item: AdminCatalogueItem;
-                cycle: WirePlanMenuCycle;
-                entries: WirePlanMenuEntry[];
-            }>({
-                method: 'PUT',
-                path: `/catalogue/plans/${encodeURIComponent(String(planId))}/menu`,
-                headers: ifMatch(request.lockVersion),
-                body: {
-                    entries: request.entries.map((entry) => ({
-                        cycle_day: entry.cycleDay,
-                        slot: entry.slot,
-                        sequence: entry.sequence,
-                        meal_catalogue_item_id: String(entry.mealId),
-                    })),
-                    menu_cycle_days: request.cycleDays,
-                    menu_cycle_anchor_date: request.anchorDate,
-                },
-            });
-
-            return mapPlanMenu(envelope.data.item, envelope.data.cycle, envelope.data.entries);
-        },
-
         async createZone(request: CreateDeliveryZoneRequest): Promise<DeliveryZoneAdmin> {
             const envelope = await transport.requestEnvelope<{
                 readonly delivery_zone: { readonly id: string };
@@ -2203,6 +2291,20 @@ export function createApiKitchenAdminWrites(transport: Transport): ApiKitchenAdm
                                   ...(line.quantity === undefined
                                       ? {}
                                       : { quantity: line.quantity }),
+                              })),
+                          }),
+                    ...(draft.packs === undefined
+                        ? {}
+                        : {
+                              packs: draft.packs.map((pack) => ({
+                                  key: pack.key,
+                                  fill_quantity: pack.fillQuantity,
+                                  fill_unit: pack.fillUnit,
+                                  components: pack.components.map((component) => ({
+                                      ingredient_id: String(component.ingredientId),
+                                      quantity: component.quantity,
+                                      is_container: component.isContainer,
+                                  })),
                               })),
                           }),
                 },

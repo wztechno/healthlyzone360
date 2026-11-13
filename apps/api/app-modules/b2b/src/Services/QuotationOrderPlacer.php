@@ -13,6 +13,7 @@ use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Orders\Exceptions\PlacementRefused;
+use Healthy360\Orders\Services\ClosedDayDeliveries;
 use Healthy360\Orders\Services\ComposedLine;
 use Healthy360\Orders\Services\ComposedPlacement;
 use Healthy360\Orders\Services\OrderPlacementService;
@@ -47,12 +48,18 @@ use Healthy360\Support\Api\Exceptions\ApiException;
  * unwinds the whole run and the buyer is told which reason, not left with a
  * schedule that has holes in it.
  *
+ * **A week on a closure** moves to the kitchen's next open day and its managers
+ * are alerted ({@see ClosedDayDeliveries}); the run records the date it went out.
+ *
  * Idempotent per delivery: a retried acceptance answers with the orders the
  * first one placed instead of placing a second run.
  */
 final readonly class QuotationOrderPlacer
 {
-    public function __construct(private OrderPlacementService $placement) {}
+    public function __construct(
+        private OrderPlacementService $placement,
+        private ClosedDayDeliveries $closedDays,
+    ) {}
 
     /** The longest run a repeating quotation may place at once. */
     public const int MAX_WEEKS = 12;
@@ -92,7 +99,12 @@ final readonly class QuotationOrderPlacer
         $placed = [];
 
         foreach (range(0, max(1, min($weeks, self::MAX_WEEKS)) - 1) as $week) {
-            $date = $deliveryDate->addWeeks($week);
+            $agreed = $deliveryDate->addWeeks($week);
+            // A week on a closure goes out on the next open day (owner, 3 Nov
+            // 2026); with nothing open in time it keeps its day. Either way the
+            // managers are told, below.
+            $moved = $this->closedDays->dayFor($kitchenOrganisationId, null, null, $agreed);
+            $date = $moved ?? $agreed;
 
             $result = $this->placement->placeComposed(
                 new ComposedPlacement(
@@ -105,10 +117,22 @@ final readonly class QuotationOrderPlacer
                     lines: $composed,
                     deliveryWindowCode: $deliveryWindowCode,
                     requestedDate: $date,
+                    // The day was agreed in writing, and a refusal on a later
+                    // week could strand a run that has already started.
+                    agreedInWriting: true,
                 ),
                 // The first week keeps the key a single delivery always had.
                 $week === 0 ? 'quotation:'.$quotation->getKey() : 'quotation:'.$quotation->getKey().':'.($week + 1),
             );
+
+            // A replayed acceptance already told them.
+            if (! $result->replayed) {
+                if ($moved === null) {
+                    $this->closedDays->alertUnmoved($kitchenOrganisationId, (string) $result->order->getKey(), $agreed);
+                } elseif (! $moved->equalTo($agreed)) {
+                    $this->closedDays->alertMoved($result->order);
+                }
+            }
 
             $placed[] = ['order_id' => (string) $result->order->getKey(), 'delivery_date' => $date];
         }

@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Healthy360\B2b\Http\Controllers;
 
+use Healthy360\B2b\Enums\AgreementStatus;
 use Healthy360\B2b\Http\Concerns\ResolvesAuthenticatedUser;
 use Healthy360\B2b\Presenters\B2bAgreementPresenter;
 use Healthy360\B2b\Services\B2bLocator;
 use Healthy360\Support\Api\ApiResponse;
+use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,6 +46,11 @@ final class B2bAgreementShowController
     {
         $record = $this->locator->ownApplication($application, $this->currentUser($request));
         $terms = $this->locator->agreement($record, $agreement);
+
+        // The reviewer's working copy is not the company's to read yet.
+        if ($terms->status === AgreementStatus::Draft) {
+            throw new ApiException(ErrorCode::ResourceNotFound);
+        }
 
         return ApiResponse::data(['agreement' => $this->presenter->agreement($terms)])
             ->withHeaders(['ETag' => '"'.$terms->lock_version.'"']);

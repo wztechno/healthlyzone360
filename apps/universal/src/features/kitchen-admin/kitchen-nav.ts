@@ -25,12 +25,15 @@ export interface KitchenNavSection {
     readonly items: readonly KitchenNavItem[];
 }
 
-const GROUP_LABEL_KEYS: Readonly<Record<EntityGroup, string>> = {
+export const GROUP_LABEL_KEYS: Readonly<Record<EntityGroup, string>> = {
     orderDesk: 'kitchen:nav.groups.orderDesk',
     workbench: 'kitchen:nav.groups.workbench',
     catalogue: 'kitchen:nav.groups.catalogue',
     commercial: 'kitchen:nav.groups.commercial',
     operations: 'kitchen:nav.groups.operations',
+    buying: 'kitchen:nav.groups.buying',
+    foodSafety: 'kitchen:nav.groups.foodSafety',
+    reports: 'kitchen:nav.groups.reports',
     access: 'kitchen:nav.groups.access',
 };
 

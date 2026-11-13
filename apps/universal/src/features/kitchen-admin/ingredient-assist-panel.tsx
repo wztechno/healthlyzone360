@@ -2,12 +2,13 @@ import type {
     IngredientAssistReference,
     IngredientAssistSuggestion,
 } from '@healthy360/api-client/contracts';
-import { Button, Callout, Inline, Stack, Text } from '@healthy360/design-system';
+import { Callout, Inline, Stack, Text } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
 import { displayName } from './format.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * What the ingredient assistant found for the typed name, under the identity fields.
  *
@@ -20,6 +21,8 @@ export function IngredientAssistPanel({
     result,
     pending,
     arabicFromAi,
+    unitFromAi = null,
+    gramsFromAi = null,
     categorySuggestion,
     onOpen,
     onRerun,
@@ -28,6 +31,10 @@ export function IngredientAssistPanel({
     readonly pending: boolean;
     /** The Arabic field still holds exactly what the assistant wrote into it. */
     readonly arabicFromAi: boolean;
+    /** The unit the assistant set (its label), while purchase and stock still hold it. */
+    readonly unitFromAi?: string | null;
+    /** The mass of one litre or piece the assistant estimated, while the field still holds it. */
+    readonly gramsFromAi?: { readonly grams: string; readonly unit: string } | null;
     /** A category pair the form could not apply because the cook had already chosen one. */
     readonly categorySuggestion: { readonly label: string; readonly onApply: () => void } | null;
     readonly onOpen: (id: IngredientAssistReference['id']) => void;
@@ -54,7 +61,7 @@ export function IngredientAssistPanel({
                     {entry.reason}
                 </Text>
             )}
-            <Button
+            <DeskButton
                 testID={`kitchen-ingredient-assist-open-${entry.id}`}
                 size="sm"
                 variant="ghost"
@@ -85,7 +92,7 @@ export function IngredientAssistPanel({
                 role="status"
                 title={t('kitchen:assist.title')}
                 actions={
-                    <Button
+                    <DeskButton
                         testID="kitchen-ingredient-assist-rerun"
                         size="sm"
                         variant="ghost"
@@ -120,6 +127,16 @@ export function IngredientAssistPanel({
                             {t('kitchen:assist.arabicFilled')}
                         </Text>
                     ) : null}
+                    {unitFromAi === null ? null : (
+                        <Text testID="kitchen-ingredient-assist-unit" variant="caption">
+                            {t('kitchen:assist.unitFilled', { unit: unitFromAi })}
+                        </Text>
+                    )}
+                    {gramsFromAi === null ? null : (
+                        <Text testID="kitchen-ingredient-assist-grams" variant="caption">
+                            {t('kitchen:assist.gramsFilled', gramsFromAi)}
+                        </Text>
+                    )}
                     {categorySuggestion === null ? null : (
                         <Inline space="xs" align="center" wrap>
                             <Text variant="caption">
@@ -127,7 +144,7 @@ export function IngredientAssistPanel({
                                     category: categorySuggestion.label,
                                 })}
                             </Text>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-ingredient-assist-apply-category"
                                 size="sm"
                                 variant="ghost"

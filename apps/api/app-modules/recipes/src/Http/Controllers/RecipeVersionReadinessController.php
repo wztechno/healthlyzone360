@@ -74,6 +74,10 @@ final class RecipeVersionReadinessController
                 'version_number' => $record->version_number,
                 'status' => $record->status->value,
                 'derivation_state' => $record->derivation_state->value,
+
+                // What a release would replace, beside the status that says one
+                // is pending. `{}` rather than `[]` when the old label was empty.
+                'previous_label' => $record->previous_label === null ? null : (object) $record->previous_label,
             ],
         );
     }

@@ -1,6 +1,5 @@
 import type { ProductionOrder } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     EmptyState,
     ErrorState,
@@ -14,7 +13,7 @@ import {
 import { ProductionOrderId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { isMeasureUnit } from '@healthy360/nutrition';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -28,6 +27,8 @@ import { usePrintSheet } from '../print-sheet.tsx';
 import { formatLot, labelCopies } from '../production-desk/batch-figures.ts';
 import { Gs1Barcode } from '../production-desk/gs1-barcode.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 /**
  * `/kitchen/production-desk/{order}/label` — the batch's label, as many copies as it needs.
  *
@@ -69,7 +70,11 @@ export function ProductionBatchLabelScreen({ order }: ProductionBatchLabelScreen
 
 function ProductionBatchLabel({ order }: ProductionBatchLabelScreenProps) {
     const { t } = useTranslation();
-    const router = useRouter();
+    const params = useLocalSearchParams<{ readonly returnTo?: string }>();
+    const back = useReturnTo(
+        params.returnTo,
+        order === undefined ? '/kitchen/production-desk' : `/kitchen/production-desk/${order}`,
+    );
     const sheet = usePrintSheet();
 
     const parsed = order === undefined ? null : ProductionOrderId.safeParse(order);
@@ -124,18 +129,18 @@ function ProductionBatchLabel({ order }: ProductionBatchLabelScreenProps) {
     const barcode = batch.barcode;
 
     const backButton = (
-        <Button
+        <DeskButton
             testID="kitchen-production-label-back"
             variant="secondary"
             label={t('kitchen:ops.production.openBatch')}
             onPress={() => {
-                router.push(`/kitchen/production-desk/${String(batch.id)}`);
+                back.leave();
             }}
         />
     );
 
-    // A lot is minted only when a settlement put usable units on a shelf; before that, and on a
-    // batch that made nothing, there is no label to print.
+    // The lot comes at start, but the barcode carries the use-by date, so the server sends no
+    // barcode until one exists. Either gap means no label, and the copy says which.
     if (lot === null || barcode === null) {
         return (
             <Stack space="lg" testID="kitchen-production-label-screen">
@@ -143,7 +148,12 @@ function ProductionBatchLabel({ order }: ProductionBatchLabelScreenProps) {
                     testID="kitchen-production-label-nothing"
                     tone="warning"
                     role="alert"
-                    title={t('kitchen:ops.supplyOrders.print.nothingToPrintTitle')}
+                    title={t('kitchen:ops.production.labelNothingTitle')}
+                    body={t(
+                        lot === null
+                            ? 'kitchen:ops.production.labelNoLotBody'
+                            : 'kitchen:ops.production.labelNoUseByBody',
+                    )}
                     actions={backButton}
                 />
             </Stack>
@@ -156,35 +166,38 @@ function ProductionBatchLabel({ order }: ProductionBatchLabelScreenProps) {
         <Stack space="lg" testID="kitchen-production-label-screen">
             {/* Screen-only: the print block hides this whole block by test id. */}
             <Stack space="sm" testID="kitchen-production-label-toolbar">
-                <Heading level={1} testID="kitchen-production-label-title">
-                    {t('kitchen:ops.production.printLabel')}
-                </Heading>
+                {/* The board's one bar: the title at the start, copies and the two buttons at the end. */}
+                <View className="z-auto flex-row flex-wrap items-end justify-between gap-snug rounded-panel border border-stroke-subtle bg-surface-raised p-snug">
+                    <Heading level={2} testID="kitchen-production-label-title">
+                        {t('kitchen:ops.production.printLabel')}
+                    </Heading>
 
-                <Inline space="sm" align="end" justify="between" wrap>
-                    <View className="w-32">
-                        <QuantityInput
-                            testID="kitchen-production-label-copies"
-                            id="kitchen-production-label-copies"
-                            label={t('kitchen:ops.production.labelCopies')}
-                            // Emptied, the sheet prints the batch's own count — so that is what
-                            // the empty box shows, rather than a number it will not print.
-                            placeholder={String(labelCopies(batch, null))}
-                            value={typedCopies ?? String(copies)}
-                            onChangeText={setTypedCopies}
-                        />
-                    </View>
-
-                    <Inline space="sm" align="center" wrap>
-                        {backButton}
-                        {sheet.mode === 'browser' ? (
-                            <Button
-                                testID="kitchen-production-label-print"
-                                label={t('kitchen:ops.production.printLabel')}
-                                onPress={sheet.print}
+                    <Inline space="sm" align="end" wrap>
+                        <View className="w-32">
+                            <QuantityInput
+                                testID="kitchen-production-label-copies"
+                                id="kitchen-production-label-copies"
+                                label={t('kitchen:ops.production.labelCopies')}
+                                // Emptied, the sheet prints the batch's own count — so that is what
+                                // the empty box shows, rather than a number it will not print.
+                                placeholder={String(labelCopies(batch, null))}
+                                value={typedCopies ?? String(copies)}
+                                onChangeText={setTypedCopies}
                             />
-                        ) : null}
+                        </View>
+
+                        <Inline space="sm" align="center" wrap>
+                            {backButton}
+                            {sheet.mode === 'browser' ? (
+                                <DeskButton
+                                    testID="kitchen-production-label-print"
+                                    label={t('kitchen:ops.production.printLabel')}
+                                    onPress={sheet.print}
+                                />
+                            ) : null}
+                        </Inline>
                     </Inline>
-                </Inline>
+                </View>
 
                 {sheet.mode === 'browser' ? null : (
                     <Callout
@@ -248,34 +261,41 @@ function LabelCopy({
             testID={testID}
             className="w-56 gap-1 rounded-lg border border-stroke-subtle bg-surface-raised p-2"
         >
+            {/* The board's label: a large name, then the facts as rows, the use-by boxed last. */}
             <View className="flex-row flex-wrap gap-x-2">
-                <Text variant="bodyStrong" testID={`${testID}-name`}>
+                <Text variant="title" className="font-display" testID={`${testID}-name`}>
                     {batch.productionItemNameEn ?? noValue}
                 </Text>
                 {nameAr === null ? null : (
-                    <Text variant="bodyStrong" testID={`${testID}-name-ar`}>
+                    <Text variant="title" testID={`${testID}-name-ar`}>
                         {nameAr}
                     </Text>
                 )}
             </View>
 
-            <View className="flex-row gap-x-1">
-                <Text variant="caption">{t('kitchen:ops.production.lotLabel')}</Text>
+            <View className="flex-row justify-between gap-x-1 border-t border-stroke-subtle pt-1">
+                <Text variant="caption" tone="secondary">
+                    {t('kitchen:ops.production.lotLabel')}
+                </Text>
                 <Text variant="mono" testID={`${testID}-lot`}>
                     {formatLot(lot)}
                 </Text>
             </View>
 
-            <View testID={`${testID}-dates`} className="flex-row flex-wrap justify-between gap-x-2">
-                <View className="flex-row gap-x-1">
-                    <Text variant="caption">{t('kitchen:ops.production.productionDateLabel')}</Text>
+            <View testID={`${testID}-dates`} className="flex-col gap-1">
+                <View className="flex-row justify-between gap-x-1 border-t border-stroke-subtle pt-1">
+                    <Text variant="caption" tone="secondary">
+                        {t('kitchen:ops.production.productionDateLabel')}
+                    </Text>
                     <Text variant="bodyStrong" testID={`${testID}-made`}>
                         {batch.productionDate === null ? noValue : day(batch.productionDate)}
                     </Text>
                 </View>
-                <View className="flex-row gap-x-1">
-                    <Text variant="caption">{t('kitchen:ops.production.expiryDateLabel')}</Text>
-                    <Text variant="bodyStrong" testID={`${testID}-use-by`}>
+                <View className="flex-row items-baseline justify-between gap-x-1 rounded border-2 border-content-primary px-2 py-1">
+                    <Text variant="micro" className="uppercase tracking-wide">
+                        {t('kitchen:ops.production.expiryDateLabel')}
+                    </Text>
+                    <Text variant="strong" testID={`${testID}-use-by`}>
                         {batch.expiryDate === null
                             ? t('kitchen:ops.production.noExpiry')
                             : day(batch.expiryDate)}

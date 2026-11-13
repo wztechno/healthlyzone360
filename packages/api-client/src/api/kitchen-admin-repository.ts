@@ -18,36 +18,44 @@ import type {
     DeliveryWindow,
     DeliveryZoneAdmin,
     DeliveryZoneAdminFilter,
+    DownloadedFile,
     IngredientAdmin,
     IngredientAdminFilter,
     IngredientAdminSort,
     IngredientCategoryAdmin,
     ItemChannelPrices,
+    ItemPacks,
     KitchenAdminRepository,
     MealAdmin,
     MealAdminFilter,
     PlanAdmin,
     PlanAdminFilter,
-    PlanMenu,
     PriceListAdmin,
     PriceListAdminFilter,
+    PriceListFigures,
+    PriceListPage,
     ProductAdmin,
     ProductAdminFilter,
+    PublishableStatus,
     RecipeAdmin,
     RecipeAdminFilter,
     ReferenceSeries,
     RecipeAdminSummary,
+    RecipeSheetBundle,
     TechnicalSheetAdmin,
+    TransferResource,
 } from '../contracts/kitchen-admin.ts';
 import { ApiError, apiFailure, throwFailure } from '../contracts/failure.ts';
 import type { CursorPage } from '../contracts/pagination.ts';
 import type {
     AdminCatalogueItem,
+    AdminCatalogueItemIndexRow,
     AdminCatalogueItemVariant,
     AdminChannelAssignment,
     AdminDeliveryArea,
     AdminIngredient,
     AdminPriceList,
+    AdminPriceListIndexRow,
     BranchOperatingEnvelope,
     AdminPriceListEntry,
     AdminRecipe,
@@ -63,12 +71,9 @@ import type {
     PaginatedOrNumberedMeta,
     PlanDurationAssignment,
     PlanDurationOption,
-    PlanMenuCycle as WirePlanMenuCycle,
-    PlanMenuEntry as WirePlanMenuEntry,
     PlanProfile,
     PlanVariantCell,
     PriceListChannelAssignment,
-    RecipeLine as WireRecipeLine,
     RecipeOutput as WireRecipeOutput,
     RecipeStep as WireRecipeStep,
     RecipeVersionAllergen,
@@ -90,7 +95,6 @@ import {
     mapMealAdminFromItem,
     mapPlanAdminFromItem,
     mapPlanCombination,
-    mapPlanMenu,
     mapPlanVariantsFromCells,
     mapPriceListAdmin,
     mapPriceListEntry,
@@ -105,10 +109,13 @@ import {
     planDurationsFromAssignments,
     priceListChannelsFromAssignments,
     mapItemChannelPrices,
+    mapItemPacks,
     salesChannelIdFor,
     type CategoryLookup,
     type SalesChannelLookup,
     type WireItemChannelPrices,
+    type WireItemPacks,
+    type WireRecipeLine,
 } from './kitchen-admin-mappers.ts';
 import type { Transport } from './transport.ts';
 
@@ -138,6 +145,41 @@ function pickCursorFilter(filter?: CursorQueryFilter): CursorQueryFilter | undef
 
     if (Object.keys(picked).length === 0) return undefined;
     return picked;
+}
+
+/** The index's `status` for each list status; `null` where a price list has no such state. */
+const PRICE_LIST_WIRE_STATUS: Readonly<Record<PublishableStatus, string | null>> = {
+    draft: 'draft',
+    review_required: null,
+    published: 'active',
+    retired: 'archived',
+};
+
+/**
+ * The price-list index's Lens figures from its `meta`, or `undefined` when it sent none. The
+ * index's statuses are its own three; `review_required` has no counterpart there and is zero.
+ */
+function priceListFigures(meta: unknown): PriceListFigures | undefined {
+    const wire = meta as {
+        readonly status_counts?: {
+            readonly draft: number;
+            readonly active: number;
+            readonly archived: number;
+        };
+        readonly unpriced_count?: number;
+        readonly agreement_count?: number;
+    };
+    if (wire.status_counts === undefined) return undefined;
+    return {
+        statusCounts: {
+            draft: wire.status_counts.draft,
+            review_required: 0,
+            published: wire.status_counts.active,
+            retired: wire.status_counts.archived,
+        },
+        unpricedCount: wire.unpriced_count ?? 0,
+        agreementCount: wire.agreement_count ?? 0,
+    };
 }
 
 /**
@@ -215,11 +257,11 @@ export type ApiKitchenAdminReads = Pick<
     | 'getProduct'
     | 'listSellableChannels'
     | 'getItemChannelPrices'
+    | 'getItemPacks'
     | 'listMeals'
     | 'getMeal'
     | 'listPlans'
     | 'getPlan'
-    | 'getPlanMenu'
     | 'listPriceLists'
     | 'getPriceList'
     | 'listZones'
@@ -227,6 +269,11 @@ export type ApiKitchenAdminReads = Pick<
     | 'getZoneWindows'
     | 'listDeliveryWindows'
     | 'getBranchOperating'
+    | 'exportIngredients'
+    | 'exportRecipes'
+    | 'exportStock'
+    | 'downloadImportTemplate'
+    | 'listRecipeTechnicalSheets'
 >;
 
 /** A price list's entries per page — the endpoint's `CursorPage::MAX_LIMIT`, so a list is few reads. */
@@ -277,6 +324,41 @@ function soleAllergen(codes?: readonly AllergenCode[] | undefined): string | und
     return codes === undefined || codes.length === 0 ? undefined : codes[0];
 }
 
+/** The recipe list's own filters, beside the cursor ones — shared by the list and its export. */
+function recipeListParams(
+    filter: RecipeAdminFilter | undefined,
+): Record<string, string | undefined> {
+    /*
+     * The status filter, sent as the caller asked for it.
+     *
+     * This used to translate into the recipe identity's own vocabulary — `published` became
+     * `active`, `retired` became `archived` — and **silently dropped `draft` and
+     * `review_required`**, because the identity has no such states. Picking either in the
+     * list's Status column therefore sent no filter at all and the page answered with
+     * everything, which read as a filter that did not work.
+     *
+     * The endpoint now accepts all six and narrows the version ones against the *current*
+     * version, which is the one the row displays. Still one value: the column's menu is
+     * single-select, and a union is not a query this endpoint expresses.
+     */
+    const status =
+        filter?.statuses !== undefined && filter.statuses.length === 1
+            ? filter.statuses[0]
+            : undefined;
+
+    return {
+        status,
+        stale_only: filter?.staleOnly === true ? '1' : undefined,
+        allergen: soleAllergen(filter?.allergenCodes),
+        // The recipe book's own axes. `kind` and `selling_status` are refused for a caller who
+        // cannot see the catalogue, so the list hook only sets them when the reader holds that
+        // permission.
+        kind: filter?.kind,
+        selling_status: filter?.sellingStatus,
+        category: filter?.category,
+    };
+}
+
 /**
  * A sort key's wire spelling.
  *
@@ -294,6 +376,157 @@ function ingredientSortParameter(
     if (sort === 'updatedAt') return 'updated_at';
     return sort;
 }
+
+/**
+ * The query `listIngredients` sends, and so the one `exportIngredients` sends — kept in one place so
+ * the workbook can never describe a different set from the list it was exported from.
+ *
+ * `null` when the filter names a category the lookup cannot resolve: the caller answers nothing,
+ * never the widened list (see the comment inside).
+ */
+function ingredientListSearch(
+    filter: IngredientAdminFilter | undefined,
+    lookup: CategoryLookup,
+): URLSearchParams | null {
+    const search = new URLSearchParams();
+
+    if (filter?.limit !== undefined) search.set('limit', String(filter.limit));
+    if (filter?.cursor !== undefined) search.set('cursor', filter.cursor);
+    if (filter?.page !== undefined) search.set('page', String(filter.page));
+    if (filter?.perPage !== undefined) search.set('per_page', String(filter.perPage));
+    if (filter?.query !== undefined && filter.query.trim() !== '') {
+        search.set('query', filter.query.trim());
+    }
+
+    const statuses = filter?.statuses;
+    if (statuses !== undefined && statuses.length === 1) {
+        const apiStatus = apiStatusForPublishableFilter(statuses[0]!);
+        if (apiStatus !== null) search.set('status', apiStatus);
+    }
+
+    if (filter?.categoryCode !== undefined) {
+        const categoryId = lookup.codeToId.get(filter.categoryCode);
+
+        /*
+         * An unresolvable category returns nothing rather than everything.
+         *
+         * This used to drop the filter, and the packaging page is what that cost: it asked
+         * for one branch, the branch was removed from the taxonomy, the code stopped
+         * resolving, and the request degraded to the unfiltered list — so a page meant to
+         * show thirty-one boxes showed three hundred ingredients and looked like it had
+         * worked. Widening a request nobody widened is the worse of the two failures,
+         * because an empty page is obviously wrong and a full one is not.
+         */
+        if (categoryId === undefined) return null;
+
+        search.set('category', categoryId);
+    }
+
+    /*
+     * An unresolvable *exclusion* is refused, not dropped.
+     *
+     * The mirror of the rule above, and the half that was still open. This used to skip
+     * the constraint when the code did not resolve, on the argument that an exclusion
+     * which cannot be translated must not become a narrower request by accident — and the
+     * honest failure was said to be the unfiltered list.
+     *
+     * That argument does not survive packaging moving back into this table. The unfiltered
+     * list is now food *and* thirty-three boxes, so a dropped exclusion is not the caller
+     * getting "what they would have got before the filter existed" — it is the ingredient
+     * picker quietly offering bin liners, which is the same failure the inclusive branch
+     * above documents, pointed the other way. Neither list may widen by accident.
+     *
+     * It throws rather than returning empty because the two cases differ: an unresolvable
+     * *inclusion* has an honest empty answer, while an unresolvable exclusion has no honest
+     * answer at all — every row is a candidate and none can be ruled out.
+     */
+    if (filter?.excludeCategoryCode !== undefined) {
+        const excludedId = lookup.codeToId.get(filter.excludeCategoryCode);
+
+        if (excludedId === undefined) {
+            throwFailure(
+                apiFailure('server', {
+                    message: `The category "${filter.excludeCategoryCode}" could not be resolved, so it cannot be excluded. Refusing rather than returning a list that would include it.`,
+                }),
+            );
+        }
+
+        search.set('exclude_category', excludedId);
+    }
+
+    if (filter?.referenceSeries !== undefined) {
+        search.set('reference_series', filter.referenceSeries);
+    }
+
+    /*
+     * One code goes to the server; more than one stays client-side.
+     *
+     * `allergen` narrows the whole collection, which is what a paged browse list needs — a
+     * filter applied to the loaded page narrows that page while the count and every page
+     * after it go on describing the unfiltered set. The endpoint takes a single class
+     * because that is the question a list column asks; a caller passing several is asking
+     * for a union the endpoint cannot express, so `listIngredients` keeps a page-local pass
+     * and the page-local caveat that comes with it.
+     */
+    const serverAllergen = serverAllergenOf(filter);
+
+    if (serverAllergen !== undefined) {
+        search.set('allergen', serverAllergen);
+    }
+
+    /*
+     * The order, for every page rather than the one in hand.
+     *
+     * `name` is the only key whose wire spelling is a decision: the list draws the
+     * reader's own language and sorts on what it draws, so the column it names depends on
+     * the interface, not on the row. The endpoint takes `name_en` / `name_ar` and does not
+     * guess — see `IngredientAdminFilter.sortLanguage`.
+     */
+    if (filter?.sort !== undefined) {
+        search.set('sort', ingredientSortParameter(filter.sort, filter.sortLanguage));
+        search.set('direction', filter.sortDirection ?? 'asc');
+    }
+
+    return search;
+}
+
+/** The single allergen `ingredientListSearch` hands the server; a union stays client-side. */
+function serverAllergenOf(filter: IngredientAdminFilter | undefined): AllergenCode | undefined {
+    return filter?.allergenCodes !== undefined && filter.allergenCodes.length === 1
+        ? filter.allergenCodes[0]
+        : undefined;
+}
+
+/** Where each resource's empty workbook — headers and one example row — is served. */
+const IMPORT_TEMPLATE_PATHS: Readonly<Record<TransferResource, string>> = {
+    ingredients: '/catalogue/ingredients/import-template',
+    recipes: '/catalogue/recipes/import-template',
+    stock: '/catalogue/inventory/counts/import-template',
+};
+
+/** The paging keys a list sends and its export must not: the workbook is the whole filtered set. */
+const PAGING_KEYS = ['limit', 'cursor', 'page', 'per_page'] as const;
+
+/** One recipe's current version as the version read answers it, and the batch carries it. */
+type WireRecipeVersionDetail = {
+    readonly version: AdminRecipeVersion;
+    readonly lines: WireRecipeLine[];
+    readonly packaging: WireRecipePackagingLine[];
+    readonly outputs: WireRecipeOutput[];
+    readonly steps: WireRecipeStep[];
+    readonly allergens: RecipeVersionAllergen[];
+};
+
+/**
+ * One entry of `/catalogue/recipes/technical-sheets`: what `getRecipe`'s two reads and
+ * `getRecipeTechnicalSheet` answer, together. `sheet` is `null` for a member who may not see cost.
+ */
+type WireRecipeSheetEntry = {
+    readonly recipe: AdminRecipe;
+    readonly versions: AdminRecipeVersion[];
+    readonly current: WireRecipeVersionDetail;
+    readonly sheet: WireTechnicalSheet | null;
+};
 
 /**
  * One request for many concurrent callers. The lookups below cached their *answer*, so every
@@ -391,8 +624,9 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         categoryId?: string | undefined,
         allergen?: string | undefined,
         withoutRecipe?: boolean | undefined,
-    ): Promise<CursorPage<AdminCatalogueItem>> {
-        const envelope = await transport.requestEnvelope<AdminCatalogueItem[]>({
+        withVariants?: boolean | undefined,
+    ): Promise<CursorPage<AdminCatalogueItemIndexRow>> {
+        const envelope = await transport.requestEnvelope<AdminCatalogueItemIndexRow[]>({
             method: 'GET',
             /*
              * `product_category_id` was never sent, which is why the products list's category
@@ -405,6 +639,9 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
                 product_category_id: categoryId,
                 allergen,
                 has_recipe: withoutRecipe === true ? 'false' : undefined,
+                // Without this every row of a list read "On no channel", published or not.
+                // `variants` adds each row's live packs, in one batched read for the page.
+                include: withVariants === true ? 'channels,variants' : 'channels',
             })}`,
         });
 
@@ -508,109 +745,11 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             const lookup = await loadCategoryLookup();
             categoryLookup = lookup;
 
-            const search = new URLSearchParams();
-
-            if (filter?.limit !== undefined) search.set('limit', String(filter.limit));
-            if (filter?.cursor !== undefined) search.set('cursor', filter.cursor);
-            if (filter?.page !== undefined) search.set('page', String(filter.page));
-            if (filter?.perPage !== undefined) search.set('per_page', String(filter.perPage));
-            if (filter?.query !== undefined && filter.query.trim() !== '') {
-                search.set('query', filter.query.trim());
+            const search = ingredientListSearch(filter, lookup);
+            if (search === null) {
+                return { items: [], nextCursor: null, hasMore: false, totalCount: 0 };
             }
-
-            const statuses = filter?.statuses;
-            if (statuses !== undefined && statuses.length === 1) {
-                const apiStatus = apiStatusForPublishableFilter(statuses[0]!);
-                if (apiStatus !== null) search.set('status', apiStatus);
-            }
-
-            if (filter?.categoryCode !== undefined) {
-                const categoryId = lookup.codeToId.get(filter.categoryCode);
-
-                /*
-                 * An unresolvable category returns nothing rather than everything.
-                 *
-                 * This used to drop the filter, and the packaging page is what that cost: it asked
-                 * for one branch, the branch was removed from the taxonomy, the code stopped
-                 * resolving, and the request degraded to the unfiltered list — so a page meant to
-                 * show thirty-one boxes showed three hundred ingredients and looked like it had
-                 * worked. Widening a request nobody widened is the worse of the two failures,
-                 * because an empty page is obviously wrong and a full one is not.
-                 */
-                if (categoryId === undefined) {
-                    return { items: [], nextCursor: null, hasMore: false, totalCount: 0 };
-                }
-
-                search.set('category', categoryId);
-            }
-
-            /*
-             * An unresolvable *exclusion* is refused, not dropped.
-             *
-             * The mirror of the rule above, and the half that was still open. This used to skip
-             * the constraint when the code did not resolve, on the argument that an exclusion
-             * which cannot be translated must not become a narrower request by accident — and the
-             * honest failure was said to be the unfiltered list.
-             *
-             * That argument does not survive packaging moving back into this table. The unfiltered
-             * list is now food *and* thirty-three boxes, so a dropped exclusion is not the caller
-             * getting "what they would have got before the filter existed" — it is the ingredient
-             * picker quietly offering bin liners, which is the same failure the inclusive branch
-             * above documents, pointed the other way. Neither list may widen by accident.
-             *
-             * It throws rather than returning empty because the two cases differ: an unresolvable
-             * *inclusion* has an honest empty answer, while an unresolvable exclusion has no honest
-             * answer at all — every row is a candidate and none can be ruled out.
-             */
-            if (filter?.excludeCategoryCode !== undefined) {
-                const excludedId = lookup.codeToId.get(filter.excludeCategoryCode);
-
-                if (excludedId === undefined) {
-                    throwFailure(
-                        apiFailure('server', {
-                            message: `The category "${filter.excludeCategoryCode}" could not be resolved, so it cannot be excluded. Refusing rather than returning a list that would include it.`,
-                        }),
-                    );
-                }
-
-                search.set('exclude_category', excludedId);
-            }
-
-            if (filter?.referenceSeries !== undefined) {
-                search.set('reference_series', filter.referenceSeries);
-            }
-
-            /*
-             * One code goes to the server; more than one stays client-side.
-             *
-             * `allergen` narrows the whole collection, which is what a paged browse list needs — a
-             * filter applied to the loaded page narrows that page while the count and every page
-             * after it go on describing the unfiltered set. The endpoint takes a single class
-             * because that is the question a list column asks; a caller passing several is asking
-             * for a union the endpoint cannot express, so it keeps the page-local pass below and
-             * the page-local caveat that comes with it.
-             */
-            const serverAllergen =
-                filter?.allergenCodes !== undefined && filter.allergenCodes.length === 1
-                    ? filter.allergenCodes[0]
-                    : undefined;
-
-            if (serverAllergen !== undefined) {
-                search.set('allergen', serverAllergen);
-            }
-
-            /*
-             * The order, for every page rather than the one in hand.
-             *
-             * `name` is the only key whose wire spelling is a decision: the list draws the
-             * reader's own language and sorts on what it draws, so the column it names depends on
-             * the interface, not on the row. The endpoint takes `name_en` / `name_ar` and does not
-             * guess — see `IngredientAdminFilter.sortLanguage`.
-             */
-            if (filter?.sort !== undefined) {
-                search.set('sort', ingredientSortParameter(filter.sort, filter.sortLanguage));
-                search.set('direction', filter.sortDirection ?? 'asc');
-            }
+            const serverAllergen = serverAllergenOf(filter);
 
             const rendered = search.toString();
             const path =
@@ -684,37 +823,9 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
         },
 
         async listRecipes(filter?: RecipeAdminFilter): Promise<CursorPage<RecipeAdminSummary>> {
-            /*
-             * The status filter, sent as the caller asked for it.
-             *
-             * This used to translate into the recipe identity's own vocabulary — `published` became
-             * `active`, `retired` became `archived` — and **silently dropped `draft` and
-             * `review_required`**, because the identity has no such states. Picking either in the
-             * list's Status column therefore sent no filter at all and the page answered with
-             * everything, which read as a filter that did not work.
-             *
-             * The endpoint now accepts all six and narrows the version ones against the *current*
-             * version, which is the one the row displays. Still one value: the column's menu is
-             * single-select, and a union is not a query this endpoint expresses.
-             */
-            const status =
-                filter?.statuses !== undefined && filter.statuses.length === 1
-                    ? filter.statuses[0]
-                    : undefined;
-
             const envelope = await transport.requestEnvelope<AdminRecipe[]>({
                 method: 'GET',
-                path: `/catalogue/recipes${cursorQuery(pickCursorFilter(filter), {
-                    status,
-                    stale_only: filter?.staleOnly === true ? '1' : undefined,
-                    allergen: soleAllergen(filter?.allergenCodes),
-                    // The recipe book's own axes. `kind` and `selling_status` are refused for a
-                    // caller who cannot see the catalogue, so the list hook only sets them when
-                    // the reader holds that permission.
-                    kind: filter?.kind,
-                    selling_status: filter?.sellingStatus,
-                    category: filter?.category,
-                })}`,
+                path: `/catalogue/recipes${cursorQuery(pickCursorFilter(filter), recipeListParams(filter))}`,
             });
 
             const meta = envelope.meta as PaginatedOrNumberedMeta;
@@ -804,23 +915,116 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             return mapRecipeAdmin(recipeWire, versionsWire, currentVersion);
         },
 
+        /*
+         * The export asks for exactly what the list asks for, minus the paging. Three of the list's
+         * filters are client-side passes — several statuses, several allergens, `ownedOnly` — and
+         * cannot reach the server; the list hook only ever sends one status and one allergen, so
+         * the workbook matches what the list shows.
+         */
+        async exportIngredients(filter?: IngredientAdminFilter): Promise<DownloadedFile> {
+            const lookup = await loadCategoryLookup();
+            const search = ingredientListSearch(filter, lookup);
+            if (search === null) {
+                // The list answers an empty page here; a file of nothing is not worth a download.
+                throwFailure(
+                    apiFailure('resource.not_found', {
+                        message: `The category "${filter?.categoryCode ?? ''}" could not be resolved, so there is nothing to export.`,
+                    }),
+                );
+            }
+            for (const key of PAGING_KEYS) search.delete(key);
+
+            const rendered = search.toString();
+            return transport.requestFile({
+                method: 'GET',
+                path: `/catalogue/ingredients/export${rendered === '' ? '' : `?${rendered}`}`,
+            });
+        },
+
+        async exportRecipes(filter?: RecipeAdminFilter): Promise<DownloadedFile> {
+            return transport.requestFile({
+                method: 'GET',
+                path: `/catalogue/recipes/export${cursorQuery(
+                    pickCursorFilter({ query: filter?.query }),
+                    recipeListParams(filter),
+                )}`,
+            });
+        },
+
+        async exportStock(): Promise<DownloadedFile> {
+            return transport.requestFile({
+                method: 'GET',
+                path: '/catalogue/inventory/levels/export',
+            });
+        },
+
+        async downloadImportTemplate(resource: TransferResource): Promise<DownloadedFile> {
+            return transport.requestFile({ method: 'GET', path: IMPORT_TEMPLATE_PATHS[resource] });
+        },
+
+        async listRecipeTechnicalSheets(
+            recipeIds: readonly RecipeId[],
+        ): Promise<readonly RecipeSheetBundle[]> {
+            if (recipeIds.length === 0) return [];
+
+            const ids = recipeIds.map((id) => `ids[]=${encodeURIComponent(String(id))}`).join('&');
+            const [envelope, unitsById] = await Promise.all([
+                transport.requestEnvelope<{ sheets: WireRecipeSheetEntry[] }>({
+                    method: 'GET',
+                    path: `/catalogue/recipes/technical-sheets?${ids}`,
+                }),
+                loadUnitCodeLookup(),
+            ]);
+
+            return envelope.data.sheets.map((entry) => {
+                const current = mapRecipeVersionAdmin(
+                    entry.current.version,
+                    {
+                        lines: entry.current.lines,
+                        packaging: entry.current.packaging,
+                        outputs: entry.current.outputs,
+                        steps: entry.current.steps,
+                        allergens: entry.current.allergens,
+                    },
+                    unitsById,
+                );
+
+                return {
+                    recipe: mapRecipeAdmin(entry.recipe, entry.versions, current),
+                    sheet: entry.sheet === null ? null : mapTechnicalSheetAdmin(entry.sheet),
+                };
+            });
+        },
+
         async listProducts(filter?: ProductAdminFilter): Promise<CursorPage<ProductAdmin>> {
             const status =
                 filter?.statuses !== undefined && filter.statuses.length === 1
                     ? filter.statuses[0]
                     : undefined;
 
-            const page = await listCatalogueItems(
-                filter?.itemType ?? 'product',
-                pickCursorFilter(filter),
-                status,
-                filter?.categoryId,
-                undefined,
-                filter?.withoutRecipe,
-            );
+            const [page, lookup, unitsById] = await Promise.all([
+                listCatalogueItems(
+                    filter?.itemType ?? 'product',
+                    pickCursorFilter(filter),
+                    status,
+                    filter?.categoryId,
+                    undefined,
+                    filter?.withoutRecipe,
+                    true,
+                ),
+                loadSalesChannelLookup(),
+                loadUnitCodeLookup(),
+            ]);
             return {
                 ...page,
-                items: page.items.map((wire) => mapProductAdminFromItem(wire)),
+                items: page.items.map((wire) =>
+                    mapProductAdminFromItem(wire, {
+                        // The pack column used to read "no packs" on every row: the list never
+                        // asked for them. Mapped as the product's own read maps them.
+                        packVariants: mapProductPackVariants(wire.variants ?? [], unitsById),
+                        channelAvailability: mapChannelAssignments(wire.channels ?? [], lookup),
+                    }),
+                ),
             };
         },
 
@@ -854,23 +1058,38 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             return mapItemChannelPrices(data);
         },
 
+        async getItemPacks(itemId: ProductId | MealId): Promise<ItemPacks> {
+            const data = await transport.request<WireItemPacks>({
+                method: 'GET',
+                path: `/catalogue/items/${encodeURIComponent(String(itemId))}/packs`,
+            });
+            return mapItemPacks(data);
+        },
+
         async listMeals(filter?: MealAdminFilter): Promise<CursorPage<MealAdmin>> {
             const status =
                 filter?.statuses !== undefined && filter.statuses.length === 1
                     ? filter.statuses[0]
                     : undefined;
 
-            const page = await listCatalogueItems(
-                'meal',
-                pickCursorFilter(filter),
-                status,
-                filter?.categoryId,
-                soleAllergen(filter?.allergenCodes),
-                filter?.withoutRecipe,
-            );
+            const [page, lookup] = await Promise.all([
+                listCatalogueItems(
+                    'meal',
+                    pickCursorFilter(filter),
+                    status,
+                    filter?.categoryId,
+                    soleAllergen(filter?.allergenCodes),
+                    filter?.withoutRecipe,
+                ),
+                loadSalesChannelLookup(),
+            ]);
             return {
                 ...page,
-                items: page.items.map((wire) => mapMealAdminFromItem(wire)),
+                items: page.items.map((wire) =>
+                    mapMealAdminFromItem(wire, {
+                        channelAvailability: mapChannelAssignments(wire.channels ?? [], lookup),
+                    }),
+                ),
             };
         },
 
@@ -980,46 +1199,54 @@ export function createApiKitchenAdminReads(transport: Transport): ApiKitchenAdmi
             });
         },
 
-        /**
-         * The plan's fixed menu.
-         *
-         * One request, and **no `.catch(() => [])`** of the kind `getPlan` uses for its vocabulary
-         * reads: a menu that failed to load and rendered as an empty one would invite somebody to
-         * save that emptiness back, which is the write that withdraws the menu and turns the
-         * kitchen's stock deduction off again. A failure here has to reach the screen.
-         */
-        async getPlanMenu(planId: SubscriptionPlanId): Promise<PlanMenu> {
-            const envelope = await transport.requestEnvelope<{
-                item: AdminCatalogueItem;
-                cycle: WirePlanMenuCycle;
-                entries: WirePlanMenuEntry[];
-            }>({
-                method: 'GET',
-                path: `/catalogue/plans/${encodeURIComponent(String(planId))}/menu`,
-            });
-
-            return mapPlanMenu(envelope.data.item, envelope.data.cycle, envelope.data.entries);
-        },
-
-        async listPriceLists(filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {
-            const envelope = await transport.requestEnvelope<AdminPriceList[]>({
-                method: 'GET',
-                path: `/catalogue/price-lists${cursorQuery(pickCursorFilter(filter))}`,
-            });
-
-            const meta = envelope.meta as PaginatedOrNumberedMeta;
-            const page = mapAdminCursorPage(envelope.data, meta, (wire) => mapPriceListAdmin(wire));
-            if (filter?.withoutEntries === true) return page;
+        async listPriceLists(filter?: PriceListAdminFilter): Promise<PriceListPage> {
+            const whole = filter?.withoutEntries !== true;
+            // One status narrows on the server. A price list is never awaiting review, so that
+            // one is asked without a status — the figures still come back — and answers no rows.
+            const sole = filter?.statuses?.length === 1 ? filter.statuses[0] : undefined;
+            const status = sole === undefined ? undefined : PRICE_LIST_WIRE_STATUS[sole];
 
             /*
              * Whole records, entries and channels included — the contract every caller reads this
              * with. The plan editor's publish gate counts a plan's confirmed prices from it, and the
-             * price-list screen its entry counts; the index endpoint carries neither, and mapping
-             * it alone drew every list as "Nothing priced yet" and refused to publish any plan.
-             * One full read per list, in parallel: a kitchen has a handful of lists, not hundreds.
+             * price-list screen its entry counts. The index serves both with
+             * `include=entries,channels`, so a page of lists is one request: it used to be a full
+             * read per list, two or three requests each, which on its own spent most of the API's
+             * per-minute allowance on the price-list and wholesale screens.
              */
-            const items = await Promise.all(page.items.map((list) => reads.getPriceList(list.id)));
-            return { ...page, items };
+            const [envelope, lookup] = await Promise.all([
+                transport.requestEnvelope<AdminPriceListIndexRow[]>({
+                    method: 'GET',
+                    path: `/catalogue/price-lists${cursorQuery(pickCursorFilter(filter), {
+                        ...(whole ? { include: 'entries,channels' } : {}),
+                        ...(status === null || status === undefined ? {} : { status }),
+                    })}`,
+                }),
+                whole ? loadSalesChannelLookup() : Promise.resolve(null),
+            ]);
+
+            const meta = envelope.meta as PaginatedOrNumberedMeta;
+            const figures = priceListFigures(envelope.meta);
+            const page = mapAdminCursorPage(envelope.data, meta, (wire) =>
+                lookup === null
+                    ? mapPriceListAdmin(wire)
+                    : mapPriceListAdmin(wire, {
+                          channels: priceListChannelsFromAssignments(wire.channels ?? [], lookup),
+                          entries: (wire.entries ?? []).map((entry) =>
+                              mapPriceListEntry(
+                                  entry,
+                                  entry.catalogue_item_type ?? 'product',
+                                  entry.catalogue_item_id,
+                                  entry.catalogue_item_variant_code ?? null,
+                              ),
+                          ),
+                      }),
+            );
+            const narrowed =
+                status === null
+                    ? { items: [], nextCursor: null, hasMore: false, totalCount: 0 }
+                    : page;
+            return figures === undefined ? narrowed : { ...narrowed, figures };
         },
 
         async getPriceList(priceListId: PriceListId): Promise<PriceListAdmin> {

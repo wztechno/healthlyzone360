@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $address
  * @property string|null $payment_terms
  * @property int|null $lead_time_days
+ * @property int|null $payment_due_days days after the invoice a delivery falls due
  * @property string|null $notes
  * @property CarbonImmutable|null $archived_at
  * @property-read Collection<int, SupplierContact> $contacts
@@ -37,6 +38,7 @@ class Supplier extends BaseModel implements OrganisationScoped
     {
         return [
             'lead_time_days' => 'integer',
+            'payment_due_days' => 'integer',
             'archived_at' => 'datetime',
         ];
     }

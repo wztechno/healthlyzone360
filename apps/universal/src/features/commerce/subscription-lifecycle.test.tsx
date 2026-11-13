@@ -1,7 +1,6 @@
 import { ApiError } from '@healthy360/api-client/contracts';
 import type {
     CommerceRepository,
-    CreditMemo,
     DeliveryAddress,
     Subscription,
     SubscriptionBalance,
@@ -27,7 +26,7 @@ import { SubscriptionDetailScreen } from './screens/subscription-detail-screen.t
 import { SubscriptionsScreen } from './screens/subscriptions-screen.tsx';
 
 /**
- * S1 — the balance, the credit memo and the 24-hour cut-off, on the screens that carry them.
+ * S1 — the balance, cancelling and the 24-hour cut-off, on the screens that carry them.
  *
  * This suite used to run against the fixture world's own arithmetic: it read the seeded
  * subscription, called the repository directly and asserted that the mock's numbers agreed with each
@@ -38,9 +37,8 @@ import { SubscriptionsScreen } from './screens/subscriptions-screen.tsx';
  * **screens** that show somebody their money. The test authors what the server says; the assertions
  * are about what the interface then does with it — that the balance card prints the server's
  * `days` rather than recomputing them, that the ledger is the evidence behind the count, that the
- * cancellation dialog's own arithmetic (`remaining × perDayPrice`) agrees with the memo the server
- * writes, that a delivery inside the cut-off survives a weekday change, and that the plan's
- * available weekdays cost exactly one request.
+ * cancellation dialog promises no money, that a delivery inside the cut-off survives a weekday
+ * change, and that the plan's available weekdays cost exactly one request.
  *
  * Everything the screens are asked for is declared here; anything they reach for that this file did
  * not author rejects with `StubNotConfiguredError` naming the surface.
@@ -143,7 +141,7 @@ function testConfiguration(
         deliveryWeekdays: [1, 3, 5],
         slotCode: 'morning',
         address: ADDRESS,
-        selectedMealIds: [],
+        days: [],
         ...overrides,
     };
 }
@@ -315,6 +313,15 @@ function renderDetail(world: World, overrides: Partial<CommerceRepository> = {})
                 getSubscriptionBalance: async () => world.balance,
                 listSubscriptionDeliveries: async () => page(world.deliveries),
                 getSubscriptionQuote: async () => world.quote,
+                // The run's meals have their own section and their own suite (`commerce.test`);
+                // here they are the sittings sold and no day to show.
+                listSubscriptionDays: async () => ({
+                    sittings: [
+                        { slot: 'lunch', sequence: 1 },
+                        { slot: 'dinner', sequence: 1 },
+                    ],
+                    days: [],
+                }),
                 ...overrides,
             },
         },
@@ -352,20 +359,25 @@ describe('the balance is a count of delivery days', () => {
 
         // The server's own three numbers, printed rather than recomputed from the ledger.
         expect(screen.getByTestId('subscription-balance-remaining')).toHaveTextContent(
-            '9 delivery days left',
+            /^9\s*days left$/,
         );
-        expect(screen.getByTestId('subscription-balance-used')).toHaveTextContent('11 of 20 used');
+        expect(screen.getByTestId('subscription-balance-total')).toHaveTextContent('20');
+        expect(screen.getByTestId('subscription-balance-used')).toHaveTextContent('11');
 
         // The effective per-day price, not a weekly price divided by seven: 97.50 a week over three
         // deliveries would round to the same 32.50 only by coincidence, and the card prints the
         // number a refund is actually computed from.
-        expect(screen.getByTestId('subscription-balance-per-day')).toHaveTextContent('AED 32.50');
+        await waitFor(() => {
+            expect(screen.getByTestId('subscription-detail-price')).toHaveTextContent(
+                'AED 32.50 a day',
+            );
+        });
 
-        expect(screen.getByTestId('subscription-balance-skipped')).toHaveTextContent(
-            '3 skipped days, which cost you nothing',
-        );
+        await waitFor(() => {
+            expect(screen.getByTestId('subscription-balance-skipped')).toHaveTextContent('3');
+        });
         expect(screen.getByTestId('subscription-balance-cutoff')).toHaveTextContent(
-            'Changes apply to deliveries more than 24 hours away. Anything sooner goes as planned.',
+            'Changes close 24 hours before a delivery.',
         );
     });
 
@@ -379,9 +391,10 @@ describe('the balance is a count of delivery days', () => {
         // Twenty-three authored rows: eleven that consumed a day, three that consumed nothing and
         // nine still to come. The balance says 11 of 20 used with 3 skipped, and the evidence on
         // screen has to add up to exactly that.
-        expect(screen.getByTestId('subscription-deliveries-count')).toHaveTextContent('23 days');
-        expect(screen.getAllByText('Used a day')).toHaveLength(11);
-        expect(screen.getAllByText('Free')).toHaveLength(12);
+        expect(screen.getAllByTestId(/^subscription-deliveries-row-/)).toHaveLength(23);
+        expect(screen.getAllByText('1 day')).toHaveLength(11);
+        expect(screen.getAllByText('Free')).toHaveLength(3);
+        expect(screen.getAllByText('Next')).toHaveLength(9);
         expect(screen.getAllByText('Scheduled')).toHaveLength(9);
 
         // The badges carry a leading icon glyph, so these match the label within the badge.
@@ -423,12 +436,12 @@ describe('the balance is a count of delivery days', () => {
             expect(screen.getByTestId('subscriptions-list')).toBeTruthy();
         });
 
-        // Three rows, three balances, and the singular form on the row with one day left — which is
-        // only reachable if the count came from `Subscription.days` rather than from a placeholder.
+        // Three rows, three runs — each "Day n of m" read from `Subscription.days` rather than from a
+        // placeholder: the next day to come after those used, of those bought.
         for (const [row, expected] of [
-            [rows[0], '9 delivery days left'],
-            [rows[1], '1 delivery day left'],
-            [rows[2], '8 delivery days left'],
+            [rows[0], /^Day 12 of 20/],
+            [rows[1], /^Day 12 of 12/],
+            [rows[2], /^Day 1 of 8/],
         ] as const) {
             expect(
                 screen.getByTestId(`subscription-row-${String(row?.id)}-balance`),
@@ -480,9 +493,9 @@ describe('a skip consumes nothing', () => {
 
         // The one assertion the approved semantics turn on.
         expect(screen.getByTestId('subscription-balance-remaining')).toHaveTextContent(
-            '9 delivery days left',
+            /^9\s*days left$/,
         );
-        expect(screen.getByTestId('subscription-balance-used')).toHaveTextContent('11 of 20 used');
+        expect(screen.getByTestId('subscription-balance-used')).toHaveTextContent('11');
 
         expect(harness.repositories.commerce.skipDay).toHaveBeenCalledWith(SUBSCRIPTION_ID, {
             date: NEXT_DELIVERY,
@@ -499,9 +512,7 @@ describe('a skip consumes nothing', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('subscription-balance-skipped')).toHaveTextContent(
-                '3 skipped days, which cost you nothing',
-            );
+            expect(screen.getByTestId('subscription-balance-skipped')).toHaveTextContent('3');
         });
 
         await act(async () => {
@@ -518,37 +529,23 @@ describe('a skip consumes nothing', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('subscription-balance-skipped')).toHaveTextContent(
-                '4 skipped days, which cost you nothing',
-            );
+            expect(screen.getByTestId('subscription-balance-skipped')).toHaveTextContent('4');
         });
         // Four skipped days, and still nine to come — the balance stretched rather than shrank, and
         // the ledger grew a twenty-fourth row at the far end to prove where it stretched to.
         expect(screen.getByTestId('subscription-balance-remaining')).toHaveTextContent(
-            '9 delivery days left',
+            /^9\s*days left$/,
         );
-        expect(screen.getByTestId('subscription-deliveries-count')).toHaveTextContent('24 days');
+        expect(screen.getAllByTestId(/^subscription-deliveries-row-/)).toHaveLength(24);
     });
 });
 
-describe('cancelling mints a credit memo', () => {
-    const memo: CreditMemo = {
-        id: 'credit-memo-0001',
-        subscriptionId: SUBSCRIPTION_ID,
-        reason: 'subscription_cancelled',
-        unusedDays: 9,
-        perDayPrice: PER_DAY,
-        amount: { amount: 29_250, currency: 'AED' },
-        status: 'recorded',
-        settlement: 'manual',
-        recordedAt: '2026-07-02T09:00:00.000Z',
-    };
-
+describe('cancelling', () => {
     function cancelling(world: World): Partial<CommerceRepository> {
         return {
             cancelSubscription: async (): Promise<SubscriptionCancellation> => {
                 applyCancellation(world);
-                return { subscription: world.subscription, creditMemo: memo };
+                return { subscription: world.subscription };
             },
         };
     }
@@ -565,53 +562,22 @@ describe('cancelling mints a credit memo', () => {
         });
     }
 
-    it('records unused days x the effective per-day price actually paid', async () => {
+    it('promises no money, before or after', async () => {
         const world = liveWorld();
         await renderDetail(world, cancelling(world));
         await openCancelDialog();
 
-        // The dialog does the arithmetic itself, from the balance it already holds, *before* the
-        // button: nine unused days at 32.50 is 292.50.
-        expect(screen.getByTestId('subscription-cancel-estimate')).toHaveTextContent(
-            'We will record a credit of AED 292.50 — 9 unused days at AED 32.50.',
-        );
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('subscription-cancel-confirm'));
-        });
-
-        // And the memo the server actually wrote is the one on screen at the end — same days, same
-        // amount. When those two ever disagree, this is where it shows.
-        await waitFor(() => {
-            expect(screen.getByTestId('subscription-cancel-result')).toHaveTextContent(
-                /A credit of AED 292\.50 has been recorded for 9 unused days\./,
-            );
-        });
-    });
-
-    it('says the settlement is manual and the memo is only recorded', async () => {
-        const world = liveWorld();
-        await renderDetail(world, cancelling(world));
-        await openCancelDialog();
-
-        // Nothing in this system moves money, and the dialog refuses to imply otherwise — before
-        // the decision and again on the receipt, because that is the part most easily misremembered.
-        const manualSettlement =
-            'A credit is recorded against your account and settled by hand. ' +
-            'No money moves automatically.';
-        expect(screen.getByTestId('subscription-cancel-manual')).toHaveTextContent(
-            manualSettlement,
-        );
+        expect(screen.queryByTestId('subscription-cancel-estimate')).toBeNull();
+        expect(screen.queryByText(/credit/i)).toBeNull();
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('subscription-cancel-confirm'));
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('subscription-cancel-memo-manual')).toHaveTextContent(
-                manualSettlement,
-            );
+            expect(screen.getByTestId('subscription-cancel-result')).toBeTruthy();
         });
+        expect(screen.queryByText(/credit/i)).toBeNull();
     });
 
     it('cancels every remaining delivery and refuses a second cancellation', async () => {
@@ -667,7 +633,7 @@ describe('the 24-hour cut-off', () => {
 
         // The configuration redraws from the answer rather than from what was pressed.
         await waitFor(() => {
-            expect(screen.getByText('Tuesday, Thursday')).toBeTruthy();
+            expect(screen.getByLabelText('Tuesday, Thursday')).toBeTruthy();
         });
 
         /*
@@ -713,15 +679,15 @@ describe('the 24-hour cut-off', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByText('Tuesday, Thursday')).toBeTruthy();
+            expect(screen.getByLabelText('Tuesday, Thursday')).toBeTruthy();
         });
 
         // Somebody bought a number of days. Moving which weekdays they arrive on is not a purchase,
         // and the card must not have quietly re-derived the count from a shorter ledger.
         expect(screen.getByTestId('subscription-balance-remaining')).toHaveTextContent(
-            '9 delivery days left',
+            /^9\s*days left$/,
         );
-        expect(screen.getByTestId('subscription-balance-used')).toHaveTextContent('11 of 20 used');
+        expect(screen.getByTestId('subscription-balance-used')).toHaveTextContent('11');
     });
 
     it('refuses an empty weekday set rather than silently stopping deliveries', async () => {
@@ -784,8 +750,11 @@ describe('the 24-hour cut-off', () => {
                 /That change would touch a delivery inside the 24-hour cut-off\./,
             );
         });
-        // And nothing moved: the weekdays on the record are still Monday, Wednesday, Friday.
-        expect(screen.getByText('Monday, Wednesday, Friday')).toBeTruthy();
+        // And nothing moved: closed, the tile still reads Monday, Wednesday, Friday.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('subscription-weekdays-cancel'));
+        });
+        expect(screen.getByLabelText('Monday, Wednesday, Friday')).toBeTruthy();
     });
 });
 
@@ -805,7 +774,7 @@ describe('the quote replaced the seven-probe hack', () => {
 
         // One read, and it carried the cut-off with it.
         expect(screen.getByTestId('subscription-weekdays-cutoff')).toHaveTextContent(
-            /Deliveries less than 24 hours away go ahead as planned\./,
+            /changes close 24 hours before a delivery/,
         );
         expect(harness.repositories.commerce.getSubscriptionQuote).toHaveBeenCalledTimes(1);
         expect(harness.repositories.commerce.getSubscriptionQuote).toHaveBeenCalledWith({

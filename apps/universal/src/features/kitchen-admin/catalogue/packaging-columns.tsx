@@ -1,5 +1,5 @@
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import { Badge, Text } from '@healthy360/design-system';
+import { Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -8,6 +8,7 @@ import { displayName, statusShortKey, statusTone, unitShortKey } from '../format
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * The columns of `/kitchen/packaging`.
  *
@@ -81,6 +82,13 @@ export function packagingColumns({
 }: PackagingColumnDeps): readonly CatalogueColumn<IngredientAdmin>[] {
     const dash = t('kitchen:list.noValue');
 
+    /** The board's quiet ink, for the figures a reader looks past on the way to the price. */
+    const muted = (value: string) => (
+        <Text tone="secondary" className="tabular-nums">
+            {value}
+        </Text>
+    );
+
     return [
         {
             key: 'reference',
@@ -97,7 +105,7 @@ export function packagingColumns({
                 <Text
                     testID={`${packagingRowTestId(row.id)}-reference`}
                     variant="mono"
-                    tone={row.reference === null ? 'secondary' : 'primary'}
+                    tone="secondary"
                 >
                     {row.reference ?? dash}
                 </Text>
@@ -176,6 +184,8 @@ export function packagingColumns({
             sortable: true,
             sortType: 'text',
             value: (row) => (row.purchaseUnit === null ? dash : t(unitShortKey(row.purchaseUnit))),
+            render: (row) =>
+                muted(row.purchaseUnit === null ? dash : t(unitShortKey(row.purchaseUnit))),
         },
         {
             // `ITEMS PER PACK` sets at 89 — see `purchaseUnit` above.
@@ -184,11 +194,12 @@ export function packagingColumns({
             width: 108,
             min: 68,
             priority: CATALOGUE_PRIORITY.unit,
-            mono: true,
             sortable: true,
             sortType: 'number',
             value: (row) =>
                 row.itemsPerUnit === null ? dash : formatter.formatNumber(row.itemsPerUnit),
+            render: (row) =>
+                muted(row.itemsPerUnit === null ? dash : formatter.formatNumber(row.itemsPerUnit)),
         },
         {
             key: 'purchasePrice',
@@ -233,13 +244,18 @@ export function packagingColumns({
             width: 88,
             min: 80,
             priority: CATALOGUE_PRIORITY.metric,
-            mono: true,
             sortable: true,
             sortType: 'number',
             value: (row) =>
                 row.capacity === null
                     ? dash
                     : `${formatter.formatNumber(row.capacity.quantity)} ${t(unitShortKey(row.capacity.unit))}`,
+            render: (row) =>
+                muted(
+                    row.capacity === null
+                        ? dash
+                        : `${formatter.formatNumber(row.capacity.quantity)} ${t(unitShortKey(row.capacity.unit))}`,
+                ),
         },
         {
             key: 'waste',
@@ -247,13 +263,18 @@ export function packagingColumns({
             width: 80,
             min: 68,
             priority: CATALOGUE_PRIORITY.updated,
-            mono: true,
             sortable: true,
             sortType: 'number',
             // `0` and `null` are different answers — "none is thrown away" against "nobody has
             // measured" — so the dash is reserved for the second.
             value: (row) =>
                 row.wastePercent === null ? dash : `${formatter.formatNumber(row.wastePercent)}%`,
+            render: (row) =>
+                muted(
+                    row.wastePercent === null
+                        ? dash
+                        : `${formatter.formatNumber(row.wastePercent)}%`,
+                ),
         },
         {
             key: 'status',
@@ -266,14 +287,10 @@ export function packagingColumns({
             sortable: false,
             value: (row) => t(packagingStatusKey(row.meta.status)),
             render: (row) => (
-                <Badge
+                <DeskChip
                     testID={`${packagingRowTestId(row.id)}-status`}
                     tone={packagingStatusTone(row.meta.status)}
-                    // No mark on Published. The tone's default `✓` is `Badge`'s way of keeping
-                    // meaning off colour alone, and "Published" is a word that needs no help —
-                    // §prop docs allow `null` for exactly that case. Draft and Review keep theirs,
-                    // because those two are the states a reader is scanning *for*.
-                    icon={row.meta.status === 'published' ? null : undefined}
+                    // A pill and its word, as the Packaging board draws it.
                     label={t(packagingStatusKey(row.meta.status))}
                 />
             ),

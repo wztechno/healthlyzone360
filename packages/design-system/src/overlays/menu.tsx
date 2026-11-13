@@ -5,6 +5,7 @@ import { Pressable, Text as RNText, View } from 'react-native';
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import { SlideIn } from '../motion/slide-in.tsx';
 import { KEYS, keyDownProps, webRole } from '../internal/web-props.ts';
 import type { WebKeyEvent } from '../internal/web-props.ts';
 import { Dropdown } from './dropdown.tsx';
@@ -45,6 +46,16 @@ export interface MenuItem {
     /** `danger` for a destructive command. Paired with its own icon, never colour alone. */
     readonly tone?: 'default' | 'danger' | undefined;
     /**
+     * The one primary of a record's ⋯ menu — brand ink, and listed first by its caller. A separate
+     * flag rather than a third `tone`: items are spread into row `IconButton`s, whose tone has none.
+     */
+    readonly primary?: boolean | undefined;
+    /**
+     * A waiting count drawn as a soft amber pill at the row's end — the rail's own number, where a
+     * menu lists the same pages the rail does (the kitchen trail's module menu). Zero draws nothing.
+     */
+    readonly count?: number | undefined;
+    /**
      * Overrides the derived `{menu}-item-{key}` id.
      *
      * For the case where a row action *moved into* a menu and the id it carried outside one is a
@@ -75,12 +86,30 @@ export interface MenuProps {
      * produce a menu taller than the window.
      */
     readonly maxHeight?: number | undefined;
+    /**
+     * `list` (default): the compact menu every table and toolbar uses. `card`: the desk's dropdown
+     * (Orders canvas `.cpop`, 2026-11-10) — a 260px card at the bar elevation, 36px rows at body
+     * size with the chosen one in bold, rising in as it opens.
+     */
+    readonly look?: 'list' | 'card' | undefined;
+    /**
+     * Close after a `selected` item is picked — a single choice (a scope, a slot). By default a
+     * toggleable item leaves the menu open, so a column can be narrowed by several values.
+     */
+    readonly closeOnSelect?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
 
 const ITEM_TONE_CLASS = {
     default: 'text-content-primary',
+    brand: 'font-semibold text-content-on-brand-subtle',
+    danger: 'text-danger-strong',
+} as const;
+
+const ICON_TONE_CLASS = {
+    default: 'text-content-secondary',
+    brand: 'text-content-on-brand-subtle',
     danger: 'text-danger-strong',
 } as const;
 
@@ -89,12 +118,16 @@ function MenuRow({
     active,
     onHover,
     onClose,
+    card,
+    closeOnSelect,
     testID,
 }: {
     readonly item: MenuItem;
     readonly active: boolean;
     readonly onHover: () => void;
     readonly onClose: () => void;
+    readonly card: boolean;
+    readonly closeOnSelect: boolean;
     readonly testID: string | undefined;
 }) {
     const toggleable = item.selected !== undefined;
@@ -124,10 +157,12 @@ function MenuRow({
                 // three values should be three presses rather than three round trips through the
                 // trigger. The `selected` prop is what distinguishes them, so the behaviour follows
                 // from the item's own shape and no call site has to remember to pass a flag.
-                if (!toggleable) onClose();
+                if (!toggleable || closeOnSelect) onClose();
             }}
             className={cx(
-                'h-control-sm flex-row items-center gap-control-sm px-control-sm',
+                card
+                    ? 'h-9 flex-row items-center gap-2 rounded-[10px] px-2.5'
+                    : 'h-control-sm flex-row items-center gap-control-sm px-control-sm',
                 active ? 'bg-surface-sunken' : 'bg-transparent',
                 disabled ? 'opacity-60' : null,
             )}
@@ -137,9 +172,13 @@ function MenuRow({
              * labels line up instead of shifting sideways as values are ticked.
              */}
             {toggleable ? (
-                <View className="w-4 items-center">
+                <View className={card ? 'w-icon-sm items-center' : 'w-4 items-center'}>
                     {item.selected === true ? (
-                        <Icon name="check" size="sm" className="text-content-on-brand-subtle" />
+                        <Icon
+                            name="check"
+                            size="sm"
+                            className={card ? 'text-surface-brand' : 'text-content-on-brand-subtle'}
+                        />
                     ) : null}
                 </View>
             ) : item.icon === undefined ? null : (
@@ -147,19 +186,33 @@ function MenuRow({
                     name={item.icon}
                     size="sm"
                     className={
-                        item.tone === 'danger' ? 'text-danger-strong' : 'text-content-secondary'
+                        ICON_TONE_CLASS[item.primary === true ? 'brand' : (item.tone ?? 'default')]
                     }
                 />
             )}
 
             <RNText
                 className={cx(
-                    'flex-1 text-role-body text-start',
-                    disabled ? 'text-content-disabled' : ITEM_TONE_CLASS[item.tone ?? 'default'],
+                    card
+                        ? cx(
+                              'flex-1 text-sm text-start',
+                              item.selected === true ? 'font-bold' : 'font-medium',
+                          )
+                        : 'flex-1 text-role-body text-start',
+                    disabled
+                        ? 'text-content-disabled'
+                        : ITEM_TONE_CLASS[
+                              item.primary === true ? 'brand' : (item.tone ?? 'default')
+                          ],
                 )}
             >
                 {item.label}
             </RNText>
+            {item.count === undefined || item.count === 0 ? null : (
+                <RNText className="rounded-full bg-warning-subtle px-2 py-0.5 text-xs font-bold text-warning-on-subtle">
+                    {String(item.count)}
+                </RNText>
+            )}
         </Pressable>
     );
 }
@@ -171,9 +224,12 @@ export function Menu({
     footer,
     align = 'start',
     maxHeight,
+    look = 'list',
+    closeOnSelect = false,
     className,
     testID,
 }: MenuProps) {
+    const card = look === 'card';
     const base = testID ?? 'menu';
     const flat = sections.flatMap((section) => section.items);
     const [active, setActive] = useState(-1);
@@ -208,67 +264,82 @@ export function Menu({
              */
             // `w-max`: the panel is absolutely positioned, so without it it takes the trigger's
             // width and a two-word item wraps to three lines under a narrow column header.
-            panelClassName="w-max max-w-xs py-1"
+            panelClassName={
+                card ? 'w-[260px] !rounded-xl !shadow-elevation-bar p-1.5' : 'w-max max-w-xs py-1'
+            }
         >
-            {(state: DropdownRenderState) => (
-                <View
-                    {...keyDownProps((event: WebKeyEvent) => {
-                        if (event.key === KEYS.arrowDown) {
-                            event.preventDefault();
-                            move(1);
-                            return;
-                        }
-                        if (event.key === KEYS.arrowUp) {
-                            event.preventDefault();
-                            move(-1);
-                            return;
-                        }
-                        if (event.key === KEYS.enter || event.key === KEYS.space) {
-                            const item = flat[active];
-                            if (item === undefined || item.disabled === true) return;
-                            event.preventDefault();
-                            item.onSelect();
-                            if (item.selected === undefined) state.close();
-                        }
-                    })}
-                    style={maxHeight === undefined ? undefined : { maxHeight }}
-                    className="flex-col"
-                >
-                    {sections.map((section, sectionIndex) => (
-                        <View key={section.label ?? `section-${String(sectionIndex)}`}>
-                            {sectionIndex > 0 ? (
-                                <View className="my-1 border-b border-stroke-subtle" />
-                            ) : null}
-                            {section.label === undefined ? null : (
-                                <RNText className="px-control-sm py-1 text-role-micro text-content-secondary text-start">
-                                    {section.label}
-                                </RNText>
-                            )}
-                            {section.items.map((item) => {
-                                const index = flat.indexOf(item);
-                                return (
-                                    <MenuRow
-                                        key={item.key}
-                                        item={item}
-                                        active={index === active}
-                                        onHover={() => {
-                                            setActive(index);
-                                        }}
-                                        onClose={state.close}
-                                        testID={item.testID ?? `${base}-item-${item.key}`}
-                                    />
-                                );
-                            })}
-                        </View>
-                    ))}
+            {(state: DropdownRenderState) => {
+                const list = (
+                    <View
+                        {...keyDownProps((event: WebKeyEvent) => {
+                            if (event.key === KEYS.arrowDown) {
+                                event.preventDefault();
+                                move(1);
+                                return;
+                            }
+                            if (event.key === KEYS.arrowUp) {
+                                event.preventDefault();
+                                move(-1);
+                                return;
+                            }
+                            if (event.key === KEYS.enter || event.key === KEYS.space) {
+                                const item = flat[active];
+                                if (item === undefined || item.disabled === true) return;
+                                event.preventDefault();
+                                item.onSelect();
+                                if (item.selected === undefined || closeOnSelect) state.close();
+                            }
+                        })}
+                        style={maxHeight === undefined ? undefined : { maxHeight }}
+                        className="flex-col"
+                    >
+                        {sections.map((section, sectionIndex) => (
+                            <View key={section.label ?? `section-${String(sectionIndex)}`}>
+                                {sectionIndex > 0 ? (
+                                    <View className="my-1 border-b border-stroke-subtle" />
+                                ) : null}
+                                {section.label === undefined ? null : (
+                                    <RNText className="px-control-sm py-1 text-role-micro text-content-secondary text-start">
+                                        {section.label}
+                                    </RNText>
+                                )}
+                                {section.items.map((item) => {
+                                    const index = flat.indexOf(item);
+                                    return (
+                                        <MenuRow
+                                            key={item.key}
+                                            item={item}
+                                            active={index === active}
+                                            onHover={() => {
+                                                setActive(index);
+                                            }}
+                                            onClose={state.close}
+                                            card={card}
+                                            closeOnSelect={closeOnSelect}
+                                            testID={item.testID ?? `${base}-item-${item.key}`}
+                                        />
+                                    );
+                                })}
+                            </View>
+                        ))}
 
-                    {footer === undefined ? null : (
-                        <View className="mt-1 border-t border-stroke-subtle px-control-sm pt-1">
-                            {footer}
-                        </View>
-                    )}
-                </View>
-            )}
+                        {footer === undefined ? null : (
+                            <View className="mt-1 border-t border-stroke-subtle px-control-sm pt-1">
+                                {footer}
+                            </View>
+                        )}
+                    </View>
+                );
+                // The card rises 8px as it opens, as the canvas's `up`; nothing moves under reduced
+                // motion (`SlideIn` reads the platform's preference).
+                return card ? (
+                    <SlideIn edge="bottom" distance="small" duration="normal">
+                        {list}
+                    </SlideIn>
+                ) : (
+                    list
+                );
+            }}
         </Dropdown>
     );
 }

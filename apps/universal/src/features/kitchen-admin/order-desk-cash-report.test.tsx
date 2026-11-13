@@ -8,7 +8,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import { todayIso } from '../commerce/dates.ts';
+import { addDays, isoWeekday, todayIso } from '../commerce/dates.ts';
 import { OrderDeskCashReportScreen } from './screens/order-desk-cash-report-screen.tsx';
 import { Dimensions } from 'react-native';
 
@@ -58,6 +58,7 @@ const NAMELESS = 'user-0000-0000-0003';
 
 function row(overrides: Partial<OrderDeskCashReportRow> = {}): OrderDeskCashReportRow {
     return {
+        day: '2026-05-10',
         confirmedBy: SARA,
         displayName: 'Sara Nasr',
         method: 'cash_on_delivery',
@@ -95,6 +96,7 @@ function seedRows(): readonly OrderDeskCashReportRow[] {
 function report(rows: readonly OrderDeskCashReportRow[]): OrderDeskCashReport {
     return {
         rows,
+        adjustments: [],
         // Derived by the server, never by the screen — two totals for one method, because two
         // currencies.
         totals: [
@@ -118,7 +120,14 @@ function report(rows: readonly OrderDeskCashReportRow[]): OrderDeskCashReport {
             },
             { method: 'wish', currencyCode: 'USD', receiptCount: 1, amountMinorSum: 250 },
         ],
-        meta: { date: '2026-05-10', branchId: null, timezone: 'UTC', count: rows.length },
+        meta: {
+            from: '2026-05-10',
+            to: '2026-05-10',
+            branchId: null,
+            timezone: 'UTC',
+            branches: [],
+            count: rows.length,
+        },
     };
 }
 
@@ -141,7 +150,7 @@ async function settled() {
 }
 
 function rowTestId(entry: OrderDeskCashReportRow, suffix: string): string {
-    return `kitchen-order-desk-cash-${entry.confirmedBy}-${entry.method}-${entry.currencyCode}-${suffix}`;
+    return `kitchen-order-desk-cash-${entry.day}-${entry.confirmedBy}-${entry.method}-${entry.currencyCode}-${suffix}`;
 }
 
 describe('order desk cash report — the ladder', () => {
@@ -183,7 +192,15 @@ describe('order desk cash report — the ladder', () => {
         await renderReport(async () => ({
             rows: [],
             totals: [],
-            meta: { date: '2026-05-10', branchId: null, timezone: 'UTC', count: 0 },
+            adjustments: [],
+            meta: {
+                from: '2026-05-10',
+                to: '2026-05-10',
+                branchId: null,
+                timezone: 'UTC',
+                branches: [],
+                count: 0,
+            },
         }));
 
         await waitFor(
@@ -193,28 +210,107 @@ describe('order desk cash report — the ladder', () => {
             { timeout: 5000 },
         );
         // No table and no totals block: there is nothing to total.
-        expect(screen.queryByTestId('kitchen-order-desk-cash-report-table')).toBeNull();
+        // The header stays, so the page keeps its shape.
+        expect(screen.getByTestId('kitchen-order-desk-cash-report-table')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-order-desk-cash-report-totals')).toBeNull();
     });
 
-    it('asks for the day chosen from the calendar picker', async () => {
+    it('opens on today, and asks for the window chosen from the From picker', async () => {
         const { repositories } = await renderReport(async () => report(seedRows()));
+        const today = todayIso();
 
         await settled();
-        expect(repositories.orderDesk.getCashReport).toHaveBeenCalledTimes(1);
+        expect(repositories.orderDesk.getCashReport).toHaveBeenCalledWith({
+            from: today,
+            to: today,
+        });
+        expect(
+            screen.getByTestId('kitchen-order-desk-cash-report-period-trigger'),
+        ).toHaveTextContent(/Today/);
 
-        const firstOfMonth = `${todayIso().slice(0, 8)}01`;
-        fireEvent.press(screen.getByTestId('kitchen-order-desk-cash-report-date-trigger'));
+        const firstOfMonth = `${today.slice(0, 8)}01`;
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-cash-report-from-trigger'));
         fireEvent.press(
-            await screen.findByTestId(`kitchen-order-desk-cash-report-date-day-${firstOfMonth}`),
+            await screen.findByTestId(`kitchen-order-desk-cash-report-from-day-${firstOfMonth}`),
         );
 
         await waitFor(() => {
             expect(repositories.orderDesk.getCashReport).toHaveBeenCalledWith({
-                date: firstOfMonth,
+                from: firstOfMonth,
+                to: today,
             });
         });
-        expect(screen.queryByTestId('kitchen-order-desk-cash-report-date-panel')).toBeNull();
+        expect(screen.queryByTestId('kitchen-order-desk-cash-report-from-panel')).toBeNull();
+    });
+
+    it('writes both days when a period shortcut is picked', async () => {
+        const { repositories } = await renderReport(async () => report(seedRows()));
+        const today = todayIso();
+        await settled();
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-cash-report-period-trigger'));
+        fireEvent.press(
+            await screen.findByTestId('kitchen-order-desk-cash-report-period-yesterday'),
+        );
+        const yesterday = addDays(today, -1);
+        await waitFor(() => {
+            expect(repositories.orderDesk.getCashReport).toHaveBeenCalledWith({
+                from: yesterday,
+                to: yesterday,
+            });
+        });
+
+        // The desk's dropdown closes on a pick, so the next pick opens it again.
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-cash-report-period-trigger'));
+        fireEvent.press(await screen.findByTestId('kitchen-order-desk-cash-report-period-week'));
+        // Monday of this week through today.
+        const monday = addDays(today, 1 - (isoWeekday(today) ?? 1));
+        await waitFor(() => {
+            expect(repositories.orderDesk.getCashReport).toHaveBeenCalledWith({
+                from: monday,
+                to: today,
+            });
+        });
+    });
+
+    it('narrows to a till picked from the daily close picker', async () => {
+        const base = report(seedRows());
+        const { repositories } = await renderReport(async () => ({
+            ...base,
+            meta: {
+                ...base.meta,
+                branches: [
+                    { id: 'branch-main', name: 'Main kitchen' },
+                    { id: 'branch-two', name: 'Second kitchen' },
+                ],
+            },
+        }));
+        const today = todayIso();
+        await settled();
+
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-cash-report-branch-trigger'));
+        fireEvent.press(
+            await screen.findByTestId('kitchen-order-desk-cash-report-branch-option-branch-two'),
+        );
+
+        await waitFor(() => {
+            expect(repositories.orderDesk.getCashReport).toHaveBeenCalledWith({
+                from: today,
+                to: today,
+                branchId: 'branch-two',
+            });
+        });
+    });
+
+    it('offers no till picker to a kitchen with one till', async () => {
+        const base = report(seedRows());
+        await renderReport(async () => ({
+            ...base,
+            meta: { ...base.meta, branches: [{ id: 'branch-main', name: 'Main kitchen' }] },
+        }));
+        await settled();
+
+        expect(screen.queryByTestId('kitchen-order-desk-cash-report-branch')).toBeNull();
     });
 });
 
@@ -253,6 +349,17 @@ describe('order desk cash report — rows, totals and the em dash', () => {
         expect(screen.getByTestId('kitchen-order-desk-cash-report-total-wish-USD')).toBeTruthy();
     });
 
+    it('keeps each day of a window on its own row, with its day printed', async () => {
+        const monday = row();
+        const tuesday = row({ day: '2026-05-11', receiptCount: 1, amountMinorSum: 700 });
+        await renderReport(async () => report([monday, tuesday]));
+        await settled();
+
+        expect(screen.getByTestId(rowTestId(monday, 'day'))).toHaveTextContent(/10/);
+        expect(screen.getByTestId(rowTestId(tuesday, 'day'))).toHaveTextContent(/11/);
+        expect(screen.getByTestId(rowTestId(tuesday, 'count'))).toHaveTextContent('1');
+    });
+
     it('renders a nameless agent as an em dash that says in words what it stands for', async () => {
         const rows = seedRows();
         await renderReport(async () => report(rows));
@@ -275,7 +382,7 @@ describe('order desk cash report — rows, totals and the em dash', () => {
         expect(screen.queryByTestId('kitchen-order-desk-cash-report-measured-on')).toBeNull();
         expect(screen.queryByTestId('kitchen-order-desk-cash-report-scope')).toBeNull();
         expect(
-            screen.getByTestId('kitchen-order-desk-cash-report-figures-receipts-value'),
+            screen.getByTestId('kitchen-order-desk-cash-report-toolbar-figure-receipts-value'),
         ).toHaveTextContent('5');
     });
 });

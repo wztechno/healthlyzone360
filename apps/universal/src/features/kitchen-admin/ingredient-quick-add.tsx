@@ -3,7 +3,7 @@ import type {
     IngredientAssistReference,
     IngredientAssistSuggestion,
 } from '@healthy360/api-client/contracts';
-import { Button, Callout, Icon, Inline, Stack, Text } from '@healthy360/design-system';
+import { Callout, Icon, Inline, Stack, Text } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -19,6 +19,7 @@ import { queryKeys } from '../../data/query-keys.ts';
 import { useRepositories } from '../../data/repository-provider.tsx';
 import { displayName } from './format.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 type QuickAddState =
     | { readonly kind: 'idle' }
     | { readonly kind: 'checking' | 'creating'; readonly name: string }
@@ -90,8 +91,13 @@ export function useIngredientQuickAdd({
                 ...(assisted && result.subcategoryCode !== null
                     ? { subcategoryCode: result.subcategoryCode }
                     : {}),
-                // The new-ingredient form's default; the line takes whatever the row says.
-                measurementUnit: 'g',
+                // The assistant's unit when it gave one (bought and stocked alike), with the mass
+                // of one litre or piece; otherwise the new-ingredient form's default.
+                measurementUnit: assisted && result.unit !== null ? result.unit : 'g',
+                ...(assisted && result.unit !== null ? { purchaseUnit: result.unit } : {}),
+                ...(assisted && result.gramsPerUnit !== null
+                    ? { gramsPerUnit: result.gramsPerUnit }
+                    : {}),
                 nutritionPending: {
                     suggestion:
                         pick === undefined ? null : { ref: pick.ref, sourceHash: pick.source_hash },
@@ -154,7 +160,7 @@ export function useIngredientQuickAdd({
                     {entry.reason}
                 </Text>
             )}
-            <Button
+            <DeskButton
                 testID={`${testID}-use-${String(entry.id)}`}
                 size="sm"
                 variant="ghost"
@@ -167,7 +173,7 @@ export function useIngredientQuickAdd({
     );
 
     const cancel = (
-        <Button
+        <DeskButton
             testID={`${testID}-cancel`}
             size="sm"
             variant="ghost"
@@ -182,7 +188,7 @@ export function useIngredientQuickAdd({
         <>
             {busy ? (
                 <View>
-                    <Button
+                    <DeskButton
                         testID={`${testID}-busy`}
                         size="sm"
                         variant="secondary"
@@ -218,7 +224,7 @@ export function useIngredientQuickAdd({
                         title={t('kitchen:recipes.quickAddDuplicatesTitle', { name: shown.name })}
                         actions={
                             <Inline space="xs">
-                                <Button
+                                <DeskButton
                                     testID={`${testID}-anyway`}
                                     size="sm"
                                     variant="secondary"

@@ -1,7 +1,9 @@
 import type { CostAmount, IngredientAdmin } from '@healthy360/api-client/contracts';
-import { Badge, Inline, Text } from '@healthy360/design-system';
+import { Inline, Text } from '@healthy360/design-system';
+import type { BadgeTone } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
+import { View } from 'react-native';
 
 import {
     displayName,
@@ -10,6 +12,8 @@ import {
     statusTone,
     unitShortKey,
 } from '../format.ts';
+import { allergenLabel } from '../ops-format.ts';
+import { AllergenChip } from './allergen-chip.tsx';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 import { ingredientStockPhotoId } from './ingredient-photo.ts';
@@ -114,6 +118,15 @@ export const INGREDIENT_DEFAULT_COLUMNS: readonly string[] = [
 /** The row's title can be moved past but never dropped — see `column-picker.tsx`. */
 export const INGREDIENT_LOCKED_COLUMNS: readonly string[] = ['name'];
 
+/** The status dot, by `statusTone`'s answer. A tone not named here is drawn neutral. */
+const STATUS_DOT_CLASS: Readonly<Partial<Record<BadgeTone, string>>> = {
+    success: 'bg-success',
+    brand: 'bg-surface-brand',
+    warning: 'bg-warning-border',
+    danger: 'bg-danger',
+    info: 'bg-info',
+};
+
 /** Prices render at exactly two decimals, which is the design's `fmt: 2`. */
 const PRICE_DIGITS: Intl.NumberFormatOptions = {
     minimumFractionDigits: 2,
@@ -126,10 +139,10 @@ export function ingredientColumns({
     formatter,
     categoryName,
 }: IngredientColumnDeps): readonly CatalogueColumn<IngredientAdmin>[] {
-    const allergenLabel = (row: IngredientAdmin): string =>
+    const allergensOf = (row: IngredientAdmin): string =>
         row.allergens.length === 0
             ? t('kitchen:list.noAllergens')
-            : row.allergens.map((mapping) => mapping.allergenCode).join(', ');
+            : row.allergens.map((mapping) => allergenLabel(mapping.allergenCode, t)).join(', ');
 
     const noValue = t('kitchen:list.noValue');
 
@@ -219,18 +232,16 @@ export function ingredientColumns({
             render: (row) => {
                 const name = displayName(row.name, locale);
                 return (
-                    <Inline space="xs" align="center" wrap={false}>
-                        <Text variant="label" testID={`${ingredientRowTestId(row.id)}-name`}>
+                    <Inline space="xs" align="center" wrap={false} className="min-w-0 shrink">
+                        <Text
+                            variant="label"
+                            className="min-w-0 shrink"
+                            testID={`${ingredientRowTestId(row.id)}-name`}
+                        >
                             {name.value}
                         </Text>
-                        {name.isFallback ? (
-                            <Badge
-                                testID={`${ingredientRowTestId(row.id)}-missing-arabic`}
-                                tone="warning"
-                                icon="warning"
-                                label={t('kitchen:list.missingArabic')}
-                            />
-                        ) : null}
+                        {/* No "AR missing" chip on the row (removed 2026-11-11): the Lens bar's
+                            Missing Arabic figure still finds them. */}
                     </Inline>
                 );
             },
@@ -254,14 +265,26 @@ export function ingredientColumns({
                     ? t('kitchen:list.noCategory')
                     : categoryName(row.categoryCode),
             render: (row) => (
-                <Text
-                    testID={`${ingredientRowTestId(row.id)}-category`}
-                    tone={row.categoryCode === '' ? 'secondary' : 'primary'}
-                >
-                    {row.categoryCode === ''
-                        ? t('kitchen:list.noCategory')
-                        : categoryName(row.categoryCode)}
-                </Text>
+                <View className="min-w-0 flex-col">
+                    <Text
+                        testID={`${ingredientRowTestId(row.id)}-category`}
+                        tone={row.categoryCode === '' ? 'secondary' : 'primary'}
+                    >
+                        {row.categoryCode === ''
+                            ? t('kitchen:list.noCategory')
+                            : categoryName(row.categoryCode)}
+                    </Text>
+                    {/* The board's small second line: the filing under the category, when it has one. */}
+                    {row.subcategoryCode === null ? null : (
+                        <Text
+                            testID={`${ingredientRowTestId(row.id)}-category-sub`}
+                            variant="caption"
+                            tone="secondary"
+                        >
+                            {categoryName(row.subcategoryCode)}
+                        </Text>
+                    )}
+                </View>
             ),
         },
         {
@@ -311,31 +334,34 @@ export function ingredientColumns({
             min: 132,
             priority: CATALOGUE_PRIORITY.allergens,
             role: 'meta',
-            // A comma run, not a row of chips. The design draws `Egg, Mustard` in secondary ink and
-            // it is the right call at this density: eight rows of coloured pills turn the one
-            // column that is usually empty into the loudest thing on the page, and the badge's
-            // tone was carrying a distinction (contains versus may-contain) that no reader can
-            // decode from colour alone anyway. The row's editor states it in words.
-            value: allergenLabel,
+            // Chips, as the Ingredients board draws them: "contains" solid, "may contain" dashed and
+            // worded. They wrap rather than clip — a cut-off allergen on a row is a false answer.
+            value: allergensOf,
             render: (row) => {
                 const testID = ingredientRowTestId(row.id);
+                // Two ids, the same pair `recipe-columns.tsx` draws: "this ingredient declares none"
+                // and "this ingredient declares Egg, Mustard" are different answers, and a suite has
+                // to tell them apart without reading the copy.
+                if (row.allergens.length === 0) {
+                    return (
+                        <Text testID={`${testID}-allergens-none`} tone="secondary">
+                            {allergensOf(row)}
+                        </Text>
+                    );
+                }
                 return (
-                    <Text
-                        // Two ids, the same pair `recipe-columns.tsx` draws: "this ingredient
-                        // declares none" and "this ingredient declares Egg, Mustard" are different
-                        // answers, and a suite has to tell them apart without reading the copy. The
-                        // distinction only became worth drawing once the list carried the mappings
-                        // at all — while it did not, every row was the empty case and the marker
-                        // would have been a lie on all of them.
-                        testID={
-                            row.allergens.length === 0
-                                ? `${testID}-allergens-none`
-                                : `${testID}-allergens`
-                        }
-                        tone={row.allergens.length === 0 ? 'secondary' : 'primary'}
+                    <View
+                        testID={`${testID}-allergens`}
+                        className="min-w-0 flex-row flex-wrap gap-1 self-stretch py-1"
                     >
-                        {allergenLabel(row)}
-                    </Text>
+                        {row.allergens.map((mapping) => (
+                            <AllergenChip
+                                key={String(mapping.allergenCode)}
+                                code={String(mapping.allergenCode)}
+                                containment={mapping.containment}
+                            />
+                        ))}
+                    </View>
                 );
             },
         },
@@ -351,20 +377,20 @@ export function ingredientColumns({
             sortType: 'text',
             value: (row) => t(statusShortKey(row.meta.status)),
             render: (row) => (
-                // `Badge` with `statusTone`, not `StatusBadge`: the design system's `RecordStatus`
-                // vocabulary (draft/review/live/archived/restricted) is not the API's
-                // `PublishableStatus` (draft/review_required/published/retired), and mapping one
-                // onto the other is a decision for `format.ts`, which already made it.
-                <Badge
+                // A dot and the word, as the board draws it. The tone is still `statusTone`'s: the
+                // API's `PublishableStatus` mapped in `format.ts`, and the word carries the meaning.
+                <View
                     testID={`${ingredientRowTestId(row.id)}-status`}
-                    tone={statusTone(row.meta.status)}
-                    // No mark on Published. The tone's default `✓` is `Badge`'s way of keeping
-                    // meaning off colour alone, and "Published" is a word that needs no help —
-                    // §prop docs allow `null` for exactly that case. Draft and Review keep theirs,
-                    // because those two are the states a reader is scanning *for*.
-                    icon={row.meta.status === 'published' ? null : undefined}
-                    label={t(statusShortKey(row.meta.status))}
-                />
+                    className="flex-row items-center gap-1.5"
+                >
+                    <View
+                        aria-hidden
+                        className={`h-2 w-2 rounded-full ${STATUS_DOT_CLASS[statusTone(row.meta.status)] ?? 'bg-content-secondary'}`}
+                    />
+                    <Text variant="label" numberOfLines={1}>
+                        {t(statusShortKey(row.meta.status))}
+                    </Text>
+                </View>
             ),
         },
 

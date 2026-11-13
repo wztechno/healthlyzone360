@@ -1,7 +1,5 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
     EmptyState,
     ErrorState,
@@ -10,8 +8,8 @@ import {
     Text,
     useToast,
 } from '@healthy360/design-system';
-import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
+import type { TFunction } from 'i18next';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -28,9 +26,9 @@ import type { MenuItem } from '@healthy360/design-system';
 
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { PRODUCTION_MANAGE_PERMISSION, PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -46,14 +44,16 @@ import {
     formatLot,
     yieldSummary,
 } from '../production-desk/batch-figures.ts';
-import { trimDecimal } from '../format.ts';
+import { trimDecimal, unitCodeLabel } from '../format.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/production-desk` — the batches this kitchen still has to do something about (PROD1).
  *
  * ```
- * ┌ DRAFTS ┐ ┌ CONFIRMED ┐ ┌ IN PRODUCTION ┐ ┌ UNVALUED ┐
- * SHOWING [ Open | Draft | Confirmed | In production | Completed | Cancelled | Abandoned ]
+ * (All batches 12) │ ● Draft 4  ● Confirmed 5  ● In production 3 │ ● Unvalued 1    [+ New batch]
+ * [Showing Open ▾] [⌕ Search batches       ]                                 12 of 12 │ ▤
  * BATCH        MAKES              YIELD            STATUS            ACTION
  * PB-7K3MQ9ZV  Caesar dressing    37 / 38 l        [COMPLETED]       —
  * PB-2X8PVB4C  Frozen lasagne     40 l             [CONFIRMED]       Start
@@ -65,10 +65,10 @@ import { trimDecimal } from '../format.ts';
  * filter opens on the four open states — the server's own default — and narrowing it to one is how
  * `/batches` reads the finished ones out of the same endpoint rather than needing a second.
  *
- * ## The cards go quiet the moment the page is not the queue
+ * ## The figures go quiet the moment the page is not the queue
  *
  * Fifty per page with `hasMore` stated. A count over what happened to be on screen would read as a
- * fact about the kitchen, so every figure returns null past the first page and the tile shows an em
+ * fact about the kitchen, so every figure returns null past the first page and the bar shows an em
  * dash — the workspace's rule for a count it could not earn. {@link countByStatus} holds it.
  *
  * ## There is no complete button here
@@ -80,7 +80,7 @@ import { trimDecimal } from '../format.ts';
  *
  * Behind `production.view_organisation`; the row actions additionally need
  * `production.manage_organisation`. Money is redacted inside the payload, so a chef reads every
- * quantity here and the Unvalued tile shows an em dash rather than a zero.
+ * quantity here and the Unvalued figure shows an em dash rather than a zero.
  */
 export function ProductionDeskScreen() {
     return (
@@ -99,7 +99,6 @@ type DeskFilter = 'open' | ProductionOrderStatus;
 
 function ProductionDesk() {
     const { t } = useTranslation();
-    const formatter = useFormatter();
     const toast = useToast();
     const router = useRouter();
     const access = useAccessState();
@@ -129,10 +128,6 @@ function ProductionDesk() {
         setFilter(next);
         setPage(1);
     };
-
-    /** `null` is an em dash, not a zero — see the file header. */
-    const tile = (value: number | null): string =>
-        value === null ? t('kitchen:list.noValue') : formatter.formatNumber(value);
 
     const advance = (row: ProductionOrder) => {
         const edge = nextProductionEdge(row.status);
@@ -246,7 +241,7 @@ function ProductionDesk() {
                          * thrown away. Before the batch is settled this is an em dash rather than a
                          * zero: it has produced nothing **yet**.
                          */}
-                        {yieldSummary(row) ?? planned(row, t('kitchen:list.noValue'))}
+                        {yieldSummary(row, t) ?? planned(row, t('kitchen:list.noValue'), t)}
                     </Text>
                 ),
             },
@@ -258,13 +253,13 @@ function ProductionDesk() {
                 priority: 95,
                 render: (row) => (
                     <View className="flex-row flex-wrap items-center gap-1.5">
-                        <Badge
+                        <DeskChip
                             testID={`${productionBatchTestId(String(row.id))}-status`}
                             tone={productionStatusTone(row.status)}
                             label={t(productionStatusKey(row.status))}
                         />
                         {row.isExpired ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${productionBatchTestId(String(row.id))}-expired`}
                                 tone="danger"
                                 label={t('kitchen:ops.production.expiredBadge')}
@@ -326,162 +321,271 @@ function ProductionDesk() {
 
     const controls = useColumnControls(searched, columns, 'kitchen-production-desk-table');
 
+    // The table closes the toolbar's card once the list has loaded.
+    const joined = !batches.isPending && failure === null;
+
     return (
         <Cascade space="md" testID="kitchen-production-desk-screen">
-            {failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-production-desk-summary"
-                    pending={batches.isPending}
-                    cards={[
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-production-desk-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    // A failed read counts nothing: its figures are dashes, as past the first page.
+                    figures={lensFigures(
                         {
-                            key: 'draft',
-                            label: t('kitchen:ops.production.status.draft'),
-                            value: tile(countByStatus(rows, 'draft', hasMore)),
-                            unit: t('kitchen:ops.production.statUnit'),
-                            caption: t('kitchen:ops.production.statDraftCaption'),
-                            mark: 'fileDraft',
-                            tone: 'default',
-                            onPress: () => {
-                                refilter('draft');
-                            },
-                            accessibilityLabel: t('kitchen:ops.production.status.draft'),
+                            rows,
+                            hasMore: hasMore || failure !== null,
+                            pending: batches.isPending,
+                            filter,
+                            refilter,
                         },
-                        {
-                            key: 'confirmed',
-                            label: t('kitchen:ops.production.status.confirmed'),
-                            value: tile(countByStatus(rows, 'confirmed', hasMore)),
-                            unit: t('kitchen:ops.production.statUnit'),
-                            caption: t('kitchen:ops.production.statConfirmedCaption'),
-                            mark: 'circleCheck',
-                            tone: 'brand',
-                            onPress: () => {
-                                refilter('confirmed');
-                            },
-                            accessibilityLabel: t('kitchen:ops.production.status.confirmed'),
-                        },
-                        {
-                            key: 'inProduction',
-                            label: t('kitchen:ops.production.status.inProduction'),
-                            value: tile(countByStatus(rows, 'in_production', hasMore)),
-                            unit: t('kitchen:ops.production.statUnit'),
-                            caption: t('kitchen:ops.production.statInProductionCaption'),
-                            mark: 'cookingPot',
-                            tone: 'brand',
-                            onPress: () => {
-                                refilter('in_production');
-                            },
-                            accessibilityLabel: t('kitchen:ops.production.status.inProduction'),
-                        },
-                        {
-                            key: 'unvalued',
-                            label: t('kitchen:ops.production.statUnvalued'),
-                            value: tile(countUnvalued(rows, hasMore)),
-                            unit: t('kitchen:ops.production.statUnit'),
-                            caption: t('kitchen:ops.production.statUnvaluedCaption'),
-                            mark: 'coins',
-                            tone: (countUnvalued(rows, hasMore) ?? 0) > 0 ? 'danger' : 'default',
-                        },
-                    ]}
+                        t,
+                    )}
+                    {...(filter === 'open' && !hasMore && !batches.isPending && failure === null
+                        ? {
+                              mix: OPEN_STATUSES.map(([status]) => ({
+                                  key: status,
+                                  value: rows.filter((row) => row.status === status).length,
+                                  tone: productionStatusTone(status),
+                              })),
+                              mixLabel: t('kitchen:lens.batchMix', {
+                                  draft: countByStatus(rows, 'draft', false),
+                                  confirmed: countByStatus(rows, 'confirmed', false),
+                                  inProduction: countByStatus(rows, 'in_production', false),
+                              }),
+                          }
+                        : {})}
+                    scope={
+                        <LensScope<DeskScope>
+                            testID="kitchen-production-desk-toolbar-status"
+                            label={t('kitchen:ops.production.filterStatus')}
+                            // A figure narrows inside Open; the picker still says where it stands.
+                            value={isDeskScope(filter) ? filter : 'open'}
+                            onChange={refilter}
+                            options={DESK_SCOPES.map(([value, labelKey]) => ({
+                                value,
+                                label: t(labelKey),
+                                testID: `kitchen-production-desk-toolbar-status-${value}`,
+                            }))}
+                        />
+                    }
+                    search={query}
+                    onSearchChange={setQuery}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:ops.production.searchPlaceholder')}
+                    result={
+                        batches.isPending
+                            ? null
+                            : failure !== null
+                              ? t('kitchen:list.noValue')
+                              : t('kitchen:lens.result', {
+                                    shown: searched.length,
+                                    total: rows.length,
+                                })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(query === '' && filter === 'open'
+                        ? {}
+                        : {
+                              onClear: () => {
+                                  setQuery('');
+                                  refilter('open');
+                              },
+                          })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canManage ? (
+                            <DeskButton
+                                testID="kitchen-production-desk-new"
+                                size="sm"
+                                label={t('kitchen:ops.production.create')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={() => {
+                                    router.push('/kitchen/production-desk/new');
+                                }}
+                            />
+                        ) : undefined
+                    }
                 />
-            )}
 
-            <CatalogueToolbar<DeskFilter>
-                testID="kitchen-production-desk-toolbar"
-                search={query}
-                onSearchChange={setQuery}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:ops.production.searchPlaceholder')}
-                statusLabel={t('kitchen:ops.production.filterStatus')}
-                statusSegments={(
-                    [
-                        ['open', 'kitchen:ops.production.filterOpen'],
-                        ['completed', 'kitchen:ops.production.status.completed'],
-                        ['cancelled', 'kitchen:ops.production.status.cancelled'],
-                        ['abandoned', 'kitchen:ops.production.status.abandoned'],
-                    ] as const
-                ).map(([value, labelKey]) => ({ value, label: t(labelKey) }))}
-                status={filter}
-                onStatusChange={refilter}
-            >
-                <ColumnPicker {...controls.picker} />
-                {canManage ? (
-                    <Button
-                        testID="kitchen-production-desk-new"
-                        size="sm"
-                        label={t('kitchen:ops.production.create')}
-                        iconStart={<Icon name="plus" size="sm" />}
-                        onPress={() => {
-                            router.push('/kitchen/production-desk/new');
+                {batches.isPending ? (
+                    <TableSkeleton testID="kitchen-production-desk-loading" rows={8} />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-production-desk-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void batches.refetch();
                         }}
+                        retrying={batches.isFetching}
                     />
-                ) : null}
-            </CatalogueToolbar>
-
-            {batches.isPending ? (
-                <TableSkeleton testID="kitchen-production-desk-loading" rows={8} />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-production-desk-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void batches.refetch();
-                    }}
-                    retrying={batches.isFetching}
-                />
-            ) : rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-production-desk-empty"
-                    title={t('kitchen:ops.production.emptyTitle')}
-                    body={t('kitchen:ops.production.emptyBody')}
-                />
-            ) : searched.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-production-desk-no-match"
-                    title={t('kitchen:ops.production.filteredEmptyTitle')}
-                    body={t('kitchen:ops.production.filteredEmptyBody')}
-                />
-            ) : (
-                <View className="flex-col gap-2.5">
-                    <CatalogueList<ProductionOrder>
-                        testID="kitchen-production-desk-table"
-                        label={t('kitchen:ops.production.title')}
+                ) : rows.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-production-desk-empty-list"
+                        label={t('kitchen:lens.label')}
                         columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => String(row.id)}
-                        onRowPress={(row) => {
-                            router.push(`/kitchen/production-desk/${String(row.id)}`);
-                        }}
-                        rowActions={rowActions}
+                        rows={[]}
+                        rowKey={() => ''}
+                        density="sm"
+                        joined
+                        frameEmpty
                         rowActionsLabel={t('kitchen:list.rowActions')}
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-production-desk-empty"
+                                title={t('kitchen:ops.production.emptyTitle')}
+                                body={t('kitchen:ops.production.emptyBody')}
+                            />
+                        }
                     />
-                    <View className="flex-row flex-wrap items-center justify-center gap-snug">
-                        {page > 1 ? (
-                            <Button
-                                testID="kitchen-production-desk-previous"
-                                variant="secondary"
-                                size="sm"
-                                label={t('kitchen:ops.production.previousPage')}
-                                onPress={() => {
-                                    setPage(page - 1);
-                                }}
+                ) : searched.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-production-desk-no-match-list"
+                        label={t('kitchen:lens.label')}
+                        columns={controls.columns}
+                        rows={[]}
+                        rowKey={() => ''}
+                        density="sm"
+                        joined
+                        frameEmpty
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-production-desk-no-match"
+                                title={t('kitchen:ops.production.filteredEmptyTitle')}
+                                body={t('kitchen:ops.production.filteredEmptyBody')}
                             />
-                        ) : null}
-                        {hasMore ? (
-                            <Button
-                                testID="kitchen-production-desk-next"
-                                variant="secondary"
-                                size="sm"
-                                label={t('kitchen:ops.production.nextPage')}
-                                onPress={() => {
-                                    setPage(page + 1);
-                                }}
-                            />
-                        ) : null}
+                        }
+                    />
+                ) : (
+                    <View className="flex-col gap-2.5">
+                        <CatalogueList<ProductionOrder>
+                            testID="kitchen-production-desk-table"
+                            joined
+                            label={t('kitchen:ops.production.title')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => String(row.id)}
+                            onRowPress={(row) => {
+                                router.push(`/kitchen/production-desk/${String(row.id)}`);
+                            }}
+                            rowActions={rowActions}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                        />
+                        <View className="flex-row flex-wrap items-center justify-center gap-snug">
+                            {page > 1 ? (
+                                <DeskButton
+                                    testID="kitchen-production-desk-previous"
+                                    variant="secondary"
+                                    size="sm"
+                                    label={t('kitchen:ops.production.previousPage')}
+                                    onPress={() => {
+                                        setPage(page - 1);
+                                    }}
+                                />
+                            ) : null}
+                            {hasMore ? (
+                                <DeskButton
+                                    testID="kitchen-production-desk-next"
+                                    variant="secondary"
+                                    size="sm"
+                                    label={t('kitchen:ops.production.nextPage')}
+                                    onPress={() => {
+                                        setPage(page + 1);
+                                    }}
+                                />
+                            ) : null}
+                        </View>
                     </View>
-                </View>
-            )}
+                )}
+            </View>
         </Cascade>
     );
+}
+
+/** The open states, which the desk's figures narrow to inside Open. */
+const OPEN_STATUSES = [
+    ['draft', 'kitchen:lens.draftBatchesAction'],
+    ['confirmed', 'kitchen:lens.confirmedBatchesAction'],
+    ['in_production', 'kitchen:lens.inProductionBatchesAction'],
+] as const satisfies readonly (readonly [ProductionOrderStatus, string])[];
+
+/** The status picker's settings: Open, or one of the states nobody has to move any more. */
+const DESK_SCOPES = [
+    ['open', 'kitchen:ops.production.filterOpen'],
+    ['completed', 'kitchen:ops.production.status.completed'],
+    ['cancelled', 'kitchen:ops.production.status.cancelled'],
+    ['abandoned', 'kitchen:ops.production.status.abandoned'],
+] as const;
+
+type DeskScope = (typeof DESK_SCOPES)[number][0];
+
+function isDeskScope(filter: DeskFilter): filter is DeskScope {
+    return DESK_SCOPES.some(([value]) => value === filter);
+}
+
+/**
+ * The Lens bar's figures: the page's batches, the three open states as filters, then Unvalued.
+ *
+ * A count the page cannot earn — past the first page — is drawn as the em dash on a zero, so it
+ * neither raises the alarm nor reads as a number.
+ */
+function lensFigures(
+    source: {
+        readonly rows: readonly ProductionOrder[];
+        readonly hasMore: boolean;
+        readonly pending: boolean;
+        readonly filter: DeskFilter;
+        readonly refilter: (next: DeskFilter) => void;
+    },
+    t: TFunction,
+): readonly LensFigure[] {
+    const { rows, hasMore, pending, filter, refilter } = source;
+    const figure = (count: number | null) =>
+        pending
+            ? { value: null }
+            : count === null
+              ? { value: 0, display: t('kitchen:list.noValue') }
+              : { value: count };
+
+    return [
+        {
+            key: 'all',
+            label: t('kitchen:lens.allBatches'),
+            // Narrowed to one state, the page holds only that state: the whole is unknown.
+            ...figure(isDeskScope(filter) && !hasMore ? rows.length : null),
+            active: isDeskScope(filter),
+            onPress: () => {
+                refilter(isDeskScope(filter) ? filter : 'open');
+            },
+            accessibilityLabel: t('kitchen:lens.allAction'),
+        },
+        ...OPEN_STATUSES.map(([status, action], index) => ({
+            key: status,
+            label: t(productionStatusKey(status)),
+            ...figure(countByStatus(rows, status, hasMore)),
+            tone: productionStatusTone(status),
+            separated: index === 0,
+            active: filter === status,
+            onPress: () => {
+                refilter(status);
+            },
+            accessibilityLabel: t(action),
+        })),
+        {
+            key: 'unvalued',
+            label: t('kitchen:ops.production.statUnvalued'),
+            ...figure(countUnvalued(rows, hasMore)),
+            tone: 'danger',
+            alarm: true,
+            separated: true,
+        },
+    ];
 }
 
 /**
@@ -491,8 +595,10 @@ function ProductionDesk() {
  * only while there is no produced one, and falls back to the em dash rather than to a zero when the
  * batch does not even say what it intends.
  */
-function planned(row: ProductionOrder, fallback: string): string {
+function planned(row: ProductionOrder, fallback: string, t: (key: string) => string): string {
     if (row.plannedYield === null) return fallback;
 
-    return `${trimDecimal(row.plannedYield)} ${row.plannedYieldUnitCode ?? ''}`.trim();
+    const unit =
+        row.plannedYieldUnitCode === null ? '' : unitCodeLabel(row.plannedYieldUnitCode, t);
+    return `${trimDecimal(row.plannedYield)} ${unit}`.trim();
 }

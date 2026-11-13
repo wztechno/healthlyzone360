@@ -1,6 +1,5 @@
 import { formatGtin } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     EmptyState,
     ErrorState,
@@ -26,7 +25,9 @@ import { Ean13Barcode } from '../ean13-barcode.tsx';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { usePrintSheet } from '../print-sheet.tsx';
 import { MAX_LABEL_COPIES } from '../production-desk/batch-figures.ts';
+import { BackPill } from '../../../ui/back-pill.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/ingredients/{ingredient}/label` — the kitchen code's label, as many copies as asked
  * (ingredient barcodes, plan §8).
@@ -85,9 +86,8 @@ function IngredientBarcodeLabel({ ingredient }: IngredientBarcodeLabelScreenProp
                 testID="kitchen-ingredient-label-not-found"
                 title={t('kitchen:barcodes.labelNotFound')}
                 actions={
-                    <Button
+                    <BackPill
                         testID="kitchen-ingredient-label-not-found-back"
-                        variant="secondary"
                         label={t('kitchen:editor.backToList')}
                         onPress={back.leave}
                     />
@@ -117,9 +117,8 @@ function IngredientBarcodeLabel({ ingredient }: IngredientBarcodeLabelScreenProp
 
     const kitchenCode = barcodes.data?.find((row) => row.origin === 'system');
     const backButton = (
-        <Button
+        <BackPill
             testID="kitchen-ingredient-label-back"
-            variant="secondary"
             label={t('kitchen:barcodes.backToIngredient')}
             onPress={back.leave}
         />
@@ -150,31 +149,32 @@ function IngredientBarcodeLabel({ ingredient }: IngredientBarcodeLabelScreenProp
         <Stack space="lg" testID="kitchen-ingredient-label-screen">
             {/* Screen-only: the print block hides this whole block by test id. */}
             <Stack space="sm" testID="kitchen-ingredient-label-toolbar">
-                <Heading level={1} testID="kitchen-ingredient-label-title">
-                    {t('kitchen:barcodes.printLabel')}
-                </Heading>
-                <Inline space="sm" align="end" justify="between" wrap>
-                    <View className="w-32">
-                        <QuantityInput
-                            testID="kitchen-ingredient-label-copies"
-                            id="kitchen-ingredient-label-copies"
-                            label={t('kitchen:ops.production.labelCopies')}
-                            placeholder="1"
-                            value={typedCopies}
-                            onChangeText={setTypedCopies}
-                        />
-                    </View>
-                    <Inline space="sm" align="center" wrap>
+                {/* The board's one bar: the title at the start, copies and the two buttons at the end. */}
+                <View className="z-auto flex-row flex-wrap items-end justify-between gap-snug rounded-panel border border-stroke-subtle bg-surface-raised p-snug">
+                    <Heading level={2} testID="kitchen-ingredient-label-title">
+                        {t('kitchen:barcodes.printLabel')}
+                    </Heading>
+                    <Inline space="sm" align="end" wrap>
+                        <View className="w-32">
+                            <QuantityInput
+                                testID="kitchen-ingredient-label-copies"
+                                id="kitchen-ingredient-label-copies"
+                                label={t('kitchen:ops.production.labelCopies')}
+                                placeholder="1"
+                                value={typedCopies}
+                                onChangeText={setTypedCopies}
+                            />
+                        </View>
                         {backButton}
                         {sheet.mode === 'browser' ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-ingredient-label-print"
                                 label={t('kitchen:barcodes.printLabel')}
                                 onPress={sheet.print}
                             />
                         ) : null}
                     </Inline>
-                </Inline>
+                </View>
                 {sheet.mode === 'browser' ? null : (
                     <Callout
                         testID="kitchen-ingredient-label-native-notice"

@@ -107,6 +107,9 @@ class PlaceOrderDeskRequest extends FormRequest
             'lines.*.catalogue_item_id' => ['required', 'uuid'],
             'lines.*.catalogue_item_variant_id' => ['nullable', 'uuid'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'lines.*.option_ids' => ['nullable', 'array', 'max:40'],
+            'lines.*.option_ids.*' => ['uuid'],
+            'lines.*.note' => ['nullable', 'string', 'max:300'],
             // Which of these is required, forbidden or merely allowed is decided
             // by `fulfilment_type`, and it is deliberately **not** decided here.
             // `OrderPlacementService::shapeReasons()` answers it as
@@ -119,6 +122,10 @@ class PlaceOrderDeskRequest extends FormRequest
             'customer_address_id' => ['nullable', 'uuid'],
             'requested_delivery_date' => ['nullable', 'date_format:Y-m-d'],
             'delivery_window_code' => ['nullable', 'string', 'max:40'],
+            // How a walk-in with no profile is covered, and the cashier saying
+            // the customer was told about a conflict with their allergies.
+            'allergy_note' => ['nullable', 'string', 'max:500'],
+            'acknowledge_allergen_conflicts' => ['sometimes', 'boolean'],
             // The driver to hand the run to, on a delivery only: a pickup or a
             // counter sale has nowhere to be driven to, so naming one is a
             // belief about the order that is not true of it. Who may be named
@@ -193,12 +200,14 @@ class PlaceOrderDeskRequest extends FormRequest
      *     fulfilment_type: string,
      *     payment_method: string,
      *     branch_id: string|null,
-     *     lines: list<array{catalogue_item_id: string, catalogue_item_variant_id: string|null, quantity: string}>,
+     *     lines: list<array{catalogue_item_id: string, catalogue_item_variant_id: string|null, quantity: string, option_ids: list<string>, note: string|null}>,
      *     customer_account_id: string|null,
      *     customer_address_id: string|null,
      *     requested_delivery_date: string|null,
      *     delivery_window_code: string|null,
-     *     driver_user_id: string|null
+     *     driver_user_id: string|null,
+     *     allergy_note: string|null,
+     *     acknowledge_allergen_conflicts: bool
      * }
      */
     public function payload(): array
@@ -206,7 +215,7 @@ class PlaceOrderDeskRequest extends FormRequest
         /** @var array<string, mixed> $validated */
         $validated = $this->validated();
 
-        /** @var list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: int|float|string}> $lines */
+        /** @var list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: int|float|string, option_ids?: list<string>|null, note?: string|null}> $lines */
         $lines = $validated['lines'];
 
         return [
@@ -220,6 +229,8 @@ class PlaceOrderDeskRequest extends FormRequest
                         ? null
                         : (string) $line['catalogue_item_variant_id'],
                     'quantity' => (string) $line['quantity'],
+                    'option_ids' => array_values($line['option_ids'] ?? []),
+                    'note' => $line['note'] ?? null,
                 ],
                 $lines,
             ),
@@ -228,6 +239,8 @@ class PlaceOrderDeskRequest extends FormRequest
             'requested_delivery_date' => $this->stated($validated['requested_delivery_date'] ?? null),
             'delivery_window_code' => $this->stated($validated['delivery_window_code'] ?? null),
             'driver_user_id' => $this->stated($validated['driver_user_id'] ?? null),
+            'allergy_note' => $this->stated($validated['allergy_note'] ?? null),
+            'acknowledge_allergen_conflicts' => (bool) ($validated['acknowledge_allergen_conflicts'] ?? false),
         ];
     }
 

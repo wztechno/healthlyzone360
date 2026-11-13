@@ -1,14 +1,14 @@
 import {
     Badge,
-    Button,
     Dialog,
     FormIssueBanner,
     Inline,
     Stack,
     Tabs,
     Text,
+    useIssueGroup,
 } from '@healthy360/design-system';
-import type { FormIssueItem, TabItem } from '@healthy360/design-system';
+import type { FormIssueItem, IssueCardItem, TabItem } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -21,6 +21,9 @@ import type { ServerFieldTarget } from './server-field-errors.ts';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { useSaveBar } from './save-bar.tsx';
+import type { SaveBarAction } from './save-bar.tsx';
 /**
  * The opening of a Catalogue Forms record page, for the forms that do not draw their own.
  *
@@ -39,10 +42,10 @@ import type { UnsavedGuard } from './use-unsaved-guard.ts';
  *
  * - **The title** with what the record is beside it — its status, its handle, an unsaved marker —
  *   and the page's actions at the inline end, Cancel first and the commit last.
- * - **The banners**, when there is something to say: the danger one names what stops the save and
- *   each chip takes the reader to it; the warning one names what does not stop it but should be
- *   seen. Neither is drawn empty, and each takes its own full-width line. They are the map, never
- *   the only place a problem is said: every field it names still says it under itself.
+ * - **The problems**, as cards in the page's issue tray (`useIssueGroup`): what stops the save under
+ *   "Blocks save", each card's Fix taking the reader to the field; what does not stop it but should
+ *   be seen under "Check". They are the map, never the only place a problem is said: every field
+ *   still says it under itself. A page with no `IssueTrayFrame` around it gets the old banners.
  * - **The steps**, when the form has more than one: numbered tabs on a sunken track, each with its
  *   count and — when something on it needs attention — a pill. The row is the map; the page draws
  *   `TabStepNavigation` under its form as the way through. Without steps a hairline closes the
@@ -61,8 +64,17 @@ export interface RecordFormOpeningProps<Step extends string> {
      * kitchen and channels. Facts of the record rather than fields of the form.
      */
     readonly details?: ReactNode | undefined;
-    /** At the inline end — Cancel, then any lifecycle act, then the commit. */
+    /** At the inline end — Cancel, then any lifecycle act. The commit goes in `save`. */
     readonly actions?: ReactNode | undefined;
+    /**
+     * The commit. In the kitchen layout it is drawn in the save bar at the page's foot, while there
+     * is something to save; a screen rendered on its own draws it last among the actions.
+     */
+    readonly save?: SaveBarAction | undefined;
+    /** Puts the form back as loaded — the save bar's Discard. */
+    readonly discard?: SaveBarAction | undefined;
+    /** A record never saved: the save bar stays up until it is. */
+    readonly creating?: boolean | undefined;
     readonly errors?:
         { readonly summary: string; readonly items: readonly FormIssueItem[] } | undefined;
     readonly warnings?:
@@ -85,6 +97,9 @@ export function RecordFormOpening<Step extends string>({
     dirty,
     details,
     actions,
+    save,
+    discard,
+    creating,
     errors,
     warnings,
     steps,
@@ -92,8 +107,44 @@ export function RecordFormOpening<Step extends string>({
 }: RecordFormOpeningProps<Step>) {
     const { t } = useTranslation();
 
-    const showErrors = errors !== undefined && errors.items.length > 0;
-    const showWarnings = warnings !== undefined && warnings.items.length > 0;
+    const cards = (
+        items: readonly FormIssueItem[] | undefined,
+        tone: 'danger' | 'warning',
+        part: 'errors' | 'warnings',
+    ): IssueCardItem[] =>
+        (items ?? []).map((item) => ({
+            key: item.key,
+            tone,
+            label: item.label,
+            action: { onPress: item.onPress },
+            testID: `${testID}-issues-${part}-${item.key}`,
+        }));
+    // Registered empty too, so a card the reader has fixed ticks off rather than vanishing.
+    const inTray = useIssueGroup({
+        key: 'save',
+        title: t('kitchen:tray.groupSave'),
+        items: cards(errors?.items, 'danger', 'errors'),
+        testID: `${testID}-issues-errors`,
+    });
+    useIssueGroup({
+        key: 'check',
+        title: t('kitchen:tray.groupCheck'),
+        items: cards(warnings?.items, 'warning', 'warnings'),
+        testID: `${testID}-issues-warnings`,
+    });
+
+    // The save bar takes the unsaved marker and the commit, where the kitchen layout draws one.
+    const barDrawn = useSaveBar({
+        dirty,
+        creating,
+        toFix: errors?.items.length ?? 0,
+        save,
+        discard,
+        testID,
+    });
+
+    const showErrors = !inTray && errors !== undefined && errors.items.length > 0;
+    const showWarnings = !inTray && warnings !== undefined && warnings.items.length > 0;
 
     return (
         <Stack space="sm">
@@ -104,7 +155,7 @@ export function RecordFormOpening<Step extends string>({
                 titleAside={
                     <Inline space="xs" align="center" wrap testID={`${testID}-meta`}>
                         {badges}
-                        {dirty ? (
+                        {dirty && !barDrawn ? (
                             <Badge
                                 variant="label"
                                 testID={`${testID}-dirty`}
@@ -116,7 +167,7 @@ export function RecordFormOpening<Step extends string>({
                     </Inline>
                 }
                 primaryAction={
-                    actions === undefined ? undefined : (
+                    actions === undefined && (save === undefined || barDrawn) ? undefined : (
                         <Inline
                             space="xs"
                             align="center"
@@ -125,6 +176,15 @@ export function RecordFormOpening<Step extends string>({
                             testID={`${testID}-actions`}
                         >
                             {actions}
+                            {save === undefined || barDrawn ? null : (
+                                <DeskButton
+                                    testID={save.testID}
+                                    label={save.label}
+                                    loading={save.loading}
+                                    disabled={save.disabled}
+                                    onPress={save.onPress}
+                                />
+                            )}
                         </Inline>
                     )
                 }
@@ -133,8 +193,8 @@ export function RecordFormOpening<Step extends string>({
             {details === undefined ? null : <View testID={`${testID}-details`}>{details}</View>}
 
             {/*
-             * One strip above the other, each the full width: side by side they squeezed each
-             * other into columns a few words wide, and the chips wrapped into a pile.
+             * Only outside a tray. One strip above the other, each the full width: side by side
+             * they squeezed each other into columns a few words wide, and the chips piled up.
              */}
             {!showErrors && !showWarnings ? null : (
                 <Stack space="xs" testID={`${testID}-issues`}>
@@ -174,6 +234,60 @@ export function RecordFormOpening<Step extends string>({
 }
 
 /**
+ * "Leave this page?" — what every editor asks before unsaved work is left behind.
+ *
+ * An editor that keeps a draft (`guard.canKeep`) offers three ways out: Keep for later, which lists
+ * the work in the kept work (`navigation/kept-work.ts`) and its card; Discard; and Stay. Any other
+ * asks the two it always did. "Stay" rather than "Keep editing" beside a Keep button, so the two
+ * Keeps are never confused.
+ */
+export function UnsavedDialog({
+    guard,
+    testID,
+}: {
+    readonly guard: UnsavedGuard;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const keepable = guard.canKeep;
+
+    return (
+        <Dialog
+            look="card"
+            testID={`${testID}-unsaved-dialog`}
+            open={guard.isPrompting}
+            onClose={guard.cancelDiscard}
+            title={t(keepable ? 'kitchen:unsaved.keepableTitle' : 'kitchen:unsaved.title')}
+            description={t(keepable ? 'kitchen:unsaved.keepableBody' : 'kitchen:unsaved.body')}
+            actions={
+                <>
+                    <DeskButton
+                        testID={`${testID}-unsaved-keep`}
+                        variant="quiet"
+                        label={t(keepable ? 'kitchen:unsaved.stay' : 'kitchen:unsaved.keepEditing')}
+                        onPress={guard.cancelDiscard}
+                    />
+                    <DeskButton
+                        testID={`${testID}-unsaved-discard`}
+                        variant="danger"
+                        label={t('kitchen:unsaved.discard')}
+                        onPress={guard.confirmDiscard}
+                    />
+                    {keepable ? (
+                        <DeskButton
+                            testID={`${testID}-unsaved-keep-for-later`}
+                            variant="primary"
+                            label={t('kitchen:unsaved.keepForLater')}
+                            onPress={guard.confirmKeep}
+                        />
+                    ) : null}
+                </>
+            }
+        />
+    );
+}
+
+/**
  * The two dialogs every record page guards itself with — leaving with unsaved edits, and saving
  * over somebody else's — drawn under the ids the frames always gave them (`-unsaved-dialog`,
  * `-conflict-dialog` and their buttons), so a page that leaves a frame keeps its suite.
@@ -191,32 +305,11 @@ export function EditorGuardDialogs({
 
     return (
         <>
-            <Dialog
-                testID={`${testID}-unsaved-dialog`}
-                open={guard.isPrompting}
-                onClose={guard.cancelDiscard}
-                title={t('kitchen:unsaved.title')}
-                description={t('kitchen:unsaved.body')}
-                actions={
-                    <>
-                        <Button
-                            testID={`${testID}-unsaved-keep`}
-                            variant="quiet"
-                            label={t('kitchen:unsaved.keepEditing')}
-                            onPress={guard.cancelDiscard}
-                        />
-                        <Button
-                            testID={`${testID}-unsaved-discard`}
-                            variant="danger"
-                            label={t('kitchen:unsaved.discard')}
-                            onPress={guard.confirmDiscard}
-                        />
-                    </>
-                }
-            />
+            <UnsavedDialog guard={guard} testID={testID} />
 
             {concurrency === undefined ? null : (
                 <Dialog
+                    look="card"
                     testID={`${testID}-conflict-dialog`}
                     open={concurrency.conflict !== null}
                     onClose={concurrency.keepEditing}
@@ -225,13 +318,13 @@ export function EditorGuardDialogs({
                     description={t('kitchen:conflict.body')}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID={`${testID}-conflict-keep`}
                                 variant="quiet"
                                 label={t('kitchen:conflict.keepEditing')}
                                 onPress={concurrency.keepEditing}
                             />
-                            <Button
+                            <DeskButton
                                 testID={`${testID}-conflict-reload`}
                                 variant="danger"
                                 label={t('kitchen:conflict.reload')}

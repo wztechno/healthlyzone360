@@ -118,12 +118,16 @@ export function useMealQuery(mealId: MealId | null): UseQueryResult<MarketplaceM
 
 /* ── subscription plans ──────────────────────────────────────────────────────────────────────── */
 
-export function usePlansQuery(filter?: PlanFilter): UseQueryResult<CursorPage<SubscriptionPlan>> {
+/** `enabled` false asks for nothing — a kitchen that sells no plans has none to count. */
+export function usePlansQuery(
+    filter?: PlanFilter,
+    enabled = true,
+): UseQueryResult<CursorPage<SubscriptionPlan>> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.catalogue.plans(filter),
-        enabled: repositories !== null,
+        enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.marketplace.listPlans(filter);

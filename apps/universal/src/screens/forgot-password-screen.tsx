@@ -1,21 +1,22 @@
-import {
-    Button,
-    Card,
-    Heading,
-    Inline,
-    Stack,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
 import { makeForgotPasswordSchema, toFormResolver } from '@healthy360/validation';
 import type { ForgotPasswordValues } from '@healthy360/validation';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { toFailure, useForgotPasswordMutation } from '../data/hooks.ts';
 import { safeReturnTo, withReturnTo } from '../navigation/return-to.ts';
+import {
+    AuthBadge,
+    AuthField,
+    AuthLink,
+    AuthSubmit,
+    AuthText,
+    AuthTick,
+    AuthTitle,
+} from '../ui/auth-form.tsx';
 import { applyServerFailure, useValidationTranslate } from './form-helpers.ts';
 
 export interface ForgotPasswordScreenProps {
@@ -24,7 +25,9 @@ export interface ForgotPasswordScreenProps {
 }
 
 /**
- * Forgotten password.
+ * Forgotten password, drawn as the accepted Forgot-password board in the sign-in frame: the key
+ * badge, "Reset your password", the email field and "Send reset link"; then the tick and "Check
+ * your email".
  *
  * The confirmation is deliberately **neutral**: "if an account exists for this address, a link is
  * on its way". Telling the user whether the address is registered would turn this form into an
@@ -39,7 +42,11 @@ export function ForgotPasswordScreen({ returnTo: rawReturnTo }: ForgotPasswordSc
     const request = useForgotPasswordMutation();
     const translate = useValidationTranslate();
     const [sentTo, setSentTo] = useState<string | null>(null);
+    const router = useRouter();
     const signInHref = withReturnTo('/sign-in', safeReturnTo(rawReturnTo));
+    const backToSignIn = () => {
+        router.replace(signInHref as never);
+    };
 
     const form = useForm<{ email: string }, unknown, ForgotPasswordValues>({
         resolver: toFormResolver(makeForgotPasswordSchema(translate)),
@@ -66,46 +73,42 @@ export function ForgotPasswordScreen({ returnTo: rawReturnTo }: ForgotPasswordSc
 
     if (sentTo !== null) {
         return (
-            <Stack testID="forgot-password-screen" space="lg">
-                <Heading level={1} testID="forgot-password-sent-title">
+            <View testID="forgot-password-screen" className="flex-col items-center gap-3.5">
+                <AuthTick />
+                <AuthTitle testID="forgot-password-sent-title" centred>
                     {t('auth:forgotPassword.sentTitle')}
-                </Heading>
-                <Card tone="brand" padding="md">
-                    <Text testID="forgot-password-sent-body" role="status" aria-live="polite">
+                </AuthTitle>
+                <View role="status" aria-live="polite">
+                    <AuthText testID="forgot-password-sent-body" centred>
                         {t('auth:forgotPassword.sentBody', { email: sentTo })}
-                    </Text>
-                </Card>
-                <Link testID="forgot-password-back" href={signInHref as never} replace asChild>
-                    <Text tone="info" accessibilityRole="link">
-                        {t('auth:forgotPassword.backToSignIn')}
-                    </Text>
-                </Link>
-            </Stack>
+                    </AuthText>
+                </View>
+                <AuthLink
+                    testID="forgot-password-back"
+                    label={t('auth:forgotPassword.backToSignIn')}
+                    onPress={backToSignIn}
+                />
+            </View>
         );
     }
 
     return (
-        <Stack testID="forgot-password-screen" space="lg">
-            <Stack space="xs">
-                <Heading level={1} testID="forgot-password-title">
-                    {t('auth:forgotPassword.title')}
-                </Heading>
-                <Text tone="secondary">{t('auth:forgotPassword.subtitle')}</Text>
-            </Stack>
+        <View testID="forgot-password-screen" className="flex-col gap-3.5">
+            <AuthBadge icon="keyRound" />
+            <AuthTitle testID="forgot-password-title">{t('auth:forgotPassword.title')}</AuthTitle>
+            <AuthText>{t('auth:forgotPassword.subtitle')}</AuthText>
 
             <Controller
                 control={form.control}
                 name="email"
                 render={({ field, fieldState }) => (
-                    <TextInputField
+                    <AuthField
                         testID="forgot-password-email"
-                        id="forgot-password-email"
                         label={t('auth:forgotPassword.emailLabel')}
+                        icon="send"
                         placeholder={t('auth:login.emailPlaceholder')}
                         keyboardType="email-address"
-                        autoCapitalize="none"
                         autoComplete="email"
-                        required
                         value={field.value}
                         onChangeText={field.onChange}
                         onBlur={field.onBlur}
@@ -114,23 +117,20 @@ export function ForgotPasswordScreen({ returnTo: rawReturnTo }: ForgotPasswordSc
                 )}
             />
 
-            <Button
+            <AuthSubmit
                 testID="forgot-password-submit"
-                block
                 label={t('auth:forgotPassword.submit')}
-                loading={request.isPending}
+                busy={request.isPending}
                 onPress={() => {
                     void form.handleSubmit(onSubmit)();
                 }}
             />
 
-            <Inline space="xs">
-                <Link testID="forgot-password-sign-in" href={signInHref as never} replace asChild>
-                    <Text tone="info" accessibilityRole="link">
-                        {t('auth:forgotPassword.backToSignIn')}
-                    </Text>
-                </Link>
-            </Inline>
-        </Stack>
+            <AuthLink
+                testID="forgot-password-sign-in"
+                label={t('auth:forgotPassword.backToSignIn')}
+                onPress={backToSignIn}
+            />
+        </View>
     );
 }

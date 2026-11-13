@@ -6,7 +6,6 @@ use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
-use Healthy360\Subscriptions\Enums\CreditMemoStatus;
 use Healthy360\Subscriptions\Enums\SubscriptionStatus;
 use Healthy360\Subscriptions\Models\CreditMemo;
 use Healthy360\Subscriptions\Models\Subscription;
@@ -34,9 +33,8 @@ use Healthy360\Subscriptions\Tests\Fixtures\SubscriptionWorld;
 |     minus a skip count would look plausible in every code review.
 |  2. **The captured price reaches the customer.** All three columns, so "why
 |     am I paying 1 800 when the plan says 2 000" is answerable on the screen.
-|  3. **The credit memo comes back with the cancellation**, carrying
-|     `settlement: manual` on the wire. A client left to infer that from the
-|     status vocabulary would eventually render `recorded` as "refunded".
+|  3. **Cancelling works out no credit.** A subscription is paid per delivery, so
+|     no money is held, nothing is recorded and no figure reaches the wire.
 |
 | SPEED MODE: one smoke per route family, per the wave protocol. The exhaustive
 | per-endpoint refusal matrix is on the deferred list.
@@ -96,6 +94,10 @@ it('quotes, buys, skips, pauses and cancels without ever losing a balance day', 
 
     // --------------------------------------------------------------------- buy
 
+    // Every delivery day's meals, chosen before paying.
+    $lunch = SubscriptionWorld::dish($this->world, 'Grilled chicken');
+    $dinner = SubscriptionWorld::dish($this->world, 'Red lentil soup');
+
     $created = $this->postJson('/api/v1/subscriptions', [
         'sales_channel_id' => (string) $this->world->channel->getKey(),
         'branch_id' => (string) $this->world->branch->getKey(),
@@ -104,6 +106,7 @@ it('quotes, buys, skips, pauses and cancels without ever losing a balance day', 
         'plan_duration_id' => (string) $this->world->duration->getKey(),
         'customer_address_id' => (string) $this->world->customer->address->getKey(),
         'weekdays' => [1, 2, 3, 4, 5, 6, 7],
+        'days' => SubscriptionWorld::everyDay(SubscriptionWorld::firstDay($this->world), 20, (string) $lunch->getKey(), (string) $dinner->getKey()),
     ], firstPartyHeaders())
         ->assertCreated()
         ->assertJsonPath('data.subscription.status', SubscriptionStatus::Active->value)
@@ -175,17 +178,10 @@ it('quotes, buys, skips, pauses and cancels without ever losing a balance day', 
         ->assertOk()
         ->assertJsonPath('data.subscription.status', SubscriptionStatus::Cancelled->value)
         ->assertJsonPath('data.subscription.cancellation_reason', 'moving_away')
-        // Twenty unused days at the grandfathered 1 800: the discount already
-        // enjoyed is not clawed back.
-        ->assertJsonPath('data.credit_memo.unused_days', 20)
-        ->assertJsonPath('data.credit_memo.per_day_minor', 1800)
-        ->assertJsonPath('data.credit_memo.amount_minor', 36000)
-        ->assertJsonPath('data.credit_memo.status', CreditMemoStatus::Recorded->value)
-        // The one sentence a customer needs, stated rather than inferred.
-        ->assertJsonPath('data.credit_memo.settlement', 'manual');
+        ->assertJsonMissingPath('data.credit_memo');
 
-    expect(CreditMemo::query()->where('subscription_id', $id)->count())->toBe(1)
-        ->and($cancelled->json('data.credit_memo.currency_code'))->toBe($this->world->priceList->currency_code);
+    expect(CreditMemo::query()->where('subscription_id', $id)->count())->toBe(0)
+        ->and(array_keys($cancelled->json('data')))->toBe(['subscription']);
 
     // Terminal, and the state machine says so rather than a 500.
     $this->postJson("/api/v1/me/subscriptions/{$id}/resume", [], firstPartyHeaders())
@@ -222,12 +218,15 @@ it('starts a plan its kitchen never put on a channel, because plans have no chan
 
     $this->actingAs($this->customer);
 
+    $meal = SubscriptionWorld::dish($this->world, 'Grilled chicken');
+
     $this->postJson('/api/v1/subscriptions', [
         'catalogue_item_id' => (string) $this->world->plan->getKey(),
         'catalogue_item_variant_id' => (string) $this->world->configuration->getKey(),
         'plan_duration_days' => $this->world->duration->duration_days,
         'customer_address_id' => (string) $this->world->customer->address->getKey(),
         'weekdays' => [1, 2, 3, 4, 5, 6, 7],
+        'days' => SubscriptionWorld::everyDay(SubscriptionWorld::firstDay($this->world, withBranch: false), 20, (string) $meal->getKey(), (string) $meal->getKey()),
     ], firstPartyHeaders())
         ->assertCreated()
         ->assertJsonPath('data.subscription.status', SubscriptionStatus::Active->value);

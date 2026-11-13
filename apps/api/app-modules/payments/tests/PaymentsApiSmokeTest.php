@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use App\Models\User;
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
+use Healthy360\AccessControl\Models\Permission;
+use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Cart\Services\CartService;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
 use Healthy360\Orders\Services\OrderPlacementService;
@@ -48,6 +50,30 @@ it('creates a payment intent for an order and captures it', function (): void {
      */
     forgetResolvedGuards();
     $this->actingAs($this->world->tenant->user);
+
+    // A membership alone is not enough: taking the money is the same decision
+    // as confirming the order, so it needs the same permission.
+    $this->postJson(
+        '/api/v1/payments/intents/'.$intentId.'/capture',
+        [],
+        PricingWorld::headers($this->world->tenant),
+    )
+        ->assertForbidden()
+        ->assertJsonPath('error.details.permission', 'order.manage_organisation');
+
+    $this->postJson(
+        '/api/v1/payments/intents/'.$intentId.'/refunds',
+        ['amount_minor' => 100],
+        PricingWorld::headers($this->world->tenant),
+    )
+        ->assertForbidden()
+        ->assertJsonPath('error.details.permission', 'order.manage_organisation');
+
+    RolePermission::factory()->create([
+        'organisation_id' => $this->world->organisation->getKey(),
+        'role_id' => $this->world->tenant->role->getKey(),
+        'permission_id' => Permission::query()->where('code', 'order.manage_organisation')->sole()->getKey(),
+    ]);
 
     $this->postJson(
         '/api/v1/payments/intents/'.$intentId.'/capture',

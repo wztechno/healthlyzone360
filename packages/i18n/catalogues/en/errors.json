@@ -78,6 +78,7 @@
         "barcode_taken": "This barcode already belongs to another ingredient."
     },
     "orderRefusal": {
+        "phone_required": "Add a phone number the driver can call, then place the order again.",
         "account_not_ready": "Your account setup is not finished yet. Complete the outstanding steps and try again.",
         "account_not_active": "Your account is not active, so an order cannot be placed on it.",
         "guest_not_verified": "Confirm the code we sent before placing this order.",
@@ -98,11 +99,23 @@
         "channel_not_trading": "This kitchen is not taking orders at the moment.",
         "item_unknown": "Something in your basket is no longer on the menu.",
         "item_not_published": "Something in your basket is not on sale right now.",
+        "item_not_assessed": "Something in your basket is not on sale right now because its allergens have not been checked.",
+        "option_unknown": "An option you chose is no longer offered.",
+        "option_unlinked": "A sauce or side you chose is not offered right now. Choose another.",
+        "quality_hold": "Something in your basket is not available right now.",
         "variant_unknown": "An option you chose is no longer offered.",
         "variant_not_active": "An option you chose is no longer available.",
         "channel_unavailable": "Something in your basket is not offered on that day.",
         "unpriced": "Something in your basket has no price for that day.",
-        "window_not_offered": "The delivery zone for this address does not offer that delivery slot."
+        "window_not_offered": "The delivery zone for this address does not offer that delivery slot.",
+        "kitchen_closed": "This kitchen is not taking orders at the moment.",
+        "window_ended": "That delivery slot has already ended today. Choose a later slot or another day.",
+        "lead_time_not_met": "That delivery slot is too soon for the kitchen to prepare your order. Choose a later slot or another day.",
+        "below_zone_minimum": "This order is below the minimum for delivery to this address.",
+        "item_unavailable_on_date": "Something in your basket is not available on that day.",
+        "kitchen_not_open": "This kitchen is not open for orders yet.",
+        "kitchen_paused": "This kitchen has paused new orders for a short while. Please try again soon.",
+        "window_full": "That delivery slot is full. Choose another slot or another day."
     },
     "subscriptionRefusal": {
         "plan_unknown": "This plan is no longer offered.",
@@ -116,7 +129,13 @@
         "weekdays_empty": "Choose at least one delivery day.",
         "weekdays_invalid": "One of the delivery days you chose is not offered.",
         "kitchen_closed": "The kitchen is closed on one of the delivery days you chose.",
-        "guest_may_not_subscribe": "Sign in to start a subscription."
+        "guest_may_not_subscribe": "Sign in to start a subscription.",
+        "meals_missing": "Choose meals for every delivery day.",
+        "meals_incomplete": "Every meal of the day needs a dish.",
+        "not_a_delivery_day": "One of the days is not a delivery day.",
+        "meal_unknown": "One of the chosen dishes is not on this kitchen’s menu.",
+        "meal_not_a_meal": "One of the chosen items is not a meal.",
+        "meal_not_published": "One of the chosen dishes is no longer available."
     },
     "cart": {
         "otherKitchen": "This meal is from a different kitchen than the meals in your basket."

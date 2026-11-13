@@ -1,15 +1,15 @@
 /**
- * The shelves the customer menu shows: meals, sauces, dressings and frozen.
+ * The shelves the customer menu shows: meals, sauces, dressings, frozen and beverages.
  *
  * A narrowing, not a removal: Discover and `/meals` list only these shelves and their items, and
  * every other shelf is hidden rather than deleted. Widen {@link SHOWN_SHELVES} (or empty it) to
  * bring more back; nothing else needs to change.
  *
  * Only meals are catalogue `meal`s. Sauces and dressings are their own item types, and the `frozen`
- * shelf holds bought-in frozen `product`s and the kitchen's own `frozen_meal`s, so a listing
- * restricted to these shelves has to ask for all five types.
+ * shelf holds bought-in frozen `product`s and the kitchen's own `frozen_meal`s, and beverages are
+ * bought-in `product`s, so a listing restricted to these shelves has to ask for all five types.
  */
-export const SHOWN_SHELVES: readonly string[] = ['meal', 'sauce', 'dressing', 'frozen'];
+export const SHOWN_SHELVES: readonly string[] = ['meal', 'sauce', 'dressing', 'frozen', 'beverage'];
 
 type ItemType = 'meal' | 'product' | 'sauce' | 'dressing' | 'frozen_meal';
 

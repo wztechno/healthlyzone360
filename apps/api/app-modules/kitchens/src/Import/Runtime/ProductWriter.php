@@ -167,10 +167,10 @@ final readonly class ProductWriter
         $item->name_en = $product;
 
         // English in the Arabic column, deliberately and visibly. The product
-        // list is English-only, the publish gate refuses an item whose Arabic
-        // name is empty, and an empty column would look like an oversight while
-        // a machine translation would look like a decision. This looks like
-        // exactly what it is.
+        // list is English-only, an empty column would look like an oversight
+        // and a machine translation would look like a decision. This looks like
+        // exactly what it is, and the publish gate holds the item until a
+        // person writes the Arabic.
         $item->name_ar = $product;
         $item->product_category_id = $categories[(string) ($row['category_code'] ?? '')] ?? null;
         $item->production_mode = $this->productionMode($row);

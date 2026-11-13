@@ -1,8 +1,6 @@
 import type { StaffInvitation, TeamMemberSummary } from '@healthy360/api-client/contracts';
 import { isWorkingMember } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
     Chip,
     EmptyState,
@@ -33,11 +31,9 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
@@ -55,12 +51,14 @@ import {
     useRestoredPageFallback,
 } from '../list-memory.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/team` — everybody who can sign in to this kitchen (AA1), on the Catalogue list.
  *
  * ```
- * ┌ SHOWN ┐ ┌ WORKING ┐ ┌ INVITATIONS ┐ ┌ WITHOUT ROLES ┐
- * [ ⌕ search ]  [ Working | Everyone ]  [ ▦ ]  [ + Add user ]
+ * All people 61 │ ● Working 58  ● Invitations 2  ● Without roles 1               [ + Add user ]
+ * [Who to show Working ▾] [ ⌕ search                   ]                     18 of 61 │ ▦
  * USER     EMAIL     ROLES     WORKS AT     STATUS     JOINED     ✎
  * Showing 25 of 61                                              [ ‹ 1 2 3 › ]
  *
@@ -78,10 +76,10 @@ import {
  * The invitation list is fetched separately and renders nothing at all when it is empty, so a
  * kitchen with no outstanding offers sees a staff list rather than a staff list and an empty box.
  *
- * ## Ended memberships are behind a segment, not gone
+ * ## Ended memberships are behind a scope, not gone
  *
- * The endpoint lists every status by default; this screen asks for `active` unless the segment says
- * Everyone, because "who works here" is the common question. The segment widens rather than
+ * The endpoint lists every status by default; this screen asks for `active` unless the scope says
+ * Everyone, because "who works here" is the common question. The scope widens rather than
  * replaces — somebody looking for the person who left last month wants to see them *among* the
  * current staff, so they can tell which is which.
  *
@@ -141,11 +139,10 @@ function StatusBadge({ member }: { readonly member: TeamMemberSummary }) {
           : 'warning';
 
     return (
-        <Badge
+        <DeskChip
             testID={testID}
             tone={tone}
-            // No mark on Working: it is the resting state, and the tick would sit on every row.
-            icon={tone === 'success' ? null : undefined}
+            // A pill on every status, as the board draws them.
             label={statusText(member, t)}
         />
     );
@@ -206,6 +203,30 @@ function PendingInvitations({ invitations }: { readonly invitations: readonly St
                 </Text>
             ),
         },
+        ...(canRevoke
+            ? [
+                  {
+                      key: 'revoke',
+                      role: 'actions' as const,
+                      label: '',
+                      width: 120,
+                      priority: 99,
+                      align: 'end' as const,
+                      render: (row: StaffInvitation) => (
+                          <DeskButton
+                              testID={`kitchen-team-invitation-${row.id}-revoke`}
+                              variant="ghost"
+                              size="sm"
+                              label={t('accessAdmin:team.invitations.revoke')}
+                              disabled={revoke.isPending}
+                              onPress={() => {
+                                  revoke.mutate(row.id);
+                              }}
+                          />
+                      ),
+                  },
+              ]
+            : []),
     ];
 
     return (
@@ -225,23 +246,6 @@ function PendingInvitations({ invitations }: { readonly invitations: readonly St
                 rowKey={(row) => row.id}
                 density="sm"
                 rowActionsLabel={t('kitchen:list.rowActions')}
-                {...(canRevoke
-                    ? {
-                          rowActions: (row: StaffInvitation): readonly MenuItem[] => [
-                              {
-                                  key: 'revoke',
-                                  label: t('accessAdmin:team.invitations.revoke'),
-                                  icon: 'close',
-                                  tone: 'danger',
-                                  disabled: revoke.isPending,
-                                  testID: `kitchen-team-invitation-${row.id}-revoke`,
-                                  onSelect: () => {
-                                      revoke.mutate(row.id);
-                                  },
-                              },
-                          ],
-                      }
-                    : {})}
             />
         </Stack>
     );
@@ -465,200 +469,223 @@ function TeamList() {
 
     const controls = useColumnControls(searched, columns, 'kitchen-team');
     const failure = toFailure(team.error);
-    const unfiltered = trimmed === '' && segment === 'working' && !controls.filtered;
+    // The segment is a scope, which Clear leaves alone; the search and the column filters are not.
+    const searchedOrFiltered = trimmed !== '' || controls.filtered;
+    const unfiltered = !searchedOrFiltered && segment === 'working';
     const liveInvitations = invitations.data ?? [];
-
-    const segments: readonly CatalogueStatusSegment<TeamSegment>[] = [
-        { value: 'working', label: t('accessAdmin:team.segmentWorking') },
-        { value: 'everyone', label: t('accessAdmin:team.segmentEveryone') },
-    ];
 
     const addSomebody = () => {
         router.push('/kitchen/team/new' as never);
     };
 
+    // The table closes the toolbar's card once the list has loaded.
+    const joined = !team.isPending && failure === null;
+
     return (
         <Cascade space="md" testID="kitchen-team-screen">
-            {failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-team-stats"
-                    cards={statCards({
-                        rows: wholeTeam.data ?? [],
-                        // Rows up to the end of this page (18 of 61, then 36); a search narrows the
-                        // page in hand, so then it is the matches on it.
-                        shown: unfiltered
-                            ? Math.min(page * TEAM_PAGE_SIZE, totalCount ?? pageRows.length)
-                            : controls.rows.length,
-                        total: totalCount ?? pageRows.length,
-                        invitations: invitations.isPending ? null : liveInvitations.length,
-                        unfiltered,
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-team-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures({
+                        total: team.isPending ? null : failure === null ? totalCount : undefined,
+                        rows: wholeTeam.isPending ? null : wholeTeam.data,
+                        invitations: invitations.isPending ? null : invitations.data?.length,
                         t,
-                        clear: () => {
-                            setQuery('');
-                            setSegment('working');
-                            controls.clearFilters();
-                        },
                     })}
-                    pending={team.isPending}
-                    countsPending={wholeTeam.isPending}
+                    scope={
+                        // Not figures: on Working the whole set is asked for active people only, so
+                        // there is no count of Everyone to draw beside it.
+                        <LensScope<TeamSegment>
+                            testID="kitchen-team-toolbar-status"
+                            label={t('accessAdmin:team.segmentLabel')}
+                            value={segment}
+                            onChange={setSegment}
+                            options={SEGMENTS.map(([value, labelKey]) => ({
+                                value,
+                                label: t(labelKey),
+                                testID: `kitchen-team-toolbar-status-${value}`,
+                            }))}
+                        />
+                    }
+                    search={query}
+                    onSearchChange={setQuery}
+                    searchLabel={t('accessAdmin:team.searchLabel')}
+                    searchPlaceholder={
+                        totalPages > 1
+                            ? t('accessAdmin:team.searchPageHint')
+                            : t('accessAdmin:team.searchHint')
+                    }
+                    result={
+                        team.isPending
+                            ? null
+                            : failure !== null
+                              ? t('kitchen:list.noValue')
+                              : t('kitchen:lens.result', {
+                                    // Rows up to the end of this page (18 of 61, then 36); a search
+                                    // narrows the page in hand, so then it is the matches on it.
+                                    shown: searchedOrFiltered
+                                        ? controls.rows.length
+                                        : Math.min(
+                                              page * TEAM_PAGE_SIZE,
+                                              totalCount ?? pageRows.length,
+                                          ),
+                                    total: totalCount ?? pageRows.length,
+                                })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(searchedOrFiltered
+                        ? {
+                              onClear: () => {
+                                  setQuery('');
+                                  controls.clearFilters();
+                              },
+                          }
+                        : {})}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canAdd ? (
+                            <DeskButton
+                                testID="kitchen-team-add"
+                                label={t('accessAdmin:team.add')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={addSomebody}
+                            />
+                        ) : undefined
+                    }
                 />
-            )}
 
-            <CatalogueToolbar<TeamSegment>
-                testID="kitchen-team-toolbar"
-                search={query}
-                onSearchChange={setQuery}
-                searchLabel={t('accessAdmin:team.searchLabel')}
-                searchPlaceholder={
-                    totalPages > 1
-                        ? t('accessAdmin:team.searchPageHint')
-                        : t('accessAdmin:team.searchHint')
-                }
-                statusLabel={t('accessAdmin:team.segmentLabel')}
-                statusSegments={segments}
-                status={segment}
-                onStatusChange={setSegment}
-            >
-                <ColumnPicker {...controls.picker} />
-                {canAdd ? (
-                    <Button
-                        testID="kitchen-team-add"
-                        label={t('accessAdmin:team.add')}
-                        iconStart={<Icon name="plus" size="sm" />}
-                        onPress={addSomebody}
+                {team.isPending ? (
+                    <TableSkeleton testID="kitchen-team-loading" partTestID="kitchen-team" />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-team-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void team.refetch();
+                        }}
+                        retrying={team.isFetching}
                     />
-                ) : null}
-            </CatalogueToolbar>
-
-            {team.isPending ? (
-                <TableSkeleton testID="kitchen-team-loading" partTestID="kitchen-team" />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-team-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void team.refetch();
-                    }}
-                    retrying={team.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-team-empty"
-                    title={
-                        unfiltered
-                            ? t('accessAdmin:team.emptyTitle')
-                            : t('accessAdmin:team.filteredEmptyTitle')
-                    }
-                    body={
-                        unfiltered
-                            ? t('accessAdmin:team.emptyBody')
-                            : t('accessAdmin:team.filteredEmptyBody')
-                    }
-                />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList<TeamMemberSummary>
-                        testID="kitchen-team-table"
-                        label={t('accessAdmin:team.caption')}
+                ) : controls.rows.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-team-empty-list"
+                        label={t('kitchen:lens.label')}
                         columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => String(row.membershipId)}
+                        rows={[]}
+                        rowKey={() => ''}
                         density="sm"
-                        highlightedId={lastOpenedId}
-                        onRowPress={openMember}
+                        joined
+                        frameEmpty
                         rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'open',
-                                label: t('accessAdmin:team.open'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
-                                testID: `${teamRowTestId(String(row.membershipId))}-open`,
-                                onSelect: () => {
-                                    openMember(row);
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-team-empty"
+                                title={
+                                    unfiltered
+                                        ? t('accessAdmin:team.emptyTitle')
+                                        : t('accessAdmin:team.filteredEmptyTitle')
+                                }
+                                body={
+                                    unfiltered
+                                        ? t('accessAdmin:team.emptyBody')
+                                        : t('accessAdmin:team.filteredEmptyBody')
+                                }
+                            />
+                        }
+                    />
+                ) : (
+                    <Stack space="sm">
+                        <CatalogueList<TeamMemberSummary>
+                            testID="kitchen-team-table"
+                            joined
+                            label={t('accessAdmin:team.caption')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => String(row.membershipId)}
+                            density="sm"
+                            highlightedId={lastOpenedId}
+                            onRowPress={openMember}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            rowActions={(row): readonly MenuItem[] => [
+                                {
+                                    key: 'open',
+                                    label: t('accessAdmin:team.open'),
+                                    icon: CATALOGUE_ROW_ICONS.edit,
+                                    testID: `${teamRowTestId(String(row.membershipId))}-open`,
+                                    onSelect: () => {
+                                        openMember(row);
+                                    },
                                 },
-                            },
-                        ]}
-                    />
+                            ]}
+                        />
 
-                    <CataloguePager
-                        testID="kitchen-team-pagination"
-                        page={page}
-                        totalPages={totalPages}
-                        onPageChange={setPage}
-                        label={t('kitchen:catalogue.pagerLabel')}
-                    />
-                </Stack>
-            )}
+                        <CataloguePager
+                            testID="kitchen-team-pagination"
+                            page={page}
+                            totalPages={totalPages}
+                            onPageChange={setPage}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
+                    </Stack>
+                )}
+            </View>
 
             <PendingInvitations invitations={liveInvitations} />
         </Cascade>
     );
 }
 
+const SEGMENTS = [
+    ['working', 'accessAdmin:team.segmentWorking'],
+    ['everyone', 'accessAdmin:team.segmentEveryone'],
+] as const satisfies readonly (readonly [TeamSegment, string])[];
+
 /**
- * Shown is the rows up to this page, or the search's matches; Working and Without roles count every
- * member the segment matches, across all pages.
- * Invitations is the invitation list's own length: that endpoint is unpaged.
+ * All people is the segment's total across pages; Working and Without roles count every member the
+ * segment matches, across all pages; Invitations is the invitation list's own length — that
+ * endpoint is unpaged. `null` is in flight; `undefined` is a read that failed, drawn as a dash.
  */
-function statCards({
-    rows,
-    shown,
+function lensFigures({
     total,
+    rows,
     invitations,
-    unfiltered,
     t,
-    clear,
 }: {
-    readonly rows: readonly TeamMemberSummary[];
-    readonly shown: number;
-    readonly total: number;
-    readonly invitations: number | null;
-    readonly unfiltered: boolean;
+    readonly total: number | null | undefined;
+    readonly rows: readonly TeamMemberSummary[] | null | undefined;
+    readonly invitations: number | null | undefined;
     readonly t: TFunction;
-    readonly clear: () => void;
-}): readonly CatalogueStatCard[] {
-    const working = rows.filter((row) => isWorkingMember(row.status)).length;
-    const noRoles = rows.filter((row) => row.roles.length === 0).length;
+}): readonly LensFigure[] {
+    const figure = (count: number | null | undefined) =>
+        count === undefined ? { value: 0, display: t('kitchen:list.noValue') } : { value: count };
+    const counted = (match: (row: TeamMemberSummary) => boolean) =>
+        figure(rows === null || rows === undefined ? rows : rows.filter(match).length);
 
     return [
-        {
-            key: 'shown',
-            label: t('kitchen:list.statShown'),
-            value: String(shown),
-            unit: t('kitchen:list.statShownUnit', { total }),
-            caption: unfiltered
-                ? t('kitchen:list.statShownUnfiltered')
-                : t('kitchen:list.statShownFiltered'),
-            mark: 'list',
-            tone: 'brand',
-            onPress: clear,
-            accessibilityLabel: t('kitchen:list.statShownAction'),
-        },
+        { key: 'all', label: t('kitchen:lens.allPeople'), ...figure(total) },
         {
             key: 'working',
             label: t('accessAdmin:team.statWorking'),
-            value: String(working),
-            unit: t('accessAdmin:team.statPeople'),
-            caption: t('accessAdmin:team.statWorkingCaption'),
-            mark: 'circleCheck',
+            ...counted((row) => isWorkingMember(row.status)),
+            tone: 'success',
+            separated: true,
         },
         {
             key: 'invitations',
             label: t('accessAdmin:team.statInvitations'),
-            value: invitations === null ? t('kitchen:list.noValue') : String(invitations),
-            unit: t('accessAdmin:team.statOffers'),
-            caption: t('accessAdmin:team.statInvitationsCaption'),
-            mark: 'send',
-            tone: invitations === null || invitations === 0 ? 'default' : 'warning',
+            ...figure(invitations),
+            tone: 'warning',
         },
         {
             key: 'noRoles',
             label: t('accessAdmin:team.statNoRoles'),
-            value: String(noRoles),
-            unit: t('accessAdmin:team.statPeople'),
-            caption: t('accessAdmin:team.statNoRolesCaption'),
-            mark: 'keyRound',
-            tone: noRoles === 0 ? 'default' : 'danger',
+            ...counted((row) => row.roles.length === 0),
+            tone: 'danger',
+            alarm: true,
         },
     ];
 }

@@ -16,6 +16,7 @@ use Healthy360\Inventory\Models\StockReservation;
 use Healthy360\Inventory\Services\InventoryService;
 use Healthy360\Inventory\Services\MealExplosion;
 use Healthy360\Inventory\Services\ReservationService;
+use Healthy360\Inventory\Services\StockQuarantine;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Procurement\Models\WeeklyPricePublication;
 use Healthy360\Procurement\Services\IngredientCostService;
@@ -104,6 +105,7 @@ final readonly class ProductionOrderService
         private UnitConversionService $conversion,
         private ProductionOrderNumbers $numbers,
         private AuditRecorder $audit,
+        private StockQuarantine $quarantine,
     ) {}
 
     /* ── planning ────────────────────────────────────────────────────────── */
@@ -306,6 +308,11 @@ final readonly class ProductionOrderService
      * Somebody is cooking. Nothing moves; this is the point after which something
      * may.
      *
+     * **The lot is minted here**, dated the branch's day, so the tray can carry
+     * its number while it cooks and an abandoned batch keeps one (owner decision,
+     * 2026-11-03). It used to wait for settlement (D-145); the label still waits
+     * for a use-by, because the barcode carries it.
+     *
      * @throws ProductionStateInvalid
      */
     public function start(ProductionOrder $order, ?string $actorId = null): ProductionOrder
@@ -316,12 +323,19 @@ final readonly class ProductionOrderService
             $locked = $this->lockOrder($order);
             $this->assertCanMoveTo($locked, ProductionOrderStatus::InProduction, 'started');
 
+            $locked->lot_number ??= $this->numbers->lot(
+                (string) $locked->organisation_id,
+                CarbonImmutable::parse($this->branchToday($locked)),
+            );
             $locked->status = ProductionOrderStatus::InProduction;
             $locked->started_at = CarbonImmutable::now();
             $locked->lock_version = $locked->lock_version + 1;
             $locked->save();
 
-            $this->audit->record('production.order.started', $actorId, 'production_order', (string) $locked->getKey());
+            // Never a key containing "code": AuditRecorder blanks those.
+            $this->audit->record('production.order.started', $actorId, 'production_order', (string) $locked->getKey(), [
+                'lot_number' => $locked->lot_number,
+            ]);
 
             return $locked;
         });
@@ -331,7 +345,7 @@ final readonly class ProductionOrderService
 
     /**
      * Finish the batch: consume, waste, yield, value, release — and, once usable
-     * units reach a shelf, date it and give it a lot ({@see batchDates()}).
+     * units reach a shelf, date it ({@see batchDates()}). The lot came at start.
      *
      * @throws ApiException when the production or expiry date is refused
      * @throws ProductionStateInvalid
@@ -446,6 +460,9 @@ final readonly class ProductionOrderService
             $unitCost = $this->unitCostFor($locked, $report, $settlement);
 
             $this->settleYield($locked, $report, $settlement, $unitCost);
+
+            // A batch put on hold while it cooked is held now that it is on a shelf.
+            $this->quarantine->settleYield((string) $locked->organisation_id, (string) $locked->getKey());
 
             $this->reservations->close(
                 StockReservation::HOLDER_PRODUCTION_ORDER,
@@ -593,9 +610,13 @@ final readonly class ProductionOrderService
      */
     private function valueInput(ProductionOrder $order, ProductionOrderLine $line): ?InputValuation
     {
+        // Valued as whatever the shelf holds: a kitchen's copy drawing on its
+        // original's shelf is costed as the original (MealExplosion::resolveStockItem()).
+        $heldIngredientId = StockItem::withoutTenancy()->whereKey($line->stock_item_id)->value('ingredient_id') ?? $line->ingredient_id;
+
         $cost = IngredientStockCost::withoutTenancy()
             ->where('organisation_id', $order->organisation_id)
-            ->where('ingredient_id', $line->ingredient_id)
+            ->where('ingredient_id', $heldIngredientId)
             ->lockForUpdate()
             ->first();
 
@@ -803,9 +824,10 @@ final readonly class ProductionOrderService
      * date typed by hand as well is a 422 rather than silently overruled — the
      * cook would otherwise print a label the system disagrees with. Only a batch
      * that put usable units on a shelf is dated: one that made nothing has no
-     * food to expire. A recipe with no shelf life keeps the old behaviour, the
-     * cook's date or none, and a use-by before the day it was made is refused
-     * as the typing slip it always is.
+     * food to expire. A recipe with no shelf life needs the cook's date whenever
+     * usable units reach a shelf (owner decision, 2026-11-03): the label's
+     * barcode carries it, and food on a shelf with no use-by is the gap. A use-by
+     * before the day it was made is refused as the typing slip it always is.
      *
      * Read from the unlocked order before the settlement transaction. The branch
      * and the version never change under a batch, and a shelf life edited in the
@@ -817,8 +839,7 @@ final readonly class ProductionOrderService
      */
     private function batchDates(ProductionOrder $order, BatchReport $report): array
     {
-        $timezone = OrganisationBranch::withoutTenancy()->whereKey($order->branch_id)->value('timezone');
-        $today = CarbonImmutable::now(is_string($timezone) ? $timezone : 'UTC')->toDateString();
+        $today = $this->branchToday($order);
 
         $madeOn = $report->productionDate === null
             ? $today
@@ -853,6 +874,14 @@ final readonly class ProductionOrderService
         }
 
         if ($report->expiryDate === null) {
+            if ($report->hasUsableOutput()) {
+                throw new ApiException(
+                    ErrorCode::ValidationFailed,
+                    'A batch that puts food on a shelf needs a use-by date, and this recipe has no shelf life to set one.',
+                    ['parameter' => 'expiry_date'],
+                );
+            }
+
             return [$productionDate, $order->expiry_date];
         }
 
@@ -870,12 +899,24 @@ final readonly class ProductionOrderService
     }
 
     /**
+     * Today's date at the batch's branch, `YYYY-MM-DD`: a kitchen in Dubai
+     * finishing at 01:00 is on today, which UTC still calls yesterday.
+     */
+    private function branchToday(ProductionOrder $order): string
+    {
+        $timezone = OrganisationBranch::withoutTenancy()->whereKey($order->branch_id)->value('timezone');
+
+        return CarbonImmutable::now(is_string($timezone) ? $timezone : 'UTC')->toDateString();
+    }
+
+    /**
      * Write what happened onto the order.
      *
-     * The lot is minted here, last, and only once: a batch that already carries
-     * one keeps it, and a batch with nothing usable never gets one (D-145).
-     * {@see ProductionOrderNumbers::lot()} takes its advisory lock at this point,
-     * after every stock lock the settlement took, so the two cannot form a cycle.
+     * A batch keeps the lot {@see start()} gave it. Only one started before lots
+     * moved to start can arrive here without one, and it is minted here, last,
+     * the way it always was (D-145): once usable units reach a shelf, with
+     * {@see ProductionOrderNumbers::lot()}'s advisory lock taken after every
+     * stock lock the settlement took, so the two cannot form a cycle.
      */
     private function writeOutcome(
         ProductionOrder $order,

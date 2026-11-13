@@ -12,10 +12,17 @@ import {
     useKitchenTrailLeaf,
 } from './kitchen-ops-shell.tsx';
 
+/** One router for the file, so a test can see where a crumb went. */
+const mockRouter = { push: jest.fn(), replace: jest.fn(), back: jest.fn(), dismissTo: jest.fn() };
+/** The address's query, as a test sets it — `returnTo` above all. */
+let mockParams: Record<string, string> = {};
+let mockPathname = '/kitchen/stock';
+
 jest.mock('expo-router', () => ({
     __esModule: true,
-    useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
-    usePathname: () => '/kitchen/stock',
+    useRouter: () => mockRouter,
+    useGlobalSearchParams: () => mockParams,
+    usePathname: () => mockPathname,
     Redirect: () => null,
     Link: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -59,6 +66,36 @@ describe('useKitchenNavigation', () => {
         expect(screen.queryByTestId('probe-area-kitchen')).toBeNull();
         expect(screen.queryByTestId('probe-profile')).toBeNull();
         expect(screen.queryByTestId('probe-workspace')).toBeNull();
+    });
+
+    it('drops Setup once the kitchen is live', async () => {
+        await renderStubScreen(<Probe />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: { getKitchenSetup: async () => ({ isLive: true, steps: [] }) },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('probe-stock')).toBeTruthy();
+        });
+        await waitFor(() => {
+            expect(screen.queryByTestId('probe-setup')).toBeNull();
+        });
+        expect(screen.getByTestId('probe-review')).toHaveTextContent(/\|To do\|/);
+    });
+
+    it('keeps Setup under To do until the kitchen is live', async () => {
+        await renderStubScreen(<Probe />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: { getKitchenSetup: async () => ({ isLive: false, steps: [] }) },
+            },
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('probe-setup')).toHaveTextContent(/\|To do\|/);
+        });
     });
 
     it('offers no destination the session is not permitted to open', async () => {
@@ -241,3 +278,70 @@ describe('useKitchenTrail with a page that names where it was opened from', () =
         expect(screen.queryByTestId('crumb-return')).toBeNull();
     });
 });
+
+describe('useKitchenTrail — the module, and a page opened from somewhere else', () => {
+    afterEach(() => {
+        mockParams = {};
+        mockPathname = '/kitchen/stock';
+        jest.clearAllMocks();
+    });
+
+    it('names the rail module between home and the page, with its pages to move sideways', async () => {
+        await renderStubScreen(
+            <KitchenTrailProvider>
+                <TrailProbe />
+            </KitchenTrailProvider>,
+            { session: kitchenManagerSession() },
+        );
+
+        expect(await screen.findByTestId('crumb-module')).toHaveTextContent('Operations|current');
+        expect(screen.getByTestId('crumb-stock')).toHaveTextContent('Stock|current');
+    });
+
+    it('leads back to the page it was opened from when that is another module', async () => {
+        mockParams = { returnTo: '/kitchen/consumption-exceptions?gap=g1' };
+        await renderStubScreen(
+            <KitchenTrailProvider>
+                <TrailProbe />
+            </KitchenTrailProvider>,
+            { session: kitchenManagerSession() },
+        );
+
+        // `⌂ / ↩ Stock gaps / Stock` — the module gives way to the return, which is the way back.
+        expect(await screen.findByTestId('crumb-stock')).toHaveTextContent('Stock|current');
+        expect(screen.getByTestId('crumb-return')).toHaveTextContent('Stock gaps|link');
+        expect(screen.queryByTestId('crumb-module')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('crumb-return'));
+        });
+        expect(mockRouter.dismissTo).toHaveBeenCalledWith('/kitchen/consumption-exceptions?gap=g1');
+    });
+
+    it('keeps the ordinary trail for a return to its own list, which the list crumb goes back to', async () => {
+        // A movement page under Stock, opened from the Stock list's record.
+        mockPathname = '/kitchen/stock/movement';
+        mockParams = { returnTo: '/kitchen/stock?view=s1' };
+        await renderStubScreen(
+            <KitchenTrailProvider>
+                <TrailProbe />
+                <OpenedOwn />
+            </KitchenTrailProvider>,
+            { session: kitchenManagerSession() },
+        );
+
+        expect(await screen.findByTestId('crumb-module')).toBeTruthy();
+        expect(screen.getByTestId('crumb-leaf')).toHaveTextContent('Olive oil|current');
+        expect(screen.queryByTestId('crumb-return')).toBeNull();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('crumb-stock'));
+        });
+        expect(mockRouter.dismissTo).toHaveBeenCalledWith('/kitchen/stock?view=s1');
+    });
+});
+
+/** A record on a route of its own under the family — the list crumb above it is a link. */
+function OpenedOwn() {
+    useKitchenTrailLeaf('Olive oil');
+    return null;
+}

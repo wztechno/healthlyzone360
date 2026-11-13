@@ -19,6 +19,8 @@ import { Text } from 'react-native';
 import { queryKeys } from '../data/query-keys.ts';
 import { RedirectIfSignedIn } from '../navigation/redirect-if-signed-in.tsx';
 import { withReturnTo } from '../navigation/return-to.ts';
+import { useAccessState } from '../session/session-provider.tsx';
+import { AreaShell } from '../shell/area-shell.tsx';
 import type { ExpoRouterMock } from '../testing/expo-router-mock.ts';
 import {
     TEST_USER_ID,
@@ -41,7 +43,7 @@ import { ChangePasswordScreen } from './change-password-screen.tsx';
 import { RegisterScreen } from './register-screen.tsx';
 import { SignInScreen } from './sign-in-screen.tsx';
 import { VerifyEmailScreen } from './verify-email-screen.tsx';
-import { WorkspaceSelectorScreen } from './workspace-selector-screen.tsx';
+import { WorkspaceOrgSwitcher, WorkspaceSelectorScreen } from './workspace-selector-screen.tsx';
 
 /**
  * The world these suites run in is *authored here*, not signed into.
@@ -533,6 +535,33 @@ describe('OrganisationPickerScreen', () => {
         });
     });
 
+    /*
+     * "Switch organisation" with one membership auto-selects the organisation already in use.
+     * Naming no branch made the server forget the remembered one, and a manager of a two-branch
+     * kitchen lost the kitchen and its display with nothing to pick them back from.
+     */
+    it('keeps the branch when the organisation chosen is the one already in use', async () => {
+        const current = testActiveContext({
+            organisationId: VERDANT_KITCHEN.id,
+            branchId: AL_QUOZ.id,
+            membershipId: KITCHEN_MEMBERSHIP.id,
+        });
+        const { repositories } = await renderStubScreen(<OrganisationPickerScreen />, {
+            session: testMeResponse({ memberships: [KITCHEN_MEMBERSHIP], activeContext: current }),
+            repositories: { context: { setContext: async () => current } },
+        });
+
+        await waitFor(() => {
+            expect(repositories.context.setContext).toHaveBeenCalledWith({
+                organisationId: VERDANT_KITCHEN.id,
+                branchId: AL_QUOZ.id,
+            });
+        });
+        await waitFor(() => {
+            expect(routerMock.__replace).toHaveBeenCalledWith('/workspace');
+        });
+    });
+
     it('applies the chosen organisation', async () => {
         const applied = testActiveContext({
             organisationId: CEDAR_CLINIC.id,
@@ -552,10 +581,10 @@ describe('OrganisationPickerScreen', () => {
                 organisationId: CEDAR_CLINIC.id,
             });
         });
-        // No branch came back, so the journey continues at the branch picker rather than the
-        // workspace — the screen navigates on the server's echo, not on what it asked for.
+        // No branch came back, and the journey still continues at the workspace page: its
+        // top-bar switcher opens on the choice, so there is no page in between.
         await waitFor(() => {
-            expect(routerMock.__replace).toHaveBeenCalledWith('/select-branch');
+            expect(routerMock.__replace).toHaveBeenCalledWith('/workspace');
         });
     });
 });
@@ -590,6 +619,15 @@ describe('WorkspaceSelectorScreen', () => {
         // server's permission set does not carry `organisation.manage_platform`.
         expect(screen.getByTestId('workspace-area-kitchen')).toBeTruthy();
         expect(screen.queryByTestId('workspace-area-platform-admin')).toBeNull();
+    });
+
+    it('sends a shopper to the shop, never drawing the page', async () => {
+        await renderStubScreen(<WorkspaceSelectorScreen />, { session: testMeResponse() });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith('/discover');
+        });
+        expect(screen.queryByTestId('workspace-selector-title')).toBeNull();
     });
 
     describe('greeting', () => {
@@ -652,10 +690,44 @@ describe('WorkspaceSelectorScreen', () => {
     });
 
     it('offers a switch back to the organisation picker', async () => {
-        await renderStubScreen(<WorkspaceSelectorScreen />, { session: kitchenSession() });
+        await renderStubScreen(<WorkspaceOrgSwitcher />, { session: kitchenSession() });
 
+        await fireEvent.press(await screen.findByTestId('workspace-org-trigger'));
         await fireEvent.press(await screen.findByTestId('workspace-switch-organisation'));
         expect(routerMock.__push).toHaveBeenCalledWith('/select-organisation');
+    });
+
+    /*
+     * An organisation-wide member of a two-branch kitchen starts with no branch. The choice is
+     * made in the switcher, which opens on it unasked, rather than on a page of its own.
+     */
+    it('opens on the branch choice when several are on offer and none is chosen', async () => {
+        const marina = { ...AL_QUOZ, id: 'branch-marina' as typeof AL_QUOZ.id, name: 'Marina' };
+        const membership = { ...KITCHEN_MEMBERSHIP, branchId: null, branches: [AL_QUOZ, marina] };
+        const context = testActiveContext({
+            organisationId: VERDANT_KITCHEN.id,
+            branchId: null,
+            membershipId: membership.id,
+        });
+        const { repositories } = await renderStubScreen(<WorkspaceOrgSwitcher />, {
+            session: testMeResponse({ memberships: [membership], activeContext: context }),
+            repositories: {
+                context: { setContext: async () => ({ ...context, branchId: marina.id }) },
+            },
+        });
+
+        // No press on the trigger: the menu is already open, and the button says what is wanted.
+        const option = await screen.findByTestId(`workspace-branch-${marina.id}`);
+        expect(screen.getByTestId('workspace-org-trigger')).toHaveTextContent(/Choose a branch/);
+
+        await fireEvent.press(option);
+        await waitFor(() => {
+            expect(repositories.context.setContext).toHaveBeenCalledWith({
+                organisationId: VERDANT_KITCHEN.id,
+                branchId: marina.id,
+            });
+        });
+        expect(routerMock.__push).not.toHaveBeenCalledWith('/select-branch');
     });
 
     it('offers the profile as a card beside the areas', async () => {
@@ -753,6 +825,24 @@ describe('DevicesScreen', () => {
             expect(screen.getByTestId('devices-others-empty')).toBeTruthy();
         });
         expect(screen.queryByTestId('devices-unrecognised')).toBeNull();
+    });
+
+    it('signs out every other session after a confirmation, and leaves this one', async () => {
+        const revoke = jest.fn(() => Promise.resolve());
+
+        await renderStubScreen(<DevicesScreen />, {
+            session: dietitianSession(),
+            repositories: { devices: { list: async () => [LAPTOP, PHONE, TABLET], revoke } },
+        });
+        await waitFor(() => screen.getByTestId('devices-revoke-others'));
+
+        await fireEvent.press(screen.getByTestId('devices-revoke-others'));
+        await fireEvent.press(screen.getByTestId('revoke-others-dialog-confirm'));
+
+        await waitFor(() => {
+            expect(revoke).toHaveBeenCalledTimes(2);
+        });
+        expect(revoke).not.toHaveBeenCalledWith(LAPTOP.id);
     });
 
     it('asks for confirmation before revoking', async () => {
@@ -887,7 +977,7 @@ describe('DevicesScreen', () => {
  * with the token fields hidden.
  */
 describe('ChangePasswordScreen', () => {
-    it('states the reason when the change is being forced', async () => {
+    it('reads as an obligation when the change is being forced', async () => {
         await renderStubScreen(<ChangePasswordScreen />, {
             session: testMeResponse({ user: { mustChangePassword: true } }),
         });
@@ -895,8 +985,8 @@ describe('ChangePasswordScreen', () => {
         // The route's `<Gate>` holds a restoring session, so in the application the screen never
         // renders before `/me` has answered. Rendered bare, it settles a tick later.
         await waitFor(() => {
-            expect(screen.getByTestId('change-password-subtitle')).toHaveTextContent(
-                /somebody else knows/,
+            expect(screen.getByTestId('change-password-title')).toHaveTextContent(
+                'Choose your own password',
             );
         });
     });
@@ -905,11 +995,11 @@ describe('ChangePasswordScreen', () => {
         await renderStubScreen(<ChangePasswordScreen />);
 
         await waitFor(() => {
-            expect(screen.getByTestId('change-password-subtitle')).toBeTruthy();
+            expect(screen.getByTestId('change-password-title')).toHaveTextContent(
+                'Change your password',
+            );
         });
-        expect(screen.getByTestId('change-password-subtitle')).not.toHaveTextContent(
-            /somebody else knows/,
-        );
+        expect(screen.getByTestId('change-password-cancel')).toBeTruthy();
     });
 
     it('sends the old password with the new one and keeps the session', async () => {
@@ -1026,19 +1116,27 @@ describe('VerifyEmailScreen', () => {
 });
 
 describe('ForbiddenScreen', () => {
-    it('translates the denial reason and shows the stable code', async () => {
+    it('translates the denial reason and names each missing permission by its label', async () => {
         await renderStubScreen(
             <ForbiddenScreen
                 reason="permission_missing"
-                missing={['organisation.manage_platform']}
+                missing={['audit.view_organisation', 'organisation.manage_platform']}
             />,
         );
 
         expect(screen.getByTestId('forbidden-reason-title')).toHaveTextContent(
             /You do not have access/,
         );
-        expect(screen.getByTestId('forbidden-reason-code')).toHaveTextContent(/permission_missing/);
-        expect(screen.getByTestId('forbidden-missing-organisation.manage_platform')).toBeTruthy();
+        // The raw reason code is no longer shown to a person.
+        expect(screen.queryByTestId('forbidden-reason-code')).toBeNull();
+        expect(screen.queryByText('permission_missing')).toBeNull();
+        expect(screen.getByTestId('forbidden-missing-audit.view_organisation')).toHaveTextContent(
+            'See the audit trail',
+        );
+        // A key with no catalogue label (an entitlement, say) falls back to the key itself.
+        expect(
+            screen.getByTestId('forbidden-missing-organisation.manage_platform'),
+        ).toHaveTextContent('organisation.manage_platform');
     });
 
     it('offers a way out rather than a dead end', async () => {
@@ -1324,8 +1422,8 @@ describe('ChangePasswordScreen — the two ways out', () => {
         });
         // Rendered bare, the screen reads the flag a tick after `/me` answers.
         await waitFor(() => {
-            expect(screen.getByTestId('change-password-subtitle')).toHaveTextContent(
-                /somebody else knows/,
+            expect(screen.getByTestId('change-password-title')).toHaveTextContent(
+                'Choose your own password',
             );
         });
         expect(screen.queryByTestId('change-password-cancel')).toBeNull();
@@ -1406,11 +1504,65 @@ describe('LandingScreen — the return', () => {
         });
     });
 
+    it('lands a shopper on the shop, not on a return to the workspace page', async () => {
+        await renderStubScreen(<LandingScreen returnTo="/workspace" />, {
+            session: testMeResponse(),
+        });
+
+        await waitFor(() => {
+            expect(routerMock.__redirect).toHaveBeenCalledWith('/discover');
+        });
+        expect(routerMock.__router.dismissTo).not.toHaveBeenCalled();
+    });
+
+    it('still takes staff on to the workspace page', async () => {
+        await renderStubScreen(<LandingScreen returnTo="/workspace" />, {
+            session: kitchenManagerSession(),
+        });
+
+        await waitFor(() => {
+            expect(routerMock.__router.dismissTo).toHaveBeenCalledWith('/workspace');
+        });
+    });
+
     it('lands as it always did with no return', async () => {
         await renderStubScreen(<LandingScreen />, { session: testMeResponse() });
 
         await waitFor(() => {
             expect(routerMock.__redirect).toHaveBeenCalledWith('/discover');
         });
+    });
+});
+
+describe('AreaShell — the Workspaces button', () => {
+    /** Drawn once `/me` has arrived, so an absent button is a decision rather than a race. */
+    function SessionLoaded() {
+        const { emailVerified } = useAccessState();
+        return emailVerified ? <Text testID="session-loaded">loaded</Text> : null;
+    }
+
+    async function devicesPage(session: MeResponse) {
+        routerMock.__set({ pathname: '/devices' });
+        await renderStubScreen(
+            <AreaShell area="auth" variant="workspace" unguarded testID="workspace-shell">
+                <SessionLoaded />
+            </AreaShell>,
+            { session },
+        );
+        await waitFor(() => {
+            expect(screen.getByTestId('session-loaded')).toBeTruthy();
+        });
+    }
+
+    it('leads staff back to the workspace page', async () => {
+        await devicesPage(kitchenManagerSession());
+
+        expect(screen.getByTestId('workspaces-button')).toBeTruthy();
+    });
+
+    it('is not offered to a shopper, who has no workspace page', async () => {
+        await devicesPage(testMeResponse());
+
+        expect(screen.queryByTestId('workspaces-button')).toBeNull();
     });
 });

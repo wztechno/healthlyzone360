@@ -133,6 +133,35 @@ module.exports = {
           "high-on": "rgb(var(--h360-color-nutrition-high-on) / <alpha-value>)",
           "excessive": "rgb(var(--h360-color-nutrition-excessive) / <alpha-value>)",
           "excessive-on": "rgb(var(--h360-color-nutrition-excessive-on) / <alpha-value>)"
+        },
+        "stage": {
+          "orange": "rgb(var(--h360-color-stage-orange) / <alpha-value>)",
+          "green": "rgb(var(--h360-color-stage-green) / <alpha-value>)",
+          "blue": "rgb(var(--h360-color-stage-blue) / <alpha-value>)",
+          "yellow": "rgb(var(--h360-color-stage-yellow) / <alpha-value>)"
+        },
+        "tint": {
+          "green": "rgb(var(--h360-color-tint-green) / <alpha-value>)",
+          "green-on": "rgb(var(--h360-color-tint-green-on) / <alpha-value>)",
+          "green-fill": "rgb(var(--h360-color-tint-green-fill) / <alpha-value>)",
+          "blue": "rgb(var(--h360-color-tint-blue) / <alpha-value>)",
+          "blue-on": "rgb(var(--h360-color-tint-blue-on) / <alpha-value>)",
+          "blue-fill": "rgb(var(--h360-color-tint-blue-fill) / <alpha-value>)",
+          "orange": "rgb(var(--h360-color-tint-orange) / <alpha-value>)",
+          "orange-on": "rgb(var(--h360-color-tint-orange-on) / <alpha-value>)",
+          "orange-fill": "rgb(var(--h360-color-tint-orange-fill) / <alpha-value>)",
+          "yellow": "rgb(var(--h360-color-tint-yellow) / <alpha-value>)",
+          "yellow-on": "rgb(var(--h360-color-tint-yellow-on) / <alpha-value>)",
+          "yellow-fill": "rgb(var(--h360-color-tint-yellow-fill) / <alpha-value>)",
+          "pink": "rgb(var(--h360-color-tint-pink) / <alpha-value>)",
+          "pink-on": "rgb(var(--h360-color-tint-pink-on) / <alpha-value>)",
+          "pink-fill": "rgb(var(--h360-color-tint-pink-fill) / <alpha-value>)",
+          "violet": "rgb(var(--h360-color-tint-violet) / <alpha-value>)",
+          "violet-on": "rgb(var(--h360-color-tint-violet-on) / <alpha-value>)",
+          "violet-fill": "rgb(var(--h360-color-tint-violet-fill) / <alpha-value>)",
+          "teal": "rgb(var(--h360-color-tint-teal) / <alpha-value>)",
+          "teal-on": "rgb(var(--h360-color-tint-teal-on) / <alpha-value>)",
+          "teal-fill": "rgb(var(--h360-color-tint-teal-fill) / <alpha-value>)"
         }
       },
       "spacing": {
@@ -386,7 +415,11 @@ module.exports = {
         "elevation-4": "0 8px 16px -4px rgb(23 21 20 / 0.12), 0 4px 8px -4px rgb(23 21 20 / 0.07)",
         "elevation-5": "0 16px 32px -8px rgb(23 21 20 / 0.16), 0 8px 16px -8px rgb(23 21 20 / 0.08)",
         "elevation-card": "0 1px 2px rgb(23 21 20 / 0.05), 0 14px 30px -18px rgb(11 59 38 / 0.35)",
-        "elevation-card-hover": "0 1px 2px rgb(23 21 20 / 0.05), 0 24px 46px -20px rgb(11 59 38 / 0.5)"
+        "elevation-card-hover": "0 1px 2px rgb(23 21 20 / 0.05), 0 24px 46px -20px rgb(11 59 38 / 0.5)",
+        "elevation-bar": "0 22px 44px -18px rgb(11 59 38 / 0.35), 0 2px 8px rgb(11 59 38 / 0.06)",
+        "elevation-brand-glow": "0 6px 14px -4px rgb(var(--h360-color-brand-surface) / 0.6)",
+        "elevation-search": "0 6px 20px rgb(11 59 38 / 0.12)",
+        "elevation-focus-ring": "0 0 0 4px rgb(var(--h360-color-brand-surface-subtle)), 0 6px 20px rgb(11 59 38 / 0.12)"
       },
       "transitionDuration": {
         "instant": "0ms",
@@ -426,10 +459,18 @@ module.exports = {
         "icon-xs": "12px",
         "icon-sm": "14px",
         "icon-md": "16px",
-        "icon-lg": "18px"
+        "icon-lg": "18px",
+        "desk-toolbar": "34px",
+        "desk-step": "30px",
+        "desk-step-mark": "22px",
+        "desk-tile": "60px",
+        "desk-tile-mark": "42px",
+        "desk-pay": "52px"
       },
       "width": {
         "field": "280px",
+        "desk-step-mark": "22px",
+        "desk-tile-mark": "42px",
         "icon-xs": "12px",
         "icon-sm": "14px",
         "icon-md": "16px",

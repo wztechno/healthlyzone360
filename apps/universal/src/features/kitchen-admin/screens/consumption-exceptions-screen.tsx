@@ -1,14 +1,9 @@
 import type { ConsumptionException } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
-    DatePickerButton,
     Dialog,
     EmptyState,
     ErrorState,
-    Icon,
-    Stack,
     TableSkeleton,
     Text,
     useToast,
@@ -16,6 +11,7 @@ import {
 import { useFormatter } from '@healthy360/i18n';
 import { can } from '@healthy360/permissions';
 import { useRouter } from 'expo-router';
+import type { TFunction } from 'i18next';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -26,11 +22,13 @@ import { endProcess, readActiveProcess, startProcess } from '../../../navigation
 import { pathnameOf } from '../../../navigation/return-to.ts';
 import { KITCHEN_PAGE_SIZE, pagesInResult } from '../../../data/kitchen-admin-hooks.ts';
 import {
+    useConsumptionExceptionCountQuery,
     useConsumptionExceptionTotalsQuery,
     useConsumptionExceptionsQuery,
     useResolveConsumptionExceptionMutation,
     useRetryConsumptionExceptionMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
+import { useOnlineStatus } from '../../../online/online-status.tsx';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { ExceptionRowActions } from '../consumption-exceptions/exception-row-actions.tsx';
 import {
@@ -55,36 +53,48 @@ import {
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { ROW_ACTIONS_WIDTH } from '../catalogue/row-actions-menu.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { useListPage } from '../use-list-page.ts';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import { PeriodScope } from '../catalogue/period-scope.tsx';
+import { todayIso } from '../../commerce/dates.ts';
+import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { useListMemory, useRememberedQuery } from '../list-memory.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskDateButton } from '../desk-kit/mini-month.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/consumption-exceptions` — what a confirmed order could not deduct honestly (INV1.5), as
  * `Workbench.dc.html` draws it (§3.5).
  *
  * ```
- * Consumption exceptions  [ RETRY WRITES STOCK ]
- * ┌ SHOWN ┐ ┌ UNRESOLVED ┐ ┌ RESOLVED ┐
- * STATUS [ Unresolved | Resolved | All ]   RAISED FROM [ 2026-08-01 ▦ ]
+ * Consumption exceptions
+ * (All gaps 87) │ ● Unresolved 84  ● Resolved 3
+ * [2026-08-01 ▦] to [ ▦ ]  [⌕ Search          ]                     18 of 84
  * ORDER              BRANCH         REASON                   RAISED       STATUS
- * 0148               Beirut Central Not enough stock         2026-08-28   [OPEN] Retry Accept gap
+ * 0148               Beirut Central Not enough stock         2026-08-28   [OPEN] Add stock Accept gap
  * Grilled chicken …
- * 0151               Beirut Central Recipe line has no qty   2026-08-29   [OPEN] Fix in recipe Retry …
+ * 0151               Beirut Central Recipe line has no qty   2026-08-29   [OPEN] Fix in recipe Accept gap
  * Lentil Soup · Red lentils
  * ```
  *
- * Behind `inventory.view_organisation`; Retry and Accept gap only for
- * `inventory.manage_organisation`, Fix in recipe only for `recipe.view_organisation`. Nothing
- * confidential shows — an order number, the sold item and ingredient, the branch, the reason.
+ * Behind `inventory.view_organisation`; Accept gap only for `inventory.manage_organisation`, each
+ * fix behind its own page's permission. Nothing confidential shows — an order number, the sold item
+ * and ingredient, the branch, the reason.
+ *
+ * ## Nobody presses Retry
+ *
+ * The API re-runs a gap's deduction itself — the moment stock rises on a shelf, and every five
+ * minutes for any other fix — so the page offers no Retry. Coming back from a fix with `fixed=1`
+ * still retries that one gap at once, for the toast that says how it went. While open, the page
+ * re-reads every {@link STOCK_GAPS_POLL_MS} so a gap closed elsewhere leaves without a reload.
  *
  * ## The order cell carries the item underneath
  *
@@ -96,15 +106,14 @@ import { useListMemory, useRememberedQuery } from '../list-memory.ts';
  * ## Accept gap is confirmed
  *
  * Accepting (resolving) a permanent stock gap goes through a dialog that says so (the handoff's
- * open question §6.3, answered). Retry is not confirmed: it re-runs the same guarded deduction a
- * confirm uses and cannot deduct twice.
+ * open question §6.3, answered).
  *
  * ## A gap a recipe fixes leads to the recipe
  *
  * Four reasons are fixed by changing the sold meal's recipe (`stock-gap-fix.ts`). Those rows, and
  * their record, lead with Fix in recipe, which opens the recipe on the field at fault and carries
- * this exact view as `returnTo`. The recipe comes back with `fixed=1`, and Retry is then the
- * record's next step.
+ * this exact view as `returnTo`. The recipe comes back with `fixed=1`, and the gap is retried on
+ * arrival.
  *
  * ## The view lives in the URL
  *
@@ -112,11 +121,11 @@ import { useListMemory, useRememberedQuery } from '../list-memory.ts';
  * written back with `router.setParams` on every change, so Back from a recipe — or a refresh —
  * lands on the same list with the same gap open.
  *
- * ## The cards are whole totals
+ * ## The figures are whole totals
  *
- * Numbered pages, the admin's one pager: Shown is "18 of 84" from the page's own total, and
- * Unresolved and Resolved come from the count endpoint — they used to count the 25 rows in hand.
- * Unresolved takes the danger ink only while it is non-zero.
+ * Numbered pages, the admin's one pager: the Lens bar's result is "18 of 84" from the page's own
+ * total, and Unresolved and Resolved come from the count endpoint — they used to count the 25 rows
+ * in hand. Unresolved takes the danger ink only while it is non-zero.
  */
 export type ConsumptionExceptionsScreenProps = StockGapsRouteParams;
 
@@ -132,7 +141,12 @@ export function ConsumptionExceptionsScreen(props: ConsumptionExceptionsScreenPr
     );
 }
 
-const EM_DASH = '—';
+/**
+ * How often the open page re-reads its gaps. Thirty seconds: a gap closes within seconds of stock
+ * arriving and within five minutes of any other fix, and nobody is waiting on this list the way a
+ * cook waits on the kitchen display (`KDS_POLL_MS`, fifteen).
+ */
+export const STOCK_GAPS_POLL_MS = 30_000;
 
 /** A detail line carrying a raw id says nothing a reader can use; the named fields say it instead. */
 const HAS_UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
@@ -157,9 +171,19 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
     const [status, setStatus] = useState<StockGapStatus>(initial.status);
     const [from, setFrom] = useState(initial.from);
     const [to, setTo] = useState(initial.to);
+    const [today] = useState(() => todayIso());
     const [viewingId, setViewingId] = useState<string | null>(initial.gap);
-    // The open gap's recipe fix is published: Retry is what is left to do.
+    // The open gap's fix has just been made: it is retried on arrival.
     const [fixed, setFixed] = useState(initial.fixed);
+
+    /*
+     * Arriving with a gap in the address is coming back by the fix's own way back — Back, Cancel,
+     * or after saving — not by the sidebar, which lands on the bare list. The reader is where the
+     * fix began, with nothing left behind to lose, so its Continue goes (2026-10-27).
+     */
+    useEffect(() => {
+        if (initial.gap !== null && readActiveProcess()?.kind === 'stockGapFix') endProcess();
+    }, [initial.gap]);
     const [resolving, setResolving] = useState<ConsumptionException | null>(null);
 
     const fromIsValid = from === '' || /^\d{4}-\d{2}-\d{2}$/.test(from);
@@ -178,9 +202,14 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
         }),
         [status, from, fromIsValid, to, toIsValid, page],
     );
-    const exceptions = useConsumptionExceptionsQuery(filter);
+    // Gaps close by themselves on the server, so the page re-reads while it is open — and the count
+    // the sidebar badge shares with it — rather than waiting for a reload.
+    const { online } = useOnlineStatus();
+    const poll = { refetchInterval: online ? STOCK_GAPS_POLL_MS : false } as const;
+    const exceptions = useConsumptionExceptionsQuery(filter, true, poll);
     // Whole totals for the cards. The list carries none, and counting its rows counted the page.
-    const totals = useConsumptionExceptionTotalsQuery();
+    const totals = useConsumptionExceptionTotalsQuery(true, poll);
+    useConsumptionExceptionCountQuery(true, poll);
 
     const resolve = useResolveConsumptionExceptionMutation();
     const retry = useRetryConsumptionExceptionMutation();
@@ -336,11 +365,6 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
             setPendingId(null);
         },
     });
-    const runRetry = (row: ConsumptionException) => {
-        setPendingId(row.id);
-        retry.mutate(row.id, retryCallbacks(row));
-    };
-
     const confirmResolve = () => {
         if (resolving === null) return;
         const row = resolving;
@@ -505,13 +529,13 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
             },
             render: (row) =>
                 row.resolved ? (
-                    <Badge
+                    <DeskChip
                         testID={`kitchen-exception-${row.id}-resolved`}
                         tone="success"
                         label={t('kitchen:ops.exceptions.resolvedBadge')}
                     />
                 ) : (
-                    <Badge
+                    <DeskChip
                         testID={`kitchen-exception-${row.id}-open`}
                         tone="danger"
                         label={t('kitchen:ops.exceptions.unresolvedBadge')}
@@ -522,14 +546,9 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
             key: 'actions',
             role: 'actions',
             label: t('kitchen:list.actionHeader'),
-            /*
-             * Up to three — the fix, Retry, Accept gap — on one line from the start edge, the fix in
-             * a track of its own width (`FIX_SLOT_WIDTH`), so Retry and Accept gap start in the same
-             * place on every row. Its width is its content: a share of the port's leftover would
-             * only open a gap after the buttons.
-             */
-            width: 300,
-            min: 300,
+            width: ROW_ACTIONS_WIDTH,
+            min: ROW_ACTIONS_WIDTH,
+            align: 'end',
             priority: 95,
             grow: false,
             sortable: false,
@@ -539,7 +558,6 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                     row={row}
                     pendingId={pendingId}
                     fix={rowFix(row)}
-                    onRetry={canManage ? runRetry : undefined}
                     onResolve={canManage ? setResolving : undefined}
                 />
             ),
@@ -560,19 +578,27 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                   ].some((field) => field.toLocaleLowerCase().includes(needle)),
               );
     const controls = useColumnControls(searched, columns, 'kitchen-consumption-exceptions-table');
-    const statusSegments: readonly CatalogueStatusSegment<StockGapStatus>[] = (
-        [
-            ['all', 'kitchen:ops.exceptions.filterAll'],
-            ['unresolved', 'kitchen:ops.exceptions.filterUnresolved'],
-            ['resolved', 'kitchen:ops.exceptions.filterResolved'],
-        ] as const
-    ).map(([value, labelKey]) => ({ value, label: t(labelKey) }));
     const failure = toFailure(exceptions.error);
+    /** Rows on screen: the toolbar card then runs on into the table rather than closing above it. */
+    const joined = !exceptions.isPending && failure === null && controls.rows.length > 0;
+
+    const pickStatus = (next: StockGapStatus) => {
+        setStatus(next);
+        refilter();
+    };
+    // Status is a figure, and the default view is one of them: Clear leaves it.
+    const filtered = needle !== '' || from !== '' || to !== '';
+    const clearFilters = () => {
+        setQuery('');
+        setFrom('');
+        setTo('');
+        refilter();
+    };
 
     /*
-     * Back from the fix with `fixed=1` — the recipe published, the stock posted: Retry is the one
-     * step left, so it is taken, once, rather than left for the reader to find. Its toast says how
-     * it went; a gap still open stays open on the record with its Retry.
+     * Back from the fix with `fixed=1` — the recipe published, the stock posted: the retry runs
+     * here and now, once, so the reader is told how it went rather than waiting on the API's own
+     * sweep. A gap still open stays open, and the sweep goes on retrying it.
      */
     // The record closes and the row shows its pending state during render — the way a gap this
     // page no longer holds is let go, above; the request itself goes out once, from the effect.
@@ -590,16 +616,10 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
         retry.mutate(autoRetry.id, retryCallbacks(autoRetry));
     });
 
-    if (viewing !== null) {
-        const retryFromRecord = () => {
-            const row = viewing;
-            closeRecord();
-            runRetry(row);
-        };
-        // The fix leads until it is made; then Retry is the one step left.
-        const viewingFix = fixFor(viewing);
-        const leadWithFix = viewingFix !== null && !fixed;
-        return (
+    // The fix until it is made; after that the system retries, and nothing is left to press.
+    const viewingFix = viewing === null ? null : fixFor(viewing);
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-consumption-exceptions-window"
                 onBack={closeRecord}
@@ -665,218 +685,169 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                         value: t('kitchen:ops.exceptions.window.moneyValue'),
                     },
                 ]}
-                /*
-                 * The fix leads, with Retry under it. Both are drawn here rather than as the
-                 * page's `primaryAction`, which the status card puts *below* its content — the
-                 * secondary would sit above the step it follows.
-                 */
-                primaryAction={
-                    leadWithFix || viewing.resolved || !canManage
-                        ? undefined
-                        : {
-                              label: t('kitchen:ops.exceptions.window.retry'),
-                              icon: 'refresh',
-                              onPress: retryFromRecord,
-                          }
-                }
-                statusContent={
-                    leadWithFix ? (
-                        <Stack space="xs">
-                            <Button
-                                testID="kitchen-consumption-exceptions-window-fix"
-                                size="sm"
-                                block
-                                label={t(viewingFix.labelKey)}
-                                iconStart={<Icon name="pen" size="sm" />}
-                                onPress={() => {
-                                    openFix(viewingFix, viewing);
-                                }}
-                            />
-                            {canManage ? (
-                                <Button
-                                    testID="kitchen-consumption-exceptions-window-retry"
-                                    variant="secondary"
-                                    size="sm"
-                                    block
-                                    label={t('kitchen:ops.exceptions.window.retry')}
-                                    iconStart={<Icon name="refresh" size="sm" />}
-                                    disabled={pendingId !== null}
-                                    onPress={retryFromRecord}
-                                />
-                            ) : null}
-                        </Stack>
-                    ) : undefined
-                }
+                {...(viewingFix === null
+                    ? {}
+                    : {
+                          primaryAction: {
+                              label: t(viewingFix.labelKey),
+                              testID: 'kitchen-consumption-exceptions-window-fix',
+                              onPress: () => {
+                                  openFix(viewingFix, viewing);
+                              },
+                          },
+                      })}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-consumption-exceptions-screen">
-            {failure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-consumption-exceptions-summary"
-                    pending={exceptions.isPending || totals.isPending}
-                    cards={[
-                        {
-                            key: 'shown',
-                            label: t('kitchen:list.statShown'),
-                            value: formatter.formatNumber(shownSoFar),
-                            unit: t('kitchen:list.statShownUnit', { total: total ?? shownSoFar }),
-                            caption:
-                                status === 'all' && from === '' && to === ''
-                                    ? t('kitchen:list.statShownUnfiltered')
-                                    : t('kitchen:list.statShownFiltered'),
-                            mark: 'list',
-                            tone: 'brand',
-                            onPress: () => {
-                                setStatus('all');
-                                refilter();
-                            },
-                            accessibilityLabel: t('kitchen:ops.exceptions.filterAll'),
-                        },
-                        {
-                            key: 'unresolved',
-                            label: t('kitchen:ops.exceptions.filterUnresolved'),
-                            value:
-                                unresolved === null ? EM_DASH : formatter.formatNumber(unresolved),
-                            unit: t('kitchen:ops.exceptions.statUnit'),
-                            caption: t('kitchen:ops.exceptions.statUnresolvedCaption'),
-                            mark: 'alert',
-                            tone: unresolved === null || unresolved === 0 ? 'default' : 'danger',
-                            onPress: () => {
-                                setStatus('unresolved');
-                                refilter();
-                            },
-                            accessibilityLabel: t('kitchen:ops.exceptions.filterUnresolved'),
-                        },
-                        {
-                            key: 'resolved',
-                            label: t('kitchen:ops.exceptions.filterResolved'),
-                            value: resolved === null ? EM_DASH : formatter.formatNumber(resolved),
-                            unit: t('kitchen:ops.exceptions.statUnit'),
-                            caption: t('kitchen:ops.exceptions.statResolvedCaption'),
-                            mark: 'circleCheck',
-                            tone: 'default',
-                            onPress: () => {
-                                setStatus('resolved');
-                                refilter();
-                            },
-                            accessibilityLabel: t('kitchen:ops.exceptions.filterResolved'),
-                        },
-                    ]}
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                {/* The Lens bar — figures, mix and query row as one object (`lens-bar.tsx`). */}
+                <LensBar
+                    testID="kitchen-consumption-exceptions-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    {...(failure !== null
+                        ? { figures: [] }
+                        : gapsLens(
+                              {
+                                  status,
+                                  total: exceptions.isPending ? null : total,
+                                  unresolved,
+                                  resolved,
+                              },
+                              pickStatus,
+                              t,
+                          ))}
+                    search={query}
+                    onSearchChange={(next) => {
+                        setQuery(next);
+                        closeRecord();
+                    }}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:ops.exceptions.searchPlaceholder')}
+                    result={
+                        exceptions.isPending
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: shownSoFar,
+                                  total: total ?? shownSoFar,
+                              })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(filtered ? { onClear: clearFilters } : {})}
+                    /*
+                     * The raised-between window, as the purchases ledger draws its own: two days with
+                     * "to" between, either bound open, and each picker keeps the other honest — From
+                     * cannot pass To, nor To precede From. The Period shortcut before it writes both
+                     * days, and All clears them.
+                     */
+                    scope={
+                        <>
+                            <PeriodScope
+                                testID="kitchen-exceptions-filter-period"
+                                today={today}
+                                value={{ from, to }}
+                                allowAll
+                                onChange={(next) => {
+                                    setFrom(next.from);
+                                    setTo(next.to);
+                                    refilter();
+                                }}
+                            />
+                            <View className="z-auto flex-row items-center gap-tight">
+                                <DeskDateButton
+                                    testID="kitchen-exceptions-filter-from"
+                                    label={t('kitchen:ops.exceptions.filterFrom')}
+                                    value={from}
+                                    max={to === '' ? undefined : to}
+                                    placeholder={t('kitchen:ops.exceptions.fromPlaceholder')}
+                                    onChange={(next) => {
+                                        setFrom(next);
+                                        refilter();
+                                    }}
+                                    onClear={() => {
+                                        setFrom('');
+                                        refilter();
+                                    }}
+                                />
+                                <Text variant="caption" tone="secondary" aria-hidden>
+                                    {t('kitchen:ops.requirements.windowTo')}
+                                </Text>
+                                <DeskDateButton
+                                    testID="kitchen-exceptions-filter-to"
+                                    label={t('kitchen:ops.exceptions.filterTo')}
+                                    value={to}
+                                    min={from === '' ? undefined : from}
+                                    placeholder={t('kitchen:ops.exceptions.toPlaceholder')}
+                                    onChange={(next) => {
+                                        setTo(next);
+                                        refilter();
+                                    }}
+                                    onClear={() => {
+                                        setTo('');
+                                        refilter();
+                                    }}
+                                />
+                            </View>
+                        </>
+                    }
+                    trailing={<ColumnPicker {...controls.picker} compact />}
                 />
-            )}
-            <CatalogueToolbar<StockGapStatus>
-                testID="kitchen-consumption-exceptions-toolbar"
-                search={query}
-                onSearchChange={(next) => {
-                    setQuery(next);
-                    closeRecord();
-                }}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:ops.exceptions.searchPlaceholder')}
-                statusLabel={t('kitchen:ops.exceptions.filterStatus')}
-                statusSegments={statusSegments}
-                status={status}
-                onStatusChange={(next) => {
-                    setStatus(next);
-                    refilter();
-                }}
-                /*
-                 * The raised-between window, as the purchases ledger draws its own: two days with
-                 * "to" between, either bound open, and each picker keeps the other honest — From
-                 * cannot pass To, nor To precede From.
-                 */
-                filters={
-                    <View className="z-auto flex-row items-center gap-tight">
-                        <DatePickerButton
-                            testID="kitchen-exceptions-filter-from"
-                            label={t('kitchen:ops.exceptions.filterFrom')}
-                            value={from}
-                            max={to === '' ? undefined : to}
-                            placeholder={t('kitchen:ops.exceptions.fromPlaceholder')}
-                            onChange={(next) => {
-                                setFrom(next);
-                                refilter();
-                            }}
-                            onClear={() => {
-                                setFrom('');
-                                refilter();
-                            }}
+
+                {exceptions.isPending ? (
+                    <TableSkeleton testID="kitchen-consumption-exceptions-loading" rows={8} />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-consumption-exceptions-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void exceptions.refetch();
+                        }}
+                        retrying={exceptions.isFetching}
+                    />
+                ) : rows.length === 0 ? (
+                    <EmptyState
+                        testID="kitchen-consumption-exceptions-empty"
+                        title={t('kitchen:ops.exceptions.emptyTitle')}
+                        body={t('kitchen:ops.exceptions.emptyBody')}
+                    />
+                ) : controls.rows.length === 0 ? (
+                    <EmptyState
+                        testID="kitchen-consumption-exceptions-filtered-empty"
+                        title={t('kitchen:ops.exceptions.filteredEmptyTitle')}
+                        body={t('kitchen:ops.exceptions.filteredEmptyBody')}
+                    />
+                ) : (
+                    <View className="flex-col gap-2.5">
+                        <CatalogueList<ConsumptionException>
+                            testID="kitchen-consumption-exceptions-table"
+                            joined
+                            label={t('kitchen:ops.exceptions.title')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => row.id}
+                            onRowPress={openRecord}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
                         />
-                        <Text variant="caption" tone="secondary" aria-hidden>
-                            {t('kitchen:ops.requirements.windowTo')}
-                        </Text>
-                        <DatePickerButton
-                            testID="kitchen-exceptions-filter-to"
-                            label={t('kitchen:ops.exceptions.filterTo')}
-                            value={to}
-                            min={from === '' ? undefined : from}
-                            placeholder={t('kitchen:ops.exceptions.toPlaceholder')}
-                            onChange={(next) => {
-                                setTo(next);
-                                refilter();
+                        <CataloguePager
+                            testID="kitchen-consumption-exceptions-pagination"
+                            page={page}
+                            totalPages={totalPages}
+                            onPageChange={(next) => {
+                                setPage(next);
+                                closeRecord();
                             }}
-                            onClear={() => {
-                                setTo('');
-                                refilter();
-                            }}
+                            label={t('kitchen:catalogue.pagerLabel')}
                         />
                     </View>
-                }
-            >
-                <ColumnPicker {...controls.picker} />
-            </CatalogueToolbar>
-
-            {exceptions.isPending ? (
-                <TableSkeleton testID="kitchen-consumption-exceptions-loading" rows={8} />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-consumption-exceptions-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void exceptions.refetch();
-                    }}
-                    retrying={exceptions.isFetching}
-                />
-            ) : rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-consumption-exceptions-empty"
-                    title={t('kitchen:ops.exceptions.emptyTitle')}
-                    body={t('kitchen:ops.exceptions.emptyBody')}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-consumption-exceptions-filtered-empty"
-                    title={t('kitchen:ops.exceptions.filteredEmptyTitle')}
-                    body={t('kitchen:ops.exceptions.filteredEmptyBody')}
-                />
-            ) : (
-                <View className="flex-col gap-2.5">
-                    <CatalogueList<ConsumptionException>
-                        testID="kitchen-consumption-exceptions-table"
-                        label={t('kitchen:ops.exceptions.title')}
-                        columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => row.id}
-                        onRowPress={openRecord}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                    />
-                    <CataloguePager
-                        testID="kitchen-consumption-exceptions-pagination"
-                        page={page}
-                        totalPages={totalPages}
-                        onPageChange={(next) => {
-                            setPage(next);
-                            closeRecord();
-                        }}
-                        label={t('kitchen:catalogue.pagerLabel')}
-                    />
-                </View>
-            )}
+                )}
+            </View>
 
             <Dialog
+                look="card"
                 testID="kitchen-exception-resolve-dialog"
                 open={resolving !== null}
                 onClose={() => {
@@ -886,7 +857,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                 description={t('kitchen:ops.exceptions.resolveBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-exception-resolve-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -894,7 +865,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                                 setResolving(null);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-exception-resolve-confirm"
                             variant="danger"
                             label={t('kitchen:ops.exceptions.resolveConfirm')}
@@ -904,6 +875,92 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                     </>
                 }
             />
+
+            {viewPopup}
         </Cascade>
     );
+}
+
+/**
+ * The Lens bar's figures: All gaps, then Unresolved and Resolved from the count endpoint, each a
+ * filter. All is the page read's total while it is in force, the two counts' sum otherwise.
+ * Unresolved is the one that blocks work.
+ */
+function gapsLens(
+    source: {
+        readonly status: StockGapStatus;
+        readonly total: number | null;
+        readonly unresolved: number | null;
+        readonly resolved: number | null;
+    },
+    pick: (status: StockGapStatus) => void,
+    t: TFunction,
+): {
+    readonly figures: readonly LensFigure[];
+    readonly mix: readonly LensMixPart[];
+    readonly mixLabel: string;
+} {
+    const { status, unresolved, resolved } = source;
+    const all =
+        status === 'all'
+            ? source.total
+            : unresolved === null || resolved === null
+              ? null
+              : unresolved + resolved;
+    return {
+        figures: [
+            {
+                key: 'all',
+                label: t('kitchen:lens.allGaps'),
+                value: all,
+                active: status === 'all',
+                onPress: () => {
+                    pick('all');
+                },
+                accessibilityLabel: t('kitchen:lens.allAction'),
+            },
+            {
+                key: 'unresolved',
+                label: t('kitchen:ops.exceptions.filterUnresolved'),
+                value: unresolved,
+                tone: 'danger',
+                alarm: true,
+                separated: true,
+                active: status === 'unresolved',
+                onPress: () => {
+                    pick('unresolved');
+                },
+                accessibilityLabel: t('kitchen:lens.unresolvedAction'),
+            },
+            {
+                key: 'resolved',
+                label: t('kitchen:ops.exceptions.filterResolved'),
+                value: resolved,
+                tone: 'success',
+                active: status === 'resolved',
+                onPress: () => {
+                    pick('resolved');
+                },
+                accessibilityLabel: t('kitchen:lens.resolvedAction'),
+            },
+        ],
+        mix: [
+            {
+                key: 'unresolved',
+                value: unresolved ?? 0,
+                tone: 'danger',
+                dimmed: status === 'resolved',
+            },
+            {
+                key: 'resolved',
+                value: resolved ?? 0,
+                tone: 'success',
+                dimmed: status === 'unresolved',
+            },
+        ],
+        mixLabel: t('kitchen:lens.gapsMix', {
+            unresolved: unresolved ?? 0,
+            resolved: resolved ?? 0,
+        }),
+    };
 }

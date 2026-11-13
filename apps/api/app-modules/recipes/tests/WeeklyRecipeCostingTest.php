@@ -13,6 +13,8 @@ use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
+use Healthy360\Recipes\Models\RecipeVersionPackaging;
+use Healthy360\Recipes\Services\RecipeVersionService;
 use Healthy360\Recipes\Services\WeeklyLineCost;
 use Healthy360\Recipes\Services\WeeklyRecipeCostingService;
 use Healthy360\Recipes\Tests\Fixtures\RecipeWorld;
@@ -454,4 +456,191 @@ it('refuses to price a bag as a can', function (): void {
     // division would have converted one-for-one and called a bag a can.
     expect($result->lineSources[1]->source)->toBe(WeeklyLineCost::SOURCE_NONE)
         ->and($result->production->uncostedLineNumbers)->toBe([1]);
+});
+
+it('prices a line in kilograms from a price per litre through what a litre weighs', function (): void {
+    // Soy sauce: bought by the litre, measured into a marinade by the kilogram.
+    $soy = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Soy sauce');
+    $litres = RecipeWorld::unit('l');
+    $soy->default_unit_id = $litres;
+    $soy->grams_per_unit = '1080';
+    $soy->purchase_price_amount = null;
+    $soy->purchase_price_currency = null;
+    $soy->save();
+
+    publishWeeklyPrice($this->organisation, $soy, '3.930000', $litres);
+
+    $version = weeklyVersion($this->kitchen, [
+        ['ingredient' => $soy, 'quantity' => '0.075', 'unit_id' => $this->kilograms],
+    ], ['yield_quantity' => '1', 'yield_unit_id' => $this->kilograms, 'waste_coefficient_percent' => '0']);
+
+    $result = $this->weekly->cost((string) $this->organisation->getKey(), $version);
+
+    // A litre weighs 1080 g, so a kilogram is 1000/1080 of a litre: 3.93 × 1000 ÷ 1080.
+    expect($result->lineSources[1]->source)->toBe(WeeklyLineCost::SOURCE_WEEKLY)
+        ->and($result->lineSources[1]->unitCostAmount)->toBe('3.638889')
+        ->and($result->production->uncostedLineNumbers)->toBe([]);
+});
+
+it('still refuses litres against kilograms when nothing says what a litre weighs', function (): void {
+    $vinegar = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Vinegar');
+    $litres = RecipeWorld::unit('l');
+    $vinegar->default_unit_id = $litres;
+    $vinegar->grams_per_unit = null;
+    $vinegar->purchase_price_amount = null;
+    $vinegar->purchase_price_currency = null;
+    $vinegar->save();
+
+    publishWeeklyPrice($this->organisation, $vinegar, '2.000000', $litres);
+
+    $version = weeklyVersion($this->kitchen, [
+        ['ingredient' => $vinegar, 'quantity' => '1', 'unit_id' => $this->kilograms],
+    ], ['yield_quantity' => '1', 'yield_unit_id' => $this->kilograms]);
+
+    $result = $this->weekly->cost((string) $this->organisation->getKey(), $version);
+
+    expect($result->lineSources[1]->source)->toBe(WeeklyLineCost::SOURCE_NONE)
+        ->and($result->production->uncostedLineNumbers)->toBe([1]);
+});
+
+it('prices a kitchen copy from its original until the copy has a price of its own', function (): void {
+    // The kitchen buys the original; editing it made a copy the recipe now names.
+    $original = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Soy sauce');
+    $original->default_unit_id = $this->kilograms;
+    $original->save();
+
+    $copy = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Soy sauce (kitchen)');
+    $copy->default_unit_id = $this->kilograms;
+    $copy->forked_from_ingredient_id = (string) $original->getKey();
+    $copy->purchase_price_amount = null;
+    $copy->purchase_price_currency = null;
+    $copy->save();
+
+    publishWeeklyPrice($this->organisation, $original, '4.000000', $this->kilograms);
+
+    $version = weeklyVersion($this->kitchen, [
+        ['ingredient' => $copy, 'quantity' => '1', 'unit_id' => $this->kilograms],
+    ], ['yield_quantity' => '1', 'yield_unit_id' => $this->kilograms, 'waste_coefficient_percent' => '0']);
+
+    $borrowed = $this->weekly->cost((string) $this->organisation->getKey(), $version);
+
+    expect($borrowed->lineSources[1]->source)->toBe(WeeklyLineCost::SOURCE_WEEKLY)
+        ->and($borrowed->production->totalInputCostAmount)->toBe('4.000000');
+
+    publishWeeklyPrice($this->organisation, $copy, '6.000000', $this->kilograms, '2026-09-07');
+
+    $own = $this->weekly->cost((string) $this->organisation->getKey(), $version);
+
+    expect($own->production->totalInputCostAmount)->toBe('6.000000');
+});
+
+it('prices a new recipe line from what was paid when the ingredient has no typed price', function (): void {
+    $soy = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Soya sauce');
+    $soy->default_unit_id = $this->kilograms;
+    $soy->purchase_unit_id = null;
+    $soy->purchase_price_amount = null;
+    $soy->purchase_price_currency = null;
+    $soy->save();
+
+    publishWeeklyPrice($this->organisation, $soy, '4.000000', $this->kilograms);
+
+    // The editor sends no cost and the catalogue has none typed: the line takes the price
+    // actually paid, restated into its own unit, rather than reading "No price yet".
+    $prepared = app(RecipeVersionService::class)->prepareLines([
+        ['ingredient_id' => (string) $soy->getKey(), 'quantity' => '500', 'unit_id' => $this->grams],
+    ]);
+
+    expect($prepared[0]['unit_cost_amount'])->toBe('0.004000')
+        ->and($prepared[0]['cost_currency_code'])->toBe('USD')
+        ->and($prepared[0]['line_cost_amount'])->toBe('2.000000');
+});
+
+it('puts what was paid ahead of a typed price on a new recipe line', function (): void {
+    // Plan S4: one source order everywhere — paid, then the recipe that makes it, then typed —
+    // so the draft preview and Dish margins cost one recipe from the same inputs. This test
+    // pinned the old order (typed first) and now pins the new one.
+    $spice = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Sumac');
+    $spice->default_unit_id = $this->kilograms;
+    $spice->purchase_unit_id = null;
+    $spice->purchase_price_amount = '20.000000';
+    $spice->purchase_price_currency = 'usd';
+    $spice->save();
+
+    publishWeeklyPrice($this->organisation, $spice, '4.000000', $this->kilograms);
+
+    $prepared = app(RecipeVersionService::class)->prepareLines([
+        ['ingredient_id' => (string) $spice->getKey(), 'quantity' => '1', 'unit_id' => $this->kilograms],
+    ]);
+
+    expect($prepared[0]['unit_cost_amount'])->toBe('4.000000');
+});
+
+it('still lets a cost quoted on the request win over every live source', function (): void {
+    $spice = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Sumac');
+    $spice->default_unit_id = $this->kilograms;
+    $spice->save();
+
+    publishWeeklyPrice($this->organisation, $spice, '4.000000', $this->kilograms);
+
+    // The importer's path: what the source sheet said, errors included.
+    $prepared = app(RecipeVersionService::class)->prepareLines([
+        ['ingredient_id' => (string) $spice->getKey(), 'quantity' => '1', 'unit_id' => $this->kilograms, 'unit_cost_amount' => '9.5', 'cost_currency_code' => 'USD'],
+    ]);
+
+    expect($prepared[0]['unit_cost_amount'])->toBe('9.5');
+});
+
+it('costs a produced component with its own production waste, and still no packaging', function (): void {
+    $oil = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Olive oil');
+    $oil->default_unit_id = $this->kilograms;
+    $oil->save();
+    publishWeeklyPrice($this->organisation, $oil, '10.000000', $this->kilograms);
+
+    $dressing = RecipeWorld::verifiedCleanIngredient($this->organisation, 'Caesar dressing');
+    $dressing->default_unit_id = $this->kilograms;
+    $dressing->save();
+
+    // 2 kg of oil makes 4 kg of dressing at 10% waste: 5.00 a kilo, 5.50 with the waste on it.
+    $dressingVersion = weeklyVersion($this->kitchen, [
+        ['ingredient' => $oil, 'quantity' => '2', 'unit_id' => $this->kilograms],
+    ], [
+        'status' => RecipeVersionStatus::Published->value,
+        'yield_quantity' => '4',
+        'yield_unit_id' => $this->kilograms,
+        'waste_coefficient_percent' => '10',
+    ]);
+
+    RecipeVersionOutput::query()->create([
+        'recipe_version_id' => $dressingVersion->getKey(),
+        'organisation_id' => $this->organisation->getKey(),
+        'ingredient_id' => $dressing->getKey(),
+        'output_quantity' => '4',
+        'unit_id' => $this->kilograms,
+        'is_primary' => true,
+    ]);
+
+    // A bottle on the dressing's own packaging, which a salad must not inherit.
+    RecipeVersionPackaging::query()->create([
+        'recipe_version_id' => $dressingVersion->getKey(),
+        'organisation_id' => $this->organisation->getKey(),
+        'line_number' => 1,
+        'ingredient_id' => RecipeWorld::packagingItem($this->organisation, 'Bottle', '3.00', '0.3')->getKey(),
+        'basis' => 'per_batch',
+        'quantity' => '1',
+        'unit_cost_amount' => '3.000000',
+        'cost_currency_code' => 'USD',
+    ]);
+
+    $dressing->nutrition_derived_from_version_id = (string) $dressingVersion->getKey();
+    $dressing->save();
+
+    $salad = weeklyVersion($this->kitchen, [
+        ['ingredient' => $dressing, 'quantity' => '1', 'unit_id' => $this->kilograms],
+    ], ['yield_quantity' => '1', 'yield_unit_id' => $this->kilograms, 'waste_coefficient_percent' => '0']);
+
+    $result = $this->weekly->cost((string) $this->organisation->getKey(), $salad);
+
+    expect($result->lineSources[1]->source)->toBe(WeeklyLineCost::SOURCE_COMPONENT)
+        ->and($result->lineSources[1]->unitCostAmount)->toBe('5.500000')
+        ->and($result->production->totalInputCostAmount)->toBe('5.500000');
 });

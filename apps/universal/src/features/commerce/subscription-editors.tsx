@@ -1,26 +1,21 @@
-import {
-    Button,
-    Callout,
-    Dialog,
-    FilterChip,
-    Inline,
-    Select,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
-import type {
-    CreditMemo,
-    SubscriptionBalance,
-    SubscriptionMealChoice,
-    SubscriptionQuote,
-} from '@healthy360/api-client/contracts';
-import type { MealId } from '@healthy360/domain-types';
+import { Callout, Icon, cx } from '@healthy360/design-system';
+import type { SubscriptionBalance, SubscriptionQuote } from '@healthy360/api-client/contracts';
+import type { SubscriptionState } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
 
 import { toFailure } from '../../data/commerce-hooks.ts';
-import { formatMoney, weekdayKey } from '../marketplace/format.ts';
+import {
+    ShopDialog,
+    ShopDialogButton,
+    ShopDialogConsequence,
+    ShopDialogSubject,
+    ShopDialogTag,
+    ShopDialogTile,
+} from '../../ui/shop-dialog.tsx';
+import { weekdayKey } from '../marketplace/format.ts';
+import { isTerminalSubscriptionState } from './state-badge.tsx';
 
 /**
  * The three S1 editors, and the dialog that ends a subscription.
@@ -61,13 +56,184 @@ export function DialogFailure({
     );
 }
 
+/**
+ * A tile editor's refusal (Shop · Subscription, pin 3): one small red line under the buttons —
+ * "That change was not saved.", the server's reason, and Try again — rather than the full red box a
+ * pop-up uses. The editor stays open with what the person chose.
+ */
+export function InlineFailure({
+    error,
+    onRetry,
+    testID,
+}: {
+    readonly error: unknown;
+    readonly onRetry?: (() => void) | undefined;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const failure = toFailure(error);
+    if (failure === null) return null;
+    return (
+        <View
+            testID={testID}
+            role="alert"
+            className="flex-row items-center gap-2 rounded-xl bg-danger-subtle px-2.5 py-2"
+        >
+            <Icon name="alert" size="sm" className="text-danger-on-subtle" />
+            <RNText className="min-w-0 flex-1 text-xs font-semibold leading-4 text-danger-on-subtle text-start">
+                {`${t('commerce:subscription.notSaved')} ${failure.message}`}
+            </RNText>
+            {onRetry === undefined ? null : (
+                <Pressable
+                    testID={`${testID}-retry`}
+                    role="button"
+                    accessibilityRole="button"
+                    onPress={onRetry}
+                >
+                    <RNText className="text-xs font-bold text-danger-on-subtle underline">
+                        {t('errors:generic.retry')}
+                    </RNText>
+                </Pressable>
+            )}
+        </View>
+    );
+}
+
+/* ── pause and resume ───────────────────────────────────────────────────────────────────────── */
+
+export interface PlanSubjectProps {
+    readonly planName: string;
+    readonly state: SubscriptionState;
+    readonly kitchenName?: string | undefined;
+    /** One more fact after the kitchen — the next delivery, the days left. */
+    readonly line?: string | undefined;
+    readonly testID?: string | undefined;
+}
+
+/** The subscription pop-ups' card: the plan, its state as a tag, the kitchen and one line. */
+export function PlanSubject({ planName, state, kitchenName, line, testID }: PlanSubjectProps) {
+    const { t } = useTranslation();
+    const meta = [kitchenName, line].filter(
+        (part): part is string => part !== undefined && part !== '',
+    );
+    return (
+        <ShopDialogSubject
+            testID={testID}
+            lead={<ShopDialogTile icon="leaf" />}
+            name={planName}
+            tag={
+                <ShopDialogTag
+                    label={t(`commerce:states.${state}`)}
+                    tone={
+                        state === 'paused'
+                            ? 'warning'
+                            : isTerminalSubscriptionState(state)
+                              ? 'muted'
+                              : 'brand'
+                    }
+                />
+            }
+            meta={meta.length === 0 ? undefined : meta.join(' · ')}
+        />
+    );
+}
+
+export interface PauseResumeDialogProps {
+    readonly kind: 'pause' | 'resume';
+    readonly open: boolean;
+    readonly subject: PlanSubjectProps;
+    readonly pending: boolean;
+    readonly error?: unknown;
+    readonly onClose: () => void;
+    readonly onConfirm: () => void;
+    /** `{prefix}-dialog`, `-cancel`, `-confirm`, `-consequence`, `-failure`. */
+    readonly testID: string;
+}
+
+/**
+ * "Pause this subscription?" and "Resume this subscription?" — Shop · Subscription, pins 8 and 9.
+ * The same two questions on the subscription page and on the account's subscription cards.
+ *
+ * Pause has no "resume on" date: the platform has no scheduled resume, and the field that used to
+ * ask for one collected a date nothing acted on.
+ */
+export function PauseResumeDialog({
+    kind,
+    open,
+    subject,
+    pending,
+    error,
+    onClose,
+    onConfirm,
+    testID,
+}: PauseResumeDialogProps) {
+    const { t } = useTranslation();
+    const pausing = kind === 'pause';
+    return (
+        <ShopDialog
+            testID={`${testID}-dialog`}
+            open={open}
+            onClose={onClose}
+            icon={pausing ? 'pause' : 'play'}
+            title={t(
+                pausing
+                    ? 'commerce:subscription.pauseDialogTitle'
+                    : 'commerce:subscription.resumeDialogTitle',
+            )}
+            description={t(
+                pausing
+                    ? 'commerce:subscription.pauseDialogBody'
+                    : 'commerce:subscription.resumeDialogBody',
+            )}
+            actions={
+                <>
+                    <ShopDialogButton
+                        testID={`${testID}-cancel`}
+                        label={t('commerce:common.cancel')}
+                        onPress={onClose}
+                    />
+                    <ShopDialogButton
+                        testID={`${testID}-confirm`}
+                        kind="brand"
+                        icon={pausing ? 'pause' : 'play'}
+                        label={t(
+                            pausing
+                                ? 'commerce:subscription.pauseConfirm'
+                                : 'commerce:subscription.resumeConfirm',
+                        )}
+                        busy={pending}
+                        onPress={onConfirm}
+                    />
+                </>
+            }
+        >
+            <PlanSubject {...subject} testID={`${testID}-subject`} />
+            {pausing ? (
+                <ShopDialogConsequence
+                    testID={`${testID}-consequence`}
+                    icon="infoCircle"
+                    title={t('commerce:subscription.pauseConsequenceTitle')}
+                    body={t('commerce:subscription.pauseConsequenceOpen')}
+                />
+            ) : null}
+            <DialogFailure error={error} testID={`${testID}-failure`} />
+        </ShopDialog>
+    );
+}
+
 /* ── cancellation ────────────────────────────────────────────────────────────────────────────── */
 
 export interface CancelSubscriptionDialogProps {
     readonly open: boolean;
     readonly balance: SubscriptionBalance | undefined;
-    /** Set once the cancellation has happened, so the dialog can report what it produced. */
-    readonly memo: CreditMemo | null | undefined;
+    /** Set once the cancellation has happened, so the dialog can say so. */
+    readonly cancelled: boolean;
+    /** The plan's name, which the board's title asks about: "Cancel Weekday Lean?". */
+    readonly planName: string;
+    /** The kitchen, under the plan's name on the pop-up's card. */
+    readonly kitchenName?: string | undefined;
+    /** The state before cancelling, as the card's tag. */
+    readonly state?: SubscriptionState | undefined;
     readonly pending: boolean;
     /** The refusal of the last attempt, drawn inside the dialog ({@link DialogFailure}). */
     readonly error?: unknown;
@@ -77,31 +243,16 @@ export interface CancelSubscriptionDialogProps {
 }
 
 /**
- * "Cancel this subscription."
- *
- * ## It states the amount *before* the button, not after
- *
- * The refund is computable from data the screen already holds — remaining days × the effective
- * per-day price — so the dialog prints it as the consequence rather than revealing it on the
- * confirmation screen. A person deciding whether to cancel is deciding about that number, and
- * showing it afterwards would make the dialog a formality rather than a decision.
- *
- * The amount shown is a *statement of what will be recorded*, and the copy says so. It is not a
- * quotation the server has agreed to: the server recomputes it and answers with the memo it
- * actually wrote, which is what the success state then shows. When the two ever disagree, the
- * server's is the one on screen at the end.
- *
- * ## And it says settlement is manual
- *
- * Nothing in this system moves money. A credit memo is a record somebody settles by hand, and a
- * dialog that said "you will be refunded" would be promising a transfer no code performs. The
- * sentence is in the dialog and repeated on the receipt, because it is the part most likely to be
- * misremembered.
+ * "Cancel this subscription." It states what stops, and promises no money: a subscription is paid per
+ * delivery, so nothing is held and nothing comes back.
  */
 export function CancelSubscriptionDialog({
     open,
     balance,
-    memo,
+    cancelled,
+    planName,
+    kitchenName,
+    state = 'active',
     pending,
     error,
     onClose,
@@ -109,358 +260,288 @@ export function CancelSubscriptionDialog({
     testID = 'subscription-cancel',
 }: CancelSubscriptionDialogProps) {
     const { t } = useTranslation();
-    const formatter = useFormatter();
 
     const remaining = balance?.days.remaining ?? 0;
-    const perDay = balance === undefined ? null : formatMoney(formatter, balance.perDayPrice);
+    const subject = (
+        <ShopDialogSubject
+            testID={`${testID}-subject`}
+            lead={<ShopDialogTile icon="leaf" />}
+            name={planName}
+            tag={
+                cancelled ? (
+                    <ShopDialogTag label={t('commerce:states.cancelled')} tone="muted" />
+                ) : (
+                    <ShopDialogTag label={t(`commerce:states.${state}`)} />
+                )
+            }
+            meta={kitchenName}
+            end={
+                cancelled || balance === undefined ? undefined : (
+                    <RNText className="pe-1 font-display text-base font-bold text-content-primary">
+                        {t('commerce:subscription.dialog.daysLeft', { count: remaining })}
+                    </RNText>
+                )
+            }
+        />
+    );
 
+    /*
+     * The board draws the two moments as two pop-ups (Shop · Subscription, pins 11 and 12): the
+     * question on a danger head, then "Subscription cancelled" on a plain one. Here they are one
+     * dialog whose head and body change once the cancellation has happened.
+     */
     return (
-        <Dialog
+        <ShopDialog
             testID={`${testID}-dialog`}
             open={open}
             onClose={onClose}
-            title={t('commerce:cancel.title')}
-            description={t('commerce:cancel.body')}
+            tone={cancelled ? 'brand' : 'danger'}
+            icon={cancelled ? 'check' : 'circleX'}
+            title={
+                cancelled
+                    ? t('commerce:cancel.doneTitle')
+                    : t('commerce:cancel.titleNamed', { plan: planName })
+            }
+            description={cancelled ? t('commerce:cancel.doneBody') : t('commerce:cancel.body')}
             actions={
-                memo === undefined ? (
+                !cancelled ? (
                     <>
-                        <Button
+                        <ShopDialogButton
                             testID={`${testID}-dismiss`}
-                            variant="quiet"
                             label={t('commerce:cancel.keep')}
                             onPress={onClose}
                         />
-                        <Button
+                        <ShopDialogButton
                             testID={`${testID}-confirm`}
-                            variant="danger"
+                            kind="danger"
                             label={t('commerce:cancel.confirm')}
-                            loading={pending}
+                            busy={pending}
                             onPress={onConfirm}
                         />
                     </>
                 ) : (
-                    <Button
+                    <ShopDialogButton
                         testID={`${testID}-done`}
+                        kind="brand"
                         label={t('commerce:common.close')}
                         onPress={onClose}
                     />
                 )
             }
         >
-            <Stack space="sm">
-                {memo === undefined ? (
-                    <>
-                        <Callout
-                            testID={`${testID}-consequence`}
-                            role="alert"
-                            tone="warning"
-                            icon="warning"
-                            title={t('commerce:cancel.consequenceTitle')}
-                            body={t('commerce:cancel.consequenceBody', { count: remaining })}
-                        />
-
-                        {remaining > 0 && perDay !== null && balance !== undefined ? (
-                            <Text testID={`${testID}-estimate`}>
-                                {t('commerce:cancel.estimate', {
-                                    count: remaining,
-                                    perDay,
-                                    amount: formatMoney(formatter, {
-                                        amount: remaining * balance.perDayPrice.amount,
-                                        currency: balance.perDayPrice.currency,
-                                    }),
-                                })}
-                            </Text>
-                        ) : (
-                            <Text tone="secondary" testID={`${testID}-no-refund`}>
-                                {t('commerce:cancel.noRefund')}
-                            </Text>
-                        )}
-
-                        <Text tone="secondary" variant="caption" testID={`${testID}-manual`}>
-                            {t('commerce:cancel.manualSettlement')}
-                        </Text>
-
-                        <DialogFailure error={error} testID={`${testID}-failure`} />
-                    </>
-                ) : memo === null ? (
-                    <Callout
-                        testID={`${testID}-result-none`}
-                        role="status"
-                        tone="info"
-                        title={t('commerce:cancel.doneTitle')}
-                        body={t('commerce:cancel.doneNoMemo')}
+            {subject}
+            {!cancelled ? (
+                <>
+                    <ShopDialogConsequence
+                        testID={`${testID}-consequence`}
+                        icon="calendar"
+                        title={t('commerce:cancel.consequenceTitle')}
+                        body={t('commerce:cancel.consequenceBody', { count: remaining })}
                     />
-                ) : (
-                    <Stack space="sm">
-                        <Callout
-                            testID={`${testID}-result`}
-                            role="status"
-                            tone="success"
-                            title={t('commerce:cancel.doneTitle')}
-                            body={t('commerce:cancel.doneMemo', {
-                                amount: formatMoney(formatter, memo.amount),
-                                count: memo.unusedDays,
-                            })}
-                        />
-                        <Text tone="secondary" variant="caption" testID={`${testID}-memo-manual`}>
-                            {t('commerce:cancel.manualSettlement')}
-                        </Text>
-                    </Stack>
-                )}
-            </Stack>
-        </Dialog>
+                    <DialogFailure error={error} testID={`${testID}-failure`} />
+                </>
+            ) : (
+                <View testID={`${testID}-result`} role="status" />
+            )}
+        </ShopDialog>
     );
 }
 
 /* ── weekdays ────────────────────────────────────────────────────────────────────────────────── */
 
-export interface WeekdayEditorDialogProps {
-    readonly open: boolean;
+export interface WeekdayEditorProps {
     readonly quote: SubscriptionQuote | undefined;
     readonly balance: SubscriptionBalance | undefined;
     readonly selected: readonly number[];
     readonly pending: boolean;
-    /** The refusal of the last attempt, drawn inside the dialog ({@link DialogFailure}). */
+    /** The refusal of the last attempt, drawn under the buttons ({@link DialogFailure}). */
     readonly error?: unknown;
     readonly onChange: (weekdays: readonly number[]) => void;
-    readonly onClose: () => void;
+    readonly onCancel: () => void;
     readonly onConfirm: () => void;
     readonly testID?: string | undefined;
 }
 
 /**
- * Which weekdays this subscription delivers on.
+ * Which weekdays this subscription delivers on — the Subscription board's inline editor, opened by
+ * the Delivery days tile's Change.
  *
  * ## The choices come from the plan, in one request
  *
- * Every chip here is a weekday the plan actually delivers on, read from
+ * Every day button here is a weekday the plan actually delivers on, read from
  * `CommerceRepository.getSubscriptionQuote`. The previous implementation discovered the same list by
  * pricing seven hypothetical subscriptions and reading which answers carried an "unavailable"
  * warning — honest, and seven round trips for a fact that was on the plan record all along. While
- * the quote is loading, no chip is offered rather than all seven: offering a day the plan refuses,
+ * the quote is loading, no day is offered rather than all seven: offering a day the plan refuses,
  * and finding out on save, is the failure this read exists to prevent.
  *
- * ## And the dialog says when the change lands
+ * ## And it says when the change lands
  *
  * Not "immediately". Deliveries inside the cut-off window proceed as scheduled (semantics §2), so a
  * change made the morning before tomorrow's delivery affects the one after it. The note states the
  * cut-off in hours, which is the plan's configuration rather than a constant this screen owns.
  */
-export function WeekdayEditorDialog({
-    open,
+export function WeekdayEditor({
     quote,
     balance,
     selected,
     pending,
     error,
     onChange,
-    onClose,
+    onCancel,
     onConfirm,
     testID = 'subscription-weekdays',
-}: WeekdayEditorDialogProps) {
+}: WeekdayEditorProps) {
     const { t } = useTranslation();
+    const formatter = useFormatter();
 
     const available = quote?.availableWeekdays ?? [];
     const empty = selected.length === 0;
 
     return (
-        <Dialog
-            testID={`${testID}-dialog`}
-            open={open}
-            onClose={onClose}
-            title={t('commerce:weekdays.title')}
-            description={t('commerce:weekdays.body')}
-            actions={
-                <>
-                    <Button
-                        testID={`${testID}-cancel`}
-                        variant="quiet"
-                        label={t('commerce:common.cancel')}
-                        onPress={onClose}
-                    />
-                    <Button
-                        testID={`${testID}-confirm`}
-                        label={t('commerce:weekdays.confirm')}
-                        loading={pending}
-                        disabled={empty || available.length === 0}
-                        onPress={onConfirm}
-                    />
-                </>
-            }
-        >
-            <Stack space="md">
-                {available.length === 0 ? (
-                    <Text tone="secondary" testID={`${testID}-loading`}>
-                        {t('commerce:weekdays.loading')}
-                    </Text>
-                ) : (
-                    <Inline space="xs" wrap testID={`${testID}-chips`}>
-                        {available.map((weekday) => (
-                            <FilterChip
+        <View testID={`${testID}-editor`} className="flex-col gap-2 pt-1">
+            {available.length === 0 ? (
+                <RNText testID={`${testID}-loading`} className="text-xs text-content-secondary">
+                    {t('commerce:weekdays.loading')}
+                </RNText>
+            ) : (
+                <View testID={`${testID}-chips`} className="flex-row flex-wrap gap-1.5">
+                    {available.map((weekday) => {
+                        const on = selected.includes(weekday);
+                        return (
+                            <Pressable
                                 key={weekday}
                                 testID={`${testID}-day-${String(weekday)}`}
-                                label={t(weekdayKey(weekday))}
-                                selected={selected.includes(weekday)}
-                                onChange={(isSelected) => {
+                                role="checkbox"
+                                aria-checked={on}
+                                accessibilityState={{ checked: on }}
+                                accessibilityLabel={t(weekdayKey(weekday))}
+                                onPress={() => {
                                     onChange(
-                                        isSelected
-                                            ? [...selected, weekday].sort(
+                                        on
+                                            ? selected.filter((value) => value !== weekday)
+                                            : [...selected, weekday].sort(
                                                   (left, right) => left - right,
-                                              )
-                                            : selected.filter((value) => value !== weekday),
+                                              ),
                                     );
                                 }}
-                            />
-                        ))}
-                    </Inline>
-                )}
+                                className={cx(
+                                    'h-[34px] min-w-[34px] items-center justify-center rounded-xl border-[1.5px] px-1',
+                                    on
+                                        ? 'border-surface-brand bg-surface-brand'
+                                        : 'border-stroke bg-surface-raised hover:border-surface-brand',
+                                )}
+                            >
+                                <RNText
+                                    className={cx(
+                                        'text-xs font-bold',
+                                        on ? 'text-content-on-brand' : 'text-content-primary',
+                                    )}
+                                >
+                                    {shortWeekday(weekday, formatter.formatDate)}
+                                </RNText>
+                            </Pressable>
+                        );
+                    })}
+                </View>
+            )}
 
-                {/* A refusal the server would make anyway, said before the round trip. */}
-                {empty ? (
-                    <Text tone="danger" variant="caption" testID={`${testID}-empty`}>
-                        {t('commerce:weekdays.chooseOne')}
-                    </Text>
-                ) : null}
+            {/* A refusal the server would make anyway, said before the round trip. */}
+            {empty ? (
+                <RNText testID={`${testID}-empty`} className="text-xs text-danger-on-subtle">
+                    {t('commerce:weekdays.chooseOne')}
+                </RNText>
+            ) : null}
 
-                <Callout
-                    testID={`${testID}-cutoff`}
-                    role="note"
-                    tone="info"
-                    icon="info"
-                    title={t('commerce:weekdays.cutOffTitle')}
-                    body={t('commerce:weekdays.cutOffBody', {
+            <View testID={`${testID}-cutoff`} className="flex-row items-center gap-1.5">
+                <Icon name="clock" size="sm" className="text-content-secondary" />
+                <RNText className="shrink text-xs leading-4 text-content-secondary text-start">
+                    {t('commerce:weekdays.hint', {
                         count: balance?.changeCutoffHours ?? quote?.changeCutoffHours ?? 24,
                     })}
-                />
+                </RNText>
+            </View>
 
-                <DialogFailure error={error} testID={`${testID}-failure`} />
-            </Stack>
-        </Dialog>
+            <View className="flex-row gap-1.5">
+                <EditorButton
+                    testID={`${testID}-confirm`}
+                    label={t('commerce:subscription.board.save')}
+                    tone="primary"
+                    pending={pending}
+                    disabled={empty || available.length === 0}
+                    onPress={onConfirm}
+                />
+                <EditorButton
+                    testID={`${testID}-cancel`}
+                    label={t('commerce:common.cancel')}
+                    onPress={onCancel}
+                />
+            </View>
+
+            <InlineFailure error={error} onRetry={onConfirm} testID={`${testID}-failure`} />
+        </View>
     );
 }
 
-/* ── Free Selection ──────────────────────────────────────────────────────────────────────────── */
-
-export interface MealChoiceOption {
-    readonly id: MealId;
-    readonly name: string;
-}
-
-export interface MealChoicesDialogProps {
-    readonly open: boolean;
-    readonly date: string | null;
-    readonly options: readonly MealChoiceOption[];
-    readonly current: readonly SubscriptionMealChoice[];
-    readonly slotCode: string;
-    readonly pending: boolean;
-    /** The refusal of the last attempt, drawn inside the dialog ({@link DialogFailure}). */
-    readonly error?: unknown;
-    readonly onClose: () => void;
-    readonly onConfirm: (mealId: MealId) => void;
-    readonly testID?: string | undefined;
-}
-
 /**
- * Choosing the meal for one delivery day, ahead of the cut-off.
- *
- * ## What the current state actually is
- *
- * A day nobody has chosen for is not empty — the kitchen has a default, and that default is what
- * will be cooked. So the dialog opens showing it, labelled as the kitchen's rather than the
- * person's. Presenting an unchosen day as blank would imply that not choosing means not eating.
- *
- * ## One slot, and the reason it is one
- *
- * `SubscriptionConfiguration` carries a single `slotCode`, so a day has one delivery and the editor
- * offers one choice. A plan with breakfast, lunch and dinner in separate slots would need the
- * configuration to publish them; inventing three rows from one code would be the interface making
- * up a shape the data does not have.
+ * The weekday's short name in the reader's locale — "Mon" — from a Monday-anchored week, so the
+ * board's day boxes need no catalogue of their own.
  */
-export function MealChoicesDialog({
-    open,
-    date,
-    options,
-    current,
-    slotCode,
-    pending,
-    error,
-    onClose,
-    onConfirm,
-    testID = 'subscription-choices',
-}: MealChoicesDialogProps) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
+export function shortWeekday(
+    weekday: number,
+    formatDate: (value: string, options: Intl.DateTimeFormatOptions) => string,
+): string {
+    // 2024-01-01 was a Monday, so ISO weekday n is 2024-01-0n.
+    const date = `2024-01-0${String(weekday)}`;
+    const short = formatDate(date, { weekday: 'short' });
+    // Some locales' "short" is the whole word (Arabic's is); a box takes the narrow letter then.
+    return short.length > 3 ? formatDate(date, { weekday: 'narrow' }) : short;
+}
 
-    const existing = current[0] ?? null;
-    const [choice, setChoice] = useState<string | null>(null);
-    const value = choice ?? (existing === null ? null : String(existing.mealId));
-
+/** The editors' small pill buttons: Save beside Cancel, 32px, as the board's Change pill. */
+export function EditorButton({
+    testID,
+    label,
+    tone = 'neutral',
+    pending = false,
+    disabled = false,
+    onPress,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly tone?: 'primary' | 'neutral';
+    readonly pending?: boolean;
+    readonly disabled?: boolean;
+    readonly onPress: () => void;
+}) {
+    const inert = disabled || pending;
     return (
-        <Dialog
-            testID={`${testID}-dialog`}
-            open={open}
-            onClose={onClose}
-            title={t('commerce:choices.title')}
-            description={
-                date === null
-                    ? t('commerce:choices.body')
-                    : t('commerce:choices.bodyDated', {
-                          date: formatter.formatDate(date, { dateStyle: 'full' }),
-                      })
-            }
-            actions={
-                <>
-                    <Button
-                        testID={`${testID}-cancel`}
-                        variant="quiet"
-                        label={t('commerce:common.cancel')}
-                        onPress={onClose}
-                    />
-                    <Button
-                        testID={`${testID}-confirm`}
-                        label={t('commerce:choices.confirm')}
-                        loading={pending}
-                        disabled={value === null}
-                        onPress={() => {
-                            if (value !== null) onConfirm(value as MealId);
-                        }}
-                    />
-                </>
-            }
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            disabled={inert}
+            aria-disabled={inert}
+            aria-busy={pending}
+            accessibilityState={{ disabled: inert, busy: pending }}
+            onPress={onPress}
+            className={cx(
+                'h-8 flex-row items-center justify-center gap-1.5 rounded-full border px-3',
+                tone === 'primary'
+                    ? 'border-content-primary bg-content-primary'
+                    : 'border-stroke bg-surface-raised hover:bg-surface-brand-subtle',
+                inert ? 'opacity-50' : '',
+            )}
         >
-            <Stack space="md">
-                {existing === null ? null : (
-                    <Text tone="secondary" variant="caption" testID={`${testID}-current`}>
-                        {t(`commerce:choices.sources.${existing.source}`, {
-                            meal: existing.mealName,
-                        })}
-                    </Text>
+            {pending ? <ActivityIndicator size="small" /> : null}
+            <RNText
+                className={cx(
+                    'text-xs font-semibold',
+                    tone === 'primary' ? 'text-surface-base' : 'text-content-primary',
                 )}
-
-                <Select
-                    testID={`${testID}-select`}
-                    label={t('commerce:choices.selectLabel', {
-                        slot: t(`commerce:slots.${slotCode}`, { defaultValue: slotCode }),
-                    })}
-                    value={value}
-                    onChange={setChoice}
-                    options={options.map((option) => ({
-                        value: String(option.id),
-                        label: option.name,
-                    }))}
-                />
-
-                <Callout
-                    testID={`${testID}-cutoff`}
-                    role="note"
-                    tone="info"
-                    icon="info"
-                    title={t('commerce:choices.cutOffTitle')}
-                    body={t('commerce:choices.cutOffBody')}
-                />
-
-                <DialogFailure error={error} testID={`${testID}-failure`} />
-            </Stack>
-        </Dialog>
+            >
+                {label}
+            </RNText>
+        </Pressable>
     );
 }

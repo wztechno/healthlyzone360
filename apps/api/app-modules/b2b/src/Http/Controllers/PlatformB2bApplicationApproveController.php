@@ -8,6 +8,7 @@ use Healthy360\B2b\Http\Concerns\ReadsPrecondition;
 use Healthy360\B2b\Http\Concerns\ResolvesAuthenticatedUser;
 use Healthy360\B2b\Http\Requests\ApproveApplicationRequest;
 use Healthy360\B2b\Presenters\B2bApplicationPresenter;
+use Healthy360\B2b\Services\ApplicationNotices;
 use Healthy360\B2b\Services\ApplicationService;
 use Healthy360\B2b\Services\B2bLocator;
 use Healthy360\Support\Api\ApiResponse;
@@ -46,6 +47,7 @@ final class PlatformB2bApplicationApproveController
         private readonly B2bLocator $locator,
         private readonly ApplicationService $applications,
         private readonly B2bApplicationPresenter $presenter,
+        private readonly ApplicationNotices $notices,
     ) {}
 
     /**
@@ -63,6 +65,8 @@ final class PlatformB2bApplicationApproveController
             $payload['applicant_message'],
             $this->requiredLockVersion($request),
         );
+
+        $this->notices->approved($approved);
 
         return ApiResponse::data(['application' => $this->presenter->review($approved)])
             ->withHeaders(['ETag' => '"'.$approved->lock_version.'"']);

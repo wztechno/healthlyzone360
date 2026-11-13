@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace Healthy360\Inventory\Http\Controllers;
 
-use Healthy360\Audit\Services\AuditRecorder;
-use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Services\InventoryService;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Validation\ValidationException;
 
 /**
  * PATCH /api/v1/catalogue/inventory/threshold.
@@ -26,15 +23,13 @@ use Illuminate\Validation\ValidationException;
  * A PATCH rather than the ops family's usual POST because this edits a property
  * of an existing level in place and is idempotent, where an adjustment or a
  * waste appends a new movement. Inline-validated in the ops style (no
- * form-request), gated by `inventory.manage_organisation`, and audited.
+ * form-request), gated by `inventory.manage_organisation`; the write and its
+ * audit are {@see InventoryService::setThreshold()}, which the count-sheet
+ * import shares.
  */
 final class StockThresholdController
 {
-    public function __construct(
-        private readonly AuditRecorder $audit,
-    ) {}
-
-    public function __invoke(Request $request, TenantContext $context): JsonResponse
+    public function __invoke(Request $request, InventoryService $inventory, TenantContext $context): JsonResponse
     {
         $validated = $request->validate([
             'branch_id' => ['required', 'uuid'],
@@ -43,46 +38,20 @@ final class StockThresholdController
             'par_level' => ['sometimes', 'nullable', 'numeric', 'min:0'],
         ]);
 
-        $level = StockLevel::query()->firstOrNew(
-            ['branch_id' => $validated['branch_id'], 'stock_item_id' => $validated['stock_item_id']],
-            ['organisation_id' => $context->organisationId(), 'quantity' => '0'],
-        );
-
         // The values arrive as `mixed` from validation; `is_numeric` narrows them
         // to the `numeric-string` the level's decimal columns hold (a cleared
         // threshold is null, which the low-stock computation reads as never low).
         $rawThreshold = $validated['reorder_threshold'];
-        $threshold = is_numeric($rawThreshold) ? (string) $rawThreshold : null;
-        $level->reorder_threshold = $threshold;
-        if (array_key_exists('par_level', $validated)) {
-            $rawParLevel = $validated['par_level'];
-            $level->par_level = is_numeric($rawParLevel) ? (string) $rawParLevel : null;
-        }
+        $rawParLevel = $validated['par_level'] ?? null;
 
-        // Par is what a supply order restocks to, so it must sit above the point
-        // that raised the alarm — restocking to the threshold itself leaves the
-        // shelf low again the moment it is booked in. Checked against the stored
-        // par when the request leaves it out; the CHECK on the table backs it.
-        $par = is_numeric($level->par_level) ? (string) $level->par_level : null;
-        if ($threshold !== null && $par !== null && bccomp($par, $threshold, 4) <= 0) {
-            throw ValidationException::withMessages([
-                'par_level' => 'The restock level must be above the reorder threshold.',
-            ]);
-        }
-
-        $level->save();
-
-        $this->audit->record(
-            'inventory.threshold_set',
-            actorUserId: $context->userId(),
-            subjectType: 'stock_level',
-            subjectId: (string) $level->getKey(),
-            metadata: [
-                'branch_id' => $level->branch_id,
-                'stock_item_id' => $level->stock_item_id,
-                'reorder_threshold' => $threshold,
-                'par_level' => $par,
-            ],
+        $level = $inventory->setThreshold(
+            (string) $context->organisationId(),
+            $validated['branch_id'],
+            $validated['stock_item_id'],
+            is_numeric($rawThreshold) ? (string) $rawThreshold : null,
+            array_key_exists('par_level', $validated),
+            is_numeric($rawParLevel) ? (string) $rawParLevel : null,
+            $context->userId(),
         );
 
         $level->loadMissing('stockItem');

@@ -22,7 +22,8 @@
         "searchLabel": "Search programmes",
         "loadErrorTitle": "The programmes could not be loaded",
         "emptyFilteredBody": "No programme matches that search.",
-        "programmesCaption": "Corporate programmes"
+        "programmesCaption": "Corporate programmes",
+        "searchPlaceholder": "Search programmes by name"
     },
     "programme": {
         "active": "Running",
@@ -76,7 +77,7 @@
         "privacyTitle": "These are your agreed rates",
         "privacyBody": "Contract prices belong to this programme and appear nowhere else in the application. Nobody browsing the public marketplace can see them.",
         "searchLabel": "Search this catalogue",
-        "searchPlaceholder": "A meal, a plan, a bulk package",
+        "searchPlaceholder": "Search meals, plans or bulk packages",
         "kindLabel": "Kind",
         "kindAll": "Everything",
         "mixedCurrency": "This catalogue is priced in more than one currency ({{currencies}}), so no single total is shown. Amounts in different currencies are never added together.",
@@ -253,7 +254,8 @@
         "view": "View",
         "columnContact": "Contact",
         "columnOrder": "Order",
-        "columnDeclineReason": "Why it was declined"
+        "columnDeclineReason": "Why it was declined",
+        "searchPlaceholder": "Search quotations by reference"
     },
     "partner": {
         "title": "Supply commitments",

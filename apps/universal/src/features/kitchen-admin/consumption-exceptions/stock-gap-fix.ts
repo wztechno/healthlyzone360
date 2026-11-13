@@ -22,8 +22,8 @@ import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
  *
  * {@link recipeFixHref} opens the recipe with `fix` (the gap's reason), `ingredient` (the line it
  * is about, when it is about one) and `returnTo`. The recipe editor reads exactly those three
- * (`recipe-stock-gap-fix.ts`) and, once the fix is published, returns with `fixed=1`, which makes
- * Retry the record's next step.
+ * (`recipe-stock-gap-fix.ts`) and, once the fix is published, returns with `fixed=1`, which retries
+ * the gap on arrival.
  */
 
 export const STOCK_GAPS_PATH = '/kitchen/consumption-exceptions';
@@ -89,7 +89,7 @@ export interface StockGapsView {
     readonly page: number;
     /** The open record's id, or `null` on the list. */
     readonly gap: string | null;
-    /** `true` when the open gap's recipe fix has been published and Retry is what is left. */
+    /** `true` when the open gap's fix has just been made, so the gap is retried on arrival. */
     readonly fixed: boolean;
 }
 
@@ -204,6 +204,7 @@ export function recipeFixHref(
  * | `no_stock_unit`, a cost-stage unit mismatch  | a raw material's units — or the recipe's Selling  |
  * | `no_ingredient_link`, `no_net_content`       | a recipe item's Selling tab; a resale product     |
  * | `reserved_for_production`                    | the production plan                               |
+ * | `quality_hold`                               | quality control, where the hold is decided        |
  * | `no_branch`, `no_catalogue_item`             | nowhere: the order or the item is broken          |
  *
  * **Anything a recipe makes is fixed in its recipe.** A gap about a sauce, dressing, meal or frozen
@@ -211,8 +212,9 @@ export function recipeFixHref(
  * that row is not in the ingredient library and its form has no category for a sauce. Only a gap
  * about a real raw material — the vinegar in a marinade — opens that ingredient's form.
  *
- * Every page but the production plan is handed this exact view as `returnTo`, so its Cancel, Save
- * and trail come back to the gap — the stock movement with `fixed=1`, which makes Retry next.
+ * Every page is handed this exact view as `returnTo`, so its Cancel, Save and trail come back to the
+ * gap — the stock movement with `fixed=1`, which retries it on arrival. The production plan and
+ * quality control have nothing to save for a gap; there the return is only the trail's way back.
  */
 export type StockGapFixKind = 'recipe' | 'stock' | 'ingredient' | 'product' | 'production';
 
@@ -273,7 +275,7 @@ function gapFix(row: GapFixFields, returnHref: string): StockGapFixAction | null
         case 'no_stock_item':
             if (row.ingredientId === null && row.catalogueItemId === null) return null;
             // Stock is added by posting what arrived: the receipt form, opened on the short shelf,
-            // which comes back here once posted so Retry is the one step left.
+            // which comes back here once posted and the gap is retried on arrival.
             return {
                 kind: 'stock',
                 labelKey: 'kitchen:ops.exceptions.fixAction.stock',
@@ -320,7 +322,13 @@ function gapFix(row: GapFixFields, returnHref: string): StockGapFixAction | null
             return {
                 kind: 'production',
                 labelKey: 'kitchen:ops.exceptions.fixAction.production',
-                href: '/kitchen/production',
+                href: withReturnTo('/kitchen/production-desk', returnHref),
+            };
+        case 'quality_hold':
+            return {
+                kind: 'production',
+                labelKey: 'kitchen:ops.exceptions.fixAction.quality',
+                href: withReturnTo('/kitchen/qc', returnHref),
             };
         default:
             return null;

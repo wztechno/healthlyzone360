@@ -111,6 +111,7 @@ final readonly class B2bCatalogueBrowse
         $article = CatalogueItem::withoutTenancy()
             ->whereKey($catalogueItemId)
             ->where('status', CatalogueItemStatus::Published->value)
+            ->allergensAssessed()
             ->first();
 
         if (! $article instanceof CatalogueItem) {
@@ -274,6 +275,7 @@ final readonly class B2bCatalogueBrowse
             ->whereIn('id', $itemIds)
             ->where('organisation_id', $channel->organisation_id)
             ->where('status', CatalogueItemStatus::Published->value)
+            ->allergensAssessed()
             ->orderBy('name_en')
             ->get()
             ->all());

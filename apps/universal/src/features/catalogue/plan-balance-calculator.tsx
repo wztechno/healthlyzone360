@@ -10,22 +10,16 @@ import { Text as RNText, ScrollView, View } from 'react-native';
 import { Eyebrow } from '../../ui/eyebrow.tsx';
 import { PillChip } from '../../ui/pill-chip.tsx';
 import { formatMoney } from '../marketplace/format.ts';
-import {
-    balanceDaysFor,
-    cancellationCredit,
-    effectiveDayPrice,
-    nextMonday,
-    simulateBalance,
-} from './plan-balance.ts';
+import { balanceDaysFor, effectiveDayPrice, nextMonday, simulateBalance } from './plan-balance.ts';
 import type { BalanceCell, BalanceCellKind } from './plan-balance.ts';
 import { cheapestVariant } from './plan-catalogue.ts';
 import { InfoNote } from './plan-controls.tsx';
-import { weekdayName, weekRangeLabel } from './plan-subscriber-panel.tsx';
+import { weekdayName, weekRangeLabel } from './plan-subscription.ts';
 
 /**
  * HealthZone's balance calculator, over the real catalogue: the PLAN / BALANCE SIZE / DELIVERY
  * WEEKDAYS chip groups, the four-figure strip, the week grid with its "Skip week" chips, the legend
- * and the refund note — in the design's order and shape.
+ * — in the design's order and shape.
  *
  * ## Same rules, real prices
  *
@@ -44,8 +38,6 @@ import { weekdayName, weekRangeLabel } from './plan-subscriber-panel.tsx';
 
 /** How many weeks are drawn — the design's own ceiling — before the rest is summarised in a line. */
 const VISIBLE_WEEKS = 14;
-/** The refund example cancels after this many weeks, as the design's does. */
-const CANCEL_AFTER_WEEKS = 2;
 const WEEKDAYS = [1, 2, 3, 4, 5, 6, 7] as const;
 /** The design's starting pattern: Monday to Thursday, and the second week skipped. */
 const DEFAULT_WEEKDAYS: readonly number[] = [1, 2, 3, 4];
@@ -192,7 +184,6 @@ export function PlanBalanceCalculator({
 
     const perDay = effectiveDayPrice(variant, option.discountPercent);
     const total = { amount: perDay.amount * days, currency: perDay.currency };
-    const credit = cancellationCredit(simulation, days, CANCEL_AFTER_WEEKS, perDay);
     const visibleWeeks = simulation.weeks.slice(0, VISIBLE_WEEKS);
     const hiddenWeeks = simulation.weeks.length - visibleWeeks.length;
     const hasWeekdays = weekdays.length > 0;
@@ -488,20 +479,11 @@ export function PlanBalanceCalculator({
                 </View>
             ) : null}
 
-            <InfoNote testID="plans-calculator-credit" className="mt-4">
-                {!hasWeekdays
-                    ? t('catalogue:howPlans.calculator.pickWeekday')
-                    : credit.unusedDays === 0
-                      ? t('catalogue:howPlans.calculator.creditNone', {
-                            used: formatter.formatNumber(credit.usedDays),
-                        })
-                      : t('catalogue:howPlans.calculator.credit', {
-                            used: formatter.formatNumber(credit.usedDays),
-                            unused: formatter.formatNumber(credit.unusedDays),
-                            price: formatMoney(formatter, perDay),
-                            credit: formatMoney(formatter, credit.credit),
-                        })}
-            </InfoNote>
+            {hasWeekdays ? null : (
+                <InfoNote testID="plans-calculator-note" className="mt-4">
+                    {t('catalogue:howPlans.calculator.pickWeekday')}
+                </InfoNote>
+            )}
         </View>
     );
 }

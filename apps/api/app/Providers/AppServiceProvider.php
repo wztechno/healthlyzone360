@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rules\Password;
 use Symfony\Component\Mailer\Bridge\Brevo\Transport\BrevoTransportFactory;
 use Symfony\Component\Mailer\Transport\Dsn;
@@ -63,22 +64,20 @@ class AppServiceProvider extends ServiceProvider
      * forgot-password, verification) are narrower and live in
      * FortifyServiceProvider.
      *
-     * `catalogue-import` has **no consumer yet**, and that is deliberate rather
-     * than an oversight. The K1.8 importer is a CLI command
-     * (`kitchen:import-workbook`) run by an operator against a private source
-     * tree; there is no import endpoint and this slice does not add one. The
-     * definition lands now because the limiter is part of the K1 slice
-     * inventory and because the alternative — introducing it in the same commit
-     * as the endpoint it guards — is how a throttle ships untested and
-     * unnoticed. A test pins its shape; the day an import route exists, it has
-     * a limiter that somebody has already looked at.
+     * `catalogue-import` guards the three workbook imports —
+     * `POST /catalogue/ingredients/imports`, `/catalogue/recipes/imports` and
+     * `/catalogue/inventory/counts/imports` — bucketed by organisation. Thirty
+     * an hour, not five: a kitchen fixing a typo and re-uploading spends a
+     * run each time, and five ran out after three such loops. Thirty is still
+     * a loop guard (at most ~30k row writes per organisation per hour), not
+     * friction; authentication and permissions are the defence, not this.
      */
     protected function configureRateLimiting(): void
     {
         RateLimiter::for('api', fn (Request $request): Limit => Limit::perMinute(config('api.rate_limit'))
             ->by((string) ($request->user()?->getAuthIdentifier() ?? $request->ip())));
 
-        RateLimiter::for('catalogue-import', fn (Request $request): Limit => Limit::perHour(5)
+        RateLimiter::for('catalogue-import', fn (Request $request): Limit => Limit::perHour(30)
             ->by($this->importLimiterKey($request)));
 
         // Each call spends a model request; a form fires one per new name, so this only bites a loop.
@@ -104,6 +103,21 @@ class AppServiceProvider extends ServiceProvider
          */
         RateLimiter::for('invitation-lookup', fn (Request $request): Limit => Limit::perMinute(20)
             ->by((string) $request->ip()));
+
+        /*
+         * The anonymous guest flow. A session is free to open, and each
+         * passcode request supersedes the last and sends a fresh message, so
+         * without these a loop could flood one inbox or phone at the `api`
+         * group's sixty a minute. The destination bucket is what protects the
+         * recipient: rotating IP addresses does not reset it.
+         */
+        RateLimiter::for('guest-session', fn (Request $request): Limit => Limit::perMinute(20)
+            ->by((string) $request->ip()));
+
+        RateLimiter::for('guest-passcode', fn (Request $request): array => [
+            Limit::perMinute(10)->by('ip:'.$request->ip()),
+            Limit::perHour(5)->by('to:'.Str::lower(trim((string) $request->input('value')))),
+        ]);
     }
 
     /**

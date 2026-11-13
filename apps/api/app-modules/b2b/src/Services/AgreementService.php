@@ -8,6 +8,7 @@ use App\Models\User;
 use Carbon\CarbonImmutable;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\B2b\Enums\AgreementStatus;
+use Healthy360\B2b\Enums\ApplicationStatus;
 use Healthy360\B2b\Enums\PaymentTerms;
 use Healthy360\B2b\Models\B2bAgreement;
 use Healthy360\B2b\Models\B2bApplication;
@@ -117,6 +118,109 @@ final readonly class AgreementService
             );
 
             return $agreement;
+        });
+    }
+
+    /**
+     * The reviewer's draft for an approved application — the platform's way in.
+     *
+     * One live agreement per application at a time. A second draft beside a
+     * pending one would leave the applicant two documents to sign and nothing
+     * to say which is meant; changing terms the applicant has not signed yet is
+     * `revise()`, which ends the pending one first.
+     *
+     * @param  array<string, mixed>  $terms
+     *
+     * @throws ApiException
+     */
+    public function openDraft(B2bApplication $application, string $title, array $terms, User $actor): B2bAgreement
+    {
+        if ($application->status !== ApplicationStatus::Approved) {
+            throw new ApiException(
+                ErrorCode::B2bApplicationStateInvalid,
+                'Only an approved application can be given an agreement.',
+                ['status' => $application->status->value, 'required_status' => ApplicationStatus::Approved->value],
+            );
+        }
+
+        $live = B2bAgreement::query()
+            ->where('b2b_application_id', $application->getKey())
+            ->where('status', '!=', AgreementStatus::Terminated->value)
+            ->exists();
+
+        if ($live) {
+            throw new ApiException(
+                ErrorCode::ResourceConflict,
+                'This application already has an agreement. Edit the draft, or revise the one waiting for signature.',
+            );
+        }
+
+        return $this->draft($application, $title, $terms, $actor);
+    }
+
+    /**
+     * What an agreement must say before anybody is asked to sign it.
+     *
+     * The seller's price list is the commercial half — without it the buyer
+     * would be provisioned into a relationship that prices nothing — and the
+     * signatory's address is who the passcode goes to.
+     *
+     * @throws ApiException
+     */
+    public function assertReadyToSend(B2bAgreement $agreement): void
+    {
+        $missing = [];
+
+        if ($agreement->price_list_id === null) {
+            $missing['price_list_id'] = ['Choose the kitchen price list this company buys at.'];
+        }
+
+        if ($agreement->currency_code === null) {
+            $missing['currency_code'] = ['An agreement needs a currency.'];
+        }
+
+        if ($agreement->payment_terms === null) {
+            $missing['payment_terms'] = ['Choose the payment terms.'];
+        }
+
+        $signatory = $agreement->application?->signatory_email;
+
+        if (! is_string($signatory) || trim($signatory) === '') {
+            $missing['signatory_email'] = ['The application names no signatory email to send the signing code to.'];
+        }
+
+        if ($missing !== []) {
+            throw new ApiException(
+                ErrorCode::ValidationFailed,
+                'This agreement is not complete enough to send for signature.',
+                ['fields' => $missing],
+            );
+        }
+    }
+
+    /**
+     * Take back an agreement nobody has signed yet and open the next version.
+     *
+     * The pending version is ended rather than edited: it was put in front of
+     * somebody, and what they were shown stays on record. The new draft
+     * carries its terms forward for the reviewer to change.
+     *
+     * @throws ApiException
+     */
+    public function revise(B2bAgreement $agreement, User $actor): B2bAgreement
+    {
+        if ($agreement->status !== AgreementStatus::PendingSignature) {
+            throw new ApiException(
+                ErrorCode::ResourceConflict,
+                'Only an agreement waiting for signature can be revised. Edit a draft directly.',
+                ['status' => $agreement->status->value],
+            );
+        }
+
+        return DB::transaction(function () use ($agreement, $actor): B2bAgreement {
+            $this->terminate($agreement, $actor, 'revised');
+
+            return $this->amend($agreement, [], $actor);
         });
     }
 
@@ -375,6 +479,10 @@ final readonly class AgreementService
             };
         }
 
+        // First: a list's currency becomes the agreement's when it names none,
+        // and the amount check below must see it.
+        $this->assertPriceListFits($agreement);
+
         if (
             ($agreement->credit_limit_minor !== null || $agreement->minimum_order_minor !== null)
             && $agreement->currency_code === null
@@ -388,6 +496,45 @@ final readonly class AgreementService
             && $agreement->ends_on->lessThan($agreement->starts_on)
         ) {
             throw $this->invalid('ends_on', 'An agreement cannot end before it starts.');
+        }
+    }
+
+    /**
+     * A negotiated list prices one buyer, in its own currency.
+     *
+     * The currency follows the list when the agreement names none, and must
+     * match it when it does: a credit limit in one currency over prices in
+     * another is not a limit on anything. A list already behind another
+     * company's live agreement is refused — that is the leak the agreement
+     * scope exists to prevent. Versions of *this* application's agreement may
+     * share it, since a revision is the same relationship.
+     *
+     * @throws ApiException
+     */
+    private function assertPriceListFits(B2bAgreement $agreement): void
+    {
+        if ($agreement->price_list_id === null) {
+            return;
+        }
+
+        $currency = PriceList::withoutTenancy()->whereKey($agreement->price_list_id)->value('currency_code');
+
+        if (is_string($currency)) {
+            if ($agreement->currency_code === null) {
+                $agreement->currency_code = $currency;
+            } elseif ($agreement->currency_code !== $currency) {
+                throw $this->invalid('price_list_id', "That price list is in {$currency}, and this agreement is in {$agreement->currency_code}.");
+            }
+        }
+
+        $taken = B2bAgreement::query()
+            ->where('price_list_id', $agreement->price_list_id)
+            ->where('b2b_application_id', '!=', $agreement->b2b_application_id)
+            ->where('status', '!=', AgreementStatus::Terminated->value)
+            ->exists();
+
+        if ($taken) {
+            throw $this->invalid('price_list_id', 'That price list already prices another company. Each company buys from a list of its own.');
         }
     }
 

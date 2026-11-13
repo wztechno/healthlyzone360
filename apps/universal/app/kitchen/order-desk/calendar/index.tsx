@@ -1,13 +1,12 @@
-import { lazyScreen } from '../../../../src/shell/lazy-screen.tsx';
+import { Redirect } from 'expo-router';
 
-/** `/kitchen/order-desk/calendar` — the week ahead on three books, never added together. */
-const OrderDeskCalendarScreen = lazyScreen(
-    'kitchen-order-desk-calendar-loading',
-    async () =>
-        (await import('../../../../src/features/kitchen-admin/screens/index.ts'))
-            .OrderDeskCalendarScreen,
-);
+import { ordersHref } from '../../../../src/features/kitchen-admin/orders/orders-url.ts';
 
+/**
+ * `/kitchen/order-desk/calendar` — where the order calendar used to be. It is the Calendar tab of
+ * the Orders page now, and this stays so a bookmark or an old link still arrives. A redirect is not
+ * a page: `entity-registry.test.ts` skips it.
+ */
 export default function KitchenOrderDeskCalendar() {
-    return <OrderDeskCalendarScreen />;
+    return <Redirect href={ordersHref({ tab: 'calendar' }) as never} />;
 }

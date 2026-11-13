@@ -9,3 +9,5 @@
 export { CreateKitchenScreen } from './create-kitchen-screen.tsx';
 export { PlatformKitchenDetailScreen } from './kitchen-detail-screen.tsx';
 export { PlatformKitchensScreen } from './kitchens-screen.tsx';
+export { PlatformB2bApplicationScreen } from './b2b-application-screen.tsx';
+export { PlatformB2bApplicationsScreen } from './b2b-applications-screen.tsx';

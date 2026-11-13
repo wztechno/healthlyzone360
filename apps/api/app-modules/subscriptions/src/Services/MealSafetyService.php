@@ -6,6 +6,7 @@ namespace Healthy360\Subscriptions\Services;
 
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Services\DerivedAllergenService;
+use Healthy360\Catalogues\Services\DishOptions;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAllergenDeclaration;
 use Healthy360\Customers\Models\CustomerDietaryProfile;
@@ -24,7 +25,8 @@ use Healthy360\Subscriptions\Contracts\MealSafety;
  *    the customer already made theirs by declaring. §6 is written as an
  *    absolute and this is what implementing an absolute looks like: no
  *    threshold, no flag, no override.
- * 2. **An excluded ingredient is on the meal's list.** The `ingredient_id`
+ * 2. **An excluded ingredient is on the meal's list**, or in the published
+ *    recipe of a sauce or side chosen on it. The `ingredient_id`
  *    form of `customer_food_exclusions` is, in that table's own words, "the
  *    strong form and the only one C1 can check mechanically". Both `dislike`
  *    and `forbidden` block, even though `FoodExclusionKind::isOverridable()`
@@ -55,12 +57,16 @@ use Healthy360\Subscriptions\Contracts\MealSafety;
  */
 final readonly class MealSafetyService implements MealSafety
 {
-    public function __construct(private DerivedAllergenService $allergens) {}
+    public function __construct(private DerivedAllergenService $allergens, private DishOptions $options) {}
 
     /**
+     * A chosen sauce or side joins the meal's label, and one with no basis makes
+     * the whole line unassessed, as a meal with none would be.
+     *
+     * @param  list<string>  $optionIds
      * @return array{safe: bool, allergen_classes: list<string>, reason: string|null}
      */
-    public function check(CustomerAccount $account, string $catalogueItemId): array
+    public function check(CustomerAccount $account, string $catalogueItemId, array $optionIds = []): array
     {
         $profile = $this->profileOf($account);
 
@@ -79,11 +85,12 @@ final readonly class MealSafetyService implements MealSafety
 
         $declared = $this->declaredClasses($profile);
         $derived = $this->allergens->forItem($item);
+        $chosen = $this->options->allergensOf($optionIds);
 
         /** @var list<string> $mealClasses */
         $mealClasses = array_values(array_unique(array_map(
             static fn (array $allergen): string => $allergen['allergen_code'],
-            $derived['allergens'],
+            [...$derived['allergens'], ...$chosen['allergens']],
         )));
 
         $matched = array_values(array_intersect($declared, $mealClasses));
@@ -92,13 +99,13 @@ final readonly class MealSafetyService implements MealSafety
             return ['safe' => false, 'allergen_classes' => $matched, 'reason' => 'allergen_declared'];
         }
 
-        if ($declared !== [] && $derived['basis'] === 'none') {
+        if ($declared !== [] && ($derived['basis'] === 'none' || ! $chosen['assessed'])) {
             // Not "no allergens" — "no basis". Silence is not a statement of
             // absence, and a declared allergy makes the difference matter.
             return ['safe' => false, 'allergen_classes' => [], 'reason' => 'unassessed'];
         }
 
-        if ($this->excludedIngredientOn($profile, $item)) {
+        if ($this->excludedIngredientOn($profile, $item, $optionIds)) {
             return ['safe' => false, 'allergen_classes' => [], 'reason' => 'excluded'];
         }
 
@@ -140,7 +147,14 @@ final readonly class MealSafetyService implements MealSafety
             ->all()));
     }
 
-    private function excludedIngredientOn(CustomerDietaryProfile $profile, CatalogueItem $item): bool
+    /**
+     * The meal's listed ingredients and, through the same choice path the
+     * allergen check reads, the published lines of every sauce or side chosen
+     * on it.
+     *
+     * @param  list<string>  $optionIds
+     */
+    private function excludedIngredientOn(CustomerDietaryProfile $profile, CatalogueItem $item, array $optionIds): bool
     {
         /** @var list<string> $excluded */
         $excluded = CustomerFoodExclusion::query()
@@ -154,7 +168,10 @@ final readonly class MealSafetyService implements MealSafety
             return false;
         }
 
-        return array_intersect($excluded, $this->allergens->listedIngredientIds($item)) !== [];
+        return array_intersect($excluded, [
+            ...$this->allergens->listedIngredientIds($item),
+            ...$this->options->ingredientIdsOf($optionIds),
+        ]) !== [];
     }
 
     private function profileOf(CustomerAccount $account): ?CustomerDietaryProfile

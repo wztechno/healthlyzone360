@@ -1,6 +1,8 @@
+import { throwFailure, validationFailure } from '@healthy360/api-client/contracts';
 import type {
     AdminEntityMeta,
     IngredientAdmin,
+    ItemPacks,
     MealAdmin,
     ProductAdmin,
     RecipeAdmin,
@@ -8,7 +10,14 @@ import type {
     RecipeSoldAs,
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
-import { IngredientId, KitchenId, MealId, ProductId, RecipeId } from '@healthy360/domain-types';
+import {
+    IngredientId,
+    KitchenId,
+    MealId,
+    PriceListId,
+    ProductId,
+    RecipeId,
+} from '@healthy360/domain-types';
 import type { RecipeVersionId } from '@healthy360/domain-types';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
 import type { ComponentType, ReactNode } from 'react';
@@ -35,13 +44,13 @@ import { CookedItemEditScreen, RecipeBookEditScreen } from './screens/cooked-ite
  * reader care. What this file pins:
  *
  * 1. **The page is the recipe, and the listing is a tab on it.** A sauce opens on its formulation,
- *    with the Packaging tab every recipe has — its bottles are packaging lines — and a Selling tab
- *    whose listing draws no recipe picker and no category, because the page already answers both.
+ *    with a Packs & prices tab — its bottles are packs — and a Selling tab whose listing draws no
+ *    recipe picker, no category, no packs and no channels, because the page already answers them.
  *    A recipe nothing sells has no Selling tab, and one sold twice switches between its sellers.
- * 2. **The listing saves as the listing.** Against the item's own lock version, and without writing
- *    the recipe.
- * 3. **Nothing typed is lost.** A half-typed pack survives a tab switch, and leaving the page with
- *    one asks first.
+ * 2. **The listing saves as the listing**, against the item's own lock version and without writing
+ *    the recipe — and Packs & prices after it, on the lock the listing's write left.
+ * 3. **Nothing typed is lost.** A half-typed listing survives a tab switch, and leaving the page
+ *    with one asks first.
  * 4. **An item is reached through its recipe.** The item address hands over to the recipe; an item
  *    with no recipe yet can still be listed, under the notice that offers to start one, and starting
  *    it lands on the recipe it wrote.
@@ -60,6 +69,9 @@ jest.mock('expo-router', () => {
     const canGoBack = () => false;
     return {
         __esModule: true,
+        useSegments: () => [],
+        useGlobalSearchParams: () => ({}),
+        useNavigation: () => ({}),
         useRouter: () => ({
             push,
             replace,
@@ -196,6 +208,9 @@ const VERSION: RecipeVersionAdmin = {
     estimatedCost: null,
     derivationStale: false,
     publishedAt: null,
+    reviewReason: null,
+    previousLabel: null,
+    lockVersion: 1,
 };
 
 /** The recipe at lock version 3, so a write that used it for the listing would be caught. */
@@ -360,29 +375,72 @@ function renderSauceItem(item: ProductAdmin, writes: Record<string, unknown> = {
     });
 }
 
-const PACK_LABEL = 'kitchen-product-pack-editor-row-seed-0-BTL300-label-input';
+/** The listing's English description — a field the Selling tab still draws. */
+const DESCRIPTION = 'kitchen-product-description-en-input';
+
+const SAUCE_PACK = '01935f6d-0000-7000-8000-0000000c0001';
+const PACK_HOME_PRICE = `kitchen-packs-${SAUCE_PACK}-price-home-input`;
+
+/** The sauce's packs: its one bottle at $3.00 on the Home shop, sold there, at `lockVersion`. */
+function saucePacks(lockVersion: number): ItemPacks {
+    return {
+        lockVersion,
+        places: {
+            home: {
+                salesChannelId: 'web-shop',
+                priceListId: PriceListId.unsafe('retail-usd'),
+                currency: 'USD',
+                offered: true,
+            },
+            business: {
+                salesChannelId: 'wholesale',
+                priceListId: PriceListId.unsafe('trade-usd'),
+                currency: 'USD',
+                offered: false,
+            },
+            counter: null,
+        },
+        packs: [
+            {
+                id: SAUCE_PACK,
+                code: 'BTL300',
+                name: { en: 'Bottle 300 g', ar: 'عبوة 300 غ' },
+                isDefault: true,
+                fill: { quantity: 0.3, unit: 'kg' },
+                components: [{ ingredientId: GARLIC_ID, quantity: 1, isContainer: true }],
+                prices: { home: { amountMinor: 300, inherited: false }, business: null },
+            },
+        ],
+    };
+}
 
 /* ------------------------------------------------------------------------------------------------
  * The page
  * ---------------------------------------------------------------------------------------------- */
 
 describe('a cooked item’s page', () => {
-    it('opens a sauce on its recipe, with packaging and a Selling tab that holds its listing', async () => {
+    it('opens a sauce on its recipe, with Packs & prices and a Selling tab that holds its listing', async () => {
         await renderSauceRecipe(sauce());
 
         await untilVisible('kitchen-recipe-editor-screen-header');
-        // A sauce's bottles are packaging lines, as a meal's box is.
-        expect(screen.getByTestId('kitchen-recipe-tab-packaging')).toBeTruthy();
+        // A sauce's bottles are its packs, priced where they sell — the tab keeps its old key.
+        expect(screen.getByTestId('kitchen-recipe-tab-packaging')).toHaveTextContent(
+            /Packs & prices/,
+        );
 
         await press('kitchen-recipe-tab-selling');
-        await untilVisible('kitchen-product-packs');
+        await untilVisible('kitchen-product-publish');
 
         // The page is the recipe and its kind is the category: neither is asked again here.
         expect(screen.queryByTestId('kitchen-product-recipe-select')).toBeNull();
         expect(screen.queryByTestId('kitchen-product-category')).toBeNull();
-        // Made, not bought: no last purchase price beside the B2B and B2C prices.
+        // Made, not bought: no last purchase price.
         expect(screen.queryByTestId('kitchen-product-unit-price')).toBeNull();
-        expect(screen.getByTestId('kitchen-product-publish')).toBeTruthy();
+        // Packs, their B2B and B2C prices and the sales channels are Packs & prices' now: a
+        // variants or channels write from here would undo what that tab wrote.
+        expect(screen.queryByTestId('kitchen-product-packs')).toBeNull();
+        expect(screen.queryByTestId('kitchen-channel-prices')).toBeNull();
+        expect(screen.queryByTestId('kitchen-product-channels')).toBeNull();
         expect(screen.getByTestId('kitchen-product-editor-screen-status')).toBeTruthy();
         // One seller, so nothing to choose between.
         expect(screen.queryByTestId('kitchen-recipe-selling-seller')).toBeNull();
@@ -416,10 +474,10 @@ describe('a cooked item’s page', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await press('kitchen-recipe-tab-selling');
-        await untilVisible(PACK_LABEL);
+        await untilVisible(DESCRIPTION);
 
         await act(async () => {
-            fireEvent.changeText(screen.getByTestId(PACK_LABEL), 'Squeeze bottle 300 g');
+            fireEvent.changeText(screen.getByTestId(DESCRIPTION), 'Toum, whipped.');
         });
         // One Save for every tab: the listing draws none of its own.
         expect(screen.queryByTestId('kitchen-product-editor-screen-save')).toBeNull();
@@ -433,33 +491,131 @@ describe('a cooked item’s page', () => {
                     // Echoed, not cleared: the page decides the recipe and the category.
                     recipeId: RECIPE_ID,
                     categoryCode: 'sauce',
-                    packVariants: [
-                        expect.objectContaining({
-                            code: 'BTL300',
-                            label: { en: 'Squeeze bottle 300 g', ar: 'عبوة 300 غ' },
-                        }),
-                    ],
+                    description: { en: 'Toum, whipped.', ar: 'ثومية.' },
                 }),
             );
         });
+        // No packs and no channels from here: a variants write would archive the packs Packs &
+        // prices wrote, and a channels write would replace its places.
+        expect(repositories.kitchenAdmin.updateProduct).toHaveBeenCalledWith(
+            SAUCE_ID,
+            expect.not.objectContaining({ packVariants: expect.anything() }),
+        );
+        expect(repositories.kitchenAdmin.setProductChannelAvailability).not.toHaveBeenCalled();
         expect(repositories.kitchenAdmin.setRecipeLines).not.toHaveBeenCalled();
         // And says once that everything saved.
         await untilVisible('kitchen-recipe-editor-screen-saved');
     });
 
-    it('keeps a half-typed pack through a tab switch, and asks before leaving with it', async () => {
+    it('saves Packs & prices after the listing, on the lock the listing’s write left', async () => {
+        // The listing's write moves the item from 7 to 8; the packs write must send 8, read from
+        // the cache when it is sent — not the 7 it opened on.
+        // The server's side, which moves with each write: a refetch after the listing's save reads 8.
+        let current = sauce();
+        const { repositories } = await renderSauceRecipe(current, {
+            getProduct: async () => current,
+            updateProduct: async () => {
+                current = sauce({ meta: meta({ lockVersion: 8 }) });
+                return current;
+            },
+            getItemPacks: async () => saucePacks(current.meta.lockVersion),
+            setItemPacks: async () => saucePacks(9),
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await press('kitchen-recipe-tab-packaging');
+        await untilVisible(PACK_HOME_PRICE);
+        expect(screen.getByTestId(PACK_HOME_PRICE).props.value).toBe('3.00');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(PACK_HOME_PRICE), '3.50');
+        });
+
+        await press('kitchen-recipe-tab-selling');
+        await untilVisible(DESCRIPTION);
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(DESCRIPTION), 'Toum, whipped.');
+        });
+        await press('kitchen-recipe-editor-screen-save');
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.setItemPacks).toHaveBeenCalledTimes(1);
+        });
+        const updateOrder = (repositories.kitchenAdmin.updateProduct as jest.Mock).mock
+            .invocationCallOrder[0];
+        const packsOrder = (repositories.kitchenAdmin.setItemPacks as jest.Mock).mock
+            .invocationCallOrder[0];
+        expect(updateOrder).toBeLessThan(packsOrder ?? 0);
+        expect(repositories.kitchenAdmin.setItemPacks).toHaveBeenCalledWith(
+            SAUCE_ID,
+            expect.objectContaining({
+                lockVersion: 8,
+                places: { home: true, business: false, counter: false },
+                packs: [
+                    expect.objectContaining({
+                        id: SAUCE_PACK,
+                        prices: { home: 350, business: null },
+                    }),
+                ],
+            }),
+        );
+        await untilVisible('kitchen-recipe-editor-screen-saved');
+    });
+
+    it('puts a listing publish refused for its packs on a card that opens Packs & prices', async () => {
+        // The draft has nothing to say — Home shop is priced — so the card is the server's alone.
+        const { repositories } = await renderSauceRecipe(sauce(), {
+            getItemPacks: async () => saucePacks(7),
+            publishProduct: async () =>
+                throwFailure(
+                    validationFailure(
+                        {
+                            form: ['Price a pack for each place it sells.'],
+                            'reasons.place_unpriced.business': [
+                                'Price a pack for each place it sells.',
+                            ],
+                        },
+                        { message: 'Price a pack for each place it sells.' },
+                    ),
+                ),
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await press('kitchen-recipe-tab-selling');
+        await untilVisible('kitchen-product-publish');
+        await press('kitchen-product-publish');
+        await untilVisible('kitchen-product-publish-confirm');
+        await press('kitchen-product-publish-confirm');
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.publishProduct).toHaveBeenCalledTimes(1);
+        });
+
+        await withDeskWidth(async () => {
+            const card = 'kitchen-product-packs-place_unpriced-business';
+            await untilVisible(card);
+            // The recipe's own wording for the same reason, not the bare refusal.
+            expect(screen.getByTestId(card)).toHaveTextContent(/Price a pack for Business/);
+            expect(screen.queryByTestId('kitchen-product-publish-error')).toBeNull();
+
+            await press(`${card}-fix`);
+            expect(
+                screen.getByTestId('kitchen-recipe-tab-packaging').props.accessibilityState,
+            ).toEqual(expect.objectContaining({ selected: true }));
+        });
+    });
+
+    it('keeps a half-typed listing through a tab switch, and asks before leaving with it', async () => {
         await renderSauceRecipe(sauce());
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await press('kitchen-recipe-tab-selling');
-        await untilVisible(PACK_LABEL);
+        await untilVisible(DESCRIPTION);
         await act(async () => {
-            fireEvent.changeText(screen.getByTestId(PACK_LABEL), 'Squeeze bot');
+            fireEvent.changeText(screen.getByTestId(DESCRIPTION), 'Toum, whi');
         });
 
         await press('kitchen-recipe-tab-production');
         await press('kitchen-recipe-tab-selling');
-        expect(screen.getByTestId(PACK_LABEL).props.value).toBe('Squeeze bot');
+        expect(screen.getByTestId(DESCRIPTION).props.value).toBe('Toum, whi');
 
         // The recipe is untouched; the listing is not, and that is enough to ask.
         await press('kitchen-recipe-editor-screen-discard');
@@ -528,7 +684,7 @@ describe('a cooked item’s page', () => {
         await press('kitchen-recipe-tab-selling');
 
         // The first seller opens, with a switch naming each by its handle, or its slug without one.
-        await untilVisible('kitchen-product-packs');
+        await untilVisible(DESCRIPTION);
         expect(screen.getByTestId('kitchen-recipe-selling-seller')).toBeTruthy();
         expect(
             screen.getByTestId(`kitchen-recipe-selling-seller-${String(SAUCE_ID)}`),
@@ -540,7 +696,7 @@ describe('a cooked item’s page', () => {
         await press(`kitchen-recipe-selling-seller-${String(MEAL_ID)}`);
 
         await untilVisible('kitchen-meal-portion-input');
-        expect(screen.queryByTestId('kitchen-product-packs')).toBeNull();
+        expect(screen.queryByTestId(DESCRIPTION)).toBeNull();
     });
 });
 
@@ -582,8 +738,7 @@ describe('an item’s address', () => {
             /Garlic sauce/,
         );
         await press('kitchen-recipe-tab-selling');
-        await untilVisible('kitchen-product-packs');
-        expect(screen.getByTestId('kitchen-product-publish')).toBeTruthy();
+        await untilVisible('kitchen-product-publish');
         expect(routerMock.__replace).not.toHaveBeenCalled();
     });
 

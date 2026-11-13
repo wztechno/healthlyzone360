@@ -1,16 +1,6 @@
 import type { AccountChecklistItem, ConsentState } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Callout,
-    Checkbox,
-    Dialog,
-    EmptyState,
-    Icon,
-    Tabs,
-    cx,
-    useBreakpoint,
-} from '@healthy360/design-system';
+import { Button, Callout, Icon, Tabs, cx, useBreakpoint } from '@healthy360/design-system';
+import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -21,26 +11,41 @@ import {
     useAccountOverviewQuery,
     useAddressesQuery,
     useConsentsQuery,
+    useDietaryProfileQuery,
     useRemoveAddressMutation,
     useSetConsentMutation,
     toFailure,
 } from '../../../data/account-hooks.ts';
+import { useMyOrdersQuery, useSubscriptionsQuery } from '../../../data/commerce-hooks.ts';
 import { useLogoutMutation } from '../../../data/hooks.ts';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
-import { Eyebrow } from '../../../ui/eyebrow.tsx';
-import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
+import { useSession } from '../../../session/session-provider.tsx';
+import {
+    ShopDialog,
+    ShopDialogButton,
+    ShopDialogSubject,
+    ShopDialogTag,
+    ShopDialogTile,
+} from '../../../ui/shop-dialog.tsx';
+import { ShopSwitch } from '../../../ui/shop-switch.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
+import { ShopPhoneTopBar } from '../../../ui/shop-phone-bar.tsx';
 import { SubscriptionsScreen } from '../../commerce/screens/subscriptions-screen.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { AccountSetupPanel } from '../account-setup-steps.tsx';
-import { ACCOUNT_CARD, PanelTitle } from '../account-card.tsx';
+import { isLiveSubscription } from '../../catalogue/plan-subscription.ts';
+import { ACCOUNT_CARD, LinkRow, PanelHead } from '../account-card.tsx';
+import { AllergiesPanel } from '../account-allergies-panel.tsx';
 import { AccountOrdersPanel } from '../account-orders-panel.tsx';
 import { AccountProfilePanel } from '../account-profile-panel.tsx';
 import { clearClosureDraft } from './closure-wizard-screen.tsx';
+import { Bone } from '../../../ui/shop-skeletons.tsx';
 
 /**
- * `/customer/account` — the HealthZone `account` screen: "Your account", a 220px side nav, one
- * panel.
+ * `/customer/account` — the accepted Account board: the canopy band with the person's name, email and
+ * phone and three figures (active plan, next delivery, orders), the 248px side menu card overlapping
+ * its foot — each section with its icon and count, Sign out under a rule — and one pane.
  *
  * ## The design's six sections, plus Subscriptions
  *
@@ -76,8 +81,8 @@ import { clearClosureDraft } from './closure-wizard-screen.tsx';
  *
  * ## Layout
  *
- * Wide, the side nav is a 220px sticky column beside the panel; below `lg` it becomes a tab row
- * above it, because a 220px column on a phone is a third of the screen spent on navigation.
+ * Wide, the side menu is a 248px sticky card beside the pane; below `lg` it becomes a tab row above
+ * it, because a 248px column on a phone is a third of the screen spent on navigation.
  *
  * ## The open section is the URL's
  *
@@ -116,11 +121,13 @@ const SECTIONS = [
     'subscriptions',
     'favorites',
     'profile',
+    'allergies',
     'addresses',
     'payments',
     'notifications',
 ] as const;
-type Section = (typeof SECTIONS)[number];
+export type AccountSection = (typeof SECTIONS)[number];
+type Section = AccountSection;
 
 /** Section names that existed before the design's six, and where they now live. */
 const LEGACY_SECTIONS: Readonly<Record<string, Section>> = {
@@ -148,15 +155,32 @@ function isMarketingConsent(consent: ConsentState): boolean {
 interface SectionItem {
     readonly value: Section;
     readonly label: string;
+    readonly icon: AccountIcon;
+    readonly count?: string | undefined;
     readonly testID: string;
 }
 
+type AccountIcon =
+    'shoppingBag' | 'calendar' | 'heart' | 'person' | 'alert' | 'mapPin' | 'banknote' | 'bell';
+
+const SECTION_ICONS: Readonly<Record<Section, AccountIcon>> = {
+    orders: 'shoppingBag',
+    subscriptions: 'calendar',
+    favorites: 'heart',
+    profile: 'person',
+    allergies: 'alert',
+    addresses: 'mapPin',
+    payments: 'banknote',
+    notifications: 'bell',
+};
+
 /**
- * The wide side nav: the design's `sideBtn()` rows, the open one raised onto a card.
+ * The wide side menu: the board's card of rows, each an icon box, its name and a count, the open one
+ * on the brand's soft fill; then a rule and Sign out.
  *
  * Buttons with `aria-current` rather than a vertical tablist: the narrow layout uses the design
- * system's `Tabs`, which owns the arrow-key model, and a second hand-rolled roving-focus list for
- * one breakpoint would be a keyboard model nobody tests.
+ * system's `Tabs`, which owns the arrow-key model, and a second hand-rolled roving-focus list for one
+ * breakpoint would be a keyboard model nobody tests.
  */
 function SideNav({
     label,
@@ -176,7 +200,7 @@ function SideNav({
             testID="account-nav"
             aria-label={label}
             accessibilityLabel={label}
-            className="w-[220px] shrink-0 flex-col gap-0.5 web:sticky web:top-0"
+            className="w-[248px] shrink-0 flex-col rounded-3xl border border-stroke-subtle bg-surface-raised p-2.5 shadow-elevation-2 web:sticky web:top-0"
         >
             {items.map((item) => {
                 const selected = item.value === value;
@@ -192,25 +216,52 @@ function SideNav({
                             onChange(item.value);
                         }}
                         className={cx(
-                            'min-h-touch flex-row items-center rounded border px-3 py-2.5',
-                            selected
-                                ? 'border-stroke bg-surface-raised'
-                                : 'border-transparent hover:bg-surface-raised',
+                            'h-12 flex-row items-center gap-3 rounded-[14px] px-3',
+                            selected ? 'bg-surface-brand-subtle' : 'hover:bg-surface-base',
                         )}
                     >
+                        <View
+                            className={cx(
+                                'h-8 w-8 items-center justify-center rounded-[10px]',
+                                selected ? 'bg-surface-brand' : 'bg-surface-base',
+                            )}
+                        >
+                            <Icon
+                                name={item.icon}
+                                size="md"
+                                className={
+                                    selected ? 'text-content-on-brand' : 'text-content-secondary'
+                                }
+                            />
+                        </View>
                         <RNText
                             numberOfLines={1}
                             className={cx(
-                                'flex-1 text-sm font-medium text-start',
-                                selected ? 'text-content-primary' : 'text-content-secondary',
+                                'flex-1 text-sm font-semibold text-start',
+                                selected
+                                    ? 'text-content-on-brand-subtle'
+                                    : 'text-content-secondary',
                             )}
                         >
                             {item.label}
                         </RNText>
+                        {item.count === undefined ? null : (
+                            <View
+                                className={cx(
+                                    'h-[22px] min-w-6 items-center justify-center rounded-full px-[7px]',
+                                    selected ? 'bg-surface-raised' : 'bg-surface-base',
+                                )}
+                            >
+                                <RNText className="text-xs font-bold tabular-nums text-content-secondary">
+                                    {item.count}
+                                </RNText>
+                            </View>
+                        )}
                     </Pressable>
                 );
             })}
-            <View className="mt-3 border-t border-stroke-subtle pt-3">{footer}</View>
+            <View className="mx-1.5 my-2 h-px bg-stroke-subtle" />
+            {footer}
         </View>
     );
 }
@@ -219,26 +270,47 @@ function SideNav({
  * Sign out — the header's account menu used to carry it; the header now opens this page instead.
  * `replace`, not `push`: Back must not return a signed-out person to their account.
  */
-function SignOutButton() {
+function SignOutButton({ row = false }: { readonly row?: boolean }) {
     const { t } = useTranslation();
     const router = useRouter();
     const logout = useLogoutMutation();
+    const signOut = () => {
+        logout.mutate(undefined, {
+            onSuccess: () => {
+                router.replace('/' as never);
+            },
+        });
+    };
 
+    if (!row) {
+        return (
+            <Button
+                testID="account-sign-out"
+                size="sm"
+                variant="quiet"
+                label={t('common:action.signOut')}
+                loading={logout.isPending}
+                onPress={signOut}
+            />
+        );
+    }
     return (
-        <Button
+        <Pressable
             testID="account-sign-out"
-            size="sm"
-            variant="quiet"
-            label={t('common:action.signOut')}
-            loading={logout.isPending}
-            onPress={() => {
-                logout.mutate(undefined, {
-                    onSuccess: () => {
-                        router.replace('/' as never);
-                    },
-                });
-            }}
-        />
+            role="button"
+            accessibilityRole="button"
+            accessibilityState={{ busy: logout.isPending }}
+            disabled={logout.isPending}
+            onPress={signOut}
+            className="h-12 flex-row items-center gap-3 rounded-[14px] px-3 hover:bg-danger-subtle"
+        >
+            <View className="h-8 w-8 items-center justify-center rounded-[10px] bg-danger-subtle">
+                <Icon name="signOut" size="md" className="text-danger-on-subtle" />
+            </View>
+            <RNText className="flex-1 text-sm font-semibold text-danger-on-subtle text-start">
+                {t('common:action.signOut')}
+            </RNText>
+        </Pressable>
     );
 }
 
@@ -283,27 +355,40 @@ function FavoritesPanel() {
 
     return (
         <View testID="account-favorites" className={`${ACCOUNT_CARD} p-6`}>
-            <EmptyState
-                testID="account-favorites-empty"
-                icon="starOutline"
-                title={t('account:favorites.empty')}
-                body={t('account:favorites.emptyBody')}
-                actions={
-                    <Button
-                        testID="account-favorites-browse"
-                        label={t('account:orders.browse')}
-                        onPress={() => {
-                            router.push('/meals');
-                        }}
-                    />
-                }
-            />
+            <PanelHead title={t('account:nav.favorites')} />
+            <View testID="account-favorites-empty" className="items-center gap-3 px-6 py-14">
+                <View className="h-24 w-24 items-center justify-center rounded-full bg-surface-brand-subtle">
+                    <Icon name="heart" size="lg" className="text-content-on-brand-subtle" />
+                </View>
+                <RNText
+                    accessibilityRole="header"
+                    aria-level={3}
+                    className="mt-1.5 font-display text-2xl font-bold text-content-primary text-center"
+                >
+                    {t('account:favorites.empty')}
+                </RNText>
+                <Pressable
+                    testID="account-favorites-browse"
+                    role="button"
+                    accessibilityRole="button"
+                    onPress={() => {
+                        router.push('/meals');
+                    }}
+                    className="h-12 flex-row items-center gap-2 rounded-[14px] bg-surface-brand px-5 hover:bg-surface-canopy"
+                >
+                    <RNText className="text-sm font-bold text-content-on-brand">
+                        {t('account:orders.browse')}
+                    </RNText>
+                    <Icon name="chevronForward" size="sm" className="text-content-on-brand" />
+                </Pressable>
+            </View>
         </View>
     );
 }
 
 /**
- * The address book: list, add, edit and remove, all in the one card.
+ * The address book: a tile per address — the default ringed and tagged — with Edit, Set default and
+ * Remove, and an "Add address" tile.
  *
  * The editor is opened with this section as its `?returnTo=`, so saving or cancelling lands back on
  * Addresses rather than on whatever section the page would default to.
@@ -317,6 +402,7 @@ function FavoritesPanel() {
 function AddressesPanel({ here }: { readonly here: string }) {
     const { t } = useTranslation();
     const router = useRouter();
+    const { atLeast } = useBreakpoint();
     const addresses = useAddressesQuery();
     const remove = useRemoveAddressMutation();
     const items = addresses.data ?? [];
@@ -326,6 +412,9 @@ function AddressesPanel({ here }: { readonly here: string }) {
     const [pendingRemoval, setPendingRemoval] = useState<{
         readonly id: string;
         readonly label: string;
+        readonly isDefault: boolean;
+        /** The area and the street, as the pop-up's card shows them. */
+        readonly line: string;
     } | null>(null);
 
     const openEditor = (address: string) => {
@@ -341,96 +430,185 @@ function AddressesPanel({ here }: { readonly here: string }) {
             }}
         />
     );
+    const columns = atLeast('md') ? 3 : 1;
+    const tiles: readonly ('add' | (typeof items)[number])[] = [...items, 'add'];
+    const rows: (typeof tiles)[number][][] = [];
+    tiles.forEach((tile, index) => {
+        (rows[Math.floor(index / columns)] ??= []).push(tile);
+    });
 
     return (
         <View testID="account-addresses" className={`${ACCOUNT_CARD} p-6`}>
-            <PanelTitle testID="account-addresses-title">{t('account:nav.addresses')}</PanelTitle>
+            <PanelHead
+                testID="account-addresses-title"
+                title={t('account:nav.addresses')}
+                {...(items.length === 0 ? {} : { count: String(items.length) })}
+            />
             {removeFailure === null ? null : (
                 <Callout
                     testID="account-addresses-remove-error"
                     role="alert"
                     tone="danger"
                     title={removeFailure.message}
-                    className="mt-4"
+                    className="mb-4"
                 />
             )}
-            <View className="mt-4">
-                <QueryStates
-                    query={addresses}
-                    isEmpty={items.length === 0}
-                    emptyTitle={t('account:addresses.empty')}
-                    emptyBody={t('account:addresses.emptyBody')}
-                    emptyActions={addButton}
-                    skeletonCount={2}
-                    testID="account-addresses-states"
-                >
-                    <View className="flex-col gap-3">
-                        {items.map((address) => (
-                            <View
-                                key={address.id}
-                                testID={`account-address-${address.id}`}
-                                className="min-h-touch flex-row flex-wrap items-center gap-3 rounded border border-stroke-strong px-3 py-2.5"
-                            >
-                                <View className="min-w-[200px] flex-1 flex-col gap-0.5">
-                                    <View className="flex-row flex-wrap items-center gap-2">
-                                        <RNText className="text-base font-semibold text-content-primary text-start">
+            <QueryStates
+                skeleton="rows"
+                query={addresses}
+                isEmpty={items.length === 0}
+                emptyTitle={t('account:addresses.empty')}
+                emptyBody={t('account:addresses.emptyBody')}
+                emptyIcon="mapPin"
+                compact
+                emptyActions={addButton}
+                skeletonCount={2}
+                testID="account-addresses-states"
+            >
+                <View className="flex-col gap-3.5">
+                    {rows.map((row, rowIndex) => (
+                        <View key={String(rowIndex)} className="flex-row gap-3.5">
+                            {Array.from({ length: columns }, (_, column) => {
+                                const tile = row[column];
+                                if (tile === undefined) {
+                                    return (
+                                        <View key={column} className="min-w-0 flex-1 p-[18px]" />
+                                    );
+                                }
+                                if (tile === 'add') {
+                                    return (
+                                        <Pressable
+                                            key="add"
+                                            testID="account-addresses-add-tile"
+                                            role="button"
+                                            accessibilityRole="button"
+                                            onPress={() => {
+                                                openEditor('new');
+                                            }}
+                                            className="group min-h-[200px] min-w-0 flex-1 items-center justify-center gap-2 rounded-[22px] border-2 border-dashed border-stroke p-[18px] hover:border-surface-brand"
+                                        >
+                                            <Icon
+                                                name="plus"
+                                                size="md"
+                                                className="text-content-secondary group-hover:text-content-on-brand-subtle"
+                                            />
+                                            <RNText className="text-sm font-semibold text-content-secondary group-hover:text-content-on-brand-subtle">
+                                                {t('account:addresses.add')}
+                                            </RNText>
+                                        </Pressable>
+                                    );
+                                }
+                                const address = tile;
+                                return (
+                                    <View
+                                        key={address.id}
+                                        testID={`account-address-${address.id}`}
+                                        className={cx(
+                                            'relative min-w-0 flex-1 flex-col gap-1.5 rounded-[22px] border-2 p-[18px]',
+                                            address.isDefault
+                                                ? 'border-surface-brand bg-surface-brand-subtle'
+                                                : 'border-stroke-subtle bg-surface-raised',
+                                        )}
+                                    >
+                                        {address.isDefault ? (
+                                            <View className="absolute end-4 top-4 h-6 justify-center rounded-full bg-surface-brand px-[9px]">
+                                                <RNText className="text-xs font-bold text-content-on-brand">
+                                                    {t('account:addresses.default')}
+                                                </RNText>
+                                            </View>
+                                        ) : null}
+                                        <View
+                                            className={cx(
+                                                'mb-1.5 h-11 w-11 items-center justify-center rounded-[14px]',
+                                                address.isDefault
+                                                    ? 'bg-surface-brand'
+                                                    : 'bg-surface-base',
+                                            )}
+                                        >
+                                            <Icon
+                                                name="house"
+                                                size="md"
+                                                className={
+                                                    address.isDefault
+                                                        ? 'text-content-on-brand'
+                                                        : 'text-content-primary'
+                                                }
+                                            />
+                                        </View>
+                                        <RNText className="font-display text-lg font-bold text-content-primary text-start">
                                             {address.label}
                                         </RNText>
-                                        {address.isDefault ? (
-                                            <Badge
-                                                tone="success"
-                                                label={t('account:addresses.default')}
+                                        <RNText className="text-sm text-content-primary text-start">
+                                            {address.areaName}
+                                        </RNText>
+                                        <RNText className="text-sm text-content-secondary text-start">
+                                            {[
+                                                address.line1,
+                                                address.line2,
+                                                address.building,
+                                                address.floor,
+                                            ]
+                                                .filter(
+                                                    (part): part is string =>
+                                                        part !== null && part.trim().length > 0,
+                                                )
+                                                .join(t('account:addresses.partSeparator'))}
+                                        </RNText>
+                                        <View className="mt-2.5 flex-row flex-wrap gap-1.5">
+                                            <TileButton
+                                                testID={`account-address-${address.id}-edit`}
+                                                label={t('account:addresses.edit')}
+                                                onPress={() => {
+                                                    openEditor(address.id);
+                                                }}
                                             />
-                                        ) : null}
+                                            <TileButton
+                                                testID={`account-address-${address.id}-remove`}
+                                                label={t('account:addresses.remove')}
+                                                onPress={() => {
+                                                    setPendingRemoval({
+                                                        id: address.id,
+                                                        label: address.label,
+                                                        isDefault: address.isDefault,
+                                                        line: [
+                                                            address.areaName,
+                                                            [
+                                                                address.line1,
+                                                                address.line2,
+                                                                address.building,
+                                                                address.floor,
+                                                            ]
+                                                                .filter(
+                                                                    (part): part is string =>
+                                                                        part !== null &&
+                                                                        part.trim().length > 0,
+                                                                )
+                                                                .join(
+                                                                    t(
+                                                                        'account:addresses.partSeparator',
+                                                                    ),
+                                                                ),
+                                                        ]
+                                                            .filter((part) => part.trim() !== '')
+                                                            .join(' · '),
+                                                    });
+                                                }}
+                                            />
+                                        </View>
                                     </View>
-                                    <RNText className="text-sm text-content-secondary text-start">
-                                        {[
-                                            address.line1,
-                                            address.line2,
-                                            address.building,
-                                            address.floor,
-                                            address.areaName,
-                                        ]
-                                            .filter(
-                                                (part): part is string =>
-                                                    part !== null && part.trim().length > 0,
-                                            )
-                                            .join(t('account:addresses.partSeparator'))}
-                                    </RNText>
-                                </View>
-                                <View className="flex-row flex-wrap gap-1">
-                                    <Button
-                                        testID={`account-address-${address.id}-edit`}
-                                        size="sm"
-                                        variant="quiet"
-                                        label={t('account:addresses.edit')}
-                                        onPress={() => {
-                                            openEditor(address.id);
-                                        }}
-                                    />
-                                    <Button
-                                        testID={`account-address-${address.id}-remove`}
-                                        size="sm"
-                                        variant="quiet"
-                                        label={t('account:addresses.remove')}
-                                        onPress={() => {
-                                            setPendingRemoval({
-                                                id: address.id,
-                                                label: address.label,
-                                            });
-                                        }}
-                                    />
-                                </View>
-                            </View>
-                        ))}
-                    </View>
-                    <View className="mt-6 flex-row flex-wrap gap-2.5">{addButton}</View>
-                </QueryStates>
-            </View>
+                                );
+                            })}
+                        </View>
+                    ))}
+                </View>
+            </QueryStates>
 
-            <Dialog
+            {/* Shop · Account, pin 11. */}
+            <ShopDialog
                 testID="account-addresses-remove-dialog"
                 open={pendingRemoval !== null}
+                tone="danger"
+                icon="trash"
                 title={t('account:addresses.removeTitle')}
                 description={t('account:addresses.removeBody', {
                     label: pendingRemoval?.label ?? '',
@@ -439,22 +617,20 @@ function AddressesPanel({ here }: { readonly here: string }) {
                     setPendingRemoval(null);
                 }}
                 actions={
-                    <View className="flex-row flex-wrap gap-2.5">
-                        <Button
+                    <>
+                        <ShopDialogButton
                             testID="account-addresses-remove-cancel"
-                            variant="quiet"
                             label={t('common:action.cancel')}
                             onPress={() => {
                                 setPendingRemoval(null);
                             }}
                         />
-                        <Button
+                        <ShopDialogButton
                             testID="account-addresses-remove-confirm"
-                            // Destructive, so `danger`: the dialog's other option is "keep my
-                            // address", and a destructive action must not wear the primary fill.
-                            variant="danger"
+                            kind="danger"
+                            icon="trash"
                             label={t('account:addresses.remove')}
-                            loading={remove.isPending}
+                            busy={remove.isPending}
                             onPress={() => {
                                 if (pendingRemoval === null) return;
                                 remove.mutate(pendingRemoval.id, {
@@ -464,36 +640,95 @@ function AddressesPanel({ here }: { readonly here: string }) {
                                 });
                             }}
                         />
-                    </View>
+                    </>
                 }
-            />
+            >
+                {pendingRemoval === null ? null : (
+                    <ShopDialogSubject
+                        testID="account-addresses-remove-subject"
+                        lead={<ShopDialogTile icon="mapPin" />}
+                        name={pendingRemoval.label}
+                        tag={
+                            pendingRemoval.isDefault ? (
+                                <ShopDialogTag label={t('account:addresses.default')} />
+                            ) : undefined
+                        }
+                        meta={pendingRemoval.line === '' ? undefined : pendingRemoval.line}
+                    />
+                )}
+            </ShopDialog>
         </View>
     );
 }
 
+function TileButton({
+    testID,
+    label,
+    onPress,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly onPress: () => void;
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            onPress={onPress}
+            className="h-9 justify-center rounded-[10px] border border-stroke bg-surface-raised px-3 hover:bg-surface-brand-subtle"
+        >
+            <RNText className="text-xs font-semibold text-content-primary">{label}</RNText>
+        </Pressable>
+    );
+}
+
+/** Payment — what is true: cash on delivery, and cash at the counter for pickup. No card is stored. */
 function PaymentsPanel() {
     const { t } = useTranslation();
 
     return (
         <View testID="account-payments" className={`${ACCOUNT_CARD} p-6`}>
-            <PanelTitle testID="account-payments-title">{t('account:nav.payments')}</PanelTitle>
-            <View className="mt-4 min-h-touch flex-row items-center gap-3 rounded border border-stroke-strong px-3 py-2.5">
-                <Icon name="banknote" size="md" className="text-content-secondary" />
-                <RNText
-                    testID="account-payments-cash"
-                    className="flex-1 text-base font-semibold text-content-primary text-start"
-                >
-                    {t('account:payments.cash')}
-                </RNText>
-                <Badge tone="success" label={t('account:addresses.default')} />
+            <PanelHead testID="account-payments-title" title={t('account:nav.payments')} />
+            <View className="flex-row items-center gap-3.5 rounded-[20px] border-2 border-surface-brand bg-surface-brand-subtle p-4">
+                <View className="h-12 w-12 items-center justify-center rounded-2xl bg-surface-raised">
+                    <Icon name="banknote" size="md" className="text-content-on-brand-subtle" />
+                </View>
+                <View className="min-w-0 flex-1">
+                    <RNText
+                        testID="account-payments-cash"
+                        className="text-base font-bold text-content-primary text-start"
+                    >
+                        {t('account:payments.cash')}
+                    </RNText>
+                    <RNText className="text-sm text-content-secondary text-start">
+                        {t('account:payments.cashSub')}
+                    </RNText>
+                </View>
+                <View className="h-[26px] justify-center rounded-full bg-surface-raised px-2.5">
+                    <RNText className="text-xs font-bold text-content-primary">
+                        {t('account:addresses.default')}
+                    </RNText>
+                </View>
             </View>
-            <RNText className="mt-3 text-sm text-content-secondary text-start">
-                {t('account:payments.body')}
-            </RNText>
+            <View className="mt-2.5 flex-row items-center gap-3.5 rounded-[20px] border-2 border-stroke-subtle p-4">
+                <View className="h-12 w-12 items-center justify-center rounded-2xl bg-surface-base">
+                    <Icon name="store" size="md" className="text-content-on-brand-subtle" />
+                </View>
+                <View className="min-w-0 flex-1">
+                    <RNText className="text-base font-bold text-content-primary text-start">
+                        {t('account:payments.counter')}
+                    </RNText>
+                    <RNText className="text-sm text-content-secondary text-start">
+                        {t('account:payments.counterSub')}
+                    </RNText>
+                </View>
+            </View>
         </View>
     );
 }
 
+/** Notifications — the marketing switches, then the privacy record and closing the account. */
 function NotificationsPanel() {
     const { t } = useTranslation();
     const router = useRouter();
@@ -504,69 +739,251 @@ function NotificationsPanel() {
 
     return (
         <View testID="account-marketing" className={`${ACCOUNT_CARD} p-6`}>
-            <PanelTitle testID="account-marketing-title">
-                {t('account:nav.notifications')}
-            </PanelTitle>
+            <PanelHead testID="account-marketing-title" title={t('account:nav.notifications')} />
 
-            <View className="mt-4 flex-col gap-3">
-                <Eyebrow>{t('account:marketing.title')}</Eyebrow>
-                {setConsentFailure === null ? null : (
-                    <Callout
-                        testID="account-marketing-error"
-                        role="alert"
-                        tone="danger"
-                        title={t('account:marketing.saveFailed')}
-                    />
-                )}
-                {consents.isPending ? (
-                    <RNText
-                        testID="account-marketing-loading"
-                        className="text-sm text-content-secondary text-start"
+            {setConsentFailure === null ? null : (
+                <Callout
+                    testID="account-marketing-error"
+                    role="alert"
+                    tone="danger"
+                    title={t('account:marketing.saveFailed')}
+                    className="mb-3"
+                />
+            )}
+            {consents.isPending ? (
+                // Shop · Account, pin 1: rows shaped like the switches, not a bare "Loading…".
+                <View
+                    testID="account-marketing-loading"
+                    aria-busy
+                    accessibilityLabel={t('common:state.loading')}
+                    className="flex-col"
+                >
+                    {[0, 1, 2].map((index) => (
+                        <View
+                            key={index}
+                            aria-hidden
+                            className={cx(
+                                'flex-row items-center gap-3.5 px-1 py-4',
+                                index === 0 ? null : 'border-t border-stroke-subtle',
+                            )}
+                        >
+                            <View className="min-w-0 flex-1 flex-col gap-2">
+                                <Bone heightClassName="h-3" widthClassName="w-2/5" />
+                                <Bone heightClassName="h-3" widthClassName="w-3/4" />
+                            </View>
+                            <Bone
+                                heightClassName="h-[30px]"
+                                widthClassName="w-[52px]"
+                                rounded="full"
+                            />
+                        </View>
+                    ))}
+                </View>
+            ) : (
+                marketing.map((consent, index) => (
+                    <View
+                        key={consent.definition.key}
+                        className={cx(
+                            'flex-row items-center gap-3.5 px-1 py-3.5',
+                            index === 0 ? '' : 'border-t border-stroke-subtle',
+                        )}
                     >
-                        {t('common:state.loading')}
-                    </RNText>
-                ) : (
-                    marketing.map((consent) => (
-                        <Checkbox
-                            key={consent.definition.key}
+                        <View className="min-w-0 flex-1">
+                            <RNText className="text-base font-bold text-content-primary text-start">
+                                {consent.definition.title}
+                            </RNText>
+                            <RNText className="mt-0.5 text-sm text-content-secondary text-start">
+                                {consent.definition.text}
+                            </RNText>
+                        </View>
+                        <ShopSwitch
                             testID={`account-marketing-${consent.definition.key}`}
                             label={consent.definition.title}
-                            description={consent.definition.text}
                             checked={consent.granted}
                             disabled={setConsent.isPending}
                             onChange={(granted) => {
                                 setConsent.mutate({ key: consent.definition.key, granted });
                             }}
                         />
-                    ))
-                )}
-            </View>
+                    </View>
+                ))
+            )}
 
+            <View testID="account-privacy" className="mt-[22px]">
+                <LinkRow
+                    testID="account-privacy-consents"
+                    icon="infoCircle"
+                    label={t('account:privacy.reviewConsents')}
+                    onPress={() => {
+                        router.push('/customer/account/consents' as never);
+                    }}
+                />
+                <LinkRow
+                    testID="account-privacy-close"
+                    icon="circleX"
+                    tone="danger"
+                    label={t('account:privacy.closeAccount')}
+                    onPress={() => {
+                        // A fresh start: whatever an abandoned attempt left in the tab is not this
+                        // person's answer today.
+                        clearClosureDraft();
+                        router.push('/customer/account/close/reason' as never);
+                    }}
+                />
+            </View>
+        </View>
+    );
+}
+
+/**
+ * The board's band: the person's initials, name, email and phone on the canopy, and three figures —
+ * the active plan, the next delivery and the orders so far.
+ */
+function AccountBand({
+    name,
+    email,
+    phone,
+    plan,
+    nextDelivery,
+    orders,
+    compact = false,
+}: {
+    readonly name: string;
+    readonly email: string | null;
+    readonly phone: string | null;
+    readonly plan: string | null;
+    readonly nextDelivery: string | null;
+    readonly orders: string | null;
+    /** The phone board's band: a 56px badge beside the name, the three figures in one row. */
+    readonly compact?: boolean;
+}) {
+    const { t } = useTranslation();
+    const initials = name
+        .split(/\s+/)
+        .filter((part) => part !== '')
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() ?? '')
+        .join('');
+    const dash = '—';
+    const stats = [
+        { key: 'plan', label: t('account:band.activePlan'), value: plan ?? dash },
+        { key: 'next', label: t('account:band.nextDelivery'), value: nextDelivery ?? dash },
+        { key: 'orders', label: t('account:band.orders'), value: orders ?? dash },
+    ];
+
+    if (compact) {
+        return (
             <View
-                testID="account-privacy"
-                className="mt-5 flex-col gap-3 border-t border-stroke-subtle pt-5"
+                testID="account-band"
+                className="relative mt-1 overflow-hidden rounded-[24px] bg-surface-canopy p-4"
             >
-                <Eyebrow>{t('account:privacy.title')}</Eyebrow>
+                <View
+                    aria-hidden
+                    pointerEvents="none"
+                    className="absolute -end-[90px] -top-[120px] h-[300px] w-[300px] rounded-full bg-stage-green opacity-15"
+                />
+                <View className="z-10 flex-row items-center gap-3">
+                    <View
+                        aria-hidden
+                        className="h-14 w-14 items-center justify-center rounded-[18px] bg-stage-green"
+                    >
+                        <RNText className="font-display text-xl font-bold text-surface-canopy">
+                            {initials === '' ? '·' : initials}
+                        </RNText>
+                    </View>
+                    <View className="min-w-0 flex-1">
+                        <RNText
+                            testID="account-title"
+                            accessibilityRole="header"
+                            aria-level={1}
+                            numberOfLines={1}
+                            className="font-display text-xl font-bold tracking-display text-content-on-canopy text-start"
+                        >
+                            {name}
+                        </RNText>
+                        <RNText
+                            numberOfLines={1}
+                            className="text-xs text-content-on-canopy-muted text-start"
+                        >
+                            {[email, phone]
+                                .filter((part): part is string => part !== null)
+                                .join(' · ')}
+                        </RNText>
+                    </View>
+                </View>
+                <View className="z-10 mt-3 flex-row gap-1.5">
+                    {stats.map((stat) => (
+                        <View
+                            key={stat.key}
+                            testID={`account-band-${stat.key}`}
+                            className="min-w-0 flex-1 rounded-xl bg-content-on-canopy/10 px-2.5 py-2"
+                        >
+                            <RNText className="text-xs font-semibold uppercase text-content-on-canopy-muted text-start">
+                                {stat.label}
+                            </RNText>
+                            <RNText
+                                numberOfLines={1}
+                                className="text-sm font-bold text-content-on-canopy text-start"
+                            >
+                                {stat.value}
+                            </RNText>
+                        </View>
+                    ))}
+                </View>
+            </View>
+        );
+    }
+
+    return (
+        <View
+            testID="account-band"
+            className="relative mt-1 overflow-hidden rounded-[30px] bg-surface-canopy px-6 pb-[96px] pt-[30px] lg:px-8"
+        >
+            <View
+                aria-hidden
+                pointerEvents="none"
+                className="absolute -end-[120px] -top-[170px] h-[480px] w-[480px] rounded-full bg-stage-green opacity-15"
+            />
+            <View className="z-10 flex-row flex-wrap items-center gap-5">
+                <View
+                    aria-hidden
+                    className="h-[72px] w-[72px] items-center justify-center rounded-full bg-surface-brand-subtle"
+                >
+                    <RNText className="font-display text-2xl font-bold text-content-on-brand-subtle">
+                        {initials === '' ? '·' : initials}
+                    </RNText>
+                </View>
+                <View className="min-w-[200px] flex-1">
+                    <RNText
+                        testID="account-title"
+                        accessibilityRole="header"
+                        aria-level={1}
+                        className="font-display text-3xl font-bold tracking-display text-content-on-canopy text-start"
+                    >
+                        {name}
+                    </RNText>
+                    <RNText className="mt-1 text-sm text-content-on-canopy-muted text-start">
+                        {[email, phone].filter((part): part is string => part !== null).join(' · ')}
+                    </RNText>
+                </View>
                 <View className="flex-row flex-wrap gap-2.5">
-                    <Button
-                        testID="account-privacy-consents"
-                        variant="secondary"
-                        label={t('account:privacy.reviewConsents')}
-                        onPress={() => {
-                            router.push('/customer/account/consents' as never);
-                        }}
-                    />
-                    <Button
-                        testID="account-privacy-close"
-                        variant="quiet"
-                        label={t('account:privacy.closeAccount')}
-                        onPress={() => {
-                            // A fresh start: whatever an abandoned attempt left in the tab is not
-                            // this person's answer today.
-                            clearClosureDraft();
-                            router.push('/customer/account/close/reason' as never);
-                        }}
-                    />
+                    {stats.map((stat) => (
+                        <View
+                            key={stat.key}
+                            testID={`account-band-${stat.key}`}
+                            className="min-w-[140px] rounded-2xl bg-content-on-canopy/10 px-4 py-3"
+                        >
+                            <RNText className="text-xs font-semibold text-content-on-canopy-muted text-start">
+                                {stat.label}
+                            </RNText>
+                            <RNText
+                                numberOfLines={1}
+                                className="mt-0.5 text-base font-bold text-content-on-canopy text-start"
+                            >
+                                {stat.value}
+                            </RNText>
+                        </View>
+                    ))}
                 </View>
             </View>
         </View>
@@ -576,20 +993,44 @@ function NotificationsPanel() {
 export interface AccountScreenProps {
     /** The route's `?returnTo=` — set when another flow opened a section as a detour. */
     readonly returnTo?: string | undefined;
+    /**
+     * A page of the account drawn inside it — the address editor — so the band and the side menu
+     * stay where they are, as the board keeps them. `section` is the menu item it belongs under;
+     * choosing another item leaves for that section of the account page.
+     */
+    readonly section?: AccountSection | undefined;
+    readonly children?: ReactNode;
 }
 
-export function AccountScreen({ returnTo }: AccountScreenProps) {
+export function AccountScreen({ returnTo, section: within, children }: AccountScreenProps) {
     const { t } = useTranslation();
+    // The name and email are the session's as soon as it answers; the customer record may lag.
+    const { me } = useSession();
     const router = useRouter();
+    const formatter = useFormatter();
     const { atLeast } = useBreakpoint();
     const wide = atLeast('lg');
+    const phoneWidth = !atLeast('md');
     const overview = useAccountOverviewQuery();
+    const addresses = useAddressesQuery();
+    const subscriptions = useSubscriptionsQuery();
+    const orders = useMyOrdersQuery({ limit: 20 });
+    const dietary = useDietaryProfileQuery();
     const params = useLocalSearchParams<{ section?: string }>();
     const back = useReturnTo(returnTo, '/customer/account');
 
     // The URL's section, followed during render (not in an effect) so a link to another section
     // pressed while this page is open never paints a frame of the old one.
-    const requested: Section = sectionFrom(params.section) ?? 'orders';
+    const requested: Section = within ?? sectionFrom(params.section) ?? 'orders';
+    /*
+     * Shop · Account, phone board: the account opens on a menu of its sections, each one a row
+     * that opens it on a page of its own ("‹ Orders"), rather than tabs over a panel.
+     */
+    const phoneMenu =
+        phoneWidth &&
+        children === undefined &&
+        within === undefined &&
+        sectionFrom(params.section) === null;
     const [section, setSection] = useState<Section>(requested);
     const [followed, setFollowed] = useState<Section>(requested);
     if (followed !== requested) {
@@ -597,6 +1038,12 @@ export function AccountScreen({ returnTo }: AccountScreenProps) {
         setSection(requested);
     }
     const openSection = (next: Section) => {
+        if (children !== undefined) {
+            // A page drawn inside the account: the menu leaves it for that section, popping back
+            // to the account page when it is underneath rather than stacking another.
+            router.dismissTo(accountSectionHref(next) as never);
+            return;
+        }
         setSection(next);
         router.setParams({ section: next });
     };
@@ -604,16 +1051,47 @@ export function AccountScreen({ returnTo }: AccountScreenProps) {
     const here = back.carry(accountSectionHref(section));
 
     const checklist = overview.data?.checklist ?? null;
+    const liveSubscriptions = (subscriptions.data?.items ?? []).filter(isLiveSubscription);
+    const loadedOrders = (orders.data?.pages ?? []).flatMap((page) => page.items);
+    const orderCount =
+        orders.data === undefined
+            ? undefined
+            : `${formatter.formatNumber(loadedOrders.length)}${orders.hasNextPage ? '+' : ''}`;
+    const counts: Partial<Record<Section, string>> = {
+        ...(orderCount === undefined ? {} : { orders: orderCount }),
+        ...(subscriptions.data === undefined
+            ? {}
+            : { subscriptions: formatter.formatNumber(liveSubscriptions.length) }),
+        ...(addresses.data === undefined
+            ? {}
+            : { addresses: formatter.formatNumber(addresses.data.length) }),
+        ...(dietary.data === undefined || dietary.data.allergens.length === 0
+            ? {}
+            : { allergies: formatter.formatNumber(dietary.data.allergens.length) }),
+    };
     const items: readonly SectionItem[] = SECTIONS.map((value) => ({
         value,
         label: t(`account:nav.${value}`),
+        icon: SECTION_ICONS[value],
+        count: counts[value],
         testID: `account-tab-${value}`,
     }));
     const navLabel = t('account:nav.label');
 
+    const account = overview.data?.account;
+    const phone =
+        overview.data?.contacts.find((contact) => contact.kind === 'phone' && contact.isPrimary)
+            ?.value ??
+        overview.data?.contacts.find((contact) => contact.kind === 'phone')?.value ??
+        null;
+    const nextSubscription = liveSubscriptions
+        .filter((subscription) => subscription.nextDeliveryDate !== null)
+        .sort((a, b) => ((a.nextDeliveryDate ?? '') < (b.nextDeliveryDate ?? '') ? -1 : 1))[0];
+
     const panel = (
         <View testID="account-panel" className="z-auto min-w-0 flex-1 flex-col gap-4">
-            {checklist === null ? null : (
+            {children}
+            {children !== undefined || checklist === null ? null : (
                 <SetupNotice
                     items={checklist.items}
                     canActivate={checklist.canActivate}
@@ -621,63 +1099,206 @@ export function AccountScreen({ returnTo }: AccountScreenProps) {
                 />
             )}
 
-            {section === 'orders' ? <AccountOrdersPanel /> : null}
-            {section === 'subscriptions' ? <SubscriptionsScreen embedded /> : null}
-            {section === 'favorites' ? <FavoritesPanel /> : null}
-            {/* Not gated on the overview: the card's details come from the session. */}
-            {section === 'profile' ? <AccountProfilePanel /> : null}
-            {section === 'addresses' ? <AddressesPanel here={here} /> : null}
-            {section === 'payments' ? <PaymentsPanel /> : null}
-            {section === 'notifications' ? <NotificationsPanel /> : null}
+            {children !== undefined ? null : (
+                <>
+                    {section === 'orders' ? <AccountOrdersPanel /> : null}
+                    {section === 'subscriptions' ? <SubscriptionsScreen embedded /> : null}
+                    {section === 'favorites' ? <FavoritesPanel /> : null}
+                    {/* Not gated on the overview: the card's details come from the session. */}
+                    {section === 'profile' ? (
+                        <AccountProfilePanel
+                            onOpenAllergies={() => {
+                                openSection('allergies');
+                            }}
+                        />
+                    ) : null}
+                    {section === 'allergies' ? <AllergiesPanel testID="account-allergies" /> : null}
+                    {section === 'addresses' ? <AddressesPanel here={here} /> : null}
+                    {section === 'payments' ? <PaymentsPanel /> : null}
+                    {section === 'notifications' ? <NotificationsPanel /> : null}
+                </>
+            )}
         </View>
     );
 
+    if (phoneWidth) {
+        const current = items.find((item) => item.value === section);
+        return (
+            <View testID="account-screen" className="w-full flex-col pb-10">
+                {phoneMenu ? (
+                    <>
+                        {back.returnTo === null ? null : (
+                            <View className="mb-3 items-start">
+                                <BackPill
+                                    testID="account-return-up"
+                                    label={t(`common:destination.${back.destination}`)}
+                                    onPress={back.up}
+                                />
+                            </View>
+                        )}
+                        <AccountBand
+                            compact
+                            name={
+                                account?.displayName ??
+                                me?.profile.displayName ??
+                                t('account:title')
+                            }
+                            email={account?.loginEmail ?? me?.user.email ?? null}
+                            phone={phone}
+                            plan={liveSubscriptions[0]?.planName ?? null}
+                            nextDelivery={
+                                nextSubscription?.nextDeliveryDate === undefined ||
+                                nextSubscription.nextDeliveryDate === null
+                                    ? null
+                                    : formatter.formatDate(
+                                          `${nextSubscription.nextDeliveryDate}T12:00:00Z`,
+                                          {
+                                              weekday: 'short',
+                                              day: 'numeric',
+                                              month: 'short',
+                                          },
+                                      )
+                            }
+                            orders={orderCount ?? null}
+                        />
+                        {checklist === null ? null : (
+                            <View className="mt-3">
+                                <SetupNotice
+                                    items={checklist.items}
+                                    canActivate={checklist.canActivate}
+                                    returnTo={here}
+                                />
+                            </View>
+                        )}
+                        <View
+                            testID="account-nav"
+                            role="list"
+                            aria-label={navLabel}
+                            className="mt-3 overflow-hidden rounded-[20px] border border-stroke-subtle bg-surface-raised"
+                        >
+                            {items.map((item, index) => (
+                                <Pressable
+                                    key={item.value}
+                                    testID={item.testID}
+                                    role="link"
+                                    accessibilityRole="link"
+                                    onPress={() => {
+                                        openSection(item.value);
+                                    }}
+                                    className={cx(
+                                        'h-[58px] flex-row items-center gap-3 px-3.5',
+                                        index === 0 ? null : 'border-t border-stroke-subtle',
+                                    )}
+                                >
+                                    <View className="h-9 w-9 items-center justify-center rounded-xl bg-surface-brand-subtle">
+                                        <Icon
+                                            name={item.icon}
+                                            size="sm"
+                                            className="text-content-on-brand-subtle"
+                                        />
+                                    </View>
+                                    <RNText className="text-base font-semibold text-content-primary">
+                                        {item.label}
+                                    </RNText>
+                                    {item.count === undefined ? null : (
+                                        <View className="ms-auto h-[22px] min-w-[24px] items-center justify-center rounded-full bg-surface-base px-[7px]">
+                                            <RNText className="text-xs font-bold tabular-nums text-content-primary">
+                                                {item.count}
+                                            </RNText>
+                                        </View>
+                                    )}
+                                    <View className={item.count === undefined ? 'ms-auto' : 'ms-1'}>
+                                        <Icon
+                                            name="chevronForward"
+                                            size="sm"
+                                            className="text-content-secondary"
+                                        />
+                                    </View>
+                                </Pressable>
+                            ))}
+                        </View>
+                        <View className="mt-3 items-start">
+                            <SignOutButton />
+                        </View>
+                    </>
+                ) : (
+                    <>
+                        <ShopPhoneTopBar
+                            backTestID="account-section-up"
+                            backLabel={t('account:title')}
+                            onBack={() => {
+                                if (children !== undefined) {
+                                    router.dismissTo('/customer/account' as never);
+                                    return;
+                                }
+                                router.setParams({ section: undefined } as never);
+                            }}
+                            titleTestID="account-section-title"
+                            title={current?.label ?? t('account:title')}
+                            count={current?.count}
+                        />
+                        <View className="mt-4">{panel}</View>
+                    </>
+                )}
+            </View>
+        );
+    }
+
     return (
-        // The design's measure: an 1100px section less its 28px gutters, centred in the shell.
-        <View testID="account-screen" className="w-full max-w-[1044px] flex-col self-center">
+        <View testID="account-screen" className="w-full flex-col pb-10">
             {back.returnTo === null ? null : (
-                <View className="mb-3">
-                    <SubpageTrail
-                        back={back}
-                        current={t('account:title')}
-                        testID="account-return"
+                <View className="mb-3 items-start">
+                    <BackPill
+                        testID="account-return-up"
+                        label={t(`common:destination.${back.destination}`)}
+                        onPress={back.up}
                     />
                 </View>
             )}
-            <RNText
-                testID="account-title"
-                accessibilityRole="header"
-                aria-level={1}
-                // `text-4xl` (36px), the nearest step to the design's 38.
-                className="mb-5 font-display text-4xl font-bold leading-[1.05] tracking-display text-content-primary text-start"
-            >
-                {t('account:title')}
-            </RNText>
+            <AccountBand
+                name={account?.displayName ?? me?.profile.displayName ?? t('account:title')}
+                email={account?.loginEmail ?? me?.user.email ?? null}
+                phone={phone}
+                plan={liveSubscriptions[0]?.planName ?? null}
+                nextDelivery={
+                    nextSubscription?.nextDeliveryDate === undefined ||
+                    nextSubscription.nextDeliveryDate === null
+                        ? null
+                        : formatter.formatDate(`${nextSubscription.nextDeliveryDate}T12:00:00Z`, {
+                              weekday: 'short',
+                              day: 'numeric',
+                              month: 'short',
+                          })
+                }
+                orders={orderCount ?? null}
+            />
 
             {wide ? (
-                <View className="z-auto flex-row items-start gap-6">
+                <View className="z-10 -mt-[58px] flex-row items-start gap-6 px-3 lg:px-6">
                     <SideNav
                         label={navLabel}
                         items={items}
                         value={section}
                         onChange={openSection}
-                        footer={<SignOutButton />}
+                        footer={<SignOutButton row />}
                     />
                     {panel}
                 </View>
             ) : (
-                <View className="z-auto flex-col gap-4">
-                    <Tabs
-                        testID="account-nav"
-                        label={navLabel}
-                        items={items.map((item) => ({
-                            value: item.value,
-                            label: item.label,
-                            testID: item.testID,
-                        }))}
-                        value={section}
-                        onChange={openSection}
-                    />
+                <View className="z-10 -mt-[58px] flex-col gap-4 px-3">
+                    <View className="rounded-3xl border border-stroke-subtle bg-surface-raised p-2 shadow-elevation-2">
+                        <Tabs
+                            testID="account-nav"
+                            label={navLabel}
+                            items={items.map((item) => ({
+                                value: item.value,
+                                label: item.label,
+                                testID: item.testID,
+                            }))}
+                            value={section}
+                            onChange={openSection}
+                        />
+                    </View>
                     {panel}
                     <View className="items-start border-t border-stroke-subtle pt-4">
                         <SignOutButton />

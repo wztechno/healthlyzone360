@@ -45,7 +45,7 @@ export function GateRailCard({
         <View className="gap-4">
             <View
                 testID={testID}
-                className="gap-3 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
+                className="gap-3 rounded-panel border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-card"
             >
                 <Text variant="micro" tone="secondary">
                     {title}

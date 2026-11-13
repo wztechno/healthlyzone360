@@ -16,10 +16,10 @@
         "expiresToday": "تنتهي اليوم.",
         "role": {
             "kitchen_owner": "مالك المطبخ",
-            "kitchen_manager": "مدير المطبخ",
+            "kitchen_manager": "المدير",
             "commercial_manager": "المدير التجاري",
-            "organisation_owner": "مالك المنشأة",
-            "order_desk_agent": "موظف مكتب الطلبات",
+            "organisation_owner": "المالك",
+            "order_desk_agent": "أمين الصندوق",
             "unknown": "{{code}}"
         }
     },
@@ -51,7 +51,8 @@
         "alreadyTitle": "سبق أن قُبلت هذه الدعوة",
         "alreadyBody": "لا شيء آخر لفعله هنا. إن لم تظهر مساحة العمل، سجّل الخروج ثم الدخول من جديد.",
         "noMembershipTitle": "قُبلت، لكنها ليست فعّالة بعد",
-        "noMembershipBody": "سجّلنا قبولك، لكن العضوية لم تُنشأ. اطلب ممّن دعاك أن يتحقق."
+        "noMembershipBody": "سجّلنا قبولك، لكن العضوية لم تُنشأ. اطلب ممّن دعاك أن يتحقق.",
+        "openBusinessWorkspace": "افتح مساحة عمل الشركة"
     },
     "expired": {
         "title": "انتهت صلاحية هذه الدعوة",

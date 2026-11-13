@@ -4,15 +4,20 @@ declare(strict_types=1);
 
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Audit\Models\AuditLog;
+use Healthy360\Catalogues\Enums\SalesChannelKind;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\ProductCategory;
+use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientCategory;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Illuminate\Support\Facades\DB;
 
 /*
 |--------------------------------------------------------------------------
@@ -787,4 +792,101 @@ it('turns finished-stock selling on and off again over the update endpoint', fun
         // The link and the mode survive the flag being cleared: a kitchen that
         // stops selling a salad off the shelf still produces it.
         ->and($stored->ingredient_id)->toBe((string) $ingredient->getKey());
+});
+
+it('serves the named items with their channels in one read', function (): void {
+    $this->actingAs($this->a->user);
+
+    $make = fn (): CatalogueItem => CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+    ]);
+    $offered = $make();
+    $other = $make();
+    $make();
+
+    $wholesale = SalesChannel::factory()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'code' => 'wholesale',
+        'channel_kind' => SalesChannelKind::B2b,
+    ]);
+    ChannelCatalogueItem::factory()->create([
+        'catalogue_item_id' => $offered->getKey(),
+        'sales_channel_id' => $wholesale->getKey(),
+    ]);
+
+    $rows = collect($this->getJson(
+        '/api/v1/catalogue/items?include=channels&ids='.$offered->getKey().','.$other->getKey(),
+        CatalogueWorld::headers($this->a),
+    )->assertOk()->json('data'))->keyBy('id');
+
+    expect($rows->keys()->all())->toEqualCanonicalizing([(string) $offered->getKey(), (string) $other->getKey()])
+        ->and($rows[(string) $offered->getKey()]['channels'][0]['sales_channel_id'])->toBe((string) $wholesale->getKey())
+        ->and($rows[(string) $other->getKey()]['channels'])->toBe([]);
+
+    $this->getJson('/api/v1/catalogue/items?ids=not-a-uuid', CatalogueWorld::headers($this->a))
+        ->assertStatus(400)
+        ->assertJsonPath('error.details.parameter', 'ids');
+});
+
+it('serves every row’s live packs with include=variants, in a fixed number of queries however many rows', function (): void {
+    $this->actingAs($this->a->user);
+
+    $packed = function (): CatalogueItem {
+        $item = CatalogueItem::factory()->create([
+            'catalogue_id' => $this->a->catalogue->getKey(),
+            'organisation_id' => $this->a->organisation->getKey(),
+        ]);
+        foreach (['jar-250g', 'jar-500g'] as $code) {
+            $variant = CatalogueItemVariant::factory()->create(['catalogue_item_id' => $item->getKey(), 'code' => $code]);
+            CatalogueItemPackVariant::factory()->create(['catalogue_item_variant_id' => $variant->getKey()]);
+        }
+        // Removed from the item, so neither drawn nor counted.
+        CatalogueItemVariant::factory()->archived()->create(['catalogue_item_id' => $item->getKey(), 'code' => 'jar-1kg']);
+
+        return $item;
+    };
+
+    $queriesFor = function (): array {
+        $read = fn () => $this->getJson('/api/v1/catalogue/items?include=channels,variants&limit=100', CatalogueWorld::headers($this->a))
+            ->assertOk()
+            ->json('data');
+        // Warmed by an identical read, so per-test caches (the permission set) are paid for once
+        // and the count compares only what the page itself costs.
+        $read();
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $rows = $read();
+        $count = count(DB::getQueryLog());
+        DB::disableQueryLog();
+
+        return [$rows, $count];
+    };
+
+    $first = $packed();
+    // Answered for the whole page in one query, so one row says no and the rest yes.
+    $first->forceFill(['allergens_assessed_at' => null])->save();
+    [$one, $queriesForOne] = $queriesFor();
+
+    foreach (range(1, 19) as $n) {
+        $packed();
+    }
+    [$twenty, $queriesForTwenty] = $queriesFor();
+
+    $row = collect($one)->firstWhere('id', (string) $first->getKey());
+
+    expect($one)->toHaveCount(1)
+        ->and($twenty)->toHaveCount(20)
+        ->and(array_column($row['variants'], 'code'))->toBe(['jar-250g', 'jar-500g'])
+        ->and($row['variants'][0]['pack']['pack_quantity'])->toBe('1.0000')
+        ->and($row['channels'])->toBe([])
+        ->and(collect($twenty)->pluck('allergens_assessed', 'id')->reject()->keys()->all())->toBe([(string) $first->getKey()])
+        ->and($queriesForTwenty)->toBe($queriesForOne);
+
+    // Without it, the rows carry no variants; an unknown include is refused.
+    expect($this->getJson('/api/v1/catalogue/items?include=channels', CatalogueWorld::headers($this->a))->json('data.0'))
+        ->not->toHaveKey('variants');
+    $this->getJson('/api/v1/catalogue/items?include=channels,prices', CatalogueWorld::headers($this->a))
+        ->assertStatus(400)
+        ->assertJsonPath('error.details.parameter', 'include');
 });

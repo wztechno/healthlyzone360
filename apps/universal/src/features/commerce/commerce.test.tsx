@@ -24,15 +24,20 @@ import type {
     PlaceOrderRequest,
     PlacedOrder,
     PlanDurationOption,
+    PlanSitting,
     PlanVariant,
     PreviewCheckoutRequest,
+    SetSubscriptionMealChoicesRequest,
     SkipDayRequest,
     Subscription,
     SubscriptionBalance,
     SubscriptionConfiguration,
     SubscriptionDelivery,
     SubscriptionFilter,
+    SubscriptionMealChoice,
     SubscriptionPlan,
+    SubscriptionPlanDay,
+    SubscriptionPlanDays,
     SubscriptionPreview,
     SubscriptionQuote,
     SubscriptionQuoteRequest,
@@ -55,6 +60,7 @@ import type {
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { pathnameOf, queryOf, withReturnTo } from '../../navigation/return-to.ts';
 import { clearAllSessionDrafts } from '../../navigation/session-draft.ts';
 import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
@@ -78,25 +84,30 @@ import {
     configuratorHref,
     parseConfiguratorEdits,
 } from './configurator-draft.ts';
+import type { ConfiguratorEdits } from './configurator-draft.ts';
 import {
     CONFIGURATOR_STEPS,
+    chosenDays,
     combinationKey,
     configuredDeliveryDates,
     estimatedTotal,
     firstIncompleteStep,
-    firstWeekChoices,
     initialConfiguratorState,
     isStepReachable,
     mealCombinations,
+    missingPicks,
     nextConfiguratorStep,
     perDeliveryPrice,
+    pickKey,
+    pickedMealIds,
     previousConfiguratorStep,
+    repeatFirstWeek,
     stepPosition,
     toConfiguration,
     validateConfiguratorStep,
     variantForCombination,
 } from './configurator.ts';
-import type { ConfiguratorState, StepContext } from './configurator.ts';
+import type { ConfiguratorState, MealPicks, StepContext } from './configurator.ts';
 import { buildPriceRows } from './configurator-steps.tsx';
 import {
     addDays,
@@ -396,6 +407,39 @@ interface VariantSeed {
     readonly weeklyMinorUnits: number;
 }
 
+/**
+ * The sittings a band fills each day, the way the server derives them: one meal is lunch, two are
+ * lunch and dinner, three add breakfast, a fourth and later meal is another lunch, and every snack
+ * is a snack sitting of its own. Authored here rather than read off the client, which never
+ * derives them — it is served them.
+ */
+function sittingsFor(mealsPerDay: number, snacksPerDay: number): readonly PlanSitting[] {
+    const meals: PlanSitting[] =
+        mealsPerDay <= 0
+            ? []
+            : mealsPerDay === 1
+              ? [{ slot: 'lunch', sequence: 1 }]
+              : mealsPerDay === 2
+                ? [
+                      { slot: 'lunch', sequence: 1 },
+                      { slot: 'dinner', sequence: 1 },
+                  ]
+                : [
+                      { slot: 'breakfast', sequence: 1 },
+                      { slot: 'lunch', sequence: 1 },
+                      { slot: 'dinner', sequence: 1 },
+                      ...Array.from({ length: mealsPerDay - 3 }, (_, extra) => ({
+                          slot: 'lunch' as const,
+                          sequence: extra + 2,
+                      })),
+                  ];
+    const snacks = Array.from({ length: snacksPerDay }, (_, index) => ({
+        slot: 'snack' as const,
+        sequence: index + 1,
+    }));
+    return [...meals, ...snacks];
+}
+
 function testVariant(seed: VariantSeed): PlanVariant {
     return {
         id: uuid(6, seed.ordinal) as PlanVariantId,
@@ -407,6 +451,7 @@ function testVariant(seed: VariantSeed): PlanVariant {
         fatRange: { min: 45, max: 70 },
         mealsPerDay: seed.mealsPerDay,
         snacksPerDay: seed.snacksPerDay,
+        sittings: sittingsFor(seed.mealsPerDay, seed.snacksPerDay),
         pricePerWeek: { amount: seed.weeklyMinorUnits, currency: AED },
     };
 }
@@ -472,6 +517,12 @@ const PLAN_VARIANTS: readonly PlanVariant[] = [
 /** The band the catalogue advertises its duration totals against. */
 const ADVERTISED_VARIANT = PLAN_VARIANTS[1]!;
 
+/** The band a set-up opened without one starts on: the plan's middle one — five sittings a day. */
+const OPENING_VARIANT = PLAN_VARIANTS[Math.floor(PLAN_VARIANTS.length / 2)]!;
+
+/** Lunch and dinner only: the smallest day to fill, for the cases that pick through the screen. */
+const TWO_MEALS_VARIANT = PLAN_VARIANTS[5]!;
+
 /**
  * The published totals, computed by hand from the advertised band's 475.00 a week.
  *
@@ -527,7 +578,6 @@ const PLAN: SubscriptionPlan = {
     dietClassifications: ['omnivore', 'mediterranean'],
     variants: PLAN_VARIANTS,
     durations: PLAN_DURATION_OPTIONS,
-    sampleMealIds: MENU_MEALS.map((meal) => meal.id),
     imagePlaceholderId: 'plan-balanced-week',
     rating: 4.7,
     ratingCount: 42,
@@ -561,7 +611,7 @@ function dietaryProfile(allergenCodes: readonly AllergenCode[] = []): DietaryPro
             severity: 'allergy' as const,
             note: null,
         })),
-        excludedIngredientIds: [],
+        exclusions: [],
         updatedAt: null,
     };
 }
@@ -732,7 +782,7 @@ function testConfiguration(
         deliveryWeekdays: [1, 3, 5],
         slotCode: 'midday',
         address: SUBSCRIPTION_ADDRESS,
-        selectedMealIds: [],
+        days: [],
         ...overrides,
     };
 }
@@ -778,7 +828,10 @@ function testDelivery(date: string): SubscriptionDelivery {
     };
 }
 
-/** The plan delivers every day. `allowsFreeSelection` is off, so no menu request is made. */
+/**
+ * The plan delivers every day. `allowsFreeSelection` is still on the quote's wire shape but no
+ * longer gates anything: every subscriber chooses every meal.
+ */
 function testQuote(overrides: Partial<SubscriptionQuote> = {}): SubscriptionQuote {
     return {
         planId: PLAN_ID,
@@ -1091,17 +1144,23 @@ describe('the delivery address', () => {
 /* ══ pure: the configurator ════════════════════════════════════════════════════════════════════ */
 
 describe('configurator steps', () => {
-    it('is three steps, and settles delivery and allergies before the review', () => {
-        expect([...CONFIGURATOR_STEPS]).toEqual(['plan', 'delivery', 'review']);
+    it('is four steps, and settles delivery and the meals before the review', () => {
+        expect([...CONFIGURATOR_STEPS]).toEqual(['plan', 'delivery', 'meals', 'review']);
         // Doc 17, SUB-02: the area and the allergies are both answered before anything is created.
         expect(stepPosition('delivery')).toBeLessThan(stepPosition('review'));
+        // The meals come after the delivery days, because they are chosen for those very days.
+        expect(stepPosition('delivery')).toBeLessThan(stepPosition('meals'));
+        expect(stepPosition('meals')).toBeLessThan(stepPosition('review'));
     });
 
     it('walks forwards and backwards and stops at both ends', () => {
         expect(previousConfiguratorStep('plan')).toBeNull();
         expect(nextConfiguratorStep('review')).toBeNull();
         expect(nextConfiguratorStep('plan')).toBe('delivery');
-        expect(previousConfiguratorStep('review')).toBe('delivery');
+        expect(nextConfiguratorStep('delivery')).toBe('meals');
+        expect(nextConfiguratorStep('meals')).toBe('review');
+        expect(previousConfiguratorStep('review')).toBe('meals');
+        expect(previousConfiguratorStep('meals')).toBe('delivery');
     });
 });
 
@@ -1228,12 +1287,29 @@ describe('the review’s price rows', () => {
     });
 });
 
+/**
+ * A dish in every sitting of every day a state delivers on — a meals step that is done. Keyed with
+ * the screen's own `pickKey`; the request cases below author their keys by hand instead.
+ */
+function pickEverything(
+    state: ConfiguratorState,
+    plan: SubscriptionPlan = PLAN,
+    mealId: MealId = MENU_MEALS[0]!.id,
+): MealPicks {
+    const sittings = plan.variants.find((variant) => variant.id === state.variantId)?.sittings;
+    return Object.fromEntries(
+        configuredDeliveryDates(state, plan).flatMap((date) =>
+            (sittings ?? []).map((sitting) => [pickKey(date, sitting), mealId] as const),
+        ),
+    );
+}
+
 describe('step validation', () => {
     function fixture(): {
         readonly state: ConfiguratorState;
         readonly context: StepContext;
     } {
-        const state: ConfiguratorState = {
+        const opened: ConfiguratorState = {
             ...initialConfiguratorState({
                 plan: PLAN,
                 startDate: '2026-08-03',
@@ -1242,6 +1318,7 @@ describe('step validation', () => {
             address: COMPLETE_ADDRESS,
             termsAcknowledged: true,
         };
+        const state: ConfiguratorState = { ...opened, mealPicks: pickEverything(opened) };
         const context: StepContext = {
             plan: PLAN,
             allowedWeekdays: [1, 2, 3, 4, 5, 7],
@@ -1423,6 +1500,33 @@ describe('step validation', () => {
         expect(isStepReachable('delivery', broken, context)).toBe(true);
         expect(firstIncompleteStep(broken, context)).toBe('delivery');
     });
+
+    /**
+     * The customer chooses what they eat: every sitting of every delivery day is filled before the
+     * review, and one empty sitting anywhere in the run is enough to hold the step.
+     */
+    it('holds the meals step until every sitting of every day has a dish', () => {
+        const { state, context } = fixture();
+        const missing = ['commerce:configurator.issues.mealsMissing'];
+
+        expect(validateConfiguratorStep('meals', { ...state, mealPicks: {} }, context)).toEqual(
+            missing,
+        );
+
+        // One sitting short, on the last day of the run.
+        const lastDay = configuredDeliveryDates(state, PLAN).at(-1)!;
+        const allButOne = Object.fromEntries(
+            Object.entries(state.mealPicks).filter(([key]) => key !== `${lastDay}|snack:2`),
+        );
+        expect(Object.keys(allButOne)).toHaveLength(Object.keys(state.mealPicks).length - 1);
+        const short = { ...state, mealPicks: allButOne };
+        expect(validateConfiguratorStep('meals', short, context)).toEqual(missing);
+        expect(isStepReachable('review', short, context)).toBe(false);
+        expect(isStepReachable('meals', short, context)).toBe(true);
+        expect(firstIncompleteStep(short, context)).toBe('meals');
+
+        expect(validateConfiguratorStep('meals', state, context)).toEqual([]);
+    });
 });
 
 describe('turning the configurator state into a request', () => {
@@ -1481,22 +1585,181 @@ describe('turning the configurator state into a request', () => {
         expect(configuredDeliveryDates(state, PLAN)).toEqual([]);
         expect(configuredDeliveryDates({ ...state, duration: null }, PLAN)).toEqual([]);
     });
+});
 
-    it('sends one choice per picked day of the first week, under the lunch slot', () => {
-        const picked = MENU_MEALS.slice(0, 2).map((meal) => meal.id);
-        const state: ConfiguratorState = {
-            ...initialConfiguratorState({ plan: PLAN, startDate: '2026-08-03' }),
-            duration: '28d',
+/**
+ * The meals a configuration carries: a dish for each sitting of each delivery day, keyed
+ * `date|slot:sequence`. The cases run on the two-meal band (lunch and dinner) over seven
+ * deliveries on Monday, Wednesday and Friday from Monday 3 August — the dates are authored here,
+ * not read back from `configuredDeliveryDates`.
+ */
+describe('the meals a configuration carries', () => {
+    const [HARVEST, SESAME, HALLOUMI] = MENU_MEALS.map((meal) => meal.id) as [
+        MealId,
+        MealId,
+        MealId,
+    ];
+    /** Seven deliveries on Mon/Wed/Fri from 3 August: week 1 is the first three. */
+    const RUN = [
+        '2026-08-03',
+        '2026-08-05',
+        '2026-08-07',
+        '2026-08-10',
+        '2026-08-12',
+        '2026-08-14',
+        '2026-08-17',
+    ] as const;
+
+    function twoMealRun(mealPicks: MealPicks = {}): ConfiguratorState {
+        return {
+            ...initialConfiguratorState({
+                plan: PLAN,
+                variantId: TWO_MEALS_VARIANT.id,
+                startDate: '2026-08-03',
+            }),
+            duration: '7d',
             deliveryWeekdays: [1, 3, 5],
-            selectedMealIds: picked,
+            address: COMPLETE_ADDRESS,
+            mealPicks,
         };
+    }
 
-        expect(firstWeekChoices(state, PLAN, ADVERTISED_VARIANT)).toEqual([
-            { date: '2026-08-03', choices: [{ slot: 'lunch', mealId: picked[0] }] },
-            { date: '2026-08-05', choices: [{ slot: 'lunch', mealId: picked[1] }] },
-        ]);
-        // Nothing picked, nothing sent: the kitchen's own rotation is what was agreed to.
-        expect(firstWeekChoices({ ...state, selectedMealIds: [] }, PLAN, null)).toEqual([]);
+    /** Lunch and dinner for each of `dates`, both the same dish. */
+    function sameDish(dates: readonly string[], mealId: MealId): Record<string, MealId> {
+        return Object.fromEntries(
+            dates.flatMap((date) => [
+                [`${date}|lunch:1`, mealId],
+                [`${date}|dinner:1`, mealId],
+            ]),
+        );
+    }
+
+    it('keys a pick by its day and its sitting, so a second lunch is a sitting of its own', () => {
+        expect(pickKey('2026-08-03', { slot: 'lunch', sequence: 1 })).toBe('2026-08-03|lunch:1');
+        expect(pickKey('2026-08-03', { slot: 'lunch', sequence: 2 })).toBe('2026-08-03|lunch:2');
+    });
+
+    it('sends every delivery day with a dish for each sitting, in the order of the day', () => {
+        const state = twoMealRun({
+            ...sameDish(RUN, HARVEST),
+            '2026-08-05|lunch:1': HALLOUMI,
+            '2026-08-05|dinner:1': SESAME,
+            // A day the run does not deliver on, and a sitting this band does not have — both
+            // left from an earlier choice of days or band. Neither is sent.
+            '2026-08-04|lunch:1': SESAME,
+            '2026-08-03|breakfast:1': SESAME,
+        });
+
+        const configuration = toConfiguration(state, PLAN, toDeliveryAddress);
+
+        expect(configuration?.days).toEqual(
+            RUN.map((date) => ({
+                date,
+                meals:
+                    date === '2026-08-05'
+                        ? [
+                              { slot: 'lunch', sequence: 1, mealId: HALLOUMI },
+                              { slot: 'dinner', sequence: 1, mealId: SESAME },
+                          ]
+                        : [
+                              { slot: 'lunch', sequence: 1, mealId: HARVEST },
+                              { slot: 'dinner', sequence: 1, mealId: HARVEST },
+                          ],
+            })),
+        );
+        expect(chosenDays(state, PLAN)).toEqual(configuration?.days);
+        // The allergy notice reads each dish once, however many days carry it.
+        expect([...pickedMealIds(state, PLAN)].sort()).toEqual([HARVEST, HALLOUMI, SESAME].sort());
+    });
+
+    it('sends a day only as far as it was filled, and counts what is missing', () => {
+        const full = sameDish(RUN, HARVEST);
+        const state = twoMealRun(
+            Object.fromEntries(
+                Object.entries(full).filter(([key]) => key !== '2026-08-10|dinner:1'),
+            ),
+        );
+
+        // The server refuses an incomplete day by name; the meals step never lets one reach it.
+        expect(chosenDays(state, PLAN).find((day) => day.date === '2026-08-10')).toEqual({
+            date: '2026-08-10',
+            meals: [{ slot: 'lunch', sequence: 1, mealId: HARVEST }],
+        });
+        expect(missingPicks(state, PLAN)).toBe(1);
+        expect(missingPicks(twoMealRun(), PLAN)).toBe(RUN.length * 2);
+        expect(missingPicks(twoMealRun(full), PLAN)).toBe(0);
+    });
+
+    it('owes no meals for a run with no days, but never reads a band-less run as complete', () => {
+        // A length the plan does not sell has no delivery days, so nothing is missing.
+        expect(missingPicks({ ...twoMealRun(), duration: '40d' }, PLAN)).toBe(0);
+        expect(chosenDays({ ...twoMealRun(), duration: '40d' }, PLAN)).toEqual([]);
+        // Days but no band: there are no sittings to fill, which is not the same as all filled.
+        expect(missingPicks({ ...twoMealRun(), variantId: null }, PLAN)).toBeGreaterThan(0);
+    });
+
+    it('repeats week 1 onto every later day of the same weekday', () => {
+        const state = twoMealRun({
+            '2026-08-03|lunch:1': HARVEST,
+            '2026-08-03|dinner:1': SESAME,
+            '2026-08-05|lunch:1': HALLOUMI,
+            '2026-08-05|dinner:1': HARVEST,
+            '2026-08-07|lunch:1': SESAME,
+            '2026-08-07|dinner:1': HALLOUMI,
+        });
+
+        const repeated = repeatFirstWeek(state, PLAN);
+
+        expect(repeated).toEqual({
+            ...state.mealPicks,
+            // Mondays from Monday 3, Wednesdays from Wednesday 5, Fridays from Friday 7.
+            '2026-08-10|lunch:1': HARVEST,
+            '2026-08-10|dinner:1': SESAME,
+            '2026-08-12|lunch:1': HALLOUMI,
+            '2026-08-12|dinner:1': HARVEST,
+            '2026-08-14|lunch:1': SESAME,
+            '2026-08-14|dinner:1': HALLOUMI,
+            '2026-08-17|lunch:1': HARVEST,
+            '2026-08-17|dinner:1': SESAME,
+        });
+        expect(missingPicks({ ...state, mealPicks: repeated }, PLAN)).toBe(0);
+    });
+
+    it('never overwrites a later day the person already chose, and fills only what is empty', () => {
+        const state = twoMealRun({
+            ...sameDish(['2026-08-03', '2026-08-05', '2026-08-07'], HARVEST),
+            // Chosen on purpose for a later Wednesday: Repeat must leave it alone.
+            '2026-08-12|lunch:1': SESAME,
+        });
+
+        const repeated = repeatFirstWeek(state, PLAN);
+
+        expect(repeated['2026-08-12|lunch:1']).toBe(SESAME);
+        expect(repeated['2026-08-12|dinner:1']).toBe(HARVEST);
+        expect(repeated['2026-08-10|lunch:1']).toBe(HARVEST);
+        // The input is a value, not a store: nothing was changed in place.
+        expect(state.mealPicks['2026-08-10|lunch:1']).toBeUndefined();
+    });
+
+    it('leaves a later sitting empty where week 1 left it empty', () => {
+        const state = twoMealRun({
+            ...sameDish(['2026-08-05', '2026-08-07'], HARVEST),
+            // Monday 3 has a lunch and no dinner.
+            '2026-08-03|lunch:1': HALLOUMI,
+        });
+
+        const repeated = repeatFirstWeek(state, PLAN);
+
+        expect(repeated['2026-08-10|lunch:1']).toBe(HALLOUMI);
+        expect(repeated['2026-08-10|dinner:1']).toBeUndefined();
+        expect(repeated['2026-08-17|dinner:1']).toBeUndefined();
+        // Week 1's own gap and the two Mondays after it.
+        expect(missingPicks({ ...state, mealPicks: repeated }, PLAN)).toBe(3);
+    });
+
+    it('has nothing to repeat in a run with no days', () => {
+        const state = { ...twoMealRun({ '2026-08-03|lunch:1': HARVEST }), duration: null };
+        expect(repeatFirstWeek(state, PLAN)).toBe(state.mealPicks);
     });
 });
 
@@ -1631,7 +1894,7 @@ describe('CartScreen', () => {
         expect(screen.getByTestId('cart-price-delivery-amount')).toHaveTextContent('At checkout');
         // No tax figure exists, and no discount was quoted: neither row is drawn.
         expect(screen.queryByTestId('cart-price-discount')).toBeNull();
-        expect(screen.getByTestId('cart-fine-print')).toHaveTextContent(/cash/);
+        expect(screen.getByTestId('cart-fine-print')).toHaveTextContent(/cash/i);
     });
 
     it('names the default saved address and prices delivery to it', async () => {
@@ -1640,11 +1903,12 @@ describe('CartScreen', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('cart-subtitle')).toHaveTextContent(/12 Sunset Street/);
-        });
-        await waitFor(() => {
             expect(screen.getByTestId('cart-price-delivery-amount')).toHaveTextContent('AED 15.00');
         });
+        // The delivery row names the area it is priced to.
+        expect(screen.getByTestId('cart-price-delivery')).toHaveTextContent(
+            new RegExp(HOME_ADDRESS.areaName),
+        );
         expect(screen.getByTestId('cart-price-total-amount')).toHaveTextContent('AED 105.00');
         // The preview was asked about the default address, not the first one in the list.
         expect(harness.repositories.commerce.previewCheckout).toHaveBeenCalledWith(
@@ -1666,7 +1930,9 @@ describe('CartScreen', () => {
         await fireEvent.changeText(screen.getByTestId('cart-promo-input'), 'SUMMER');
         await fireEvent.press(screen.getByTestId('cart-promo-apply'));
 
-        expect(await screen.findByTestId('prototype-notice')).toHaveTextContent(/Not built yet/);
+        expect(await screen.findByTestId('prototype-notice')).toHaveTextContent(
+            /not available yet/,
+        );
         expect(screen.getByTestId('cart-price-total-amount')).toHaveTextContent('AED 45.00');
     });
 
@@ -1798,7 +2064,9 @@ describe('CartScreen', () => {
         const increment = screen.getByTestId(`cart-line-${BASKET_LINE_ID}-quantity-increment`);
         expect(decrement.props.accessibilityLabel).toContain(BASKET_MEAL.name);
         expect(increment.props.accessibilityLabel).toContain(BASKET_MEAL.name);
-        expect(decrement.props.accessibilityState).toMatchObject({ disabled: true });
+        // At one portion the minus is the board's bin: it removes the line rather than going to none.
+        expect(decrement.props.accessibilityState).toMatchObject({ disabled: false });
+        expect(decrement.props.accessibilityLabel).toMatch(/Remove/i);
         expect(screen.getByTestId(`cart-line-${BASKET_LINE_ID}-quantity-value`)).toHaveTextContent(
             '1',
         );
@@ -1933,8 +2201,7 @@ async function reviewCheckout(addressId: string): Promise<void> {
     await act(async () => {
         await kitchenServed;
     });
-    await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
-    await fireEvent.press(await screen.findByTestId(`checkout-address-picker-option-${addressId}`));
+    await fireEvent.press(await screen.findByTestId(`checkout-address-${addressId}`));
     await waitFor(() => {
         expect(screen.getByTestId('checkout-review')).toBeTruthy();
     });
@@ -2008,7 +2275,7 @@ describe('CheckoutScreen', () => {
         });
 
         expect(screen.getByTestId('checkout-slot-picker')).toBeTruthy();
-        expect(screen.getByTestId('checkout-date-field')).toBeTruthy();
+        expect(screen.getByTestId('checkout-date')).toBeTruthy();
         // Delivery is the real fulfilment and is chosen; this kitchen publishes no pickup, so the
         // design's Pickup card is drawn and refuses rather than pretending.
         expect(screen.getByTestId('checkout-mode-delivery').props.accessibilityState).toMatchObject(
@@ -2029,27 +2296,29 @@ describe('CheckoutScreen', () => {
         const address = testAddress({ line2: 'Flat 4', notes: 'Ring twice' });
         await renderCheckout(basketOf(1), { addresses: [address] });
 
-        await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
-        await fireEvent.press(
-            await screen.findByTestId(`checkout-address-picker-option-${address.id}`),
-        );
+        await fireEvent.press(await screen.findByTestId(`checkout-address-${address.id}`));
 
+        // The tile names the area and the street line as the driver reads it.
         await waitFor(() => {
-            expect(screen.getByTestId('checkout-street-input').props.value).toBe(
-                '12 Sunset Street, Flat 4',
+            expect(screen.getByTestId(`checkout-address-${address.id}`)).toHaveTextContent(
+                /12 Sunset Street, Flat 4/,
             );
         });
-        expect(screen.getByTestId('checkout-area-input').props.value).toBe('Business Bay');
-        expect(screen.getByTestId('checkout-note-input').props.value).toBe('Ring twice');
-        // Edited in the address book, not here.
-        expect(screen.getByTestId('checkout-street-input').props.editable).toBe(false);
+        expect(screen.getByTestId(`checkout-address-${address.id}`)).toHaveTextContent(
+            /Business Bay/,
+        );
+        expect(
+            screen.getByTestId(`checkout-address-${address.id}`).props.accessibilityState,
+        ).toMatchObject({ checked: true });
     });
 
     it('chooses the default address by itself and prices delivery straight away (HA-22)', async () => {
         await renderCheckout(basketOf(1), { addresses: [HOME_ADDRESS] });
 
         await waitFor(() => {
-            expect(screen.getByTestId('checkout-street-input').props.value).not.toBe('');
+            expect(
+                screen.getByTestId(`checkout-address-${HOME_ADDRESS.id}`).props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
         await waitFor(() => {
             expect(screen.getByTestId('checkout-price-delivery')).toBeTruthy();
@@ -2073,9 +2342,10 @@ describe('CheckoutScreen', () => {
             fireEvent.press(screen.getByTestId('checkout-review'));
         });
 
-        await waitFor(() => {
-            expect(screen.getByTestId('checkout-address-picker-error')).toBeTruthy();
-        });
+        // Nothing was chosen for them, and pressing Continue does not choose one either.
+        expect(
+            screen.getByTestId('checkout-address-address-office').props.accessibilityState,
+        ).toMatchObject({ checked: false });
         // Still collecting: no place-order control has appeared.
         expect(screen.queryByTestId('checkout-place-order')).toBeNull();
     });
@@ -2108,8 +2378,6 @@ describe('CheckoutScreen', () => {
             checked: true,
         });
         expect(screen.queryByTestId('checkout-card-number')).toBeNull();
-        // The receipt printer waits beside Place order.
-        expect(screen.getByTestId('checkout-printer-status')).toHaveTextContent('Ready to print');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('checkout-place-order'));
@@ -2126,7 +2394,7 @@ describe('CheckoutScreen', () => {
             expect(screen.getByTestId('checkout-success-screen')).toBeTruthy();
         });
         expect(await screen.findByTestId('checkout-success-title')).toHaveTextContent(
-            'Order H360-4821 confirmed',
+            'Order H360-4821 placed, waiting for the kitchen',
         );
         // Cash on delivery, said out loud rather than implied by the absence of a receipt.
         expect(screen.getByTestId('checkout-success-body')).toHaveTextContent(/in cash/);
@@ -2134,16 +2402,10 @@ describe('CheckoutScreen', () => {
 
         // The confirmation prices itself from the placed order — the preview query dies with the
         // emptied basket, and a price block fed from there rendered nothing.
-        // It is printed as the receipt, by the printer that stood beside Place order.
-        expect(screen.getByTestId('checkout-printer-status')).toHaveTextContent(
-            'Printing your receipt',
+        expect(screen.getByTestId('checkout-receipt-total-amount')).toHaveTextContent('AED 60.00');
+        expect(screen.getByTestId('checkout-receipt')).toHaveTextContent(
+            new RegExp(BASKET_MEAL.name),
         );
-        expect(
-            screen.getByTestId('checkout-receipt-total-amount', { includeHiddenElements: true }),
-        ).toHaveTextContent('AED 60.00');
-        expect(
-            screen.getByTestId('checkout-receipt-items', { includeHiddenElements: true }),
-        ).toHaveTextContent(new RegExp(BASKET_MEAL.name));
 
         // The placement carried the saved address identifier and no instrument of any kind.
         expect(harness.repositories.commerce.placeOrder).toHaveBeenCalledWith({
@@ -2183,9 +2445,7 @@ describe('CheckoutScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('checkout-slot-picker')).toBeTruthy();
         });
-        expect(screen.getByTestId('checkout-slot-picker').props.accessibilityRole).toBe(
-            'radiogroup',
-        );
+        expect(screen.getByTestId('checkout-slot-picker').props.role).toBe('radiogroup');
         expect(
             screen.getByTestId(`checkout-slot-${DEFAULT_SLOT_CODE}`).props.accessibilityState,
         ).toMatchObject({ checked: true });
@@ -2449,9 +2709,9 @@ describe('CheckoutScreen — its choices live in the URL', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('checkout-street-input').props.value).toBe(
-                '12 Sunset Street',
-            );
+            expect(
+                screen.getByTestId(`checkout-address-${HOME_ADDRESS.id}`).props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
         expect(
             screen.getByTestId(`checkout-slot-${DEFAULT_SLOT_CODE}`).props.accessibilityState,
@@ -2470,28 +2730,16 @@ describe('CheckoutScreen — its choices live in the URL', () => {
             await kitchenServed;
         });
 
-        await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
-        await fireEvent.press(
-            await screen.findByTestId(`checkout-address-picker-option-${OFFICE.id}`),
-        );
+        await fireEvent.press(await screen.findByTestId(`checkout-address-${OFFICE.id}`));
         expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ address: OFFICE.id });
-        await waitFor(() => {
-            expect(screen.getByTestId('checkout-street-input').props.value).toBe('1 Tower Road');
-        });
 
         await fireEvent.press(await screen.findByTestId('checkout-slot-evening'));
         expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ slot: 'evening' });
 
-        // The date: the same day next year, by its year select.
+        // The date: the third of the board's day tiles.
         const earliest = earliestStartDate();
-        const nextYear = String(Number(earliest.slice(0, 4)) + 1);
-        await fireEvent.press(screen.getByTestId('checkout-date-field-year-trigger'));
-        await fireEvent.press(
-            await screen.findByTestId(`checkout-date-field-year-option-${nextYear}`),
-        );
-        const chosenDate = earliest.endsWith('-02-29')
-            ? undefined
-            : `${nextYear}${earliest.slice(4)}`;
+        const chosenDate = addDays(earliest, 2)!;
+        await fireEvent.press(screen.getByTestId(`checkout-date-${chosenDate}`));
         expect(routerMock.__router.setParams).toHaveBeenLastCalledWith({ date: chosenDate });
 
         // A choice is a replace of this entry, never a push: Back does not walk through windows.
@@ -2625,7 +2873,9 @@ describe('CheckoutScreen — its choices live in the URL', () => {
     it('opens the address form for another address, or for the one chosen, with a way back', async () => {
         await renderCheckout(basketOf(1), { addresses: [HOME_ADDRESS] });
         await waitFor(() => {
-            expect(screen.getByTestId('checkout-street-input').props.value).not.toBe('');
+            expect(
+                screen.getByTestId(`checkout-address-${HOME_ADDRESS.id}`).props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
         await act(async () => {
             await kitchenServed;
@@ -2635,11 +2885,6 @@ describe('CheckoutScreen — its choices live in the URL', () => {
             date: earliestStartDate(),
             slot: DEFAULT_SLOT_CODE,
         });
-
-        await fireEvent.press(screen.getByTestId('checkout-edit-address'));
-        expect(routerMock.__push).toHaveBeenLastCalledWith(
-            withReturnTo(`/customer/account/addresses/${HOME_ADDRESS.id}`, here),
-        );
 
         await fireEvent.press(screen.getByTestId('checkout-manage-addresses'));
         expect(routerMock.__push).toHaveBeenLastCalledWith(
@@ -2654,7 +2899,7 @@ describe('CheckoutScreen — its choices live in the URL', () => {
         await renderCheckout(basketOf(0), { params: { placed: String(ORDER_ID) } });
 
         expect(await screen.findByTestId('checkout-success-title')).toHaveTextContent(
-            'Order H360-4821 confirmed',
+            'Order H360-4821 placed, waiting for the kitchen',
         );
         // The kitchen's name was a note in the tab that placed it; without it, the words still read.
         expect(screen.getByTestId('checkout-success-body')).toHaveTextContent(/The kitchen/);
@@ -2696,10 +2941,7 @@ describe('CheckoutScreen — the slots the address zone offers', () => {
         await act(async () => {
             await kitchenServed;
         });
-        await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
-        await fireEvent.press(
-            await screen.findByTestId(`checkout-address-picker-option-${addressId}`),
-        );
+        await fireEvent.press(await screen.findByTestId(`checkout-address-${addressId}`));
     }
 
     it('offers only the zone’s slots, moves off one it does not offer, and sends that', async () => {
@@ -2829,15 +3071,15 @@ describe('CheckoutScreen — a basket that crosses the person’s allergies', ()
         await act(async () => {
             await kitchenServed;
         });
-        await fireEvent.press(await screen.findByTestId('checkout-address-picker-trigger'));
-        await fireEvent.press(
-            await screen.findByTestId(`checkout-address-picker-option-${HOME_ADDRESS.id}`),
-        );
+        await fireEvent.press(await screen.findByTestId(`checkout-address-${HOME_ADDRESS.id}`));
         await act(async () => {
             fireEvent.press(screen.getByTestId('checkout-review'));
         });
 
-        expect(await screen.findByTestId('checkout-allergen-conflict')).toBeTruthy();
+        // Basket + checkout, pin 4: the clash sits on its dish in the summary, not in a red box.
+        expect(await screen.findByTestId(`checkout-items-${clashing.id}-clash`)).toHaveTextContent(
+            /Not yet checked for allergens/,
+        );
         await waitFor(() => {
             expect(
                 screen.getByTestId('checkout-place-order').props.accessibilityState,
@@ -2947,9 +3189,82 @@ async function pressNext(times: number): Promise<void> {
     }
 }
 
+/** Every sitting any of the plan's bands fills, once each. */
+const ALL_SITTINGS: readonly PlanSitting[] = PLAN_VARIANTS.flatMap(
+    (variant) => variant.sittings,
+).filter(
+    (sitting, index, all) =>
+        all.findIndex(
+            (other) => other.slot === sitting.slot && other.sequence === sitting.sequence,
+        ) === index,
+);
+
+/** How far ahead {@link pickMealsAhead} chooses: past any start the set-up can open on. */
+const PICKED_AHEAD_DAYS = 42;
+
 /**
- * Plan → delivery → review, for a person with one saved address in a served area — which the
- * delivery step chooses on its own, as the checkout does (HA-22).
+ * A dish already chosen for every sitting of every band on every day of the next six weeks — the
+ * session draft a person leaves behind once they have been through the meals step. Written before
+ * the screen mounts, which is when it reads its draft. Picks for days the run does not deliver on
+ * are carried and never sent, so whatever start the set-up opens on, its whole run is filled.
+ */
+function pickMealsAhead(
+    meal: MarketplaceMeal = MENU_MEALS[0]!,
+    edits: ConfiguratorEdits = {},
+): void {
+    const today = todayIso();
+    const mealPicks: Record<string, MealId> = {};
+    for (let offset = 0; offset < PICKED_AHEAD_DAYS; offset += 1) {
+        const date = addDays(today, offset)!;
+        for (const sitting of ALL_SITTINGS) mealPicks[pickKey(date, sitting)] = meal.id;
+    }
+    configuratorDrafts.write(configuratorDraftKey(String(PLAN.id)), { ...edits, mealPicks });
+}
+
+/** The request `createSubscription` was called with, the first time. */
+function createRequest(harness: {
+    readonly repositories: { readonly commerce: CommerceRepository };
+}): {
+    readonly configuration: SubscriptionConfiguration;
+    readonly acknowledgedTerms: boolean;
+    readonly addressId?: string;
+} {
+    return (harness.repositories.commerce.createSubscription as unknown as jest.Mock).mock
+        .calls[0]?.[0] as {
+        configuration: SubscriptionConfiguration;
+        acknowledgedTerms: boolean;
+        addressId?: string;
+    };
+}
+
+/** Makes one cell of the week grid current and fills it with `meal` from the dish list. */
+async function pickMeal(cellTestID: string, meal: MarketplaceMeal): Promise<void> {
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(cellTestID));
+    });
+    const dish = await screen.findByTestId(`configurator-dish-${meal.slug}`);
+    await act(async () => {
+        fireEvent.press(dish);
+    });
+    await waitFor(() => {
+        expect(screen.getByTestId(`${cellTestID}-value`)).toHaveTextContent(meal.name);
+    });
+}
+
+/** The delivery dates the week grid on screen draws a lunch cell for, in order. */
+function mealRowDates(): string[] {
+    return screen
+        .getAllByTestId(/^configurator-meal-\d{4}-\d{2}-\d{2}-lunch-1$/)
+        .map((cell) =>
+            (cell.props.testID as string).slice('configurator-meal-'.length, -'-lunch-1'.length),
+        );
+}
+
+/**
+ * Plan → delivery → meals → review, for a person with one saved address in a served area — which
+ * the delivery step chooses on its own, as the checkout does (HA-22). The meals step is passed on
+ * the strength of picks already in the draft ({@link pickMealsAhead}), so the case must write them
+ * before it renders.
  */
 async function walkToReviewStep(): Promise<void> {
     await waitFor(() => {
@@ -2963,6 +3278,11 @@ async function walkToReviewStep(): Promise<void> {
 
     await waitFor(() => {
         expect(screen.getByTestId('configurator-area-served')).toBeTruthy();
+    });
+    await pressNext(1);
+
+    await waitFor(() => {
+        expect(screen.getByTestId('configurator-step-meals')).toBeTruthy();
     });
     await pressNext(1);
 
@@ -2982,8 +3302,6 @@ describe('SubscriptionConfiguratorScreen', () => {
     // The set-up's choices are a session draft; no case may inherit one from the case before it.
     beforeEach(() => {
         clearAllSessionDrafts();
-        // Subscribe is answered by the receipt printer, which Jest has no frames to feed: under
-        // reduced motion the receipt is out at once and "View plan" is offered straight away.
         jest.spyOn(AccessibilityInfo, 'isReduceMotionEnabled').mockResolvedValue(true);
     });
 
@@ -2992,8 +3310,8 @@ describe('SubscriptionConfiguratorScreen', () => {
     });
 
     /**
-     * The receipt has printed and the subscription has not opened yet: it opens when the customer
-     * presses "View plan", not mid-print.
+     * The plan is booked and the subscription has not opened yet: it opens when the customer presses
+     * "See my plan" on the booked panel.
      */
     async function viewPlan(): Promise<void> {
         const button = await screen.findByTestId('configurator-view-plan', {}, { timeout: 5000 });
@@ -3008,7 +3326,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         expect(screen.getByTestId('configurator-empty')).toBeTruthy();
     });
 
-    it('reports a failure rather than an empty page for an unknown plan', async () => {
+    it('says a plan that is gone could not be found, with the way to the plans', async () => {
         await renderConfigurator(
             { planId: UNKNOWN_PLAN_ID },
             {
@@ -3017,9 +3335,15 @@ describe('SubscriptionConfiguratorScreen', () => {
             },
         );
         expect(screen.getByTestId('configurator-loading')).toBeTruthy();
+        // Shop · Plan setup, pin 8: not a blank page and not "something went wrong" — the plan is
+        // gone, so the page says so and offers the plans.
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-error')).toBeTruthy();
+            expect(screen.getByTestId('configurator-empty')).toHaveTextContent(
+                /We could not find that plan/,
+            );
         });
+        expect(screen.getByTestId('configurator-browse')).toBeTruthy();
+        expect(screen.queryByTestId('configurator-error')).toBeNull();
     });
 
     it('opens on the band, the meals and the length, with the progress beside them', async () => {
@@ -3053,24 +3377,21 @@ describe('SubscriptionConfiguratorScreen', () => {
             expect(screen.getByTestId(`configurator-variant-${String(light.id)}`)).toBeTruthy();
         });
         const chosen = screen.getByTestId(`configurator-variant-${String(light.id)}`);
-        // The chosen card is the supplied variant's, not the plan's own default one, and it
-        // carries its own kcal range.
+        // The chosen band is the supplied variant's, not the plan's own default one, priced a day.
         expect(chosen.props.accessibilityState?.checked).toBe(true);
-        expect(chosen).toHaveTextContent(/1,400 to 1,600/);
+        expect(chosen).toHaveTextContent(/a day/);
     });
 
-    it('states a choice with one option as its answer, not as a lone chip', async () => {
+    it('offers a single length as the one option, chosen, and still asks for the band', async () => {
         const single = { ...PLAN, durations: PLAN.durations.slice(0, 1) };
         await renderConfigurator({ planId: String(PLAN.id) }, { plan: async () => single });
 
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-duration-only')).toBeTruthy();
-        });
-        expect(
-            screen.queryByTestId(`configurator-duration-${single.durations[0]!.duration}`),
-        ).toBeNull();
+        const only = await screen.findByTestId(
+            `configurator-duration-${single.durations[0]!.duration}`,
+        );
+        expect(only.props.accessibilityState?.checked).toBe(true);
         // The plan's six bands are still a choice.
-        expect(screen.queryByTestId('configurator-variant-only')).toBeNull();
+        expect(screen.getByTestId('configurator-variant')).toBeTruthy();
     });
 
     it('attaches the discount to the length option itself (doc 17, SUB-05)', async () => {
@@ -3080,12 +3401,10 @@ describe('SubscriptionConfiguratorScreen', () => {
             expect(screen.getByTestId('configurator-duration-28d')).toBeTruthy();
         });
         const fourWeeks = screen.getByTestId('configurator-duration-28d');
-        // Named by what it buys — four weeks, twenty-eight deliveries — at the estimate for the
-        // advertised band, with the discount it earns.
+        // Named by the days it buys, with its weeks and the discount it earns under them.
+        expect(fourWeeks).toHaveTextContent(/28 days/);
         expect(fourWeeks).toHaveTextContent(/4 weeks/);
-        expect(fourWeeks).toHaveTextContent(/28 delivery days/);
-        expect(fourWeeks).toHaveTextContent(/1,709\.96/);
-        expect(fourWeeks).toHaveTextContent(/10% off/);
+        expect(fourWeeks).toHaveTextContent(/10%/);
     });
 
     it('names a run that is not whole weeks in days, never rounded to a week', async () => {
@@ -3128,10 +3447,12 @@ describe('SubscriptionConfiguratorScreen', () => {
 
     /**
      * The allergy list is read, not collected (plans-16): the delivery step shows the profile's
-     * own list, which of this plan's sample dishes cross it, and the way to the editor — which
-     * comes back to this very step.
+     * own list, which of the dishes chosen so far cross it, and the way to the editor — which
+     * comes back to this very step. Here the person has been through the meals step and chosen
+     * the halloumi plate throughout.
      */
-    it('shows the profile’s allergy list against the plan’s dishes, with a way to change it', async () => {
+    it('shows the profile’s allergy list against the chosen dishes, with a way to change it', async () => {
+        pickMealsAhead(MENU_MEALS[2]!);
         await renderConfigurator(
             { planId: String(PLAN.id) },
             { addresses: [HOME_ADDRESS], profile: dietaryProfile([MILK]) },
@@ -3151,11 +3472,12 @@ describe('SubscriptionConfiguratorScreen', () => {
         await waitFor(() => {
             expect(
                 within(notice).getByTestId('configurator-allergy-notice-list'),
-            ).toHaveTextContent(/Your allergy list: Milk/);
+            ).toHaveTextContent(/Your allergy list.*Milk/);
         });
-        // The plan's sample week holds one dish with milk in it; it is named, with what it carries.
+        // The run's one dish has milk in it; it is named, with what it carries.
         const clashes = await within(notice).findByTestId('configurator-allergy-notice-clashes');
         expect(clashes).toHaveTextContent(/1 dish in this plan contains something/);
+        expect(clashes).toHaveTextContent(/Halloumi plate/);
         expect(clashes).toHaveTextContent(/Milk/);
         expect(screen.queryByTestId(`configurator-allergen-${MILK}`)).toBeNull();
         expect(screen.queryByTestId('configurator-checks-acknowledge')).toBeNull();
@@ -3189,11 +3511,11 @@ describe('SubscriptionConfiguratorScreen', () => {
         );
 
         await screen.findByTestId('configurator-allergy-notice');
-        // An empty sample is not "nothing crosses": the notice says the dishes are not there to
-        // check, rather than giving a clean bill it cannot stand behind.
+        // No dishes chosen yet is not "nothing crosses": the notice says there is nothing to check
+        // yet, rather than giving a clean bill it cannot stand behind.
         await waitFor(() => {
             expect(screen.getByTestId('configurator-allergy-notice-unchecked')).toHaveTextContent(
-                /has not published its dishes yet/,
+                /Each meal you pick is checked against this list/,
             );
         });
         expect(screen.queryByTestId('configurator-allergy-notice-none')).toBeNull();
@@ -3215,7 +3537,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         );
 
         const note = await screen.findByTestId('configurator-start-date-cutoff');
-        expect(note).toHaveTextContent(/locks each delivery 48 hours ahead/);
+        expect(note).toHaveTextContent(/each delivery locks 48 hours ahead/);
         // The floor the note names is the one the rules enforce: two days on, not tomorrow.
         const floor = earliestStartDate(new Date(), 48);
         expect(floor > earliestStartDate()).toBe(true);
@@ -3246,17 +3568,13 @@ describe('SubscriptionConfiguratorScreen', () => {
         );
 
         await screen.findByTestId('configurator-start-date-cutoff');
-        const [year, , day] = floor.split('-').map(Number);
-        // The date field moves onto the server's floor once that read answers: its day and year
-        // read back as chosen.
+        // The start tiles begin on the server's floor once that read answers, and it is chosen.
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-start-date-field-day-value')).toHaveTextContent(
-                new RegExp(`^${String(day)}$`),
-            );
+            expect(
+                screen.getByTestId(`configurator-start-${floor}`).props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
-        expect(screen.getByTestId('configurator-start-date-field-year-value')).toHaveTextContent(
-            new RegExp(`^${String(year)}$`),
-        );
+        expect(screen.queryByTestId(`configurator-start-${addDays(floor, -1)!}`)).toBeNull();
         // Asked with every delivery day the plan offers — the default choice — in order.
         expect(harness.repositories.commerce.getSubscriptionQuote).toHaveBeenCalledWith({
             planId: PLAN.id,
@@ -3266,7 +3584,7 @@ describe('SubscriptionConfiguratorScreen', () => {
         });
     });
 
-    it('moves an untouched start onto the chosen days, and repairs one the person chose', async () => {
+    it('moves an untouched start onto the chosen days, and greys the day it left', async () => {
         const tomorrow = earliestStartDate();
         const dayAfter = addDays(tomorrow, 1)!;
         const startWeekday = isoWeekday(tomorrow)!;
@@ -3278,8 +3596,7 @@ describe('SubscriptionConfiguratorScreen', () => {
                 quote: testQuote({ changeCutoffHours: 0 }),
             },
         );
-        await screen.findByTestId('configurator-start-date-field');
-        expect(screen.queryByTestId('configurator-start-date-repair')).toBeNull();
+        await screen.findByTestId('configurator-start-date');
         // Every delivery day is pre-selected once the plan's availability has arrived; pressing
         // before that would *select* the day into an empty set rather than drop it.
         await waitFor(() => {
@@ -3290,19 +3607,21 @@ describe('SubscriptionConfiguratorScreen', () => {
         });
 
         // Drop the weekday the start falls on. The start was never chosen, so it follows the days
-        // to the next one of them rather than asking to be repaired.
+        // to the next one of them.
         await act(async () => {
             fireEvent.press(screen.getByTestId(`configurator-weekday-${String(startWeekday)}`));
         });
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-start-date-field-day-value')).toHaveTextContent(
-                new RegExp(`^${String(Number(dayAfter.slice(8, 10)))}$`),
-            );
+            expect(
+                screen.getByTestId(`configurator-start-${dayAfter}`).props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
-        expect(screen.queryByTestId('configurator-start-date-repair')).toBeNull();
+        expect(
+            screen.getByTestId(`configurator-start-${tomorrow}`).props.accessibilityState,
+        ).toMatchObject({ disabled: true });
     });
 
-    it('repairs a chosen start that falls outside the chosen days onto the first that fits', async () => {
+    it('greys a chosen start that falls outside the chosen days, and takes a new one', async () => {
         const tomorrow = earliestStartDate();
         const dayAfter = addDays(tomorrow, 1)!;
         const startWeekday = isoWeekday(tomorrow)!;
@@ -3320,18 +3639,16 @@ describe('SubscriptionConfiguratorScreen', () => {
             },
         );
 
-        // The repair names the first chosen day on or after the floor: the day after tomorrow.
-        const repair = await screen.findByTestId('configurator-start-date-repair');
-        expect(repair).toHaveTextContent(new RegExp(dayAfter.slice(0, 4)));
+        const stale = await screen.findByTestId(`configurator-start-${tomorrow}`);
+        expect(stale.props.accessibilityState).toMatchObject({ disabled: true });
         await act(async () => {
-            fireEvent.press(repair);
+            fireEvent.press(screen.getByTestId(`configurator-start-${dayAfter}`));
         });
         await waitFor(() => {
-            expect(screen.queryByTestId('configurator-start-date-repair')).toBeNull();
+            expect(
+                screen.getByTestId(`configurator-start-${dayAfter}`).props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
-        expect(screen.getByTestId('configurator-start-date-field-day-value')).toHaveTextContent(
-            new RegExp(`^${String(Number(dayAfter.slice(8, 10)))}$`),
-        );
         expect(configuratorDrafts.read(configuratorDraftKey(String(PLAN.id)))?.startDate).toBe(
             dayAfter,
         );
@@ -3347,7 +3664,7 @@ describe('SubscriptionConfiguratorScreen', () => {
             },
         );
 
-        await screen.findByTestId('configurator-start-date-field');
+        await screen.findByTestId('configurator-start-date');
         expect(screen.queryByTestId('configurator-start-date-cutoff')).toBeNull();
     });
 
@@ -3395,25 +3712,34 @@ describe('SubscriptionConfiguratorScreen', () => {
         );
     });
 
-    it('goes back to a step from its Edit on the review', async () => {
-        await renderConfigurator({ planId: String(PLAN.id) }, { addresses: [HOME_ADDRESS] });
+    it.each([
+        ['plan', 'configurator-review-plan-edit', undefined],
+        ['meals', 'configurator-review-meals-edit', 'meals'],
+    ] as const)(
+        'goes back to the %s step from its Edit on the review',
+        async (step, edit, query) => {
+            pickMealsAhead();
+            await renderConfigurator({ planId: String(PLAN.id) }, { addresses: [HOME_ADDRESS] });
 
-        await walkToReviewStep();
+            await walkToReviewStep();
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-review-plan-edit'));
-        });
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-step-plan')).toBeTruthy();
-        });
-        // Edit is a step of its own in history, like Continue: Back returns to the review.
-        const opened = routerMock.__push.mock.calls.at(-1)?.[0] as string;
-        expect(pathnameOf(opened)).toBe(CONFIGURATOR_PATH);
-        expect(queryOf(opened)['step']).toBeUndefined();
-    }, 30_000);
+            await act(async () => {
+                fireEvent.press(screen.getByTestId(edit));
+            });
+            await waitFor(() => {
+                expect(screen.getByTestId(`configurator-step-${step}`)).toBeTruthy();
+            });
+            // Edit is a step of its own in history, like Continue: Back returns to the review.
+            const opened = routerMock.__push.mock.calls.at(-1)?.[0] as string;
+            expect(pathnameOf(opened)).toBe(CONFIGURATOR_PATH);
+            expect(queryOf(opened)['step']).toBe(query);
+        },
+        30_000,
+    );
 
-    it('walks the three steps and creates a real subscription at the end', async () => {
+    it('walks the four steps and creates a real subscription at the end', async () => {
         const created = testSubscription({ state: 'active' });
+        pickMealsAhead();
         const harness = await renderConfigurator(
             { planId: String(PLAN.id) },
             {
@@ -3423,17 +3749,19 @@ describe('SubscriptionConfiguratorScreen', () => {
         );
 
         await walkToReviewStep();
-        expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
-        expect(screen.getByTestId('configurator-summary-address')).toHaveTextContent(
-            /12 Sunset Street/,
+        // The meals the run carries, as a row of their own with a way back to choose again.
+        expect(screen.getByTestId('configurator-review-meals-title')).toHaveTextContent(
+            /35 of 35 meals picked/,
         );
-        // The length reads as what it buys, and the price card as one arithmetic: a delivery day
+        expect(screen.getByTestId('medical-disclaimer')).toBeTruthy();
+        expect(screen.getByTestId('configurator-review-delivery-title')).toHaveTextContent(
+            new RegExp(HOME_ADDRESS.areaName),
+        );
+        // The length reads as the days it buys, and the price as one arithmetic: a delivery day
         // of the band the set-up opened on (the plan's middle one, 465.00 a week → 66.43) lists
         // first, the run buys seven of them, and the total is the server's own figure, with
         // the day it works out to after the discount under it.
-        expect(screen.getByTestId('configurator-summary-duration')).toHaveTextContent(
-            /1 week · 7 delivery days/,
-        );
+        expect(screen.getByTestId('configurator-review-plan-sub')).toHaveTextContent(/7 days/);
         expect(screen.getByTestId('configurator-price-per-day-list-amount')).toHaveTextContent(
             /66\.43/,
         );
@@ -3450,21 +3778,28 @@ describe('SubscriptionConfiguratorScreen', () => {
             within(screen.getByTestId('configurator-review-allergens')).getByTestId(
                 'configurator-review-allergy-notice-list',
             ),
-        ).toHaveTextContent('Your allergy list is empty.');
+        ).toHaveTextContent(/Your allergy list is empty\./);
+
+        // How to pay is shown, not sent: the purchase takes no payment yet.
+        expect(screen.getByTestId('configurator-pay-cash').props.accessibilityState).toMatchObject({
+            checked: true,
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-pay-whish'));
+        });
+        expect(screen.getByTestId('configurator-pay-whish').props.accessibilityState).toMatchObject(
+            { checked: true },
+        );
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
+            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge'));
         });
         await act(async () => {
             fireEvent.press(screen.getByTestId('configurator-create'));
         });
-        // The receipt it printed is the priced preview, under the plan's name.
-        await screen.findByTestId('configurator-view-plan', {}, { timeout: 5000 });
-        expect(screen.getByTestId('configurator-printer-status')).toHaveTextContent(
-            'Plan confirmed',
-        );
-        expect(screen.getByTestId('configurator-receipt-total-amount')).toHaveTextContent(
-            /475\.02/,
+        // The step gives way to the board's booked panel.
+        expect(await screen.findByTestId('configurator-booked')).toHaveTextContent(
+            /Your plan is booked/,
         );
         await viewPlan();
 
@@ -3482,21 +3817,34 @@ describe('SubscriptionConfiguratorScreen', () => {
             expect.stringContaining(`/customer/subscriptions/${String(created.id)}`),
         );
 
-        // What the three steps actually sent: the configuration the person assembled, the saved
+        // What the four steps actually sent: the configuration the person assembled, the saved
         // address it is delivered to, the acknowledgement the contract requires, and nothing
         // resembling a payment.
         expect(harness.repositories.commerce.createSubscription).toHaveBeenCalledTimes(1);
-        const request = (harness.repositories.commerce.createSubscription as unknown as jest.Mock)
-            .mock.calls[0]?.[0] as {
-            configuration: SubscriptionConfiguration;
-            acknowledgedTerms: boolean;
-            addressId?: string;
-        };
+        const request = createRequest(harness);
         expect(request.acknowledgedTerms).toBe(true);
         expect(request.addressId).toBe(HOME_ADDRESS.id);
         expect(request.configuration.planId).toBe(PLAN.id);
+        expect(request.configuration.variantId).toBe(OPENING_VARIANT.id);
         expect(request.configuration.address.area).toBe(HOME_ADDRESS.areaName);
         expect(request.configuration.slotCode).toBe(DEFAULT_SLOT_CODE);
+        // And the meals, in the same call: seven consecutive delivery days from the start, each
+        // with a dish in every one of the band's five sittings, in the order of the day. Nothing
+        // follows the creation — there is no second write to lose.
+        const start = request.configuration.startDate;
+        expect(request.configuration.days).toEqual(
+            Array.from({ length: 7 }, (_, offset) => ({
+                date: addDays(start, offset),
+                meals: [
+                    { slot: 'breakfast', sequence: 1, mealId: MENU_MEALS[0]!.id },
+                    { slot: 'lunch', sequence: 1, mealId: MENU_MEALS[0]!.id },
+                    { slot: 'dinner', sequence: 1, mealId: MENU_MEALS[0]!.id },
+                    { slot: 'snack', sequence: 1, mealId: MENU_MEALS[0]!.id },
+                    { slot: 'snack', sequence: 2, mealId: MENU_MEALS[0]!.id },
+                ],
+            })),
+        );
+        expect(harness.repositories.commerce.setSubscriptionMealChoices).not.toHaveBeenCalled();
         // The set-up is spent: its draft is gone.
         expect(configuratorDrafts.read(configuratorDraftKey(String(PLAN.id)))).toBeNull();
     }, 30_000);
@@ -3506,6 +3854,7 @@ describe('SubscriptionConfiguratorScreen', () => {
      * on the server, so what this asserts is the client half: the request is never sent at all.
      */
     it('will not send a creation whose terms were never acknowledged', async () => {
+        pickMealsAhead();
         const harness = await renderConfigurator(
             { planId: String(PLAN.id) },
             {
@@ -3516,190 +3865,204 @@ describe('SubscriptionConfiguratorScreen', () => {
 
         await walkToReviewStep();
 
+        // Place order waits for the tick, as the board draws it.
+        const create = screen.getByTestId('configurator-create');
+        expect(create.props.accessibilityState).toMatchObject({ disabled: true });
         await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-create'));
-        });
-
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-issue-terms')).toBeTruthy();
+            fireEvent.press(create);
         });
         expect(harness.repositories.commerce.createSubscription).not.toHaveBeenCalled();
         expect(routerMock.__replace).not.toHaveBeenCalled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge'));
+        });
+        expect(screen.getByTestId('configurator-create').props.accessibilityState).toMatchObject({
+            disabled: false,
+        });
     }, 30_000);
 
-    it('draws no meal picker on a plan that does not allow choosing meals', async () => {
-        const harness = await renderConfigurator(
-            { planId: String(PLAN.id) },
-            {
-                addresses: [HOME_ADDRESS],
-                commerce: { createSubscription: async () => testSubscription() },
-            },
-        );
-
-        await walkToReviewStep();
-
-        expect(screen.queryByTestId('configurator-meals-toggle')).toBeNull();
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
+    /**
+     * ③ Meals: a dish for every sitting of every delivery day, from any meal the kitchen publishes.
+     * The run is the two-meal band over a week of every day, starting ten days out — fourteen
+     * sittings — with every day but the first already chosen in the draft.
+     */
+    it('holds Next on the meals step until every sitting of every day has a dish', async () => {
+        const [harvest, sesame, halloumi] = MENU_MEALS as readonly [
+            MarketplaceMeal,
+            MarketplaceMeal,
+            MarketplaceMeal,
+        ];
+        const start = addDays(todayIso(), 10)!;
+        const run = Array.from({ length: 7 }, (_, offset) => addDays(start, offset)!);
+        const laterDays: Record<string, MealId> = {};
+        for (const date of run.slice(1)) {
+            laterDays[`${date}|lunch:1`] = sesame.id;
+            laterDays[`${date}|dinner:1`] = sesame.id;
+        }
+        configuratorDrafts.write(configuratorDraftKey(String(PLAN.id)), {
+            startDate: start,
+            mealPicks: laterDays,
         });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-create'));
-        });
-        await viewPlan();
-        await waitFor(() => {
-            expect(routerMock.__replace).toHaveBeenCalledWith(
-                `/customer/subscriptions/${String(SUBSCRIPTION_ID)}?created=1`,
-            );
-        });
-        expect(harness.repositories.commerce.setSubscriptionMealChoices).not.toHaveBeenCalled();
-    }, 30_000);
-
-    /** Open the first-week picker and choose `meal` for its first day; answers that day. */
-    async function pickFirstDay(meal: MarketplaceMeal): Promise<string> {
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-meals-toggle')).toBeTruthy();
-        });
-        await fireEvent.press(screen.getByTestId('configurator-meals-toggle'));
-        const selects = await screen.findAllByTestId(
-            /^configurator-meal-\d{4}-\d{2}-\d{2}-select$/,
-        );
-        const select = selects[0]?.props.testID as string;
-        await fireEvent.press(screen.getByTestId(`${select}-trigger`));
-        await fireEvent.press(await screen.findByTestId(`${select}-option-${String(meal.id)}`));
-        return select.slice('configurator-meal-'.length, -'-select'.length);
-    }
-
-    it('sends the first week’s picks once the subscription exists, one day at a time', async () => {
         const created = testSubscription({ state: 'active' });
-        const picked = MENU_MEALS[2] as MarketplaceMeal;
         const harness = await renderConfigurator(
-            { planId: String(PLAN.id) },
+            { planId: String(PLAN.id), variantId: String(TWO_MEALS_VARIANT.id) },
             {
                 addresses: [HOME_ADDRESS],
-                quote: testQuote({ allowsFreeSelection: true }),
-                commerce: {
-                    createSubscription: async () => created,
-                    setSubscriptionMealChoices: async () => [],
-                },
+                params: { step: 'meals' },
+                commerce: { createSubscription: async () => created },
             },
         );
 
-        await walkToReviewStep();
-        const firstDay = await pickFirstDay(picked);
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
+        expect(await screen.findByTestId('configurator-step-meals')).toBeTruthy();
+        // The days arrive with the plan's delivery weekdays, which are every day by default.
+        await waitFor(() => {
+            expect(screen.getByTestId('configurator-meals-progress')).toHaveTextContent('12/14');
         });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-create'));
-        });
-        await viewPlan();
+        // One column per delivery day of the week, one row per sitting of the band.
+        expect(mealRowDates()).toEqual(run);
+        const firstDay = `configurator-meal-${start}`;
+        expect(screen.getByTestId(`${firstDay}-lunch-1`).props.accessibilityLabel).toMatch(
+            /^Lunch, .*no meal yet/,
+        );
+        expect(screen.getByTestId(`${firstDay}-dinner-1`).props.accessibilityLabel).toMatch(
+            /^Dinner, /,
+        );
+        expect(screen.queryByTestId(`${firstDay}-breakfast-1`)).toBeNull();
+        expect(screen.queryByTestId(`${firstDay}-lunch-1-value`)).toBeNull();
+        expect(screen.getByTestId(`configurator-meal-${run[1]!}-lunch-1-value`)).toHaveTextContent(
+            sesame.name,
+        );
+        // A single week: no week tabs.
+        expect(screen.queryByTestId('configurator-meals-week-1')).toBeNull();
 
+        // Next is refused beside the button, and the sittings still empty say so where they are.
+        await pressNext(1);
+        await waitFor(() => {
+            expect(
+                within(screen.getByTestId('configurator-summary')).getByTestId(
+                    'configurator-issue-mealsMissing',
+                ),
+            ).toHaveTextContent(/Choose a meal for every sitting of every day to continue\./);
+        });
+        expect(screen.getByTestId('configurator-step-meals')).toBeTruthy();
+        expect(routerMock.__push).not.toHaveBeenCalled();
+
+        await pickMeal(`${firstDay}-lunch-1`, harvest);
+        await pickMeal(`${firstDay}-dinner-1`, halloumi);
+        expect(screen.getByTestId('configurator-meals-progress')).toHaveTextContent('14/14');
+        // Written to the draft as it is chosen, so a detour or a refresh keeps it.
+        expect(
+            configuratorDrafts.read(configuratorDraftKey(String(PLAN.id)))?.mealPicks?.[
+                `${start}|dinner:1`
+            ],
+        ).toBe(halloumi.id);
+
+        await pressNext(1);
         await waitFor(
             () => {
-                expect(routerMock.__replace).toHaveBeenCalledWith(
-                    `/customer/subscriptions/${String(created.id)}?created=1`,
-                );
+                expect(screen.getByTestId('configurator-price-total-amount')).toBeTruthy();
             },
-            { timeout: 5000 },
+            { timeout: 15_000 },
+        );
+        expect(queryOf(routerMock.__push.mock.calls.at(-1)?.[0] as string)['step']).toBe('review');
+        expect(screen.getByTestId('configurator-review-meals-title')).toHaveTextContent(
+            /14 of 14 meals picked/,
         );
 
-        // `POST /subscriptions` carries no meals: the picks follow it, each day its own replace,
-        // under the lunch slot the kitchen's own default would otherwise fill.
-        const choices = harness.repositories.commerce
-            .setSubscriptionMealChoices as unknown as jest.Mock;
-        const days = choices.mock.calls.map(
-            (call) => call[1] as { date: string; choices: { slot: string; mealId: string }[] },
-        );
-        expect(choices.mock.calls.every((call) => call[0] === created.id)).toBe(true);
-        expect(days.length).toBeGreaterThan(1);
-        expect(days.length).toBeLessThanOrEqual(7);
-        expect(days[0]).toEqual({
-            date: firstDay,
-            choices: [{ slot: 'lunch', mealId: picked.id }],
-        });
-        expect(days.flatMap((day) => day.choices.map((choice) => choice.slot))).toEqual(
-            days.map(() => 'lunch'),
-        );
-        // Creation came first; a choice cannot name a subscription that does not exist yet.
-        const createdAt = (harness.repositories.commerce.createSubscription as unknown as jest.Mock)
-            .mock.invocationCallOrder[0] as number;
-        expect(choices.mock.invocationCallOrder[0]).toBeGreaterThan(createdAt);
-    }, 30_000);
-
-    it('sends nothing when the picker was never touched', async () => {
-        const harness = await renderConfigurator(
-            { planId: String(PLAN.id) },
-            {
-                addresses: [HOME_ADDRESS],
-                quote: testQuote({ allowsFreeSelection: true }),
-                commerce: {
-                    createSubscription: async () => testSubscription(),
-                    setSubscriptionMealChoices: async () => [],
-                },
-            },
-        );
-
-        await walkToReviewStep();
-        await waitFor(() => {
-            expect(screen.getByTestId('configurator-meals-toggle')).toBeTruthy();
-        });
         await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
+            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge'));
         });
         await act(async () => {
             fireEvent.press(screen.getByTestId('configurator-create'));
         });
         await viewPlan();
 
-        await waitFor(() => {
-            expect(routerMock.__replace).toHaveBeenCalledWith(
-                `/customer/subscriptions/${String(SUBSCRIPTION_ID)}?created=1`,
-            );
-        });
-        expect(harness.repositories.commerce.setSubscriptionMealChoices).not.toHaveBeenCalled();
+        // The day chosen here and the six from the draft, every sitting, in one create call.
+        const request = createRequest(harness);
+        expect(request.configuration.variantId).toBe(TWO_MEALS_VARIANT.id);
+        expect(request.configuration.days).toEqual(
+            run.map((date, index) => ({
+                date,
+                meals:
+                    index === 0
+                        ? [
+                              { slot: 'lunch', sequence: 1, mealId: harvest.id },
+                              { slot: 'dinner', sequence: 1, mealId: halloumi.id },
+                          ]
+                        : [
+                              { slot: 'lunch', sequence: 1, mealId: sesame.id },
+                              { slot: 'dinner', sequence: 1, mealId: sesame.id },
+                          ],
+            })),
+        );
     }, 30_000);
 
-    it('carries refused picks to the new subscription rather than dropping them quietly', async () => {
-        const created = testSubscription({ state: 'active' });
-        let calls = 0;
+    /**
+     * A long run is filled a week at a time: "Repeat week 1" copies the first week onto every later
+     * day of the same weekday and leaves a day the person already chose alone. One delivery day a
+     * week here, so the seven deliveries are seven weeks of one day each.
+     */
+    it('fills a week from the person’s own picks, keeping a dish already chosen', async () => {
+        const [harvest, sesame, halloumi] = MENU_MEALS as readonly [
+            MarketplaceMeal,
+            MarketplaceMeal,
+            MarketplaceMeal,
+        ];
+        const start = addDays(todayIso(), 10)!;
+        const run = Array.from({ length: 7 }, (_, week) => addDays(start, week * 7)!);
+        const thirdWeek = run[2]!;
+        configuratorDrafts.write(configuratorDraftKey(String(PLAN.id)), {
+            startDate: start,
+            deliveryWeekdays: [isoWeekday(start)!],
+            // Chosen before for week 3's lunch: Fill must leave it alone.
+            mealPicks: { [`${thirdWeek}|lunch:1`]: sesame.id },
+        });
         await renderConfigurator(
-            { planId: String(PLAN.id) },
-            {
-                addresses: [HOME_ADDRESS],
-                quote: testQuote({ allowsFreeSelection: true }),
-                commerce: {
-                    createSubscription: async () => created,
-                    // The first day is refused; the rest go through.
-                    setSubscriptionMealChoices: async () => {
-                        calls += 1;
-                        if (calls === 1) throw new ApiError(apiFailure('network'));
-                        return [];
-                    },
-                },
-            },
+            { planId: String(PLAN.id), variantId: String(TWO_MEALS_VARIANT.id) },
+            { addresses: [HOME_ADDRESS], params: { step: 'meals' } },
         );
 
-        await walkToReviewStep();
-        await pickFirstDay(MENU_MEALS[0] as MarketplaceMeal);
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-create'));
-        });
-        await viewPlan();
+        expect(await screen.findByTestId('configurator-step-meals')).toBeTruthy();
+        // Seven weeks of one delivery day each, a tab per week.
+        for (const index of run.keys()) {
+            expect(
+                screen.getByTestId(`configurator-meals-week-${String(index + 1)}`),
+            ).toHaveTextContent(new RegExp(`^Week ${String(index + 1)}`));
+        }
+        expect(mealRowDates()).toEqual([start]);
 
-        // Still the subscription's page — it exists, and the set-up could only make a second one —
-        // told how many picks did not land.
-        await waitFor(
-            () => {
-                expect(routerMock.__replace).toHaveBeenCalledWith(
-                    `/customer/subscriptions/${String(created.id)}?created=1&unsavedMeals=1`,
-                );
-            },
-            { timeout: 5000 },
-        );
+        await pickMeal(`configurator-meal-${start}-lunch-1`, harvest);
+        await pickMeal(`configurator-meal-${start}-dinner-1`, halloumi);
+        // Week 1 is whole: nothing left in it to fill.
+        expect(
+            screen.getByTestId('configurator-meals-fill').props.accessibilityState,
+        ).toMatchObject({ disabled: true });
+
+        // Week 3: its lunch was chosen; Fill takes the dinner from the same day in week 1.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-meals-week-3'));
+        });
+        expect(mealRowDates()).toEqual([thirdWeek]);
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('configurator-meals-fill'));
+        });
+        await waitFor(() => {
+            expect(
+                screen.getByTestId(`configurator-meal-${thirdWeek}-dinner-1-value`),
+            ).toHaveTextContent(halloumi.name);
+        });
+        expect(
+            screen.getByTestId(`configurator-meal-${thirdWeek}-lunch-1-value`),
+        ).toHaveTextContent(sesame.name);
+        const draft = configuratorDrafts.read(configuratorDraftKey(String(PLAN.id)));
+        expect(draft?.mealPicks?.[`${thirdWeek}|dinner:1`]).toBe(halloumi.id);
+        expect(draft?.mealPicks?.[`${thirdWeek}|lunch:1`]).toBe(sesame.id);
+        // The weeks not yet filled still hold the step.
+        await pressNext(1);
+        await waitFor(() => {
+            expect(screen.getByTestId('configurator-issue-mealsMissing')).toBeTruthy();
+        });
     }, 30_000);
 });
 
@@ -3724,7 +4087,7 @@ describe('SubscriptionConfiguratorScreen — its place survives leaving it', () 
     /** The band a set-up opened without one starts on: the plan's middle one. */
     const MIDDLE_BAND = PLAN.variants[Math.floor(PLAN.variants.length / 2)]!;
     /** The set-up at a step, with the band and address a fresh one derives. */
-    const at = (step: 'plan' | 'delivery' | 'review', address: string | undefined) =>
+    const at = (step: 'plan' | 'delivery' | 'meals' | 'review', address: string | undefined) =>
         configuratorHref({ plan: PLAN_PARAM, variant: String(MIDDLE_BAND.id), step, address });
 
     it('opens on the step its URL names', async () => {
@@ -3756,6 +4119,24 @@ describe('SubscriptionConfiguratorScreen — its place survives leaving it', () 
         expect(await screen.findByTestId('configurator-step-delivery')).toBeTruthy();
         expect(routerMock.__router.setParams).toHaveBeenCalledWith({ step: 'delivery' });
         expect(screen.queryByTestId('configurator-step-review')).toBeNull();
+    });
+
+    it('moves a review whose days have no meals yet back to the meals step', async () => {
+        // The desk stepper: a phone draws a progress line with no step buttons.
+        await withDeskWidth(async () => {
+            // An address and a delivery step that is answered — and not one meal chosen.
+            await renderConfigurator(
+                { planId: PLAN_PARAM },
+                { addresses: [HOME_ADDRESS], params: { step: 'review' } },
+            );
+
+            expect(await screen.findByTestId('configurator-step-meals')).toBeTruthy();
+            expect(routerMock.__router.setParams).toHaveBeenCalledWith({ step: 'meals' });
+            expect(screen.queryByTestId('configurator-step-review')).toBeNull();
+            expect(
+                screen.getByTestId('configurator-progress-review').props.accessibilityState,
+            ).toMatchObject({ disabled: true });
+        });
     });
 
     it.each([
@@ -3860,19 +4241,17 @@ describe('SubscriptionConfiguratorScreen — its place survives leaving it', () 
         await screen.findByTestId('configurator-step-delivery');
 
         await waitFor(() => {
-            expect(screen.getByTestId('configurator-address-picker-trigger')).toHaveTextContent(
-                /1 Tower Road/,
-            );
+            expect(
+                screen.getByTestId(`configurator-address-${OFFICE.id}`).props.accessibilityState,
+            ).toMatchObject({ checked: true });
         });
         // And another choice is written back into the URL, not kept in the screen.
-        await fireEvent.press(screen.getByTestId('configurator-address-picker-trigger'));
-        await fireEvent.press(
-            await screen.findByTestId(`configurator-address-picker-option-${HOME_ADDRESS.id}`),
-        );
+        await fireEvent.press(screen.getByTestId(`configurator-address-${HOME_ADDRESS.id}`));
         expect(routerMock.__router.setParams).toHaveBeenCalledWith({ address: HOME_ADDRESS.id });
     });
 
     it('lists the account steps up front, each coming back here, and holds Subscribe', async () => {
+        pickMealsAhead();
         await renderConfigurator(
             { planId: PLAN_PARAM },
             {
@@ -3914,7 +4293,7 @@ describe('SubscriptionConfiguratorScreen — its place survives leaving it', () 
         });
         await walkToReviewStep();
         await act(async () => {
-            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge-control'));
+            fireEvent.press(screen.getByTestId('configurator-confirm-acknowledge'));
         });
         const create = screen.getByTestId('configurator-create');
         expect(create.props.accessibilityState).toMatchObject({ disabled: true });
@@ -3927,16 +4306,29 @@ describe('SubscriptionConfiguratorScreen — its place survives leaving it', () 
                 duration: '28d',
                 slotCode: 'evening',
                 deliveryWeekdays: [1, 3, 9],
+                mealPicks: { '2026-11-02|lunch:1': 'meal-1', '2026-11-02|dinner:1': 'meal-2' },
+                // None is a field of the set-up any more; a draft from before carries them. The
+                // flat first-week list was replaced by a pick per sitting of every day.
                 selectedMealIds: ['meal-1'],
-                // Neither is a field of the set-up any more; a draft from before carries them.
                 excludeAllergens: ['tree_nut'],
                 dietClassifications: ['omnivore'],
                 termsAcknowledged: true,
                 variantId: 'from-somewhere',
             }),
-        ).toEqual({ duration: '28d', slotCode: 'evening', selectedMealIds: ['meal-1'] });
+        ).toEqual({
+            duration: '28d',
+            slotCode: 'evening',
+            mealPicks: { '2026-11-02|lunch:1': 'meal-1', '2026-11-02|dinner:1': 'meal-2' },
+        });
         // A length from before runs were named by their days is dropped, not misread.
         expect(parseConfiguratorEdits({ duration: '4w', slotCode: 'evening' })).toEqual({
+            slotCode: 'evening',
+        });
+        // Picks that are not a map of dish identifiers are dropped whole rather than half-read.
+        expect(
+            parseConfiguratorEdits({ slotCode: 'evening', mealPicks: { '2026-11-02|lunch:1': 7 } }),
+        ).toEqual({ slotCode: 'evening' });
+        expect(parseConfiguratorEdits({ slotCode: 'evening', mealPicks: ['meal-1'] })).toEqual({
             slotCode: 'evening',
         });
         expect(parseConfiguratorEdits('not a draft')).toBeNull();
@@ -4062,10 +4454,74 @@ describe('SubscriptionsScreen', () => {
  */
 interface SubscriptionWorld {
     subscription: Subscription;
+    /** The run's meals, day by day, as `GET …/days` serves them. */
+    days: SubscriptionPlanDays;
+}
+
+/** The sittings the subscription's band fills: lunch and dinner. */
+const SUBSCRIPTION_SITTINGS: readonly PlanSitting[] = [
+    { slot: 'lunch', sequence: 1 },
+    { slot: 'dinner', sequence: 1 },
+];
+
+/** The Wednesday after {@link NEXT_DELIVERY}, past its change cut-off once nothing can be changed. */
+const LOCKED_DELIVERY = '2026-09-09';
+
+function chosenMeal(
+    date: string,
+    sitting: PlanSitting,
+    meal: MarketplaceMeal,
+    source: SubscriptionMealChoice['source'] = 'customer',
+): SubscriptionMealChoice {
+    return {
+        date,
+        slot: sitting.slot,
+        sequence: sitting.sequence,
+        mealId: meal.id,
+        mealName: meal.name,
+        source,
+    };
+}
+
+function planDay(
+    date: string,
+    meals: readonly [MarketplaceMeal, MarketplaceMeal],
+    overrides: Partial<SubscriptionPlanDay> = {},
+): SubscriptionPlanDay {
+    return {
+        date,
+        basis: 'actual',
+        status: 'scheduled',
+        editable: true,
+        changeDeadline: `${date}T00:00:00.000Z`,
+        meals: SUBSCRIPTION_SITTINGS.map((sitting, index) =>
+            chosenMeal(date, sitting, meals[index]!),
+        ),
+        ...overrides,
+    };
+}
+
+/**
+ * Two days to come: the next delivery, still open, with the harvest bowl and the halloumi plate —
+ * the one dish with milk in it — and the one after, already locked.
+ */
+function testPlanDays(): SubscriptionPlanDays {
+    const [harvest, sesame, halloumi] = MENU_MEALS as readonly [
+        MarketplaceMeal,
+        MarketplaceMeal,
+        MarketplaceMeal,
+    ];
+    return {
+        sittings: SUBSCRIPTION_SITTINGS,
+        days: [
+            planDay(NEXT_DELIVERY, [harvest, halloumi]),
+            planDay(LOCKED_DELIVERY, [sesame, harvest], { editable: false }),
+        ],
+    };
 }
 
 function liveWorld(overrides: Partial<Subscription> = {}): SubscriptionWorld {
-    return { subscription: testSubscription(overrides) };
+    return { subscription: testSubscription(overrides), days: testPlanDays() };
 }
 
 interface DetailOptions {
@@ -4133,6 +4589,23 @@ function transitions(world: SubscriptionWorld): Partial<CommerceRepository> {
             };
             return world.subscription;
         },
+        listSubscriptionDays: async (): Promise<SubscriptionPlanDays> => world.days,
+        // The whole day is replaced, as the server replaces it, and answered named.
+        setSubscriptionMealChoices: async (
+            _id: SubscriptionId,
+            request: SetSubscriptionMealChoicesRequest,
+        ): Promise<readonly SubscriptionMealChoice[]> => {
+            const meals = request.choices.map((choice) =>
+                chosenMeal(request.date, choice, mealById(choice.mealId)),
+            );
+            world.days = {
+                ...world.days,
+                days: world.days.days.map((day) =>
+                    day.date === request.date ? { ...day, meals } : day,
+                ),
+            };
+            return meals;
+        },
     };
 }
 
@@ -4157,7 +4630,8 @@ function renderDetail(world: SubscriptionWorld, options: DetailOptions = {}) {
                     listAddresses: async () => options.addresses ?? [],
                     getDietaryProfile: async () => options.profile ?? dietaryProfile(),
                 },
-                // The plan and the kitchen's menu, for the allergy notice on the plan card.
+                // The kitchen's menu: what a day's meals may be changed to, and what the allergy
+                // notice reads the chosen dishes' allergens from.
                 marketplace: {
                     getPlan: async () => PLAN,
                     listMeals: async () => page(MENU_MEALS),
@@ -4173,7 +4647,7 @@ describe('SubscriptionDetailScreen', () => {
         expect(screen.getByTestId('subscription-detail-empty')).toBeTruthy();
     });
 
-    it('reports a failure for an identifier that is well formed but unknown', async () => {
+    it('says a well-formed but unknown subscription could not be found', async () => {
         await renderDetail(liveWorld(), {
             subscriptionId: UNKNOWN_SUBSCRIPTION_ID,
             latencyMs: 40,
@@ -4183,9 +4657,13 @@ describe('SubscriptionDetailScreen', () => {
             },
         });
         expect(screen.getByTestId('subscription-detail-loading')).toBeTruthy();
+        // Shop · Subscription, pin 13: "could not find", not "something went wrong".
         await waitFor(() => {
-            expect(screen.getByTestId('subscription-detail-error')).toBeTruthy();
+            expect(screen.getByTestId('subscription-detail-empty')).toHaveTextContent(
+                /We could not find that subscription/,
+            );
         });
+        expect(screen.queryByTestId('subscription-detail-error')).toBeNull();
     });
 
     it('renders the record, the plan card with its Change links, and the actions', async () => {
@@ -4205,54 +4683,137 @@ describe('SubscriptionDetailScreen', () => {
         // Resume is not offered from an active subscription: the repository would refuse it.
         expect(screen.queryByTestId('subscription-resume')).toBeNull();
 
-        // The length is what was bought, read as weeks and as the balance it created; the
-        // start date is in the past, so it "Started".
-        expect(screen.getByTestId('subscription-detail-row-duration')).toHaveTextContent(
-            /4 weeks · 28 delivery days/,
-        );
-        expect(screen.getByTestId('subscription-detail-row-start')).toHaveTextContent(/Started/);
-        expect(screen.getByTestId('subscription-detail-row-start')).toHaveTextContent(/Aug/);
-        expect(screen.getByTestId('subscription-detail-row-start')).toHaveTextContent(/2026/);
+        // The board's four tiles: address, window, days — each with its Change — and the meals.
+        expect(screen.getByTestId('subscription-detail-row-slot')).toBeTruthy();
+        expect(screen.getByTestId('subscription-detail-row-days')).toBeTruthy();
+        expect(screen.getByTestId('subscription-change-weekdays')).toBeTruthy();
+        expect(screen.getByTestId('subscription-pick-meals')).toBeTruthy();
         // No "Excluded" row reading a field nothing wrote: the allergy list is its own card.
         expect(screen.queryByTestId('subscription-detail-row-allergens')).toBeNull();
         expect(screen.queryByTestId('subscription-timeline-paused-until')).toBeNull();
     });
 
-    it('says a subscription that has not begun "Starts", and one with no date "Not planned yet"', async () => {
-        await renderDetail(
-            liveWorld({ configuration: testConfiguration({ startDate: '2099-01-04' }) }),
-        );
-        const future = await screen.findByTestId('subscription-detail-row-start');
-        expect(future).toHaveTextContent(/Starts/);
-        expect(future).not.toHaveTextContent(/Started/);
-        expect(future).toHaveTextContent(/Jan/);
-        expect(future).toHaveTextContent(/2099/);
-
-        await renderDetail(liveWorld({ configuration: testConfiguration({ startDate: '' }) }));
-        await waitFor(() => {
-            expect(screen.getByTestId('subscription-detail-row-start')).toHaveTextContent(
-                /Not planned yet/,
-            );
-        });
-    });
-
-    it('shows the profile’s allergy list against the plan’s dishes, with a way to change it', async () => {
+    it('shows the profile’s allergy list against the chosen dishes, with a way to change it', async () => {
         await renderDetail(liveWorld(), { profile: dietaryProfile([MILK]) });
 
+        // With the meals, under "Pick meals".
+        await fireEvent.press(await screen.findByTestId('subscription-pick-meals'));
         const card = await screen.findByTestId('subscription-detail-allergies');
         await waitFor(() => {
             expect(
                 within(card).getByTestId('subscription-detail-allergy-notice-list'),
-            ).toHaveTextContent(/Your allergy list: Milk/);
+            ).toHaveTextContent(/Your allergy list.*Milk/);
         });
-        expect(
-            await within(card).findByTestId('subscription-detail-allergy-notice-clashes'),
-        ).toHaveTextContent(/1 dish in this plan contains something/);
+        // Three dishes across the run's days; the halloumi plate is the one with milk in it.
+        const clashes = await within(card).findByTestId(
+            'subscription-detail-allergy-notice-clashes',
+        );
+        expect(clashes).toHaveTextContent(/1 dish in this plan contains something/);
+        expect(clashes).toHaveTextContent(/Halloumi plate/);
 
         await fireEvent.press(within(card).getByTestId('subscription-detail-allergy-notice-edit'));
         expect(String(routerMock.__push.mock.calls.at(-1)?.[0])).toMatch(
             new RegExp(`^${ALLERGY_LIST_HREF}\\?returnTo=`),
         );
+    });
+
+    /**
+     * The customer chose every meal when they subscribed; the page lists them day by day and
+     * changes one open day at a time — the whole day, every sitting, in one write.
+     */
+    it('lists each day’s meals and saves a changed day with every sitting', async () => {
+        const [harvest, sesame] = MENU_MEALS as readonly [MarketplaceMeal, MarketplaceMeal];
+        const world = liveWorld();
+        const harness = await renderDetail(world);
+
+        await fireEvent.press(await screen.findByTestId('subscription-pick-meals'));
+        const section = await screen.findByTestId('subscription-meals');
+        const open = await within(section).findByTestId(`subscription-meals-day-${NEXT_DELIVERY}`);
+        expect(
+            within(open).getByTestId(`subscription-meals-day-${NEXT_DELIVERY}-lunch-1`),
+        ).toHaveTextContent(/Lunch.*Harvest bowl/);
+        expect(
+            within(open).getByTestId(`subscription-meals-day-${NEXT_DELIVERY}-dinner-1`),
+        ).toHaveTextContent(/Dinner.*Halloumi plate/);
+        // A day past its cut-off is shown, never offered for change.
+        const locked = within(section).getByTestId(`subscription-meals-day-${LOCKED_DELIVERY}`);
+        expect(locked).toHaveTextContent(/Sesame greens/);
+        expect(screen.queryByTestId(`subscription-meals-day-${LOCKED_DELIVERY}-change`)).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`subscription-meals-day-${NEXT_DELIVERY}-change`));
+        });
+        const dialog = await screen.findByTestId('subscription-meals-dialog');
+        // The day's own meals are where the editor starts — named once the menu's meals load,
+        // which can trail the dialog ("Choose a meal" until then).
+        await waitFor(() => {
+            expect(
+                within(dialog).getByTestId('subscription-meals-dialog-cell-lunch-1-value'),
+            ).toHaveTextContent(harvest.name);
+        });
+        // Meals for a day: the dinner cell, then a dish from the list under it.
+        await fireEvent.press(
+            within(dialog).getByTestId('subscription-meals-dialog-cell-dinner-1'),
+        );
+        await fireEvent.press(
+            within(dialog).getByTestId(`subscription-meals-dialog-dish-${sesame.slug}`),
+        );
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('subscription-meals-save'));
+        });
+
+        // Every sitting of the day goes, the untouched lunch with the changed dinner.
+        await waitFor(() => {
+            expect(harness.repositories.commerce.setSubscriptionMealChoices).toHaveBeenCalledWith(
+                SUBSCRIPTION_ID,
+                {
+                    date: NEXT_DELIVERY,
+                    choices: [
+                        { slot: 'lunch', sequence: 1, mealId: harvest.id },
+                        { slot: 'dinner', sequence: 1, mealId: sesame.id },
+                    ],
+                },
+            );
+        });
+        await waitFor(() => {
+            expect(screen.queryByTestId('subscription-meals-dialog')).toBeNull();
+        });
+        // Redrawn from the server's days, not from what was pressed.
+        await waitFor(() => {
+            expect(
+                screen.getByTestId(`subscription-meals-day-${NEXT_DELIVERY}-dinner-1`),
+            ).toHaveTextContent(/Sesame greens/);
+        });
+        expect(
+            (harness.repositories.commerce.listSubscriptionDays as unknown as jest.Mock).mock.calls
+                .length,
+        ).toBeGreaterThan(1);
+    });
+
+    it('marks a day nobody chose for as repeated, and offers no change once it is over', async () => {
+        const [harvest, sesame] = MENU_MEALS as readonly [MarketplaceMeal, MarketplaceMeal];
+        const world = liveWorld({ state: 'expired', nextDeliveryDate: null });
+        world.days = {
+            sittings: SUBSCRIPTION_SITTINGS,
+            days: [
+                planDay(NEXT_DELIVERY, [harvest, sesame], {
+                    meals: SUBSCRIPTION_SITTINGS.map((sitting, index) =>
+                        chosenMeal(NEXT_DELIVERY, sitting, [harvest, sesame][index]!, 'repeated'),
+                    ),
+                }),
+            ],
+        };
+        await renderDetail(world);
+
+        // Over, the tile still offers the meals — to see, not to pick.
+        const see = await screen.findByTestId('subscription-pick-meals');
+        expect(see).toHaveTextContent(/See meals/);
+        await fireEvent.press(see);
+        expect(
+            await screen.findByTestId(`subscription-meals-day-${NEXT_DELIVERY}-repeated`),
+        ).toHaveTextContent(/Repeated/);
+        // Shown, never changed: the subscription is over, however open the day itself is.
+        expect(screen.queryByTestId(`subscription-meals-day-${NEXT_DELIVERY}-change`)).toBeNull();
     });
 
     /**
@@ -4384,11 +4945,9 @@ describe('SubscriptionDetailScreen', () => {
         await waitFor(() => {
             expect(screen.getByTestId('subscription-slot-picker')).toBeTruthy();
         });
+        // Picking a window inside the tile is the change: the board's editor has no Save.
         await act(async () => {
             fireEvent.press(screen.getByTestId('subscription-slot-evening'));
-        });
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('subscription-slot-confirm'));
         });
 
         await waitFor(() => {
@@ -4396,7 +4955,10 @@ describe('SubscriptionDetailScreen', () => {
         });
         expect(harness.repositories.commerce.changeSlot).toHaveBeenCalledWith(SUBSCRIPTION_ID, {
             slotCode: 'evening',
-            deliveryWeekdays: [1, 3, 5],
+        });
+        // And the editor closes on the answer.
+        await waitFor(() => {
+            expect(screen.queryByTestId('subscription-slot-picker')).toBeNull();
         });
     });
 
@@ -4426,20 +4988,18 @@ describe('SubscriptionDetailScreen', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('subscription-change-address'));
         });
-        await fireEvent.press(await screen.findByTestId('subscription-address-picker-trigger'));
-        await fireEvent.press(
-            await screen.findByTestId(`subscription-address-picker-option-${garden.id}`),
-        );
+        // Picking a saved address inside the tile is the change.
+        const option = await screen.findByTestId(`subscription-address-option-${garden.id}`);
         await act(async () => {
-            fireEvent.press(screen.getByTestId('subscription-address-confirm'));
+            fireEvent.press(option);
         });
 
         await waitFor(() => {
             expect(world.subscription.configuration.address.line1).toBe(garden.line1);
         });
-        // And the configuration table redraws from the answer rather than from what was pressed.
+        // And the tile redraws from the answer rather than from what was pressed.
         await waitFor(() => {
-            expect(screen.getByText('Villa 12, Garden Row, Dubai Marina')).toBeTruthy();
+            expect(screen.getByText(/Villa 12, Garden Row, Dubai Marina/)).toBeTruthy();
         });
         expect(harness.repositories.commerce.changeAddress).toHaveBeenCalledWith(SUBSCRIPTION_ID, {
             address: expect.objectContaining({ line1: garden.line1, area: garden.areaName }),
@@ -4494,12 +5054,12 @@ describe('SubscriptionDetailScreen', () => {
         await renderDetail(liveWorld());
 
         const created = await screen.findByTestId('subscription-created');
-        expect(created).toHaveTextContent(/Your subscription is set up/);
+        expect(created).toHaveTextContent(/Your plan is set up/);
         await fireEvent.press(screen.getByTestId('subscription-created-dismiss'));
         expect(routerMock.__router.setParams).toHaveBeenCalledWith({ created: undefined });
     });
 
-    it('adds a new address from the address dialog, and reopens it on that address', async () => {
+    it('adds a new address from the address editor, and reopens it on that address', async () => {
         const garden = testAddress({
             id: 'address-garden',
             label: 'Garden',
@@ -4524,12 +5084,9 @@ describe('SubscriptionDetailScreen', () => {
         routerMock.__set({ params: { dialog: 'address', address: garden.id } });
         await renderDetail(liveWorld(), { addresses: [HOME_ADDRESS, garden] });
 
-        expect(await screen.findByTestId('subscription-address-dialog')).toBeTruthy();
-        await waitFor(() => {
-            expect(screen.getByTestId('subscription-address-picker-trigger')).toHaveTextContent(
-                /Villa 12, Garden Row/,
-            );
-        });
+        // The editor is open again, with the address just saved among its choices.
+        expect(await screen.findByTestId(`subscription-address-option-${garden.id}`)).toBeTruthy();
+        expect(screen.getByTestId('subscription-address-add')).toBeTruthy();
         // Taken off the entry, so a refresh or a Back onto it does not open the dialog again.
         expect(routerMock.__router.setParams).toHaveBeenCalledWith({
             dialog: undefined,
@@ -4537,7 +5094,7 @@ describe('SubscriptionDetailScreen', () => {
         });
     });
 
-    it('goes up to the account and the list by name, never stacking a copy', async () => {
+    it('goes up to the list by name, never stacking a copy', async () => {
         await renderDetail(liveWorld());
         await screen.findByTestId('subscription-detail-name');
 
@@ -4545,12 +5102,10 @@ describe('SubscriptionDetailScreen', () => {
         expect(routerMock.__router.dismissTo).toHaveBeenLastCalledWith(
             '/customer/account?section=subscriptions',
         );
-        await fireEvent.press(screen.getByTestId('subscription-detail-crumb-account'));
-        expect(routerMock.__router.dismissTo).toHaveBeenLastCalledWith('/customer/account');
         expect(routerMock.__push).not.toHaveBeenCalled();
     });
 
-    it('offers the same plan again, or the list, once a subscription is over', async () => {
+    it('offers the same plan again once a subscription is over', async () => {
         await renderDetail(liveWorld({ state: 'expired', nextDeliveryDate: null }));
 
         const notice = await screen.findByTestId('subscription-detail-read-only');
@@ -4558,10 +5113,9 @@ describe('SubscriptionDetailScreen', () => {
         expect(routerMock.__push).toHaveBeenLastCalledWith(
             `/plans/${String(PLAN_ID)}?variant=${String(testConfiguration().variantId)}`,
         );
-        await fireEvent.press(within(notice).getByTestId('subscription-detail-list'));
-        expect(routerMock.__router.dismissTo).toHaveBeenLastCalledWith(
-            '/customer/account?section=subscriptions',
-        );
+        // Nothing to change on a finished plan.
+        expect(screen.queryByTestId('subscription-change-address')).toBeNull();
+        expect(screen.queryByTestId('subscription-cancel-open')).toBeNull();
     });
 
     /**

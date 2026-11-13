@@ -11,6 +11,7 @@ use Healthy360\Cart\Exceptions\LineRefused;
 use Healthy360\Cart\Models\Cart;
 use Healthy360\Cart\Models\CartItem;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Catalogues\Services\DishOptions;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Support\Api\ErrorCode;
@@ -52,6 +53,7 @@ final readonly class CartService
         private LineProbe $probe,
         private ChannelCurrency $currencies,
         private AuditRecorder $audit,
+        private DishOptions $options,
     ) {}
 
     /**
@@ -115,6 +117,7 @@ final readonly class CartService
      * a guarantee; this method makes it the behaviour.
      *
      * @param  string|int|float  $quantity  how many; must be positive
+     * @param  list<string>  $optionIds  the dish's free options chosen; part of the line's identity, with the note
      *
      * @throws ApiException|LineRefused
      */
@@ -124,6 +127,8 @@ final readonly class CartService
         ?string $catalogueItemVariantId = null,
         string|int|float $quantity = 1,
         ?CarbonImmutable $deliveryDate = null,
+        array $optionIds = [],
+        ?string $note = null,
     ): CartItem {
         $this->assertShoppable($cart);
 
@@ -135,7 +140,16 @@ final readonly class CartService
         // merge lookup, so a repeat add lands on the line the first add created.
         $catalogueItemVariantId ??= $this->probe->packFor($channel, $catalogueItemId, $asked, $deliveryDate, $buyer);
 
-        $existing = $this->lineOf($cart, $catalogueItemId, $catalogueItemVariantId, $deliveryDate);
+        $selected = $this->options->snapshot($catalogueItemId, $optionIds);
+
+        if ($selected === null) {
+            throw new LineRefused([['reason' => $this->options->refusal($catalogueItemId, $optionIds), 'catalogue_item_id' => $catalogueItemId]]);
+        }
+
+        $note = trim((string) $note) === '' ? null : trim((string) $note);
+        $lineKey = DishOptions::lineKey($optionIds, $note);
+
+        $existing = $this->lineOf($cart, $catalogueItemId, $catalogueItemVariantId, $deliveryDate, $lineKey);
         $total = $this->decimal((float) $asked + ($existing instanceof CartItem ? (float) $existing->quantity : 0.0));
 
         // Probed at the *combined* quantity, not the increment: a tier that
@@ -150,13 +164,16 @@ final readonly class CartService
             $deliveryDate,
             $cart->currency_code,
             $buyer,
+            // An undated line is not for today, it is for a day not chosen yet.
+            // Placement asks the calendar about the day that is.
+            enforceCalendar: $deliveryDate !== null,
         );
 
         if (! $result->isOrderable()) {
             throw new LineRefused($result->refusals);
         }
 
-        $line = DB::transaction(function () use ($cart, $existing, $catalogueItemId, $catalogueItemVariantId, $total, $deliveryDate): CartItem {
+        $line = DB::transaction(function () use ($cart, $existing, $catalogueItemId, $catalogueItemVariantId, $total, $deliveryDate, $selected, $note, $lineKey): CartItem {
             if ($existing instanceof CartItem) {
                 $existing->quantity = $total;
                 $existing->save();
@@ -170,6 +187,9 @@ final readonly class CartService
             $line->catalogue_item_variant_id = $catalogueItemVariantId;
             $line->quantity = $total;
             $line->delivery_date = $deliveryDate;
+            $line->selected_options = $selected === [] ? null : $selected;
+            $line->note = $note;
+            $line->line_key = $lineKey;
             $line->save();
 
             return $line;
@@ -218,6 +238,7 @@ final readonly class CartService
             $line->delivery_date,
             $cart->currency_code,
             $this->buyerOf($cart),
+            enforceCalendar: $line->delivery_date !== null,
         );
 
         if (! $result->isOrderable()) {
@@ -375,11 +396,12 @@ final readonly class CartService
         $cart->save();
     }
 
-    private function lineOf(Cart $cart, string $itemId, ?string $variantId, ?CarbonImmutable $deliveryDate): ?CartItem
+    private function lineOf(Cart $cart, string $itemId, ?string $variantId, ?CarbonImmutable $deliveryDate, string $lineKey): ?CartItem
     {
         $query = CartItem::query()
             ->where('cart_id', $cart->getKey())
-            ->where('catalogue_item_id', $itemId);
+            ->where('catalogue_item_id', $itemId)
+            ->where('line_key', $lineKey);
 
         $variantId === null
             ? $query->whereNull('catalogue_item_variant_id')

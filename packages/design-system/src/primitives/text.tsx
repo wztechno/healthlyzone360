@@ -51,6 +51,8 @@ export const TEXT_TONES = [
     'success',
     'warning',
     'info',
+    'sidebar',
+    'sidebarMuted',
 ] as const;
 export type TextTone = (typeof TEXT_TONES)[number];
 
@@ -120,6 +122,9 @@ const TONE_CLASS: Readonly<Record<TextTone, string>> = {
     success: 'text-success-strong',
     warning: 'text-warning-strong',
     info: 'text-info-strong',
+    // Ink on a panel drawn in the sidebar green — the rail itself, the order desk ticket.
+    sidebar: 'text-content-on-sidebar',
+    sidebarMuted: 'text-content-on-sidebar-muted',
 };
 
 const ALIGN_CLASS: Readonly<Record<TextAlignment, string>> = {
@@ -184,11 +189,12 @@ const NestedTextContext = createContext(false);
 const CELL_TONES: ReadonlySet<TextTone> = new Set(['danger', 'warning', 'success']);
 
 function cellVariantClass(density: Density, variant: TextVariant, strong: boolean): string {
+    const bold = strong || variant === 'bodyStrong' || variant === 'strong';
     return cx(
-        VARIANT_CLASS[density].body,
+        // The admin canvas sets every cell at 13px medium, its names bold.
+        density === 'compact' ? 'text-[13px] leading-[18px]' : VARIANT_CLASS[density].body,
         variant === 'mono' ? 'tabular-nums' : null,
-        strong || variant === 'bodyStrong' || variant === 'strong' ? 'font-semibold' : null,
-        variant === 'label' ? 'font-medium' : null,
+        bold ? 'font-bold' : density === 'compact' || variant === 'label' ? 'font-medium' : null,
     );
 }
 

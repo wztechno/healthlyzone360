@@ -12,13 +12,20 @@ use Healthy360\B2b\Models\QuotationLine;
 use Healthy360\B2b\Services\QuotationService;
 use Healthy360\B2b\Tests\Fixtures\B2bCheckoutWorld;
 use Healthy360\Cart\Tests\Fixtures\CheckoutWorld;
+use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
 use Healthy360\Delivery\Models\DeliveryZone;
+use Healthy360\Kitchens\Models\BranchClosure;
+use Healthy360\Kitchens\Models\BranchOpeningHour;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Orders\OrderDesk\Services\CalendarComposition;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
+use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
+use Healthy360\Support\Alerts\StaffAlertType;
 use Healthy360\Support\Mail\NoticeMessage;
+use Healthy360\Support\Models\StaffNotification;
 use Illuminate\Support\Facades\Mail;
 
 /**
@@ -112,6 +119,40 @@ function acceptBody(mixed $test, string $window = 'midday'): array
     ];
 }
 
+it('places an accepted quotation for a closed day, and every week of a run the calendar has since ruled out', function (): void {
+    $quoted = quotedForAcceptance($this, unitMinor: 1500);
+
+    $branch = OrganisationBranch::withoutTenancy()
+        ->where('organisation_id', $this->world['seller']->organisation->getKey())
+        ->sole();
+
+    BranchOpeningHour::withoutTenancy()->create([
+        'organisation_id' => $branch->organisation_id,
+        'branch_id' => $branch->getKey(),
+        'weekday' => CarbonImmutable::parse($this->deliveryDate)->dayOfWeekIso,
+        'opens_at' => null,
+        'closes_at' => null,
+        'order_cut_off_at' => null,
+    ]);
+
+    // The second week, so a refusal here would strand the run partway.
+    CatalogueItemAvailabilityDay::factory()->create([
+        'organisation_id' => $branch->organisation_id,
+        'catalogue_item_id' => $this->world['meal']->getKey(),
+        'date' => CarbonImmutable::parse($this->deliveryDate)->addWeek()->toDateString(),
+        'is_available' => false,
+    ]);
+
+    $this->postJson(
+        "/api/v1/b2b/quotations/{$quoted->getKey()}/accept",
+        acceptBody($this) + ['repeat_weeks' => 3],
+        $this->buyer['headers'] + ['If-Match' => '"'.$quoted->lock_version.'"'],
+    )->assertOk();
+
+    expect(Order::query()->count())->toBe(3)
+        ->and(Order::query()->whereNotNull('branch_id')->count())->toBe(0);
+});
+
 it('places the order at the quoted price when the buyer accepts, and the kitchen calendar shows it', function (): void {
     $quoted = quotedForAcceptance($this, unitMinor: 1500);
 
@@ -179,6 +220,36 @@ it('leaves the quotation quoted when the order cannot be placed, and says why', 
         ->and(Quotation::withoutTenancy()->whereKey($quoted->getKey())->sole()->status->value)->toBe('quoted');
 });
 
+it('refuses an acceptance once a quoted dish has lost its allergen assessment', function (): void {
+    $quoted = quotedForAcceptance($this);
+
+    CatalogueItem::withoutTenancy()->whereKey($this->world['meal']->getKey())->update(['allergens_assessed_at' => null]);
+
+    $this->postJson(
+        "/api/v1/b2b/quotations/{$quoted->getKey()}/accept",
+        acceptBody($this),
+        $this->buyer['headers'] + ['If-Match' => '"'.$quoted->lock_version.'"'],
+    )
+        ->assertStatus(409)
+        ->assertJsonPath('error.code', 'order.placement_refused')
+        ->assertJsonPath('error.details.reasons.0.reason', 'item_not_assessed');
+
+    expect(Order::query()->count())->toBe(0);
+});
+
+it('refuses a quotation line nobody has assessed for allergens', function (): void {
+    CatalogueItem::withoutTenancy()->whereKey($this->world['meal']->getKey())->update(['allergens_assessed_at' => null]);
+
+    $this->actingAs($this->buyer['user'])
+        ->postJson("/api/v1/b2b/programmes/{$this->programme->getKey()}/quotations", [
+            'lines' => [['catalogue_item_id' => (string) $this->world['meal']->getKey(), 'quantity' => 5]],
+        ], $this->buyer['headers'])
+        ->assertStatus(422)
+        ->assertJsonPath('error.code', 'validation.failed');
+
+    expect(Quotation::withoutTenancy()->count())->toBe(0);
+});
+
 it('refuses an address that is not one of the buyers', function (): void {
     $quoted = quotedForAcceptance($this);
 
@@ -213,6 +284,45 @@ it('places one order a week for a repeating quotation, all at the quoted price',
         ->and($payload['order_id'])->toBe($payload['orders'][0]['order_id'])
         ->and(Order::query()->count())->toBe(3)
         ->and(OrderLine::query()->pluck('unit_price_minor')->unique()->values()->all())->toBe([1500]);
+});
+
+it('moves a week that falls on a closure to the next open day and tells the kitchen managers', function (): void {
+    $this->travelTo(CarbonImmutable::now());
+    $sellerId = (string) $this->world['seller']->organisation->getKey();
+
+    RolePermission::factory()->create([
+        'organisation_id' => $sellerId,
+        'role_id' => $this->world['seller']->role->getKey(),
+        'permission_id' => Permission::query()->where('code', 'order.supervise_organisation')->sole()->getKey(),
+    ]);
+
+    $quoted = quotedForAcceptance($this, unitMinor: 1500);
+    $first = CarbonImmutable::parse($this->deliveryDate);
+    $branch = OrganisationBranch::withoutTenancy()->where('organisation_id', $sellerId)->sole();
+
+    // The second week is a holiday.
+    BranchClosure::withoutTenancy()->create([
+        'organisation_id' => $sellerId,
+        'branch_id' => $branch->getKey(),
+        'closed_from' => $first->addWeek()->toDateString(),
+        'closed_to' => $first->addWeek()->toDateString(),
+    ]);
+
+    $payload = $this->postJson(
+        "/api/v1/b2b/quotations/{$quoted->getKey()}/accept",
+        acceptBody($this) + ['repeat_weeks' => 2],
+        $this->buyer['headers'] + ['If-Match' => '"'.$quoted->lock_version.'"'],
+    )->assertOk()->json('data.quotation');
+
+    expect(array_column($payload['orders'], 'delivery_date'))->toBe([
+        $first->toDateString(),
+        $first->addWeek()->addDay()->toDateString(),
+    ]);
+
+    $moved = Order::query()->whereKey($payload['orders'][1]['order_id'])->sole();
+
+    expect($moved->requested_delivery_date->toDateString())->toBe($first->addWeek()->addDay()->toDateString())
+        ->and(StaffNotification::withoutTenancy()->where('type', StaffAlertType::DeliveryMovedClosed->value)->pluck('subject_id')->all())->toBe([(string) $moved->getKey()]);
 });
 
 it('refuses a weekly run on a quotation that was for one delivery', function (): void {

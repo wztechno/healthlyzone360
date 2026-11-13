@@ -41,6 +41,7 @@ import { createApiB2bApplicationRepository } from './b2b-repository.ts';
 import { createApiGuestRepository } from './guest-repository.ts';
 import { createApiAccessAdminRepository } from './access-admin-repository.ts';
 import { createApiPlatformAdminRepository } from './platform-admin-repository.ts';
+import { createApiPlatformB2bRepository } from './platform-b2b-repository.ts';
 import { createApiMarketplaceRepository } from './marketplace-repository.ts';
 import { createApiBusinessRepository } from './business-repository.ts';
 import { createApiInvitationsRepository } from './invitations-repository.ts';
@@ -60,6 +61,7 @@ import { createApiKitchenOpsRepository } from './kitchen-ops-repository.ts';
 import { createApiKitchenOrdersRepository } from './kitchen-orders-repository.ts';
 import { createApiKitchenCustomersRepository } from './kitchen-customers-repository.ts';
 import { createApiKitchenQuotationsRepository } from './kitchen-quotations-repository.ts';
+import { createApiStaffAlertsRepository } from './staff-alerts-repository.ts';
 import { createApiSubscriptionReads } from './subscription-repository.ts';
 import { createApiVerificationRepository } from './verification-repository.ts';
 import {
@@ -543,9 +545,11 @@ export function createApiRepositories(config: ApiClientConfig): ApiRepositories 
         orderDesk: createApiOrderDeskRepository(transport),
         kitchenQuotations: createApiKitchenQuotationsRepository(transport),
         kitchenCustomers: createApiKitchenCustomersRepository(transport),
+        staffAlerts: createApiStaffAlertsRepository(transport),
         driverJobs: createApiDriverJobsRepository(transport),
         invitations: createApiInvitationsRepository(transport),
         platformAdmin: createApiPlatformAdminRepository(transport),
+        platformB2b: createApiPlatformB2bRepository(transport),
         accessAdmin: createApiAccessAdminRepository(transport),
     };
 }

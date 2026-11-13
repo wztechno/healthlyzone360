@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace Healthy360\Delivery\Services;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Delivery\Enums\DeliveryFailureReason;
 use Healthy360\Delivery\Models\DeliveryJob;
 use Healthy360\Orders\Contracts\DeliveryJobProjection;
 use Healthy360\Orders\Models\Order;
+use Healthy360\Support\Api\ErrorCode;
+use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\Scopes\OrganisationScope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
@@ -90,8 +94,8 @@ final class DeliveryJobProjector implements DeliveryJobProjection
      */
     private const string INITIAL_TRACKING_STATUS = 'awaiting_assignment';
 
-    /** The two ends of a run; `close()` leaves either one as it is. */
-    private const array CLOSED_STATUSES = ['delivered', 'cancelled'];
+    /** The ends of a run; `close()` and `cancel()` leave each one as it is. */
+    private const array CLOSED_STATUSES = ['delivered', 'cancelled', 'failed'];
 
     public function project(Order $order): void
     {
@@ -127,9 +131,7 @@ final class DeliveryJobProjector implements DeliveryJobProjection
     {
         $closedAt = CarbonImmutable::now();
 
-        DeliveryJob::query()
-            ->withoutGlobalScope(OrganisationScope::class)
-            ->where('order_id', $order->getKey())
+        $closed = $this->run($order)
             ->whereNotIn('status', self::CLOSED_STATUSES)
             ->update([
                 'status' => 'delivered',
@@ -138,5 +140,124 @@ final class DeliveryJobProjector implements DeliveryJobProjection
                 'lock_version' => DB::raw('lock_version + 1'),
                 'updated_at' => $closedAt,
             ]);
+
+        if ($closed === 0 && $this->run($order)->where('status', 'failed')->exists()) {
+            throw new ApiException(ErrorCode::ResourceConflict, 'This delivery failed. Send it out again or close it as failed.');
+        }
+    }
+
+    /**
+     * The order was cancelled: the run ends and leaves every driver's sheet.
+     *
+     * One conditional `UPDATE`, so a Picked up racing it has exactly one
+     * outcome. Whichever statement reaches the row first wins and the other
+     * re-reads it: this one then matches nothing and refuses below, or the
+     * pick-up finds the run no longer `assigned` and is refused there. The
+     * refusal is decided by a read after the write, never before it.
+     * `tracking_status` stays: its CHECK has no cancelled value.
+     *
+     * @throws ApiException `order.out_for_delivery`, rolling the order back
+     */
+    public function cancel(Order $order): void
+    {
+        $open = fn () => $this->run($order)->whereNotIn('status', self::CLOSED_STATUSES);
+
+        $cancelled = $open()->whereNull('picked_up_at')->update([
+            'status' => 'cancelled',
+            'lock_version' => DB::raw('lock_version + 1'),
+            'updated_at' => CarbonImmutable::now(),
+        ]);
+
+        if ($cancelled === 0 && $open()->exists()) {
+            throw new ApiException(ErrorCode::OrderOutForDelivery);
+        }
+    }
+
+    /**
+     * The food came back. `tracking_status` stays: its CHECK has no failed value,
+     * and what the customer was last told is what they were last told.
+     */
+    public function fail(Order $order, DeliveryFailureReason $reason, ?string $note): void
+    {
+        $failedAt = CarbonImmutable::now();
+
+        $failed = $this->run($order)->where('status', 'in_transit')->update([
+            'status' => 'failed',
+            'failed_at' => $failedAt,
+            'failure_reason' => $reason->value,
+            'failure_note' => $note,
+            'lock_version' => DB::raw('lock_version + 1'),
+            'updated_at' => $failedAt,
+        ]);
+
+        if ($failed === 0) {
+            throw new ApiException(ErrorCode::ResourceConflict, 'This run is not out for delivery.');
+        }
+    }
+
+    /**
+     * Every trace of the last attempt goes; the audit trail keeps it.
+     */
+    public function reopen(Order $order): void
+    {
+        $reopened = $this->run($order)->where('status', 'failed')->update([
+            'status' => self::INITIAL_STATUS,
+            'tracking_status' => self::INITIAL_TRACKING_STATUS,
+            'driver_user_id' => null,
+            'assigned_at' => null,
+            'picked_up_at' => null,
+            'failed_at' => null,
+            'failure_reason' => null,
+            'failure_note' => null,
+            'courier_name' => null,
+            'courier_reference' => null,
+            'courier_fee_minor' => null,
+            'lock_version' => DB::raw('lock_version + 1'),
+            'updated_at' => CarbonImmutable::now(),
+        ]);
+
+        if ($reopened === 0) {
+            throw new ApiException(ErrorCode::ResourceConflict, 'Only a failed delivery can be sent out again.');
+        }
+    }
+
+    /**
+     * The `in_transit` and `en_route` a driver's Picked up writes, with the driver
+     * cleared: that is what keeps it off every run sheet.
+     */
+    public function handToCourier(Order $order, string $name, ?string $reference, ?int $feeMinor): void
+    {
+        $pickedUpAt = CarbonImmutable::now();
+
+        $handed = $this->run($order)
+            ->whereIn('status', [self::INITIAL_STATUS, 'assigned'])
+            ->whereNull('picked_up_at')
+            ->update([
+                'status' => 'in_transit',
+                'tracking_status' => 'en_route',
+                'driver_user_id' => null,
+                'picked_up_at' => $pickedUpAt,
+                'courier_name' => $name,
+                'courier_reference' => $reference,
+                'courier_fee_minor' => $feeMinor,
+                'lock_version' => DB::raw('lock_version + 1'),
+                'updated_at' => $pickedUpAt,
+            ]);
+
+        if ($handed === 0) {
+            throw new ApiException(ErrorCode::ResourceConflict, 'This run is not waiting to be picked up.');
+        }
+    }
+
+    /**
+     * This order's run, whichever organisation is or is not in context.
+     *
+     * @return Builder<DeliveryJob>
+     */
+    private function run(Order $order): Builder
+    {
+        return DeliveryJob::query()
+            ->withoutGlobalScope(OrganisationScope::class)
+            ->where('order_id', $order->getKey());
     }
 }

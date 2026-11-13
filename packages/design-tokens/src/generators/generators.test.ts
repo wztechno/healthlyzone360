@@ -5,7 +5,13 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { NUTRITION_LEVELS, SEMANTIC_ROLES, themes } from '../colour.ts';
+import {
+    NUTRITION_LEVELS,
+    SEMANTIC_ROLES,
+    STAGE_INK_NAMES,
+    TINT_NAMES,
+    themes,
+} from '../colour.ts';
 import { TYPEFACE_ROLES, typefaces } from '../typography.ts';
 import { fontFaceEntries, renderFontManifest } from './fonts.ts';
 import { renderTokensCss } from './css.ts';
@@ -32,7 +38,9 @@ describe('shared helpers', () => {
         const expected =
             Object.keys(themes.light.colours).length +
             SEMANTIC_ROLES.length * Object.keys(themes.light.semantic.success).length +
-            NUTRITION_LEVELS.length * 2;
+            NUTRITION_LEVELS.length * 2 +
+            TINT_NAMES.length * 3 +
+            STAGE_INK_NAMES.length;
         expect(variables).toHaveLength(expected);
         expect(new Set(variables.map((v) => v.name)).size).toBe(variables.length);
         for (const variable of variables) {
@@ -197,7 +205,7 @@ describe('renderTailwindPreset', () => {
         expect(preset.theme.extend.fontFamily.admin).toBeUndefined();
     });
 
-    it('exposes the six ramp elevations plus the two named ones as box shadows', () => {
+    it('exposes the six ramp elevations plus the named ones as box shadows', () => {
         expect(Object.keys(preset.theme.extend.boxShadow)).toEqual([
             'elevation-0',
             'elevation-1',
@@ -207,6 +215,10 @@ describe('renderTailwindPreset', () => {
             'elevation-5',
             'elevation-card',
             'elevation-card-hover',
+            'elevation-bar',
+            'elevation-brand-glow',
+            'elevation-search',
+            'elevation-focus-ring',
         ]);
     });
 
@@ -347,7 +359,9 @@ describe('renderFontManifest', () => {
         expect(output).toContain(
             "import { SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk/700Bold';",
         );
-        expect(output).toContain("import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';");
+        expect(output).toContain(
+            "import { Inter_400Regular } from '@expo-google-fonts/inter/400Regular';",
+        );
         expect(output).not.toMatch(/from '@expo-google-fonts\/[a-z-]+';/);
     });
 

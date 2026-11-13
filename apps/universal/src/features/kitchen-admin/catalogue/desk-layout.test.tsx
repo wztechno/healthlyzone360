@@ -6,6 +6,7 @@ import { renderStubScreen } from '../../../testing/stub-screen.tsx';
 import { CatalogueToolbar } from './catalogue-toolbar.tsx';
 import { statCardRows } from './catalogue-stat-cards.tsx';
 import { RecordViewPage } from './record-view-page.tsx';
+import { getRecordAction } from '../../../testing/record-actions.ts';
 
 /*
  * The admin on a laptop. A 1920×1080 panel at 150% scaling hands the browser 1280px, and the shell's
@@ -78,7 +79,7 @@ describe('CatalogueToolbar', () => {
     });
 });
 
-describe('RecordViewPage on a laptop', () => {
+describe('RecordViewPage as a pop-up', () => {
     const page = (
         <RecordViewPage
             testID="record"
@@ -87,47 +88,42 @@ describe('RecordViewPage on a laptop', () => {
             onBack={() => undefined}
             fields={[{ key: 'reference', label: 'Reference', value: 'ING-0142' }]}
             statusLines={['Updated today']}
+            statusContent={<Text>Two open recipes use it.</Text>}
             primaryAction={{ label: 'Edit', onPress: () => undefined }}
         />
     );
 
-    /** The order the body's columns are in the tree — the order they are read and laid out. */
-    function bodyOrder(): string[] {
-        const body = screen.getByTestId('record-body');
-        const ids = ['record-record-status', 'record-main', 'record-rail'];
-        const nodes = ids.map((id) => screen.getByTestId(id));
-        const order: string[] = [];
-        const walk = (node: typeof body) => {
-            const index = nodes.indexOf(node);
-            if (index >= 0) order.push(ids[index] ?? '');
-            for (const child of node.children) {
-                if (typeof child !== 'string') walk(child);
-            }
-        };
-        walk(body);
-        return order;
-    }
-
-    it('sets the rail beside the record where the page has room, panel shut at 1280', async () => {
-        mockWindowWidth = 1280;
-        await renderStubScreen(
-            <ContentWidthProvider value={PANEL_SHUT}>{page}</ContentWidthProvider>,
-        );
-
-        expect(screen.getByTestId('record-body').props.className).toContain('flex-row');
-        // The status card is the rail's, after the main column.
-        expect(bodyOrder()).toEqual(['record-main', 'record-rail', 'record-record-status']);
-    });
-
-    it('stacks a narrow page with the status card — and its action — first', async () => {
-        // 1093px: a 1366×768 laptop at 125%, with the page panel open, leaves 749px.
+    it('splits against the window, not the page: two columns in the 880 window', async () => {
+        // 1093px with the page panel open leaves the page 749px — one column on a page — but the
+        // window is 880 wide whatever the page behind it has.
         mockWindowWidth = 1093;
         await renderStubScreen(
             <ContentWidthProvider value={PANEL_OPEN}>{page}</ContentWidthProvider>,
         );
 
+        expect(screen.getByTestId('record-body').props.className).toContain('flex-row');
+        expect(screen.getByTestId('record-eyebrow')).toHaveTextContent('Ingredient');
+    });
+
+    it('stacks where the window itself is narrow', async () => {
+        mockWindowWidth = 800;
+        await renderStubScreen(
+            <ContentWidthProvider value={PANEL_SHUT}>{page}</ContentWidthProvider>,
+        );
+
         expect(screen.getByTestId('record-body').props.className).not.toContain('flex-row');
-        expect(bodyOrder()).toEqual(['record-record-status', 'record-main', 'record-rail']);
-        expect(screen.getByTestId('record-primary')).toBeTruthy();
+    });
+
+    it('pins the primary in the desk footer and draws no button on the canopy', async () => {
+        mockWindowWidth = 1280;
+        await renderStubScreen(
+            <ContentWidthProvider value={PANEL_SHUT}>{page}</ContentWidthProvider>,
+        );
+
+        expect(screen.queryByTestId('record-back')).toBeNull();
+        const primary = await getRecordAction('record', 'record-primary');
+        expect(screen.getByTestId('record-header')).not.toContainElement(primary);
+        expect(screen.getByTestId('record-footer')).toContainElement(primary);
+        expect(screen.getByTestId('record-close')).toBeTruthy();
     });
 });

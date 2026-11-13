@@ -111,7 +111,11 @@ export interface DerivedPanelProps {
      * a short number and a two-letter unit do not need 200px each, and a fixed width only opened a
      * gap between the figure and its unit.
      */
-    readonly variant?: 'sunken' | 'outline' | undefined;
+    /**
+     * `tiles` is the Ingredient edit board's: four to a line on the sunken fill, the first tinted
+     * brand — energy, the figure the rest are read against.
+     */
+    readonly variant?: 'sunken' | 'outline' | 'tiles' | undefined;
     readonly testID: string;
 }
 
@@ -141,8 +145,47 @@ export function DerivedPanel({
                  * to three-plus-one on a narrow port instead of squeezing four.
                  */
                 <View testID={`${testID}-figures`} className="flex-row flex-wrap gap-tight">
-                    {figures.map((figure) =>
-                        variant === 'outline' ? (
+                    {figures.map((figure, index) =>
+                        variant === 'tiles' ? (
+                            <View
+                                key={figure.key}
+                                testID={`${testID}-figure-${figure.key}`}
+                                className={`min-w-[120px] rounded-[14px] px-3 py-2.5 ${
+                                    index === 0 ? 'bg-surface-brand-subtle' : 'bg-surface-sunken'
+                                }`}
+                                // eslint-disable-next-line no-restricted-syntax -- a tile in a wrapping grid, not a control: four to a line share it.
+                                style={{ flexBasis: '22%', flexGrow: 1 }}
+                            >
+                                <RNText
+                                    className={`text-role-label font-semibold text-start ${
+                                        index === 0
+                                            ? 'text-content-on-brand-subtle'
+                                            : 'text-content-secondary'
+                                    }`}
+                                >
+                                    {figure.label}
+                                </RNText>
+                                <View className="flex-row items-baseline gap-1">
+                                    <RNText
+                                        testID={`${testID}-figure-${figure.key}-value`}
+                                        className={`font-display text-lg font-bold tabular-nums text-start ${
+                                            index === 0
+                                                ? 'text-content-on-brand-subtle'
+                                                : figure.value === null
+                                                  ? 'text-content-secondary'
+                                                  : 'text-content-primary'
+                                        }`}
+                                    >
+                                        {figure.value ?? emptyValue}
+                                    </RNText>
+                                    {figure.value === null ? null : (
+                                        <Text variant="caption" tone="secondary">
+                                            {figure.unit}
+                                        </Text>
+                                    )}
+                                </View>
+                            </View>
+                        ) : variant === 'outline' ? (
                             <OutlineTile
                                 key={figure.key}
                                 figure={figure}

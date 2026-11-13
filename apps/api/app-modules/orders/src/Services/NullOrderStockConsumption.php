@@ -19,7 +19,12 @@ use Healthy360\Orders\Models\Order;
  */
 final class NullOrderStockConsumption implements OrderStockConsumption
 {
-    public function consume(Order $order): void {}
+    public function consume(Order $order, ?iterable $lines = null): void {}
 
-    public function restore(Order $order): void {}
+    public function restore(Order $order, ?array $orderLineIds = null): void {}
+
+    public function hasUnattributedConsumption(Order $order): bool
+    {
+        return false;
+    }
 }

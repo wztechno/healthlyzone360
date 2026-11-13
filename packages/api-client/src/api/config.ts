@@ -63,7 +63,13 @@ const API_PREFIX = '/api/v1';
  * function with one test rather than string concatenation at nineteen call sites.
  */
 export function resolveApiBaseUrl(baseUrl: string): string {
-    const trimmed = baseUrl.trim().replace(/\/+$/, '');
+    // The trailing slashes are walked off rather than matched with `/\/+$/`: on a value carrying a
+    // long run of slashes that pattern backtracks through the whole run at every start position,
+    // which is the polynomial blow-up CodeQL's js/polynomial-redos reports. This is one pass.
+    const value = baseUrl.trim();
+    let end = value.length;
+    while (end > 0 && value[end - 1] === '/') end -= 1;
+    const trimmed = value.slice(0, end);
     if (trimmed === '') throw new Error('An API base URL is required when dataMode is "api".');
     return trimmed.endsWith(API_PREFIX) ? trimmed : `${trimmed}${API_PREFIX}`;
 }

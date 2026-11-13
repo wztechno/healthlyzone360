@@ -1003,10 +1003,29 @@ final readonly class IngredientCatalogueService
      */
     public function resolveDesignation(string $designation, ?string $organisationId): ?Ingredient
     {
+        return $this->preferTenantRow($this->resolveDesignationCandidates($designation, $organisationId), $organisationId);
+    }
+
+    /**
+     * Every ingredient a designation could mean — the two passes of {@see resolveDesignation()},
+     * alias then exact name, across both layers (the tenant's own rows and the platform library),
+     * without choosing between them.
+     *
+     * For a caller that must refuse an ambiguous answer rather than take the tenant's row: a
+     * spreadsheet line saying "Tomato" when the kitchen holds its own Tomato *and* reads the
+     * platform's is two candidates, and only the person who wrote the sheet knows which one.
+     *
+     * The alias matches when there are any, otherwise the name matches — an alias is an explicit
+     * decision and a name only a coincidence of spelling, so a name never widens an alias answer.
+     *
+     * @return list<Ingredient>
+     */
+    public function resolveDesignationCandidates(string $designation, ?string $organisationId): array
+    {
         $normalised = IngredientAlias::normalise($designation);
 
         if ($normalised === '') {
-            return null;
+            return [];
         }
 
         /*
@@ -1029,10 +1048,8 @@ final readonly class IngredientCatalogueService
             })
             ->get();
 
-        $resolved = $this->preferTenantRow($aliasMatches->all(), $organisationId);
-
-        if ($resolved instanceof Ingredient) {
-            return $resolved;
+        if ($aliasMatches->isNotEmpty()) {
+            return array_values($aliasMatches->all());
         }
 
         $nameMatches = Ingredient::withoutTenancy()
@@ -1050,7 +1067,7 @@ final readonly class IngredientCatalogueService
             })
             ->get();
 
-        return $this->preferTenantRow($nameMatches->all(), $organisationId);
+        return array_values($nameMatches->all());
     }
 
     /**

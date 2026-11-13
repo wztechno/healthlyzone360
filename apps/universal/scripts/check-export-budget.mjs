@@ -17,6 +17,20 @@
  *
  * ## Where the numbers come from
  *
+ * The entry-chunk budget was re-measured on 2026-11-05 from the CI api export of PR #70, the web
+ * shop rebuilt to the accepted design boards: the navbar and footer, Discover, the menu, the meal
+ * page, the kitchens pages, plans and plan setup, the basket and checkout, the account and its
+ * extras, the sign-in frame, order tracking, the business pages and the workspace hub, with their
+ * English and Arabic copy. The chunk grew 940 098 B (5 110 756 → 6 050 854) and went 216 879 B over
+ * the budget. That is the same cause as the D-148 re-measurement below — a redesign of every
+ * customer screen, spent on the screens — not accumulation. The total stayed inside its budget at
+ * 94.0 %, so it was left where it was.
+ *
+ * | measure                | actual        | ×1.15 → budget |
+ * | ---------------------- | ------------- | -------------- |
+ * | total `dist-api` bytes | 40 345 129    | 42 924 715 (not raised — 94.0 % used) |
+ * | largest JS chunk       |  6 050 854    |  6 958 482     |
+ *
  * The total budget was re-measured on 2026-10-05 from the CI `all-dev` api export of PR #38 merged
  * with `dev`. `dev` had gained 80 photographs of the sauces and dressings the recipe book lists
  * (`665cf13d`, 4.49 MB of WebP), which took the total from 32 760 423 B to 37 325 838 B and 1 976 174 B
@@ -90,13 +104,13 @@ import { join, relative, resolve, sep } from 'node:path';
 export const TOTAL_BUDGET_BYTES = 42_924_715;
 
 /** Bytes of the single largest `.js` file. */
-export const LARGEST_CHUNK_BUDGET_BYTES = 5_833_975;
+export const LARGEST_CHUNK_BUDGET_BYTES = 6_958_482;
 
 /** The measurement the budgets were derived from, kept so a report can show the drift. */
 export const BASELINE = {
-    totalBytes: 37_325_838,
-    largestChunkBytes: 5_110_756,
-    measuredOn: '2026-10-05',
+    totalBytes: 40_345_129,
+    largestChunkBytes: 6_050_854,
+    measuredOn: '2026-11-05',
     export: 'APP_MODE=all-dev EXPO_PUBLIC_API_URL=http://localhost:8080 expo export -p web --output-dir dist-api',
 };
 

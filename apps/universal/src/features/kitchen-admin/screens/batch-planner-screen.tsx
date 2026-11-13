@@ -5,10 +5,8 @@ import type {
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
-    Callout,
     Cascade,
+    EmptyState,
     ErrorState,
     InfoTip,
     Inline,
@@ -36,32 +34,53 @@ import {
 } from '../../../data/kitchen-admin-hooks.ts';
 import { batchFactor, scaleLine, scalePackaging, withWaste } from '../batch-scaling.ts';
 import type { BatchMode } from '../batch-scaling.ts';
-import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import type { ColumnFilter, ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { compareNumber, compareText } from '../catalogue/use-column-controls.tsx';
+import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
+import type {
+    ColumnControls,
+    ColumnFilter,
+    ControlledColumn,
+} from '../catalogue/use-column-controls.tsx';
+import {
+    compareNumber,
+    compareText,
+    useColumnControls,
+} from '../catalogue/use-column-controls.tsx';
 import { CATALOGUE_VIEW_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, parseQuantity, statusShortKey, unitShortKey } from '../format.ts';
 import { BATCH_QUANTITY_FORMAT, useBatchIngredients } from '../operations/batch-sheet.tsx';
 import { usePrintSheet } from '../print-sheet.tsx';
-import { ProductionTable } from '../production-desk/production-table.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import { ProductionTable, ProductionTableSection } from '../production-desk/production-table.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
- * `/kitchen/batch` — one recipe, one target, and the sheet it scales to (`HealthZone Admin.dc.html`,
- * the `batch` screen).
+ * `/kitchen/batch` — one recipe, one target, and the sheet it scales to.
  *
  * ```
- * [ READ ONLY ]                                                           [ Print sheet ]
- * ┌ VERSION ┐ ┌ BASE YIELD ┐ ┌ BATCHES NEEDED ┐ ┌ PORTIONS PRODUCED ┐
- *        [ Recipe ▾ ]  [ Yield (kg) | Portions ]  [ Target quantity ___ kg ]
- *                      Scale factor ×2.5 — 10 kg of product
- * ─────────────────────────────────────────────────────────────────────────────────────────
- * SCALED RAW MATERIALS   Base quantities × 2.5
- * REF.  DESIGNATION  UNIT  PER BATCH  TO ISSUE
- * SCALED PACKAGING
+ * ┌──────────────────────────────────────────────────────────────────────────────────────────┐
+ * │ Version v1 Published  Base yield 2.568 Kg ⓘ │ ● Batches needed 4 ⓘ  Portions produced —  [Print sheet] │
+ * ├─ hairline ───────────────────────────────────────────────────────────────────────────────┤
+ * │ Recipe [Classic Sauce ⌄]  [Yield (Kg) | Portions] ⓘ  Target [ 10 Kg]  13 of 13 │ [▦ Show columns] │
+ * └──────────────────────────────────────────────────────────────────────────────────────────┘
+ * Scaled raw materials ⓘ
+ * Ref.  Item  Unit  Per batch  To issue
+ * Scaled packaging
  * ```
+ *
+ * ## One Lens bar, as on every other kitchen page
+ *
+ * The version and what the target makes are the bar's figures; the recipe, the basis and the
+ * target are its query row; Print sheet is its action. No page header and no Read only badge —
+ * the trail names the page, and no other page wears the badge any more. A figure the planner
+ * cannot work out yet reads "—"; one still loading draws the bar's skeleton.
+ *
+ * "Batches needed" is the factor rounded up — a kitchen runs whole batches — and its (i) keeps the
+ * exact factor, because the raw-material quantities are scaled by the exact factor, not the
+ * rounded one. The raw-material table's column picker sits at the bar's end, where the other
+ * pages keep theirs; the packaging table, usually empty, keeps its own.
  *
  * ## Every figure is arithmetic on one version
  *
@@ -71,13 +90,6 @@ import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
  * `withWaste`). Names come from the catalogue by
  * id (`RecipeLine.ingredientName` is the sheet's blank designation), which is why the `<Gate>`
  * demands `catalogue.view_organisation` beside `recipe.view_organisation`.
- *
- * ## One band of facts, over the controls
- *
- * The version and what the target makes sit in one strip above the controls, which are centred
- * under it as three equal 280px fields — labels on one line, controls on the next.
- * "Batches needed" is the factor rounded up — a kitchen runs whole batches — and the caption keeps the exact factor beside
- * it, because the raw-material quantities are scaled by the exact factor, not the rounded one.
  *
  * ## One unit per row
  *
@@ -90,10 +102,10 @@ import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
  * The planner is a sheet, not a stock check. What is on the shelf belongs to the production
  * editor, where a batch is actually started against a branch.
  *
- * ## What the design shows that the product keeps
+ * ## Packaging
  *
- * The design draws raw materials only. Packaging lines are part of the same version and are issued
- * with the batch, so they follow as a second table, rounded up where they are counted.
+ * Packaging lines are part of the same version and are issued with the batch, so they follow as a
+ * second table, rounded up where they are counted.
  */
 export function BatchPlannerScreen() {
     return (
@@ -109,6 +121,18 @@ export function BatchPlannerScreen() {
 
 /** Below this a packaging figure was not rounded — it is floating-point noise, not a whole box. */
 const ROUNDED_TOLERANCE = 1e-6;
+
+/** The recipe picker's box: long enough for a recipe's name, short enough to keep one row. */
+const RECIPE_WIDTH = 240;
+
+/**
+ * Every sheet column's width. The same for all five, because the list shares its spare room in
+ * proportion to width: equal widths give five equal columns, as the design draws them, rather
+ * than a wide Item with a gap after it.
+ */
+const SHEET_COLUMN_WIDTH = 120;
+
+const NO_LINES: readonly RecipeLine[] = [];
 
 function BatchPlanner() {
     const { t } = useTranslation();
@@ -136,6 +160,15 @@ function BatchPlanner() {
      */
     const mode: BatchMode = version === null || version.yieldPieces === null ? 'yield' : modeChoice;
     const factor = version === null ? null : batchFactor(version, mode, parseQuantity(target));
+    const planned = version !== null && factor !== null;
+
+    // Held here, not in the table, so the picker can sit on the Lens bar.
+    const sheet = useSheetColumns(version, factor ?? 1, ingredients);
+    const lines = useColumnControls(
+        planned ? version.lines : NO_LINES,
+        sheet.lineColumns,
+        'kitchen-batch-ingredients',
+    );
 
     /*
      * The name on the list's one line, and the status only when it is not the ordinary one. The
@@ -155,107 +188,56 @@ function BatchPlanner() {
     const number = (value: number): string => formatter.formatNumber(value, BATCH_QUANTITY_FORMAT);
     // Kilograms until a recipe says otherwise, so the basis never loses its unit.
     const yieldUnitLabel = t(unitShortKey(version?.yieldUnit ?? 'kg'));
+    // A recipe is chosen and still being read: the figures hold their line with a skeleton.
+    const reading = recipeId !== null && record.data === undefined && recordFailure === null;
+    const total = planned ? version.lines.length + version.packaging.length : 0;
+    const shown = planned ? lines.rows.length + version.packaging.length : 0;
 
     return (
         <Cascade space="md" testID="kitchen-batch-planner-screen">
-            {/*
-             * No title and no subtitle: the shell's trail already ends in "Batch planner", so the
-             * row carries only the Read-only badge and Print.
-             */}
-            <CataloguePageHeader
-                testID="kitchen-batch-planner-header"
-                titleAside={
-                    <Badge
-                        testID="kitchen-batch-planner-read-only"
-                        tone="neutral"
-                        icon={null}
-                        label={t('kitchen:ops.batch.readOnlyChip')}
-                    />
-                }
-                primaryAction={
+            <LensBar
+                testID="kitchen-batch-facts"
+                label={t('kitchen:lens.label')}
+                figures={facts(version, factor, reading, yieldUnitLabel, number, t)}
+                actions={
                     print.mode === 'browser' ? (
-                        <Button
+                        <DeskButton
                             testID="kitchen-batch-print"
                             size="sm"
                             variant="secondary"
                             label={t('kitchen:ops.batch.printSheet')}
-                            disabled={factor === null}
+                            disabled={!planned}
                             onPress={print.print}
                         />
                     ) : undefined
                 }
-            />
-
-            <CatalogueStatCards
-                testID="kitchen-batch-facts"
-                cards={facts(
-                    record.data === undefined
-                        ? null
-                        : [displayName(record.data.name, locale).value, record.data.reference]
-                              .filter((part): part is string => part !== null && part !== '')
-                              .join(' · '),
-                    version,
-                    factor,
-                    yieldUnitLabel,
-                    number,
-                    t,
-                )}
-            />
-
-            {/*
-             * On the raised panel every other admin page draws its controls on — border, fill and
-             * the card cast, as `ToolbarPanel` — rather than a band ruled off under the cards. Not
-             * `ToolbarPanel` itself: that is one row, and this is labelled fields with the factor
-             * caption under them.
-             *
-             * Raised: the recipe select opens downward out of this band and over the cards and
-             * tables drawn after it. react-native-web gives every View `z-index: 0`, so without the
-             * raise the list slides under the next sibling the moment it outgrows the band.
-             */}
-            <View
-                testID="kitchen-batch-controls"
-                className="relative z-raised gap-2 rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
-            >
-                <Inline space="md" align="end" justify="center" wrap>
-                    <View className="w-field">
-                        <Select
-                            testID="kitchen-batch-recipe"
-                            label={t('kitchen:ops.batch.recipeLabel')}
-                            placeholder={t('kitchen:ops.batch.recipePlaceholder')}
-                            searchable
-                            loading={recipes.isPending}
-                            options={recipeOptions}
-                            value={recipeId === null ? null : String(recipeId)}
-                            onChange={(value) => {
-                                setRecipeId(RecipeId.safeParse(value));
-                            }}
-                        />
-                    </View>
-
-                    {/*
-                     * Built as a field: the label on the field label's own step and at its 4px gap,
-                     * so all three labels sit on one line and all three controls on the next.
-                     */}
-                    <View className="z-auto w-field flex-col gap-hair">
-                        <View className="z-auto flex-row items-center gap-hair">
-                            <Text variant="caption" className="font-medium">
-                                {t('kitchen:ops.batch.basisLabel')}
-                            </Text>
-                            {/* Why Portions is greyed out, for the recipe that cannot count them. */}
-                            {version !== null && version.yieldPieces === null ? (
-                                <InfoTip
-                                    testID="kitchen-batch-no-pieces-hint"
-                                    label={t('kitchen:ops.batch.basisLabel')}
-                                    text={t('kitchen:ops.batch.noPiecesHint')}
-                                />
-                            ) : null}
+                scope={
+                    <>
+                        {/* The field's name on the bar, as "to" sits between the date pickers. */}
+                        <Text variant="body" tone="secondary" aria-hidden>
+                            {t('kitchen:ops.batch.recipeLabel')}
+                        </Text>
+                        {/* A fixed-width box, lifted so its list is never covered by the tables. */}
+                        <View className="z-tooltip" style={{ width: RECIPE_WIDTH }}>
+                            <Select
+                                testID="kitchen-batch-recipe"
+                                label={t('kitchen:ops.batch.recipeLabel')}
+                                labelHidden
+                                placeholder={t('kitchen:ops.batch.recipePlaceholder')}
+                                searchable
+                                loading={recipes.isPending}
+                                options={recipeOptions}
+                                value={recipeId === null ? null : String(recipeId)}
+                                onChange={(value) => {
+                                    setRecipeId(RecipeId.safeParse(value));
+                                }}
+                            />
                         </View>
                         <SegmentedControl<BatchMode>
                             testID="kitchen-batch-mode"
                             label={t('kitchen:ops.batch.basisLabel')}
                             value={mode}
                             onChange={setModeChoice}
-                            block
                             items={[
                                 {
                                     value: 'yield',
@@ -272,28 +254,44 @@ function BatchPlanner() {
                                 },
                             ]}
                         />
-                    </View>
-
-                    <QuantityInput
-                        testID="kitchen-batch-target"
-                        size="sm"
-                        label={
-                            mode === 'pieces'
-                                ? t('kitchen:ops.batch.targetPortionsLabel')
-                                : t('kitchen:ops.batch.targetQuantityLabel', {
-                                      unit: yieldUnitLabel,
-                                  })
-                        }
-                        placeholder={t('kitchen:fields.quantityPlaceholder')}
-                        value={target}
-                        onChangeText={setTarget}
-                        unit={
-                            mode === 'pieces' ? t('kitchen:ops.batch.portionsUnit') : yieldUnitLabel
-                        }
-                        className="w-field"
-                    />
-                </Inline>
-            </View>
+                        {/* Why Portions is greyed out, for the recipe that cannot count them. */}
+                        {version !== null && version.yieldPieces === null ? (
+                            <InfoTip
+                                testID="kitchen-batch-no-pieces-hint"
+                                label={t('kitchen:ops.batch.basisLabel')}
+                                text={t('kitchen:ops.batch.noPiecesHint')}
+                            />
+                        ) : null}
+                        <Text variant="body" tone="secondary" aria-hidden>
+                            {t('kitchen:ops.batch.targetLabel')}
+                        </Text>
+                        <QuantityInput
+                            testID="kitchen-batch-target"
+                            size="sm"
+                            labelHidden
+                            label={
+                                mode === 'pieces'
+                                    ? t('kitchen:ops.batch.targetPortionsLabel')
+                                    : t('kitchen:ops.batch.targetQuantityLabel', {
+                                          unit: yieldUnitLabel,
+                                      })
+                            }
+                            placeholder={t('kitchen:fields.quantityPlaceholder')}
+                            value={target}
+                            onChangeText={setTarget}
+                            unit={
+                                mode === 'pieces'
+                                    ? t('kitchen:ops.batch.portionsUnit')
+                                    : yieldUnitLabel
+                            }
+                        />
+                    </>
+                }
+                result={t('kitchen:lens.result', { shown, total })}
+                clearLabel={t('kitchen:lens.clear')}
+                {...(lines.filtered ? { onClear: lines.clearFilters } : {})}
+                trailing={planned ? <ColumnPicker {...lines.picker} /> : undefined}
+            />
 
             {recipesFailure !== null ? (
                 <ErrorState
@@ -306,9 +304,8 @@ function BatchPlanner() {
                     retrying={recipes.isFetching}
                 />
             ) : recipeId === null ? (
-                <Callout
+                <EmptyState
                     testID="kitchen-batch-planner-pick-recipe"
-                    tone="info"
                     title={t('kitchen:ops.batch.pickRecipeTitle')}
                     body={t('kitchen:ops.batch.pickRecipeBody')}
                 />
@@ -329,109 +326,133 @@ function BatchPlanner() {
                         {t('kitchen:ops.batch.loadingCaption')}
                     </Text>
                 </Stack>
-            ) : version === null || factor === null ? (
-                <Callout
+            ) : !planned ? (
+                <EmptyState
                     testID="kitchen-batch-planner-target-needed"
-                    tone="info"
                     title={t('kitchen:ops.batch.targetNeededTitle')}
                     body={t('kitchen:ops.batch.targetNeededBody')}
                 />
             ) : (
-                <ScaledSheet version={version} factor={factor} ingredients={ingredients} />
+                <ScaledSheet
+                    version={version}
+                    factor={factor}
+                    lines={lines}
+                    packagingColumns={sheet.packagingColumns}
+                />
             )}
         </Cascade>
     );
 }
 
-/** The version, and what the target makes of it — one band, as the design draws it. */
+/**
+ * The version, and what the target makes of it — the four cards this page used to draw, as the
+ * Lens bar's figures. The version's facts first, plain; a hairline; then what the target makes,
+ * the batch count carrying the brand dot as the cost report's Margin does.
+ */
 function facts(
-    /** "Name · reference" for the chosen recipe, or `null` before one is chosen. */
-    recipeLine: string | null,
     version: RecipeVersionAdmin | null,
     factor: number | null,
+    /** A recipe is chosen and its version is still on its way. */
+    reading: boolean,
     yieldUnitLabel: string,
     number: (value: number) => string,
     t: TFunction,
-): readonly CatalogueStatCard[] {
+): readonly LensFigure[] {
     const dash = t('kitchen:list.noValue');
     const pieces = version?.yieldPieces ?? null;
+    // `null` draws the skeleton; `0` with the dash is a figure there is nothing to say about yet.
+    const pending = (
+        value: number | null,
+        display: string,
+    ): Pick<LensFigure, 'value' | 'display'> =>
+        reading
+            ? { value: null }
+            : value === null
+              ? { value: 0, display: dash }
+              : { value, display };
+    const batches = factor === null ? null : Math.ceil(factor - ROUNDED_TOLERANCE);
+    const portions = factor === null || pieces === null ? null : Math.round(factor * pieces);
+
     return [
         {
             key: 'version',
             label: t('kitchen:ops.batch.factVersion'),
-            value:
+            ...pending(
+                version?.versionNumber ?? null,
                 version === null
                     ? dash
-                    : t('kitchen:ops.batch.versionCell', { number: version.versionNumber }),
-            ...(version === null ? {} : { unit: t(statusShortKey(version.status)) }),
-            caption: recipeLine ?? t('kitchen:ops.batch.noRecipeCaption'),
-            mark: 'layers',
-            tone: version !== null && version.status !== 'published' ? 'warning' : 'default',
+                    : t('kitchen:ops.batch.versionFigure', {
+                          number: version.versionNumber,
+                          status: t(statusShortKey(version.status)),
+                      }),
+            ),
+            // A dot only on a version that is not the published one: the kitchen is cooking a draft.
+            ...(version !== null && version.status !== 'published'
+                ? { tone: 'warning' as const }
+                : {}),
         },
         {
             key: 'yield',
             label: t('kitchen:ops.batch.factBaseYield'),
-            value: version === null ? dash : number(version.yieldQuantity),
-            ...(version === null ? {} : { unit: yieldUnitLabel }),
-            caption:
-                version !== null && pieces === null
-                    ? t('kitchen:ops.batch.factPiecesNone')
-                    : pieces === null
-                      ? t('kitchen:ops.batch.factYieldCaption')
-                      : t('kitchen:ops.batch.factPortionsPerBatch', { count: pieces }),
-            mark: 'package',
+            ...pending(
+                version?.yieldQuantity ?? null,
+                version === null ? dash : `${number(version.yieldQuantity)} ${yieldUnitLabel}`,
+            ),
+            ...(version === null
+                ? {}
+                : {
+                      info:
+                          pieces === null
+                              ? t('kitchen:ops.batch.piecesNoneInfo')
+                              : t('kitchen:ops.batch.factPortionsPerBatch', { count: pieces }),
+                  }),
         },
         {
             key: 'batches',
             label: t('kitchen:ops.batch.factBatchesNeeded'),
-            value: factor === null ? dash : number(Math.ceil(factor - ROUNDED_TOLERANCE)),
-            unit: t('kitchen:ops.batch.batchesUnit'),
-            caption:
-                factor === null
-                    ? t('kitchen:ops.batch.awaitingTarget')
-                    : t('kitchen:ops.batch.roundedUpFrom', { factor: number(factor) }),
-            mark: 'cookingPot',
+            ...pending(batches, batches === null ? dash : number(batches)),
+            tone: 'brand',
+            separated: true,
+            ...(factor === null
+                ? {}
+                : { info: t('kitchen:ops.batch.roundedUpFrom', { factor: number(factor) }) }),
         },
         {
             key: 'portions',
             label: t('kitchen:ops.batch.factPortionsProduced'),
-            value: factor === null || pieces === null ? dash : number(Math.round(factor * pieces)),
-            unit: t('kitchen:ops.batch.portionsUnit'),
-            caption:
-                version === null
-                    ? t('kitchen:ops.batch.awaitingTarget')
-                    : t('kitchen:ops.batch.wasteAddedToInputs', {
-                          percent: number(version.wastePercent),
-                      }),
-            mark: 'utensils',
-            tone: factor === null ? 'default' : 'brand',
+            ...pending(portions, portions === null ? dash : number(portions)),
         },
     ];
 }
 
-interface ScaledSheetProps {
-    readonly version: RecipeVersionAdmin;
-    readonly factor: number;
-    readonly ingredients: Readonly<Record<string, IngredientAdmin>>;
-}
+const rowId = (id: { toString(): string }) => `kitchen-batch-row-${String(id)}`;
 
 /**
- * The scaled raw materials, then the packaging. Row test ids are
- * `kitchen-batch-row-<ingredient id>-*`, the same stem the production editor's sheet uses.
+ * Both tables' columns. A hook rather than part of the sheet, because the raw-material controls —
+ * and so these columns — live as long as the page does: the picker is on the Lens bar.
  */
-function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
+function useSheetColumns(
+    version: RecipeVersionAdmin | null,
+    factor: number,
+    ingredients: Readonly<Record<string, IngredientAdmin>>,
+): {
+    readonly lineColumns: readonly ControlledColumn<RecipeLine, CatalogueColumn<RecipeLine>>[];
+    readonly packagingColumns: readonly ControlledColumn<
+        RecipePackagingLine,
+        CatalogueColumn<RecipePackagingLine>
+    >[];
+} {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const formatter = useFormatter();
 
     const dash = t('kitchen:list.noValue');
     const number = (value: number): string => formatter.formatNumber(value, BATCH_QUANTITY_FORMAT);
-    const rowId = (id: { toString(): string }) => `kitchen-batch-row-${String(id)}`;
 
     // What a production batch for the same yield reserves: the production waste rate on every
     // ingredient, the packaging rate on every packaging line (see `withWaste`).
-    const ingredientFactor = withWaste(factor, version.wastePercent);
-    const packagingFactor = withWaste(factor, version.packagingWastePercent);
+    const ingredientFactor = withWaste(factor, version?.wastePercent ?? 0);
+    const packagingFactor = withWaste(factor, version?.packagingWastePercent ?? 0);
 
     const found = (id: RecipeLine['ingredientId']) => ingredients[String(id)];
     const nameOf = (id: RecipeLine['ingredientId']): string => {
@@ -468,7 +489,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             key: 'reference',
             role: 'meta',
             label: t('kitchen:ops.batch.columnRef'),
-            width: 96,
+            width: SHEET_COLUMN_WIDTH,
             priority: 70,
             mono: true,
             sort: (left, right, direction) =>
@@ -491,7 +512,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             key: 'name',
             role: 'title',
             label: t('kitchen:ops.batch.columnDesignation'),
-            width: 200,
+            width: SHEET_COLUMN_WIDTH,
             priority: 100,
             sort: (left, right, direction) =>
                 compareText(sortName(left.ingredientId), sortName(right.ingredientId), direction),
@@ -501,10 +522,9 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
                         {nameOf(line.ingredientId)}
                     </Text>
                     {line.isOptional ? (
-                        <Badge
+                        <DeskChip
                             testID={`${rowId(line.ingredientId)}-optional`}
                             tone="neutral"
-                            icon={null}
                             label={t('kitchen:ops.batch.optionalBadge')}
                         />
                     ) : null}
@@ -514,7 +534,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         {
             key: 'unit',
             label: t('kitchen:ops.batch.columnUnit'),
-            width: 64,
+            width: SHEET_COLUMN_WIDTH,
             priority: 60,
             filter: unitFilter<RecipeLine>(),
             value: (line) => t(unitShortKey(line.unit)),
@@ -522,7 +542,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         {
             key: 'base',
             label: t('kitchen:ops.batch.columnPerBatch'),
-            width: 96,
+            width: SHEET_COLUMN_WIDTH,
             priority: 50,
             mono: true,
             sort: (left, right, direction) =>
@@ -537,7 +557,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             key: 'scaled',
             role: 'metric',
             label: t('kitchen:ops.batch.columnToIssue'),
-            width: 96,
+            width: SHEET_COLUMN_WIDTH,
             priority: 90,
             mono: true,
             sort: (left, right, direction) =>
@@ -562,7 +582,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             key: 'reference',
             role: 'meta',
             label: t('kitchen:ops.batch.columnRef'),
-            width: 96,
+            width: SHEET_COLUMN_WIDTH,
             priority: 70,
             mono: true,
             sort: (left, right, direction) =>
@@ -577,7 +597,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             key: 'name',
             role: 'title',
             label: t('kitchen:ops.batch.columnDesignation'),
-            width: 200,
+            width: SHEET_COLUMN_WIDTH,
             priority: 100,
             sort: (left, right, direction) =>
                 compareText(sortName(left.ingredientId), sortName(right.ingredientId), direction),
@@ -590,7 +610,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         {
             key: 'unit',
             label: t('kitchen:ops.batch.columnUnit'),
-            width: 64,
+            width: SHEET_COLUMN_WIDTH,
             priority: 60,
             filter: unitFilter<RecipePackagingLine>(),
             value: (row) => t(unitShortKey(row.unit)),
@@ -598,7 +618,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         {
             key: 'base',
             label: t('kitchen:ops.batch.columnPerBatch'),
-            width: 96,
+            width: SHEET_COLUMN_WIDTH,
             priority: 50,
             mono: true,
             sort: (left, right, direction) =>
@@ -609,7 +629,7 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
             key: 'scaled',
             role: 'metric',
             label: t('kitchen:ops.batch.columnToIssue'),
-            width: 140,
+            width: SHEET_COLUMN_WIDTH,
             priority: 90,
             mono: true,
             // By what is issued, the rounded-up count: the figure the cell leads with.
@@ -642,30 +662,53 @@ function ScaledSheet({ version, factor, ingredients }: ScaledSheetProps) {
         },
     ];
 
+    return { lineColumns, packagingColumns };
+}
+
+interface ScaledSheetProps {
+    readonly version: RecipeVersionAdmin;
+    readonly factor: number;
+    /** The raw-material table's controls; its picker is on the Lens bar. */
+    readonly lines: ColumnControls<RecipeLine, CatalogueColumn<RecipeLine>>;
+    readonly packagingColumns: readonly ControlledColumn<
+        RecipePackagingLine,
+        CatalogueColumn<RecipePackagingLine>
+    >[];
+}
+
+/**
+ * The scaled raw materials, then the packaging. Row test ids are
+ * `kitchen-batch-row-<ingredient id>-*`, the same stem the production editor's sheet uses.
+ */
+function ScaledSheet({ version, factor, lines, packagingColumns }: ScaledSheetProps) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const number = (value: number): string => formatter.formatNumber(value, BATCH_QUANTITY_FORMAT);
+
     return (
         <Stack space="md">
             {/*
              * ponytail: rows are keyed by ingredient id. A sheet that lists one ingredient twice
              * gives the two rows one key — index the rows if a kitchen hits it.
+             *
+             * The factor and the waste rate are behind the title's (i), not a line beside it.
              */}
-            <ProductionTable<RecipeLine>
+            <ProductionTableSection<RecipeLine>
                 first
                 testID="kitchen-batch-ingredients"
                 sectionTestID="kitchen-batch-consume"
                 title={t('kitchen:ops.batch.rawMaterialsHeading')}
-                rows={version.lines}
-                columns={lineColumns}
-                rowKey={(line) => String(line.ingredientId)}
-                aside={
-                    <Text variant="caption" tone="secondary" testID="kitchen-batch-base-times">
-                        {version.wastePercent > 0
-                            ? t('kitchen:ops.batch.baseTimesWithWaste', {
-                                  factor: number(factor),
-                                  percent: number(version.wastePercent),
-                              })
-                            : t('kitchen:ops.batch.baseTimes', { factor: number(factor) })}
-                    </Text>
+                description={
+                    version.wastePercent > 0
+                        ? t('kitchen:ops.batch.baseTimesWithWaste', {
+                              factor: number(factor),
+                              percent: number(version.wastePercent),
+                          })
+                        : t('kitchen:ops.batch.baseTimes', { factor: number(factor) })
                 }
+                rows={version.lines}
+                controls={lines}
+                rowKey={(line) => String(line.ingredientId)}
             />
 
             <ProductionTable<RecipePackagingLine>

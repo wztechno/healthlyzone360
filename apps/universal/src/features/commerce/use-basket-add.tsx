@@ -1,21 +1,40 @@
-import { Button, Dialog, useToast } from '@healthy360/design-system';
-import type { ApiFailure, Cart, MarketplaceMeal } from '@healthy360/api-client/contracts';
+import { useToast } from '@healthy360/design-system';
+import type { Money } from '@healthy360/domain-types';
+import type {
+    ApiFailure,
+    Cart,
+    DishLineChoices,
+    MarketplaceMeal,
+} from '@healthy360/api-client/contracts';
 import type { KitchenId } from '@healthy360/domain-types';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { UseMutationResult } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
+import { EntityImage, resolveEntityImage } from '../../media/entity-image.tsx';
 import { queryKeys } from '../../data/query-keys.ts';
 import { useRepositories } from '../../data/repository-provider.tsx';
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { useCurrentHref, useGoToAuth } from '../../navigation/use-return-to.ts';
 import { useFailureMessage } from '../../screens/form-helpers.ts';
 import { useSession } from '../../session/session-provider.tsx';
+import {
+    ShopDialog,
+    ShopDialogButton,
+    ShopDialogSubject,
+    ShopDialogTile,
+} from '../../ui/shop-dialog.tsx';
+import { formatMoney } from '../marketplace/format.ts';
 import { recordResumeIntent } from '../marketplace/resume-intent.ts';
+import { useShopViewOnly } from '../marketplace/shop-view-only.tsx';
+import { AllergenWarningDialog } from './allergen-warning-dialog.tsx';
+import type { AllergenRecipient } from './allergen-warning-dialog.tsx';
 import { clashingAllergens, useAllergenNames, useMyAllergenCodes } from './my-allergens.tsx';
 import { writePendingAdd } from './pending-add.ts';
 
@@ -114,6 +133,13 @@ export interface BasketMeal {
     readonly kitchenId?: KitchenId | undefined;
     readonly allergens?: readonly string[] | undefined;
     readonly name?: string | undefined;
+    /** What the meal page chose: a portion, its free options, a note. A grid's Add has none. */
+    readonly choices?: DishLineChoices | undefined;
+    /** For the allergen question's dish row and the confirmation's photo, when the caller has them. */
+    readonly photoUrl?: string | null | undefined;
+    readonly imagePlaceholderId?: string | undefined;
+    readonly price?: Money | undefined;
+    readonly mealTypes?: readonly string[] | undefined;
 }
 
 export interface BasketAdd {
@@ -122,7 +148,11 @@ export interface BasketAdd {
      * Add. The meal page passes its stepper's count, so "three of these" is one request, and somebody
      * who chose three before signing in finds three in the basket afterwards.
      */
-    readonly add: (meal: BasketMeal, quantity?: number) => void;
+    readonly add: (
+        meal: BasketMeal,
+        quantity?: number,
+        options?: { readonly onAdded?: (() => void) | undefined },
+    ) => void;
     /** An add is in flight, or the session is still restoring and cannot take one yet. */
     readonly pending: boolean;
     /** True when the last add failed, for a surface that reports it beside the control. */
@@ -195,7 +225,11 @@ function useBasketAddMutation(): UseMutationResult<Cart, unknown, AddVariables> 
                           meal.kitchenId === undefined ? {} : { kitchenId: meal.kitchenId },
                       )
                   ).id;
-            return repositories.commerce.addCartItem(cartId, { mealId: meal.id, quantity });
+            return repositories.commerce.addCartItem(cartId, {
+                mealId: meal.id,
+                quantity,
+                ...meal.choices,
+            });
         },
         onSuccess: (cart) => {
             // Written rather than invalidated: the screen reports the new item count in the same
@@ -208,6 +242,11 @@ function useBasketAddMutation(): UseMutationResult<Cart, unknown, AddVariables> 
 interface Asked {
     readonly meal: BasketMeal;
     readonly quantity: number;
+    /** Called once the add has landed — the meal page adds the sides ticked beside it. */
+    readonly onAdded?: (() => void) | undefined;
+    /** Added past the allergen question: what it crosses, and who the person said it is for. */
+    readonly warned?:
+        { readonly clashing: readonly string[]; readonly recipient: AllergenRecipient } | undefined;
 }
 
 interface AllergenAsk extends Asked {
@@ -218,6 +257,8 @@ interface AllergenAsk extends Asked {
 interface Conflict extends Asked {
     /** The kitchen the basket already holds meals from, when the lines say. */
     readonly kitchenName: string | undefined;
+    /** What would be emptied, for the pop-up's card. */
+    readonly basket: { readonly itemCount: number; readonly subtotal: Money } | undefined;
 }
 
 export function useBasketAdd({
@@ -232,10 +273,12 @@ export function useBasketAdd({
     const toast = useToast();
     const failureMessage = useFailureMessage();
     const { phase } = useSession();
+    const viewOnly = useShopViewOnly();
     const queryClient = useQueryClient();
     const addToBasket = useBasketAddMutation();
     const myAllergens = useMyAllergenCodes();
     const allergenNames = useAllergenNames();
+    const formatter = useFormatter();
 
     // The sign-in question, and the "Start a new basket?" one. Each holds the add it is about.
     const [asked, setAsked] = useState<Asked | null>(null);
@@ -247,7 +290,12 @@ export function useBasketAdd({
         href: '/sign-in' | '/register' | '/verify-email',
         { meal, quantity }: Asked,
     ) => {
-        writePendingAdd({ mealId: meal.id, quantity, kitchenId: meal.kitchenId });
+        writePendingAdd({
+            mealId: meal.id,
+            quantity,
+            kitchenId: meal.kitchenId,
+            choices: meal.choices,
+        });
         if (href === '/verify-email') {
             router.push(withReturnTo(href, here) as never);
             return;
@@ -302,34 +350,58 @@ export function useBasketAdd({
     };
 
     const commit = (choice: Asked, startOver = false) => {
-        addToBasket.mutate(
-            { meal: choice.meal, quantity: choice.quantity, startOver },
-            {
-                onSuccess: (cart) => {
-                    /*
-                     * Confirmed by a toast carrying the new basket count. Adding from a grid gives
-                     * no other feedback — the card does not change, and the basket pill is up in the
-                     * chrome — so without it the press looks like it did nothing.
-                     *
-                     * It carries the way on, as HealthZone's does: a person who adds from a grid
-                     * is usually one press from the basket, and the pill is across the page.
-                     */
-                    toast.show({
-                        testID: 'basket-added',
-                        tone: 'success',
-                        message: t('catalogue:meal.addedToBasket', { count: cart.itemCount }),
-                        action: {
-                            label: t('common:action.viewBasket'),
-                            testID: 'basket-added-view',
-                            onPress: () => {
-                                router.push('/customer/cart' as never);
-                            },
+        /*
+         * The promise, not `mutate`'s own callbacks. TanStack Query drops a `mutate` call's
+         * callbacks when the component that made it has re-mounted by the time the add lands —
+         * which a grid does while the basket updates under it — and the confirmation silently never
+         * showed. The promise settles whatever happened to the component, and the toast lives in
+         * the provider above it.
+         */
+        addToBasket.mutateAsync({ meal: choice.meal, quantity: choice.quantity, startOver }).then(
+            (cart) => {
+                choice.onAdded?.();
+                /*
+                 * Confirmed by a toast carrying the new basket count. Adding from a grid gives
+                 * no other feedback — the card does not change, and the basket pill is up in the
+                 * chrome — so without it the press looks like it did nothing.
+                 *
+                 * It carries the way on, as HealthZone's does: a person who adds from a grid
+                 * is usually one press from the basket, and the pill is across the page.
+                 */
+                const { meal, warned } = choice;
+                const photo =
+                    meal.photoUrl !== undefined && meal.photoUrl !== null && meal.photoUrl !== ''
+                        ? { uri: meal.photoUrl }
+                        : resolveEntityImage(meal.imagePlaceholderId, 'card');
+                toast.show({
+                    testID: 'basket-added',
+                    tone: warned === undefined ? 'success' : 'warning',
+                    ...(meal.name === undefined
+                        ? {}
+                        : { title: t('catalogue:meal.addedTitle', { meal: meal.name }) }),
+                    ...(photo === null || warned !== undefined ? {} : { image: photo }),
+                    message:
+                        warned !== undefined
+                            ? t(
+                                  warned.recipient === 'other'
+                                      ? 'catalogue:meal.addedForOther'
+                                      : 'catalogue:meal.addedOnYourList',
+                                  { allergens: allergenNames(warned.clashing) },
+                              )
+                            : meal.name === undefined
+                              ? t('catalogue:meal.addedToBasket', { count: cart.itemCount })
+                              : t('catalogue:meal.basketNow', { count: cart.itemCount }),
+                    action: {
+                        label: t('common:action.viewBasket'),
+                        testID: 'basket-added-view',
+                        onPress: () => {
+                            router.push('/customer/cart' as never);
                         },
-                    });
-                },
-                onError: (error) => {
-                    reportFailure(error, choice);
-                },
+                    },
+                });
+            },
+            (error: unknown) => {
+                reportFailure(error, choice);
             },
         );
     };
@@ -338,14 +410,28 @@ export function useBasketAdd({
     const proceed = (choice: Asked) => {
         const cached = queryClient.getQueryData<Cart>(queryKeys.commerce.cart());
         if (holdsAnotherKitchen(cached, choice.meal)) {
-            setConflict({ ...choice, kitchenName: cached?.items[0]?.kitchenName });
+            setConflict({
+                ...choice,
+                kitchenName: cached?.items[0]?.kitchenName,
+                basket:
+                    cached === undefined
+                        ? undefined
+                        : { itemCount: cached.itemCount, subtotal: cached.subtotal },
+            });
             return;
         }
         commit(choice);
     };
 
-    const add = (meal: BasketMeal, quantity = 1) => {
-        const choice: Asked = { meal, quantity };
+    const add = (
+        meal: BasketMeal,
+        quantity = 1,
+        options?: { readonly onAdded?: (() => void) | undefined },
+    ) => {
+        // Staff and business buyers buy nothing from the shop. Every Add is already hidden from
+        // them; this is the backstop for one that is not (`shop-view-only.tsx`).
+        if (viewOnly) return;
+        const choice: Asked = { meal, quantity, onAdded: options?.onAdded };
         switch (phase) {
             case 'restoring':
                 // Not knowable yet; `pending` keeps the control busy until it is.
@@ -372,61 +458,36 @@ export function useBasketAdd({
 
     const dialog = (
         <>
-            <Dialog
+            <AllergenWarningDialog
                 testID={`${testID}-allergen-warning`}
-                open={allergenAsk !== null}
+                meal={allergenAsk?.meal ?? null}
+                clashing={allergenAsk?.clashing ?? []}
+                names={allergenNames}
                 onClose={() => {
                     setAllergenAsk(null);
                 }}
-                title={t('commerce:myAllergens.dialogTitle')}
-                {...(allergenAsk === null
-                    ? {}
-                    : {
-                          description: t(
-                              allergenAsk.meal.name === undefined
-                                  ? 'commerce:myAllergens.dialogBodyUnnamed'
-                                  : 'commerce:myAllergens.dialogBody',
-                              {
-                                  meal: allergenAsk.meal.name,
-                                  count: allergenAsk.clashing.length,
-                                  allergens: allergenNames(allergenAsk.clashing),
-                              },
-                          ),
-                      })}
-                actions={
-                    <>
-                        <Button
-                            testID={`${testID}-allergen-warning-cancel`}
-                            variant="secondary"
-                            label={t('common:action.cancel')}
-                            onPress={() => {
-                                setAllergenAsk(null);
-                            }}
-                        />
-                        <Button
-                            testID={`${testID}-allergen-warning-add`}
-                            label={t('commerce:myAllergens.addAnyway')}
-                            onPress={() => {
-                                if (allergenAsk === null) return;
-                                setAllergenAsk(null);
-                                proceed(allergenAsk);
-                            }}
-                        />
-                    </>
-                }
+                onAddAnyway={(recipient) => {
+                    if (allergenAsk === null) return;
+                    setAllergenAsk(null);
+                    proceed({
+                        ...allergenAsk,
+                        warned: { clashing: allergenAsk.clashing, recipient },
+                    });
+                }}
             />
-            <Dialog
+            {/* Shop · Menu, pin 8: the dish it is about, then Create account beside Sign in. */}
+            <ShopDialog
                 testID={`${testID}-guest-entry-dialog`}
                 open={asked !== null}
                 onClose={() => {
                     setAsked(null);
                 }}
+                icon="person"
                 title={t('guest:entry.title')}
                 actions={
                     <>
-                        <Button
+                        <ShopDialogButton
                             testID={`${testID}-guest-register`}
-                            variant="secondary"
                             label={t('guest:entry.register')}
                             onPress={() => {
                                 if (asked === null) return;
@@ -434,8 +495,11 @@ export function useBasketAdd({
                                 authenticateFor('/register', asked);
                             }}
                         />
-                        <Button
+                        <ShopDialogButton
                             testID={`${testID}-guest-sign-in`}
+                            kind="brand"
+                            icon="arrowForward"
+                            iconAfter
                             label={t('guest:entry.signIn')}
                             onPress={() => {
                                 if (asked === null) return;
@@ -445,33 +509,38 @@ export function useBasketAdd({
                         />
                     </>
                 }
-            />
-            <Dialog
+            >
+                {asked?.meal.name === undefined ? null : (
+                    <MealSubject meal={asked.meal} testID={`${testID}-guest-entry-meal`} />
+                )}
+            </ShopDialog>
+            {/* Shop · Menu, pin 7: the basket that would be emptied, on a danger head. */}
+            <ShopDialog
                 testID={`${testID}-basket-conflict`}
                 open={conflict !== null}
                 onClose={() => {
                     setConflict(null);
                 }}
+                tone="danger"
+                icon="shoppingBasket"
                 title={t('commerce:basketConflict.title')}
-                {...(conflict?.kitchenName === undefined
-                    ? {}
-                    : {
-                          description: t('commerce:basketConflict.body', {
-                              kitchen: conflict.kitchenName,
-                          }),
-                      })}
+                description={
+                    conflict?.kitchenName === undefined
+                        ? undefined
+                        : t('commerce:basketConflict.body', { kitchen: conflict.kitchenName })
+                }
                 actions={
                     <>
-                        <Button
+                        <ShopDialogButton
                             testID={`${testID}-basket-conflict-keep`}
-                            variant="secondary"
                             label={t('commerce:basketConflict.keep')}
                             onPress={() => {
                                 setConflict(null);
                             }}
                         />
-                        <Button
+                        <ShopDialogButton
                             testID={`${testID}-basket-conflict-replace`}
+                            kind="danger"
                             label={t('commerce:basketConflict.replace')}
                             onPress={() => {
                                 if (conflict === null) return;
@@ -481,7 +550,23 @@ export function useBasketAdd({
                         />
                     </>
                 }
-            />
+            >
+                {conflict === null || conflict.basket === undefined ? null : (
+                    <ShopDialogSubject
+                        testID={`${testID}-basket-conflict-basket`}
+                        lead={<ShopDialogTile icon="shoppingBasket" />}
+                        name={conflict.kitchenName ?? t('commerce:basketConflict.yourBasket')}
+                        meta={t('commerce:basketConflict.basketLine', {
+                            count: conflict.basket.itemCount,
+                        })}
+                        end={
+                            <RNText className="pe-1 font-display text-base font-bold tabular-nums text-content-primary">
+                                {formatMoney(formatter, conflict.basket.subtotal)}
+                            </RNText>
+                        }
+                    />
+                )}
+            </ShopDialog>
         </>
     );
 
@@ -492,4 +577,38 @@ export function useBasketAdd({
         failure: toFailure(addToBasket.error),
         dialog,
     };
+}
+
+/** A dish as a pop-up's card: its photo, its name, its first meal type and its price. */
+function MealSubject({ meal, testID }: { readonly meal: BasketMeal; readonly testID: string }) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const type = meal.mealTypes?.[0];
+    return (
+        <ShopDialogSubject
+            testID={testID}
+            lead={
+                <View className="h-[52px] w-[52px] overflow-hidden rounded-[14px]">
+                    <EntityImage
+                        assetId={meal.imagePlaceholderId}
+                        photoUrl={meal.photoUrl}
+                        seed={meal.id}
+                        label={meal.name ?? ''}
+                        decorative
+                        flush
+                        className="h-full w-full"
+                    />
+                </View>
+            }
+            name={meal.name ?? ''}
+            meta={type === undefined ? undefined : t(`marketplace:mealTypes.${type}`)}
+            end={
+                meal.price === undefined ? undefined : (
+                    <RNText className="pe-1 font-display text-base font-bold tabular-nums text-content-primary">
+                        {formatMoney(formatter, meal.price)}
+                    </RNText>
+                )
+            }
+        />
+    );
 }

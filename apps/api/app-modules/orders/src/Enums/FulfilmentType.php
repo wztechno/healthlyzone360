@@ -73,6 +73,20 @@ enum FulfilmentType: string
     }
 
     /**
+     * Whether an order that leaves this way can be paid this way: cash changes
+     * hands at the door on a delivery and at the counter otherwise, and a WISH
+     * transfer suits all three. The desk's sale screen offers the same pairs.
+     */
+    public function acceptsPaymentMethod(PaymentMethod $method): bool
+    {
+        return match ($method) {
+            PaymentMethod::Wish => true,
+            PaymentMethod::CashOnDelivery => $this === self::Delivery,
+            PaymentMethod::CashAtCounter => $this !== self::Delivery,
+        };
+    }
+
+    /**
      * @return list<string>
      */
     public static function codes(): array

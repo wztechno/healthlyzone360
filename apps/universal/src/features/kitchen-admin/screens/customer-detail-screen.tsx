@@ -5,8 +5,6 @@ import type {
     KitchenCustomerDetail,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Callout,
     ErrorState,
     Inline,
@@ -17,19 +15,36 @@ import {
 } from '@healthy360/design-system';
 import type { BadgeTone, RecordWindowField } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { Gate } from '../../../access/gate.tsx';
+import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useKitchenCustomerQuery } from '../../../data/kitchen-customers-hooks.ts';
-import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { useKitchenOrdersQuery } from '../../../data/kitchen-orders-hooks.ts';
+import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
+import { formatMoney } from '../../marketplace/format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ORDER_VIEW_CUSTOMER_CONTACT_PERMISSION } from '../entity-registry.ts';
+import {
+    ORDER_VIEW_CUSTOMER_CONTACT_PERMISSION,
+    ORDER_VIEW_PERMISSION,
+} from '../entity-registry.ts';
 import { prefersArabic } from '../format.ts';
-import { customerName, customerTypeKey, customerTypeTone } from './customers-screen.tsx';
+import { kitchenOrderStatusKey } from '../ops-format.ts';
+import { ChosenAllergies } from '../order-desk/sale-customer.tsx';
+import {
+    CustomersScreen,
+    customerName,
+    customerTypeKey,
+    customerTypeTone,
+} from './customers-screen.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { withReturnTo } from '../../../navigation/return-to.ts';
 /**
  * `/kitchen/customers/{customer}` — one customer in the kitchen's book: their contacts, every saved
  * address, and for a corporate buyer the company record and named contacts. Read-only; correcting a
@@ -38,6 +53,9 @@ import { customerName, customerTypeKey, customerTypeTone } from './customers-scr
  * An account outside this kitchen's book answers `resource.not_found` from the server, drawn here as
  * the same not-found state a hand-typed link gets.
  */
+
+/** How many of a customer's orders their record lists. The orders page has the rest. */
+const RECENT_ORDERS = 10;
 
 export interface CustomerDetailScreenProps {
     readonly customer: string | undefined;
@@ -91,9 +109,8 @@ function CustomerRecord({ customer }: CustomerDetailScreenProps) {
                     tone="warning"
                     title={t('kitchen:ops.customers.notFoundTitle')}
                     actions={
-                        <Button
+                        <BackPill
                             testID="kitchen-customer-not-found-back"
-                            variant="quiet"
                             label={t('kitchen:ops.customers.backToList')}
                             onPress={backToList}
                         />
@@ -116,11 +133,18 @@ function CustomerRecord({ customer }: CustomerDetailScreenProps) {
         );
     }
 
-    if (record.data === undefined) {
-        return <TableSkeleton testID="kitchen-customer-loading" partTestID="kitchen-customer" />;
-    }
-
-    return <CustomerView detail={record.data} onBack={backToList} />;
+    // The record opens as a pop-up over the book it was picked from (`View as a pop-up`): the book
+    // is drawn behind while the record loads, and the pop-up joins it once it has.
+    return (
+        <>
+            <CustomersScreen />
+            {record.data === undefined ? (
+                <View testID="kitchen-customer-loading" />
+            ) : (
+                <CustomerView detail={record.data} onBack={backToList} />
+            )}
+        </>
+    );
 }
 
 function CustomerView({
@@ -132,6 +156,7 @@ function CustomerView({
 }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const canSeeOrders = useCan(ORDER_VIEW_PERMISSION);
 
     const fields: RecordWindowField[] = [
         {
@@ -172,11 +197,13 @@ function CustomerView({
     return (
         <RecordViewPage
             testID="kitchen-customer-view"
+            look="board"
+            eyebrow={t('kitchen:recordView.eyebrowCustomers')}
             title={customerName(detail, t)}
             kind={t('kitchen:ops.customers.viewKind')}
             reference={detail.accountNumber}
             titleAside={
-                <Badge
+                <DeskChip
                     tone={customerTypeTone(detail.type)}
                     label={t(customerTypeKey(detail.type))}
                 />
@@ -189,6 +216,20 @@ function CustomerView({
             note={t('kitchen:ops.customers.readOnlyNote')}
             fields={fields}
             sections={[
+                {
+                    key: 'allergies',
+                    title: t('kitchen:ops.customers.sectionAllergies'),
+                    content: <ChosenAllergies customerAccountId={String(detail.id)} />,
+                },
+                ...(canSeeOrders
+                    ? [
+                          {
+                              key: 'orders',
+                              title: t('kitchen:ops.customers.sectionOrders'),
+                              content: <CustomerOrders customerAccountId={String(detail.id)} />,
+                          },
+                      ]
+                    : []),
                 {
                     key: 'contacts',
                     title: t('kitchen:ops.customers.sectionContacts'),
@@ -213,6 +254,74 @@ function CustomerView({
     );
 }
 
+/** Their latest orders, each opening where every order opens. */
+function CustomerOrders({ customerAccountId }: { readonly customerAccountId: string }) {
+    const { t } = useTranslation();
+    const formatter = useFormatter();
+    const router = useRouter();
+    const here = useCurrentHref();
+    const orders = useKitchenOrdersQuery({ customerAccountId, limit: RECENT_ORDERS });
+    const failure = toFailure(orders.error);
+
+    if (failure !== null) {
+        return (
+            <ErrorState
+                testID="kitchen-customer-orders-error"
+                failure={failure}
+                onRetry={() => {
+                    void orders.refetch();
+                }}
+                retrying={orders.isFetching}
+            />
+        );
+    }
+
+    if (orders.data === undefined) {
+        return (
+            <TableSkeleton
+                testID="kitchen-customer-orders-loading"
+                partTestID="kitchen-customer-orders"
+            />
+        );
+    }
+
+    if (orders.data.items.length === 0) {
+        return <Text tone="secondary">{t('kitchen:ops.customers.neverOrdered')}</Text>;
+    }
+
+    return (
+        <Stack space="sm" testID="kitchen-customer-orders">
+            {orders.data.items.map((order) => (
+                <Inline key={String(order.id)} space="sm" wrap>
+                    <Text variant="mono">{order.orderNumber}</Text>
+                    <Text tone="secondary">{formatter.formatDate(order.placedAt)}</Text>
+                    <Text variant="mono">
+                        {formatMoney(formatter, {
+                            amount: order.totalMinor,
+                            currency: order.currencyCode,
+                        })}
+                    </Text>
+                    <DeskChip tone="neutral" label={t(kitchenOrderStatusKey(order.status))} />
+                    <DeskButton
+                        testID={`kitchen-customer-order-${String(order.id)}`}
+                        size="sm"
+                        variant="quiet"
+                        label={t('kitchen:ops.customers.openOrder')}
+                        onPress={() => {
+                            router.push(
+                                withReturnTo(
+                                    `/kitchen/orders?view=${encodeURIComponent(String(order.id))}`,
+                                    here,
+                                ) as never,
+                            );
+                        }}
+                    />
+                </Inline>
+            ))}
+        </Stack>
+    );
+}
+
 function ContactList({ contacts }: { readonly contacts: readonly KitchenCustomerContact[] }) {
     const { t } = useTranslation();
 
@@ -234,10 +343,16 @@ function ContactList({ contacts }: { readonly contacts: readonly KitchenCustomer
                     </Text>
                     {contact.label === null ? null : <Text tone="secondary">{contact.label}</Text>}
                     {contact.isPrimary ? (
-                        <Badge tone="brand" label={t('kitchen:ops.customers.contactPrimary')} />
+                        <DeskChip
+                            tone="success"
+                            label={t('kitchen:ops.customers.contactPrimary')}
+                        />
                     ) : null}
                     {contact.verified ? (
-                        <Badge tone="success" label={t('kitchen:ops.customers.contactVerified')} />
+                        <DeskChip
+                            tone="success"
+                            label={t('kitchen:ops.customers.contactVerified')}
+                        />
                     ) : null}
                 </Inline>
             ))}
@@ -288,7 +403,10 @@ function AddressList({ addresses }: { readonly addresses: readonly KitchenCustom
                                     : t('kitchen:ops.customers.addressDelivery'))}
                         </Text>
                         {address.isDefault ? (
-                            <Badge tone="brand" label={t('kitchen:ops.customers.addressDefault')} />
+                            <DeskChip
+                                tone="success"
+                                label={t('kitchen:ops.customers.addressDefault')}
+                            />
                         ) : null}
                     </Inline>
                     <Text>{addressLine(address, locale, t)}</Text>

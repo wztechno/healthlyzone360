@@ -1,731 +1,353 @@
-import { ApiError, conflictFailure } from '@healthy360/api-client';
 import type {
-    CancelKitchenOrderRequest,
-    KitchenOrder,
     KitchenOrderFilters,
-    KitchenOrderLine,
     KitchenOrderPage,
-    KitchenOrderStatus,
     KitchenOrderTransitionRequest,
+    OrderDeskDeliveryWindow,
+    OrderDeskQueue,
+    OrderDeskQueueFilters,
+    OrderDeskQueueRow,
 } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { Dimensions } from 'react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
-import { TEST_BRANCH_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
+import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
+import { addDays } from '../planner/format.ts';
+import { localToday } from './orders/order-book.ts';
+import type { BookRow } from './orders/order-book.ts';
 import { OrdersScreen } from './screens/orders-screen.tsx';
 
-jest.mock('expo-router', () => ({
-    __esModule: true,
-    useRouter: () => ({
-        push: jest.fn(),
-        replace: jest.fn(),
-        setParams: jest.fn(),
-        back: jest.fn(),
+jest.mock('expo-router', () =>
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    require('../../testing/expo-router-mock.ts').createExpoRouterMock({
+        pathname: '/kitchen/orders',
     }),
-    usePathname: () => '/kitchen/orders',
-    useLocalSearchParams: () => ({}),
-    Redirect: () => null,
-    Link: ({ children }: { children: React.ReactNode }) => children,
-}));
+);
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const routerMock = require('expo-router') as ExpoRouterMock;
 
 /**
- * The order book, against an order book this file writes.
- *
- * Everything the screen reads is authored below, and the three lifecycle writes go through
- * {@link createOrderBook} — a closure that enforces the contract's own machine
- * (`contracts/kitchen-orders.ts`: `placed → confirmed → fulfilled`, cancel from the two open
- * statuses, `If-Match` on the lock version) and hands back the fresh record. That is deliberate
- * rather than a stub returning a canned answer: the panel's "Confirm then Fulfil without a refetch"
- * behaviour only means anything if the version it sends the second time came from the first write.
+ * The Orders page (Option A): one page, three tabs, one pop-up — against an order book this file
+ * writes. Today reads the day from the book (every status, with the customer and the money) and the
+ * late ones from earlier days from the desk queue; All orders reads numbered pages; every row ends
+ * in its next step; and the old addresses still arrive.
  */
 
-const OTHER_BRANCH_ID = 'test-0000-branch-0002' as KitchenOrder['branchId'];
+const TODAY = localToday();
+const YESTERDAY = addDays(TODAY, -1);
 
-function orderIdAt(ordinal: number): OrderId {
-    return `test-0000-order-000${String(ordinal)}` as OrderId;
-}
-
-function line(ordinal: number, overrides: Partial<KitchenOrderLine> = {}): KitchenOrderLine {
+function row(ordinal: number, overrides: Partial<OrderDeskQueueRow> = {}): OrderDeskQueueRow {
     return {
-        id: `test-order-line-${String(ordinal)}`,
-        catalogueItemId: `test-catalogue-item-${String(ordinal)}`,
-        catalogueItemVariantId: null,
-        nameEn: `Dish ${String(ordinal)}`,
-        nameAr: `طبق ${String(ordinal)}`,
-        variantLabel: null,
-        quantity: '1.000',
-        unitPriceMinor: 5_000,
-        lineTotalMinor: 5_000,
-        currencyCode: 'AED',
-        allergens: [],
-        packSummary: null,
-        priceListId: null,
-        priceListItemId: null,
-        ...overrides,
-    };
-}
-
-const DELIVERY: KitchenOrder['delivery'] = {
-    label: 'Home',
-    lineOne: 'Villa 12, Street 8b',
-    lineTwo: null,
-    city: null,
-    areaNameEn: 'Al Quoz 1',
-    areaNameAr: 'القوز ١',
-    areaId: null,
-    windowCode: 'morning',
-    requestedDate: '2026-08-08',
-    zoneId: null,
-};
-
-function kitchenOrder(overrides: Partial<KitchenOrder> = {}): KitchenOrder {
-    const lines = overrides.lines ?? [line(1)];
-    return {
-        id: orderIdAt(1),
-        orderNumber: 'VK-2026-0100',
-        branchId: TEST_BRANCH_ID,
+        id: `order-${String(ordinal)}` as OrderId,
+        orderNumber: `ORD-TEST00000${String(ordinal)}`,
+        branchId: null,
         status: 'placed',
-        currencyCode: 'AED',
-        subtotalMinor: 5_000,
-        deliveryFeeMinor: null,
-        totalMinor: 5_000,
+        currencyCode: 'USD',
+        subtotalMinor: 1400,
+        deliveryFeeMinor: 200,
+        totalMinor: 1600,
         paymentMethod: 'cash_on_delivery',
         fulfilmentType: 'delivery',
-        delivery: DELIVERY,
-        placedAt: '2026-08-06T07:12:00Z',
+        delivery: {
+            label: null,
+            lineOne: 'Sursock St, Bldg 14',
+            lineTwo: null,
+            city: null,
+            areaNameEn: 'Achrafieh',
+            areaNameAr: null,
+            areaId: null,
+            windowCode: 'lunch',
+            requestedDate: TODAY,
+            zoneId: null,
+        },
+        placedAt: `${YESTERDAY}T10:00:00Z`,
         confirmedAt: null,
         fulfilledAt: null,
         cancelledAt: null,
         cancellationReason: null,
-        lockVersion: 1,
-        lineCount: lines.length,
-        lines,
+        lockVersion: 4,
+        customerAccountId: null,
+        amendable: true,
+        allergy: null,
+        lineCount: 1,
+        lines: [
+            {
+                id: `line-${String(ordinal)}`,
+                catalogueItemId: 'item-1',
+                catalogueItemVariantId: null,
+                nameEn: 'Grilled Salmon Bowl',
+                nameAr: 'وعاء السلمون',
+                variantLabel: null,
+                quantity: '1.000',
+                unitPriceMinor: 1400,
+                lineTotalMinor: 1400,
+                currencyCode: 'USD',
+                allergens: [],
+                packSummary: null,
+                priceListId: null,
+                priceListItemId: null,
+            },
+        ],
+        dueAt: `${TODAY}T23:00:00Z`,
+        payment: { method: 'cash_on_delivery', receivedMinor: 0, receipted: false },
+        deliveryJob: null,
+        customer: { displayName: 'Rania Haddad', phone: '+96170214380' },
         ...overrides,
-        // Derived after the spread so an override cannot claim a count its own lines contradict.
-        ...(overrides.lines === undefined ? {} : { lineCount: overrides.lines.length }),
     };
 }
 
-/**
- * Five orders, newest first — the order the endpoint answers in. Two `placed`, one `confirmed`, one
- * `fulfilled`, one `cancelled`, which is what makes every metric and every filter assertion below a
- * count of something this file authored rather than of something it hopes exists.
- *
- * The newest carries the money the detail assertions read: 14 500 + 1 500 delivery = 16 000 minor
- * units, which the currency's own exponent turns into AED 145.00 and AED 160.00 exactly once.
- */
-function seedOrders(): KitchenOrder[] {
-    return [
-        kitchenOrder({
-            id: orderIdAt(1),
-            orderNumber: 'VK-2026-0148',
-            // Verdant's *other* kitchen: in this manager's book, and never on Al Quoz's wall.
-            branchId: OTHER_BRANCH_ID,
-            status: 'placed',
-            subtotalMinor: 14_500,
-            deliveryFeeMinor: 1_500,
-            totalMinor: 16_000,
-            placedAt: '2026-08-06T07:12:00Z',
-            lines: [
-                line(1, {
-                    nameEn: 'Grilled chicken bowl',
-                    nameAr: 'وعاء الدجاج المشوي',
-                    quantity: '2.000',
-                    unitPriceMinor: 4_500,
-                    lineTotalMinor: 9_000,
-                }),
-                line(2, {
-                    nameEn: 'Green harvest salad',
-                    nameAr: 'سلطة الحصاد الأخضر',
-                    unitPriceMinor: 5_500,
-                    lineTotalMinor: 5_500,
-                }),
-            ],
-        }),
-        kitchenOrder({
-            id: orderIdAt(2),
-            orderNumber: 'VK-2026-0147',
-            // Delivered through an organisation-wide zone, so no kitchen was ever named.
-            branchId: null,
-            status: 'placed',
-            subtotalMinor: 7_200,
-            deliveryFeeMinor: null,
-            totalMinor: 7_200,
-            placedAt: '2026-08-06T06:40:00Z',
-            lines: [
-                line(3, {
-                    nameEn: 'Lentil soup, 1 litre',
-                    nameAr: 'شوربة العدس، لتر',
-                    quantity: '1.500',
-                    unitPriceMinor: 4_800,
-                    lineTotalMinor: 7_200,
-                }),
-            ],
-        }),
-        kitchenOrder({
-            id: orderIdAt(3),
-            orderNumber: 'VK-2026-0146',
-            status: 'confirmed',
-            subtotalMinor: 23_400,
-            deliveryFeeMinor: 1_500,
-            totalMinor: 24_900,
-            placedAt: '2026-08-05T15:02:00Z',
-            confirmedAt: '2026-08-05T15:48:00Z',
-            // The one order asked for a different day, so the Delivery header has two to offer.
-            delivery: { ...DELIVERY, requestedDate: '2026-08-09' },
-            lockVersion: 2,
-            lines: [
-                line(4, {
-                    nameEn: 'Family mezze platter',
-                    nameAr: 'طبق المزة العائلي',
-                    unitPriceMinor: 15_000,
-                    lineTotalMinor: 15_000,
-                }),
-                line(5, {
-                    nameEn: 'Herb flatbread, 6 pieces',
-                    nameAr: 'خبز الأعشاب، ٦ قطع',
-                    quantity: '3.000',
-                    unitPriceMinor: 2_800,
-                    lineTotalMinor: 8_400,
-                }),
-            ],
-        }),
-        kitchenOrder({
-            id: orderIdAt(4),
-            orderNumber: 'VK-2026-0145',
-            status: 'fulfilled',
-            subtotalMinor: 9_000,
-            deliveryFeeMinor: 1_500,
-            totalMinor: 10_500,
-            placedAt: '2026-08-04T09:20:00Z',
-            confirmedAt: '2026-08-04T09:55:00Z',
-            fulfilledAt: '2026-08-05T17:31:00Z',
-            lockVersion: 3,
-            lines: [
-                line(6, {
-                    nameEn: 'Grilled chicken bowl',
-                    nameAr: 'وعاء الدجاج المشوي',
-                    quantity: '2.000',
-                    unitPriceMinor: 4_500,
-                    lineTotalMinor: 9_000,
-                }),
-            ],
-        }),
-        kitchenOrder({
-            id: orderIdAt(5),
-            orderNumber: 'VK-2026-0144',
-            status: 'cancelled',
-            subtotalMinor: 5_500,
-            deliveryFeeMinor: 1_500,
-            totalMinor: 7_000,
-            placedAt: '2026-08-03T11:05:00Z',
-            cancelledAt: '2026-08-03T12:10:00Z',
-            cancellationReason: 'address_unreachable',
-            lockVersion: 2,
-            lines: [
-                line(7, {
-                    nameEn: 'Green harvest salad',
-                    nameAr: 'سلطة الحصاد الأخضر',
-                    unitPriceMinor: 5_500,
-                    lineTotalMinor: 5_500,
-                }),
-            ],
-        }),
-    ];
+const BREAKFAST = row(1, {
+    status: 'fulfilled',
+    delivery: { ...row(1).delivery, windowCode: 'breakfast' },
+    payment: { method: 'cash_on_delivery', receivedMinor: 1600, receipted: true },
+});
+const LUNCH = row(2);
+const LATE = row(3, {
+    status: 'confirmed',
+    delivery: { ...row(3).delivery, requestedDate: YESTERDAY },
+    dueAt: `${YESTERDAY}T10:00:00Z`,
+    customer: { displayName: 'Karim Saleh', phone: '+96171552019' },
+});
+
+const WINDOWS: readonly OrderDeskDeliveryWindow[] = [
+    {
+        code: 'breakfast',
+        nameEn: 'Breakfast',
+        nameAr: '',
+        startsAt: '08:00:00',
+        endsAt: '10:00:00',
+    },
+    { code: 'lunch', nameEn: 'Lunch', nameAr: '', startsAt: '12:00:00', endsAt: '14:00:00' },
+];
+
+function page(items: readonly BookRow[], extra: Partial<KitchenOrderPage> = {}): KitchenOrderPage {
+    return { items, nextCursor: null, hasMore: false, ...extra };
 }
 
-/** Which statuses each action may be taken from — the contract's machine, in one table. */
-const ALLOWED_FROM: Readonly<
-    Record<'confirm' | 'fulfil' | 'cancel', readonly KitchenOrderStatus[]>
-> = {
-    confirm: ['placed'],
-    fulfil: ['confirmed'],
-    cancel: ['placed', 'confirmed'],
-};
-
-interface OrderBook {
-    /** The live records, so a test can assert the transition itself and not merely the call. */
-    readonly orders: () => readonly KitchenOrder[];
-    readonly find: (id: OrderId) => KitchenOrder | undefined;
-    readonly listOrders: (filters?: KitchenOrderFilters) => KitchenOrderPage;
-    readonly getOrder: (id: OrderId) => KitchenOrder;
-    readonly confirmOrder: (request: KitchenOrderTransitionRequest) => KitchenOrder;
-    readonly fulfilOrder: (request: KitchenOrderTransitionRequest) => KitchenOrder;
-    readonly cancelOrder: (request: CancelKitchenOrderRequest) => KitchenOrder;
-}
-
-/**
- * A mutable order book the repository overrides read and write.
- *
- * The mutation is the point: `confirmOrder` moves the record and bumps its `lockVersion`, and the
- * screen's own invalidation is what brings the change back — which is the same round trip the
- * deleted fixture world exercised, now written where the assertions can see it.
- */
-function createOrderBook(seed: KitchenOrder[] = seedOrders()): OrderBook {
-    let records = seed;
-
-    function find(id: OrderId): KitchenOrder | undefined {
-        return records.find((order) => order.id === id);
-    }
-
-    function requireOrder(id: OrderId): KitchenOrder {
-        const found = find(id);
-        if (found === undefined) throw new Error(`no order ${String(id)} in this test's book`);
-        return found;
-    }
-
-    function write(next: KitchenOrder): KitchenOrder {
-        records = records.map((order) => (order.id === next.id ? next : order));
-        return next;
-    }
-
-    function transition(
-        action: 'confirm' | 'fulfil' | 'cancel',
-        request: KitchenOrderTransitionRequest,
-        patch: Partial<KitchenOrder>,
-    ): KitchenOrder {
-        const current = requireOrder(request.id);
-        if (
-            !ALLOWED_FROM[action].includes(current.status) ||
-            current.lockVersion !== request.lockVersion
-        ) {
-            throw new ApiError(conflictFailure({ currentLockVersion: current.lockVersion }));
-        }
-        return write({ ...current, ...patch, lockVersion: current.lockVersion + 1 });
-    }
-
+function queue(rows: readonly OrderDeskQueueRow[]): OrderDeskQueue {
     return {
-        orders: () => records,
-        find,
-        listOrders: (filters) => {
-            const items = records.filter(
-                (order) =>
-                    (filters?.status === undefined || order.status === filters.status) &&
-                    (filters?.requestedDeliveryDate === undefined ||
-                        order.delivery.requestedDate === filters.requestedDeliveryDate),
-            );
-            return { items, nextCursor: null, hasMore: false };
+        rows,
+        meta: {
+            count: rows.length,
+            limit: 200,
+            truncated: false,
+            window: 'today',
+            from: null,
+            to: null,
+            today: TODAY,
+            timezone: 'UTC',
+            pastDueCount: rows.length,
+            overdueCount: rows.length,
+            overdueGraceMinutes: 15,
         },
-        getOrder: requireOrder,
-        confirmOrder: (request) =>
-            transition('confirm', request, {
-                status: 'confirmed',
-                confirmedAt: '2026-08-06T08:00:00Z',
-            }),
-        fulfilOrder: (request) =>
-            transition('fulfil', request, {
-                status: 'fulfilled',
-                fulfilledAt: '2026-08-06T09:00:00Z',
-            }),
-        cancelOrder: (request) =>
-            transition('cancel', request, {
-                status: 'cancelled',
-                cancelledAt: '2026-08-06T08:30:00Z',
-                cancellationReason: request.reason,
-            }),
     };
 }
 
-async function renderOrders(book: OrderBook) {
+/** The book answers by filter, the way the endpoint does. */
+async function listOrders(filters?: KitchenOrderFilters): Promise<KitchenOrderPage> {
+    if (filters?.page !== undefined) {
+        const book = [LUNCH, BREAKFAST, LATE].filter(
+            (candidate) => filters.status === undefined || candidate.status === filters.status,
+        );
+        return { ...page(book), totalCount: book.length, totalPages: 1 };
+    }
+    if (filters?.status === 'placed') return page([LUNCH]);
+    if (filters?.status === 'fulfilled') return page([]);
+    if (filters?.from === TODAY) return page([LUNCH, BREAKFAST]);
+    if (filters?.from === YESTERDAY) return page([LATE]);
+    return page([]);
+}
+
+async function listQueue(filters?: OrderDeskQueueFilters): Promise<OrderDeskQueue> {
+    if (filters?.lens === 'past_due') return queue([LATE]);
+    return queue([]);
+}
+
+const confirmOrder = jest.fn(async (request: KitchenOrderTransitionRequest) => ({
+    ...LUNCH,
+    status: 'confirmed' as const,
+    lockVersion: request.lockVersion + 1,
+}));
+
+async function renderOrders(params: Record<string, string> = {}) {
+    routerMock.__set({ params });
     return renderStubScreen(<OrdersScreen />, {
         session: kitchenManagerSession(),
         repositories: {
             kitchenOrders: {
-                listOrders: async (filters) => book.listOrders(filters),
-                getOrder: async (id) => book.getOrder(id),
-                confirmOrder: async (request) => book.confirmOrder(request),
-                fulfilOrder: async (request) => book.fulfilOrder(request),
-                cancelOrder: async (request) => book.cancelOrder(request),
+                listOrders,
+                getOrder: async (id: OrderId) =>
+                    [LUNCH, BREAKFAST, LATE].find((candidate) => candidate.id === id) ?? LUNCH,
+                confirmOrder,
+            },
+            orderDesk: {
+                listQueue,
+                listDeliveryWindows: async () => WINDOWS,
+                listDrivers: async () => ({ rows: [], limit: 100 }),
+                listCalendar: async (filters) => ({
+                    days: [],
+                    meta: { from: filters.from, to: filters.to, dayCount: 0, maxWindowDays: 60 },
+                }),
             },
         },
     });
 }
 
-describe('kitchen orders', () => {
-    it('renders the authored order book with a status for every row', async () => {
-        const book = createOrderBook();
-        await renderOrders(book);
+beforeEach(() => {
+    routerMock.__reset();
+    confirmOrder.mockClear();
+});
 
-        // Cold module load under parallel jest workers can exceed the 1 s waitFor default; the
-        // wait covers the suite's first render, not anything slow in the screen itself.
-        await waitFor(
-            () => {
-                expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
-            },
-            { timeout: 5000 },
-        );
+/** Found within the time a signed-in screen takes to read its answers. */
+function find(testID: string) {
+    return screen.findByTestId(testID, {}, { timeout: 8000 });
+}
 
-        // Five orders authored above, across all four statuses: two placed, one confirmed.
-        expect(screen.getByTestId('kitchen-orders-stats-loaded-value')).toHaveTextContent('5');
-        expect(screen.getByTestId('kitchen-orders-stats-awaiting-value')).toHaveTextContent('2');
-        expect(screen.getByTestId('kitchen-orders-stats-confirmed-value')).toHaveTextContent('1');
-        expect(screen.getByTestId('kitchen-orders-stats-fulfilled-value')).toHaveTextContent('1');
-
-        const newest = book.orders()[0];
-        if (newest === undefined) throw new Error('this test authored no orders');
-        expect(
-            screen.getByTestId(`kitchen-orders-table-row-${String(newest.id)}-title`),
-        ).toHaveTextContent('VK-2026-0148');
-        expect(screen.getByTestId(`kitchen-order-${String(newest.id)}-status`)).toBeTruthy();
+/** A press, with whatever it starts settled before the case goes on — or ends. */
+async function press(element: Parameters<typeof fireEvent.press>[0]) {
+    await act(async () => {
+        fireEvent.press(element);
     });
+}
 
-    it('narrows the list to one status when the filter is used', async () => {
-        const book = createOrderBook();
-        const { repositories } = await renderOrders(book);
+/** Every case reads the table, which draws its columns from a desk's width up. */
+function atDesk(run: () => Promise<void>): () => Promise<void> {
+    return () => withDeskWidth(run);
+}
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
-        });
+describe('orders — Today', () => {
+    it(
+        'lists the day by slot, with the late ones from earlier days first',
+        atDesk(async () => {
+            await renderOrders();
 
-        fireEvent.press(screen.getByTestId('kitchen-orders-toolbar-status-fulfilled'));
+            await find('kitchen-orders-group-late');
+            expect(screen.getByTestId('kitchen-orders-group-breakfast')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-orders-group-lunch')).toBeTruthy();
 
-        // One fulfilled order in the authored book, so the loaded count is the filter's own answer.
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-stats-loaded-value')).toHaveTextContent('1');
-        });
-        // The narrowing is the endpoint's, not a client-side sieve over the whole page.
-        expect(repositories.kitchenOrders.listOrders).toHaveBeenCalledWith({
-            status: 'fulfilled',
-        });
+            // The row says the customer, the day and slot, and the money — no second page to open.
+            expect(screen.getByTestId('kitchen-order-order-2-customer')).toHaveTextContent(
+                /Rania Haddad/,
+            );
+            expect(screen.getByTestId('kitchen-order-order-2-when')).toHaveTextContent(
+                'Today · Lunch',
+            );
+            expect(screen.getByTestId('kitchen-order-order-1-payment')).toHaveTextContent(/Paid/);
+            expect(screen.getByTestId('kitchen-order-order-2-payment')).toHaveTextContent(
+                /To collect/,
+            );
+            expect(screen.getByTestId('kitchen-order-order-3-late')).toBeTruthy();
 
-        const fulfilled = book.orders().filter((order) => order.status === 'fulfilled');
-        expect(fulfilled).toHaveLength(1);
-        const only = fulfilled[0];
-        if (only === undefined) throw new Error('this test authored no fulfilled order');
-        expect(
-            screen.getByTestId(`kitchen-orders-table-row-${String(only.id)}-title`),
-        ).toBeTruthy();
-        expect(screen.getByTestId('kitchen-orders-stats-awaiting-value')).toHaveTextContent('0');
-    });
+            // The tab says how many orders the day holds.
+            expect(screen.getByTestId('kitchen-orders-tab-today')).toHaveTextContent(/Today\s*2/);
+        }),
+    );
 
-    /**
-     * The headers are drawn only on the table layout, which `CatalogueList` chooses at desk width —
-     * `Dimensions.set` rather than a mocked breakpoint, as the recipe and packaging suites do.
-     */
-    describe('at desk width', () => {
-        const NARROW_WINDOW = Dimensions.get('window');
-        const NARROW_SCREEN = Dimensions.get('screen');
+    it(
+        'confirms from the row with the version the row was read at',
+        atDesk(async () => {
+            await renderOrders();
 
-        beforeAll(() => {
-            Dimensions.set({
-                window: { ...NARROW_WINDOW, width: 1440, height: 900 },
-                screen: { ...NARROW_SCREEN, width: 1440, height: 900 },
-            });
-        });
-
-        afterAll(() => {
-            Dimensions.set({ window: NARROW_WINDOW, screen: NARROW_SCREEN });
-        });
-
-        it('narrows the book to one status from the Status header', async () => {
-            const book = createOrderBook();
-            const { repositories } = await renderOrders(book);
+            await press(await find('kitchen-order-order-2-next'));
 
             await waitFor(() => {
-                expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
+                expect(confirmOrder).toHaveBeenCalledWith({ id: 'order-2', lockVersion: 4 });
             });
+        }),
+    );
 
-            await act(async () => {
-                fireEvent.press(screen.getByTestId('kitchen-orders-column-status-trigger'));
-            });
-            await waitFor(() => {
-                expect(screen.getByTestId('kitchen-orders-column-status-confirmed')).toBeTruthy();
-            });
-            await act(async () => {
-                fireEvent.press(screen.getByTestId('kitchen-orders-column-status-confirmed'));
-            });
+    it(
+        'opens All orders on a figure, with the figure as a removable chip',
+        atDesk(async () => {
+            await renderOrders();
 
+            await press(await find('kitchen-orders-today-toolbar-figure-confirm'));
+
+            expect(routerMock.__router.setParams).toHaveBeenCalledWith(
+                expect.objectContaining({ tab: 'all', quick: 'confirm' }),
+            );
+        }),
+    );
+});
+
+describe('orders — All orders', () => {
+    it(
+        'reads the book a numbered page at a time, newest first',
+        atDesk(async () => {
+            const { repositories } = await renderOrders({ tab: 'all', status: 'confirmed' });
+
+            await find('kitchen-order-order-3-number');
+            expect(screen.queryByTestId('kitchen-order-order-2-number')).toBeNull();
+            expect(repositories.kitchenOrders.listOrders).toHaveBeenCalledWith(
+                expect.objectContaining({ page: 1, limit: 18, status: 'confirmed' }),
+            );
+        }),
+    );
+
+    it(
+        'shows a figure’s own list with its chip',
+        atDesk(async () => {
+            await renderOrders({ tab: 'all', quick: 'confirm' });
+
+            expect(await find('kitchen-orders-all-toolbar-token-quick')).toHaveTextContent(
+                /Showing: To confirm/,
+            );
+            expect(await find('kitchen-order-order-2-number')).toBeTruthy();
+            expect(screen.queryByTestId('kitchen-order-order-1-number')).toBeNull();
+        }),
+    );
+});
+
+describe('orders — the pop-up', () => {
+    it(
+        'opens from the old book’s ?view= link on All orders',
+        atDesk(async () => {
+            await renderOrders({ view: 'order-2' });
+
+            expect(await find('kitchen-orders-record')).toBeTruthy();
+            expect(screen.getByTestId('kitchen-orders-tab-all')).toBeTruthy();
             await waitFor(() => {
-                expect(screen.getByTestId('kitchen-orders-stats-loaded-value')).toHaveTextContent(
-                    '1',
+                expect(screen.getByTestId('kitchen-orders-record-title')).toHaveTextContent(
+                    /ORD-TEST000002/,
                 );
             });
-            // The header sends the same status the toolbar does — the book narrows, not the page.
-            expect(repositories.kitchenOrders.listOrders).toHaveBeenCalledWith({
-                status: 'confirmed',
-            });
-        });
+        }),
+    );
 
-        it('narrows the book to one requested day from the Delivery header', async () => {
-            const book = createOrderBook();
-            const { repositories } = await renderOrders(book);
+    it(
+        'says Back on its dialogs, and Cancel only for cancelling the order',
+        atDesk(async () => {
+            await renderOrders({ tab: 'today', view: 'order-2' });
 
-            await waitFor(() => {
-                expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
-            });
-
-            await act(async () => {
-                fireEvent.press(screen.getByTestId('kitchen-orders-column-delivery-trigger'));
-            });
-            await waitFor(() => {
-                expect(
-                    screen.getByTestId('kitchen-orders-column-delivery-2026-08-09'),
-                ).toBeTruthy();
-            });
-            expect(screen.getByTestId('kitchen-orders-column-delivery-2026-08-08')).toBeTruthy();
-            await act(async () => {
-                fireEvent.press(screen.getByTestId('kitchen-orders-column-delivery-2026-08-09'));
-            });
-
-            await waitFor(() => {
-                expect(screen.getByTestId('kitchen-orders-stats-loaded-value')).toHaveTextContent(
-                    '1',
-                );
-            });
-            expect(repositories.kitchenOrders.listOrders).toHaveBeenCalledWith({
-                requestedDeliveryDate: '2026-08-09',
-            });
-        });
-    });
-
-    it('opens the order record with the order lines and its totals breakdown', async () => {
-        const book = createOrderBook();
-        await renderOrders(book);
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
-        });
-
-        const placed = book.orders().find((order) => order.status === 'placed');
-        if (placed === undefined) throw new Error('this test authored no placed order');
-
-        fireEvent.press(screen.getByTestId(`kitchen-orders-table-row-${String(placed.id)}`));
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-detail-body')).toBeTruthy();
-        });
-        expect(screen.getByTestId('kitchen-orders-detail-lines')).toBeTruthy();
-        // 16 000 and 14 500 minor units, turned into major units exactly once by the currency's
-        // own exponent — the reason the screen reuses `formatMoney` rather than dividing by 100.
-        expect(screen.getByTestId('kitchen-orders-detail-total')).toHaveTextContent('AED 160.00');
-        expect(screen.getByTestId('kitchen-orders-detail-subtotal')).toHaveTextContent(
-            'AED 145.00',
-        );
-        // The way back is the shell's trail, which `kitchen-chrome.test.tsx` covers.
-    });
-
-    it('confirms a placed order and leaves the record on the fresh record', async () => {
-        const book = createOrderBook();
-        const { repositories } = await renderOrders(book);
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
-        });
-
-        const placed = book.orders().find((order) => order.status === 'placed');
-        if (placed === undefined) throw new Error('this test authored no placed order');
-
-        fireEvent.press(screen.getByTestId(`kitchen-orders-table-row-${String(placed.id)}`));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-confirm')).toBeTruthy();
-        });
-
-        fireEvent.press(screen.getByTestId('kitchen-orders-confirm'));
-
-        // The version the panel sends is the one it read, and the book enforces the real machine —
-        // so this is the transition itself, `placed → confirmed` with the lock version incremented.
-        await waitFor(() => {
-            expect(repositories.kitchenOrders.confirmOrder).toHaveBeenCalledWith({
-                id: placed.id,
-                lockVersion: placed.lockVersion,
-            });
-        });
-        await waitFor(() => {
-            const after = book.find(placed.id);
-            expect(after?.status).toBe('confirmed');
-            expect(after?.lockVersion).toBe(placed.lockVersion + 1);
-        });
-
-        // Confirm is gone, and the panel is reading the fresh record the mutation seeded. It is a
-        // delivery nobody has cooked yet, so nothing closes it from here (HA-29).
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-detail-run-state')).toHaveTextContent(
-                'Not ready yet',
+            await press(await find('kitchen-orders-record-payment-open'));
+            const payment = await find('kitchen-orders-payment');
+            expect(within(payment).getByTestId('kitchen-orders-payment-back')).toHaveTextContent(
+                /Back/,
             );
-        });
-        expect(screen.queryByTestId('kitchen-orders-confirm')).toBeNull();
-        expect(screen.queryByTestId('kitchen-orders-fulfil')).toBeNull();
-        expect(screen.queryByTestId('kitchen-orders-mark-delivered')).toBeNull();
-    });
+            await press(within(payment).getByTestId('kitchen-orders-payment-back'));
 
-    async function openOrder(book: OrderBook, id: OrderId) {
-        const rendered = await renderOrders(book);
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
-        });
-        fireEvent.press(screen.getByTestId(`kitchen-orders-table-row-${String(id)}`));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-detail-body')).toBeTruthy();
-        });
-        return rendered;
-    }
-
-    function withConfirmed(patch: Partial<KitchenOrder>): KitchenOrder[] {
-        return seedOrders().map((order) =>
-            order.id === orderIdAt(3) ? { ...order, ...patch } : order,
-        );
-    }
-
-    it('offers no way to close a delivery order the kitchen has not marked ready (HA-29)', async () => {
-        const book = createOrderBook();
-        await openOrder(book, orderIdAt(3));
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-detail-run-state')).toHaveTextContent(
-                'Not ready yet',
+            await press(await find('kitchen-orders-record-cancel'));
+            const cancel = await find('kitchen-orders-cancel-dialog');
+            expect(within(cancel).getByTestId('kitchen-orders-cancel-dismiss')).toHaveTextContent(
+                /Keep the order/,
             );
-        });
-        expect(screen.queryByTestId('kitchen-orders-fulfil')).toBeNull();
-        expect(screen.queryByTestId('kitchen-orders-mark-delivered')).toBeNull();
-        // Cancel is still there: calling an order off is not closing it.
-        expect(screen.getByTestId('kitchen-orders-cancel')).toBeTruthy();
-    });
+        }),
+    );
+});
 
-    it('closes a ready delivery order only after saying the run closes too (HA-29)', async () => {
-        const book = createOrderBook(withConfirmed({ readyAt: '2026-08-05T16:30:00Z' }));
-        const { repositories } = await openOrder(book, orderIdAt(3));
+describe('orders — the day stepper', () => {
+    it(
+        'steps the day in the address, so a detour comes back to it',
+        atDesk(async () => {
+            await renderOrders();
 
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-mark-delivered')).toBeTruthy();
-        });
-        expect(screen.getByTestId('kitchen-orders-detail-run-state')).toHaveTextContent(
-            'Waiting for the driver',
-        );
-        expect(screen.queryByTestId('kitchen-orders-fulfil')).toBeNull();
+            await press(await find('kitchen-orders-day-next'));
 
-        fireEvent.press(screen.getByTestId('kitchen-orders-mark-delivered'));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-mark-delivered-dialog')).toHaveTextContent(
-                /closes the driver's run/,
+            expect(routerMock.__router.setParams).toHaveBeenCalledWith(
+                expect.objectContaining({ tab: 'today', day: addDays(TODAY, 1) }),
             );
-        });
-        expect(repositories.kitchenOrders.fulfilOrder).not.toHaveBeenCalled();
-
-        fireEvent.press(screen.getByTestId('kitchen-orders-mark-delivered-confirm'));
-
-        await waitFor(() => {
-            expect(repositories.kitchenOrders.fulfilOrder).toHaveBeenCalledWith({
-                id: orderIdAt(3),
-                lockVersion: 2,
-            });
-        });
-        await waitFor(() => {
-            expect(book.find(orderIdAt(3))?.status).toBe('fulfilled');
-        });
-        // Settled on screen too, so nothing is still in flight when the next test renders.
-        await waitFor(() => {
-            expect(screen.getByText('Order VK-2026-0146 marked delivered.')).toBeTruthy();
-        });
-    });
-
-    it('sends nothing when the confirmation is dismissed (HA-29)', async () => {
-        const book = createOrderBook(withConfirmed({ readyAt: '2026-08-05T16:30:00Z' }));
-        const { repositories } = await openOrder(book, orderIdAt(3));
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-mark-delivered')).toBeTruthy();
-        });
-        fireEvent.press(screen.getByTestId('kitchen-orders-mark-delivered'));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-mark-delivered-dismiss')).toBeTruthy();
-        });
-        fireEvent.press(screen.getByTestId('kitchen-orders-mark-delivered-dismiss'));
-
-        await waitFor(() => {
-            expect(screen.queryByTestId('kitchen-orders-mark-delivered-dismiss')).toBeNull();
-        });
-        expect(repositories.kitchenOrders.fulfilOrder).not.toHaveBeenCalled();
-        expect(book.find(orderIdAt(3))?.status).toBe('confirmed');
-    });
-
-    it('says when the driver already has it', async () => {
-        const book = createOrderBook(
-            withConfirmed({
-                readyAt: '2026-08-05T16:30:00Z',
-                deliveryRun: {
-                    status: 'in_transit',
-                    trackingStatus: 'en_route',
-                    driverName: 'Sami Haddad',
-                    assignedAt: '2026-08-05T16:35:00Z',
-                    pickedUpAt: '2026-08-05T16:40:00Z',
-                    deliveredAt: null,
-                },
-            }),
-        );
-        await openOrder(book, orderIdAt(3));
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-detail-run-state')).toHaveTextContent(
-                'Out with the driver',
-            );
-        });
-    });
-
-    it('keeps a plain Mark fulfilled on a collection order', async () => {
-        const book = createOrderBook(withConfirmed({ fulfilmentType: 'pickup' }));
-        const { repositories } = await openOrder(book, orderIdAt(3));
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-fulfil')).toBeTruthy();
-        });
-        expect(screen.queryByTestId('kitchen-orders-detail-run-state')).toBeNull();
-
-        fireEvent.press(screen.getByTestId('kitchen-orders-fulfil'));
-        await waitFor(() => {
-            expect(repositories.kitchenOrders.fulfilOrder).toHaveBeenCalledWith({
-                id: orderIdAt(3),
-                lockVersion: 2,
-            });
-        });
-        await waitFor(() => {
-            expect(screen.getByText('Order VK-2026-0146 marked fulfilled.')).toBeTruthy();
-        });
-    });
-
-    it('requires a reason before the cancel dialog will submit', async () => {
-        const book = createOrderBook();
-        const { repositories } = await renderOrders(book);
-
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-table')).toBeTruthy();
-        });
-
-        const placed = book.orders().find((order) => order.status === 'placed');
-        if (placed === undefined) throw new Error('this test authored no placed order');
-
-        fireEvent.press(screen.getByTestId(`kitchen-orders-table-row-${String(placed.id)}`));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-cancel')).toBeTruthy();
-        });
-
-        fireEvent.press(screen.getByTestId('kitchen-orders-cancel'));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-cancel-reasons')).toBeTruthy();
-        });
-
-        const submit = screen.getByTestId('kitchen-orders-cancel-confirm');
-        expect(submit).toBeDisabled();
-        expect(repositories.kitchenOrders.cancelOrder).not.toHaveBeenCalled();
-
-        fireEvent.press(screen.getByTestId('kitchen-orders-cancel-reason-delivery_unavailable'));
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-orders-cancel-confirm')).not.toBeDisabled();
-        });
-        fireEvent.press(screen.getByTestId('kitchen-orders-cancel-confirm'));
-
-        await waitFor(() => {
-            expect(repositories.kitchenOrders.cancelOrder).toHaveBeenCalledWith({
-                id: placed.id,
-                lockVersion: placed.lockVersion,
-                reason: 'delivery_unavailable',
-            });
-        });
-        await waitFor(() => {
-            const after = book.find(placed.id);
-            expect(after?.status).toBe('cancelled');
-            expect(after?.cancellationReason).toBe('delivery_unavailable');
-        });
-    });
+        }),
+    );
 });

@@ -72,6 +72,8 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
 jest.mock('expo-router', () => {
     const push = jest.fn();
     const replace = jest.fn();
+    // What the route was opened with; a test that needs `?items=` sets it and `beforeEach` clears it.
+    const params: { current: Record<string, string> } = { current: {} };
     return {
         __esModule: true,
         useRouter: () => ({
@@ -82,22 +84,28 @@ jest.mock('expo-router', () => {
             prefetch: jest.fn(),
         }),
         usePathname: () => '/kitchen/supply-orders',
-        useLocalSearchParams: () => ({}),
+        useLocalSearchParams: () => params.current,
         Redirect: () => null,
         Link: ({ children }: { children: ReactNode }) => children,
         Slot: () => null,
         Stack: () => null,
         __push: push,
         __replace: replace,
+        __params: params,
     };
 });
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const routerMock = require('expo-router') as { __push: jest.Mock; __replace: jest.Mock };
+const routerMock = require('expo-router') as {
+    __push: jest.Mock;
+    __replace: jest.Mock;
+    __params: { current: Record<string, string> };
+};
 
 beforeEach(() => {
     routerMock.__push.mockClear();
     routerMock.__replace.mockClear();
+    routerMock.__params.current = {};
 });
 
 /**
@@ -399,9 +407,11 @@ describe('supply orders landing', () => {
 
         // Two of the three numbers, never a third claiming a total: they partition the count.
         expect(
-            screen.getByTestId('kitchen-supply-orders-stats-outOfStock-value'),
+            screen.getByTestId('kitchen-supply-orders-toolbar-figure-outOfStock-value'),
         ).toHaveTextContent(/2/);
-        expect(screen.getByTestId('kitchen-supply-orders-stats-low-value')).toHaveTextContent(/1/);
+        expect(
+            screen.getByTestId('kitchen-supply-orders-toolbar-figure-low-value'),
+        ).toHaveTextContent(/1/);
 
         const both = supplyOrderRowTestId(String(OUT_AND_LOW.stockItemId));
         // Both rules at once is one row wearing the Out badge — the label the server chose.
@@ -884,6 +894,27 @@ describe('supply order builder', () => {
             ]);
         });
     });
+
+    it('opens on the shortfall Requirements handed over, asking the server for those shelves', async () => {
+        routerMock.__params.current = {
+            items: `${String(itemId(7))},${String(itemId(8))}`,
+            returnTo: '/kitchen/order-desk/requirements',
+        };
+
+        const { repositories } = await renderStubScreen(<SupplyOrderBuilderScreen />, {
+            session: kitchenManagerSession(),
+            repositories: builderOverrides([LOW_ONLY]),
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenOps.getOrderProposal).toHaveBeenCalledWith(BRANCH, [
+                itemId(7),
+                itemId(8),
+            ]);
+        });
+        // Seeded once: the first ask already carried them, there was no empty one before it.
+        expect(repositories.kitchenOps.getOrderProposal).not.toHaveBeenCalledWith(BRANCH, []);
+    });
 });
 
 /* ------------------------------------------------------------------------------------------------
@@ -965,12 +996,12 @@ describe('supply orders book', () => {
 
         await untilVisible('kitchen-supply-orders-book-empty');
 
-        // The draft card counts the rows in hand and says so — "on this page", never a kitchen-wide
-        // total, because the list is a keyset walk with a null total.
-        expect(screen.getByTestId('kitchen-supply-orders-stats-draft-value')).toHaveTextContent(
-            '0',
-        );
-        expect(screen.getByTestId('kitchen-supply-orders-stats-draft')).toHaveTextContent(
+        // The draft figure counts the rows in hand and says so — "on this page", never a
+        // kitchen-wide total, because the list is a keyset walk with a null total.
+        expect(
+            screen.getByTestId('kitchen-supply-orders-toolbar-figure-draft-value'),
+        ).toHaveTextContent('0');
+        expect(screen.getByTestId('kitchen-supply-orders-toolbar-figure-draft')).toHaveTextContent(
             /on this page/,
         );
     });
@@ -1170,5 +1201,46 @@ describe('purchase order detail', () => {
 
         // Nothing was fetched: a hand-typed link is a client-side answer, not a round trip.
         expect(screen.queryByTestId('kitchen-supply-order-detail-lines-table')).toBeNull();
+    });
+});
+
+describe('supply order builder — a new supplier made in place', () => {
+    it('adds the supplier without leaving, and chooses it on the rows still waiting for one', async () => {
+        const unlinked = proposalRow(5, { itemNameEn: 'Dill', unassignedReason: 'noSupplier' });
+        const createSupplier = jest.fn(async () => supplierRecord(8));
+
+        const { repositories } = await renderStubScreen(<SupplyOrderBuilderScreen />, {
+            session: kitchenManagerSession(),
+            repositories: builderOverrides([unlinked], { createSupplier }),
+        });
+
+        await openBuilderStep('unlinked');
+        await untilVisible('kitchen-supply-order-unlinked');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supply-order-add-supplier'));
+        });
+        // A pop-up on this page — going to the Suppliers page would lose the order in progress.
+        expect(routerMock.__push).not.toHaveBeenCalled();
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-supply-order-new-supplier-name'),
+                'Supplier 8',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supply-order-new-supplier-confirm'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenOps.createSupplier).toHaveBeenCalledTimes(1);
+        });
+        expect(
+            await screen.findByTestId('kitchen-supply-order-supplier-added-toast'),
+        ).toHaveTextContent(/Supplier 8 added and chosen for 1 item/);
+        // Still here, on the same order.
+        expect(routerMock.__push).not.toHaveBeenCalled();
+        expect(routerMock.__replace).not.toHaveBeenCalled();
+        expect(screen.getByTestId('kitchen-supply-order-unlinked')).toBeTruthy();
     });
 });

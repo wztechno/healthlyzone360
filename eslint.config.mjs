@@ -219,6 +219,8 @@ export default tseslint.config(
             // Generated wholesale by scripts/build-image-manifest.mjs; still typechecked by tsc.
             'apps/universal/src/media/image-manifest.generated.ts',
             'apps/api/**',
+            // Local design prototypes served from :8081 (git-excluded): canvas HTML and its JS.
+            'apps/universal/public/design/**',
             'infrastructure/**',
             'scripts/**',
         ],

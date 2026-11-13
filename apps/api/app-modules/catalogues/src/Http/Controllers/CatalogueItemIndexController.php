@@ -6,8 +6,13 @@ namespace Healthy360\Catalogues\Http\Controllers;
 
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
+use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
+use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Presenters\CatalogueItemAdminPresenter;
+use Healthy360\Catalogues\Services\AllergenAssessment;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\CursorPage;
@@ -15,8 +20,10 @@ use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Api\OffsetPage;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 /**
  * GET /api/v1/catalogue/items — everything this organisation sells.
@@ -31,7 +38,10 @@ use Illuminate\Http\Request;
  */
 final class CatalogueItemIndexController
 {
-    public function __construct(private readonly CatalogueItemAdminPresenter $presenter) {}
+    public function __construct(
+        private readonly CatalogueItemAdminPresenter $presenter,
+        private readonly AllergenAssessment $assessment,
+    ) {}
 
     /**
      * @throws ApiException
@@ -39,6 +49,15 @@ final class CatalogueItemIndexController
     public function __invoke(Request $request): JsonResponse
     {
         $query = CatalogueItem::query()->with('category');
+        $includes = $this->includes($request);
+        $withChannels = in_array('channels', $includes, true);
+        $withVariants = in_array('variants', $includes, true);
+
+        if ($withChannels) {
+            $query->with(['channelAssignments' => static fn ($assignments) => $assignments->orderBy('sales_channel_id')]);
+        }
+
+        $this->applyIds($request, $query);
 
         $this->applyStatus($request, $query);
         $this->applyType($request, $query);
@@ -59,9 +78,11 @@ final class CatalogueItemIndexController
             OffsetPage::constrain($query, $requestedPage, $perPage);
 
             $rows = $query->get();
+            $this->assessment->prime($rows);
+            $variants = $withVariants ? $this->variants($rows) : null;
 
             return ApiResponse::data(
-                $rows->map(fn (CatalogueItem $item): array => $this->presenter->item($item))->all(),
+                $rows->map(fn (CatalogueItem $item): array => $this->row($item, $withChannels, $variants))->all(),
                 OffsetPage::meta($rows, $requestedPage, $perPage, $total),
             );
         }
@@ -70,11 +91,134 @@ final class CatalogueItemIndexController
         CursorPage::constrain($query, $limit, CursorPage::cursor($request));
 
         $page = CursorPage::page($query->get(), $limit);
+        $this->assessment->prime($page['items']);
+        $variants = $withVariants ? $this->variants($page['items']) : null;
 
         return ApiResponse::data(
-            $page['items']->map(fn (CatalogueItem $item): array => $this->presenter->item($item))->all(),
+            $page['items']->map(fn (CatalogueItem $item): array => $this->row($item, $withChannels, $variants))->all(),
             $page['meta'],
         );
+    }
+
+    /**
+     * `include=channels,variants`, either or both.
+     *
+     * `channels` — each item's channel assignments, as the item's own read
+     * serves them, so a screen checking which articles are on a channel makes
+     * one request rather than one per article.
+     *
+     * `variants` — each item's live packs, in the item read's shape, so the
+     * product list can draw its pack column without a read per row.
+     *
+     * @return list<string>
+     *
+     * @throws ApiException
+     */
+    private function includes(Request $request): array
+    {
+        $raw = $request->query('include');
+
+        if ($raw === null || $raw === '') {
+            return [];
+        }
+
+        $includes = is_string($raw) ? array_values(array_unique(array_map('trim', explode(',', $raw)))) : [];
+
+        if ($includes === [] || array_diff($includes, ['channels', 'variants']) !== []) {
+            throw new ApiException(
+                ErrorCode::RequestInvalid,
+                'The include parameter takes channels, variants or both.',
+                ['parameter' => 'include'],
+            );
+        }
+
+        return $includes;
+    }
+
+    /**
+     * Every page row's variants with their packs, keyed by item id — two
+     * queries for the whole page, batched as `CatalogueRecipeUsageRegistry::packs()`
+     * is. Archived variants are left out: removing a pack from an item archives
+     * it (`VariantService::replace`), and a list that still drew it would count
+     * a pack the kitchen took away.
+     *
+     * @param  Collection<int, CatalogueItem>  $items
+     * @return array<string, list<array<string, mixed>>>
+     */
+    private function variants(Collection $items): array
+    {
+        $variants = CatalogueItemVariant::query()
+            ->whereIn('catalogue_item_id', $items->modelKeys())
+            ->where('status', '!=', VariantStatus::Archived->value)
+            ->orderBy('code')
+            ->get();
+
+        $packs = CatalogueItemPackVariant::query()
+            ->whereIn('catalogue_item_variant_id', $variants->modelKeys())
+            ->get()
+            ->keyBy('catalogue_item_variant_id');
+
+        $byItem = [];
+
+        foreach ($variants as $variant) {
+            $byItem[(string) $variant->catalogue_item_id][] = $this->presenter->variant(
+                $variant,
+                $packs->get((string) $variant->getKey()),
+            );
+        }
+
+        return $byItem;
+    }
+
+    /**
+     * `ids=a,b,c` — at most 100 identifiers, for a caller that already knows
+     * which articles it needs.
+     *
+     * @param  Builder<CatalogueItem>  $query
+     *
+     * @throws ApiException
+     */
+    private function applyIds(Request $request, Builder $query): void
+    {
+        $raw = $request->query('ids');
+
+        if ($raw === null || $raw === '') {
+            return;
+        }
+
+        $ids = is_string($raw) ? array_values(array_filter(array_map('trim', explode(',', $raw)))) : [];
+
+        if ($ids === [] || count($ids) > 100 || array_filter($ids, static fn (string $id): bool => ! Str::isUuid($id)) !== []) {
+            throw new ApiException(
+                ErrorCode::RequestInvalid,
+                'The ids filter takes up to 100 comma-separated identifiers.',
+                ['parameter' => 'ids'],
+            );
+        }
+
+        $query->whereKey($ids);
+    }
+
+    /**
+     * @param  array<string, list<array<string, mixed>>>|null  $variants
+     * @return array<string, mixed>
+     */
+    private function row(CatalogueItem $item, bool $withChannels, ?array $variants): array
+    {
+        $row = $this->presenter->item($item);
+
+        if ($variants !== null) {
+            $row['variants'] = $variants[(string) $item->getKey()] ?? [];
+        }
+
+        if ($withChannels) {
+            $row['channels'] = $item->channelAssignments
+                ->map(fn (ChannelCatalogueItem $assignment): array => $this->presenter->channelAssignment($assignment))
+                ->values()
+                ->all();
+        }
+
+        return $row;
     }
 
     /**

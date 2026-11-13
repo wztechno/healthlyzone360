@@ -7,7 +7,6 @@ import type {
     TechnicalSheetLineAdmin,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Card,
     Heading,
     Inline,
@@ -17,11 +16,15 @@ import {
     Text,
 } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { displayName, humaniseCode } from './format.ts';
+import { useIngredientsByIds } from '../../data/kitchen-admin-hooks.ts';
+import { kindsLabel } from './catalogue/recipe-columns.tsx';
+import { displayName, humaniseCode, unitShortKey } from './format.ts';
 
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * The recipe as the kitchen's paper technical sheet lays it out: a Description
  * block (Designation, Kind, Quantity Produced), the Raw Materiel table with
@@ -72,8 +75,12 @@ interface SheetFigures {
     readonly basisMismatch: boolean;
 }
 
+/** The total line, drawn as the table's last row. */
+const TOTAL_ROW_KEY = 'total';
+
 export function TechnicalSheetPanel({
     testID,
+    headline,
     recipe,
     version,
     sheet,
@@ -81,6 +88,8 @@ export function TechnicalSheetPanel({
 }: {
     readonly testID: string;
     readonly recipe: RecipeAdmin;
+    /** The sheet's name at the top of its card, where sheets stand in a stack. */
+    readonly headline?: string | undefined;
     readonly version: RecipeVersionAdmin;
     /** `null` = costs not visible to this member; `undefined` while loading. */
     readonly sheet: TechnicalSheetAdmin | null | undefined;
@@ -99,12 +108,39 @@ export function TechnicalSheetPanel({
                   maximumFractionDigits: 3,
               });
 
+    /*
+     * `ingredientName` is the mapper's copy of `source_designation`, so a line the editor created
+     * without a note carries no name at all. The ingredient record does; the reads share the cache
+     * entries the recipe editor already holds, and only the nameless lines are read.
+     */
+    const lineIngredientIds = useMemo(
+        () => [
+            ...new Set(
+                version.lines
+                    .filter(
+                        (line: RecipeLine) =>
+                            line.sourceDesignation === null &&
+                            displayName(line.ingredientName, locale).value.trim() === '',
+                    )
+                    .map((line: RecipeLine) => line.ingredientId),
+            ),
+        ],
+        [version.lines, locale],
+    );
+    const lineIngredients = useIngredientsByIds(lineIngredientIds);
+
     const rows = version.lines.map((line: RecipeLine, index: number) => {
         const sheetLine: TechnicalSheetLineAdmin | undefined = sheet?.lines[index];
+        const mapped = displayName(line.ingredientName, locale).value;
+        const hydrated = lineIngredients[String(line.ingredientId)];
 
         return {
             key: `${index + 1}-${String(line.ingredientId)}`,
-            designation: line.sourceDesignation ?? displayName(line.ingredientName, locale).value,
+            designation:
+                line.sourceDesignation ??
+                (mapped.trim() === '' && hydrated !== undefined
+                    ? displayName(hydrated.name, locale).value
+                    : mapped),
             unit: line.unit,
             quantity: line.quantity,
             unitCost: sheetLine?.unitCost ?? null,
@@ -192,13 +228,15 @@ export function TechnicalSheetPanel({
 
     const totalCost = figures?.totalInputCost ?? version.estimatedCost;
 
+    const yieldUnitLabel = t(unitShortKey(version.yieldUnit));
+
     const quantityProduced =
         version.yieldPieces === null
-            ? `${formatter.formatNumber(version.yieldQuantity)} ${version.yieldUnit}`
+            ? `${formatter.formatNumber(version.yieldQuantity)} ${yieldUnitLabel}`
             : t('kitchen:recipes.sheetQuantityWithPieces', {
                   pieces: formatter.formatNumber(version.yieldPieces),
                   quantity: formatter.formatNumber(version.yieldQuantity),
-                  unit: version.yieldUnit,
+                  unit: yieldUnitLabel,
               });
 
     const columns = [
@@ -208,13 +246,20 @@ export function TechnicalSheetPanel({
             primary: true,
             rowHeader: true,
             flex: 2,
-            render: (row: Row) => <Text>{row.designation}</Text>,
+            render: (row: Row) =>
+                row.key === TOTAL_ROW_KEY ? (
+                    <Text variant="strong" testID={`${testID}-total`}>
+                        {row.designation}
+                    </Text>
+                ) : (
+                    <Text>{row.designation}</Text>
+                ),
         },
         {
             key: 'unit',
             width: 64,
             header: t('kitchen:recipes.sheetColUnit'),
-            render: (row: Row) => <Text variant="caption">{row.unit}</Text>,
+            render: (row: Row) => <Text variant="caption">{t(unitShortKey(row.unit))}</Text>,
         },
         {
             key: 'quantity',
@@ -254,7 +299,16 @@ export function TechnicalSheetPanel({
         <Card testID={testID} tone="raised">
             <Stack space="md">
                 <Stack space="xs">
-                    <Heading level={2}>{t('kitchen:recipes.sheetTitle')}</Heading>
+                    {headline === undefined ? null : (
+                        <Heading level={2} testID={`${testID}-headline`}>
+                            {headline}
+                        </Heading>
+                    )}
+                    {headline === undefined ? (
+                        <Heading level={2}>{t('kitchen:recipes.sheetTitle')}</Heading>
+                    ) : (
+                        <Text variant="strong">{t('kitchen:recipes.sheetTitle')}</Text>
+                    )}
                     <Text variant="caption" testID={`${testID}-confidential`}>
                         {t('kitchen:recipes.sheetConfidential')}
                     </Text>
@@ -269,9 +323,10 @@ export function TechnicalSheetPanel({
                     <DescriptionRow
                         label={t('kitchen:recipes.sheetKind')}
                         value={
-                            recipe.sourceKind === null
+                            kindsLabel(recipe, t) ??
+                            (recipe.sourceKind === null
                                 ? t('kitchen:recipes.sheetKindUnstated')
-                                : humaniseCode(recipe.sourceKind)
+                                : humaniseCode(recipe.sourceKind))
                         }
                         testID={`${testID}-kind`}
                     />
@@ -290,7 +345,22 @@ export function TechnicalSheetPanel({
                             testID={`${testID}-lines`}
                             caption={t('kitchen:recipes.sheetRawMaterial')}
                             columns={columns}
-                            rows={rows}
+                            rows={
+                                rows.length === 0
+                                    ? rows
+                                    : [
+                                          ...rows,
+                                          {
+                                              key: TOTAL_ROW_KEY,
+                                              designation: t('kitchen:recipes.sheetTotalRow'),
+                                              unit: version.yieldUnit,
+                                              quantity: inputQuantity,
+                                              unitCost: null,
+                                              lineCost: totalCost,
+                                              comment: null,
+                                          },
+                                      ]
+                            }
                             rowKey={(row: Row) => row.key}
                             emptyLabel={t('kitchen:recipes.sheetNoLines')}
                             // A sheet of nine lines is read as a column of figures, and the table's
@@ -298,18 +368,6 @@ export function TechnicalSheetPanel({
                             // formulation in one glance, the way the batch planner's tables do.
                             rowSize="sm"
                         />
-
-                        {rows.length > 0 ? (
-                            <Inline space="md" testID={`${testID}-total`}>
-                                <Text variant="label">{t('kitchen:recipes.sheetTotalRow')}</Text>
-                                <Text>
-                                    {formatter.formatNumber(inputQuantity)} {version.yieldUnit}
-                                </Text>
-                                {showCosts && totalCost !== null ? (
-                                    <Text variant="label">{cost(totalCost)}</Text>
-                                ) : null}
-                            </Inline>
-                        ) : null}
                     </Stack>
                 )}
 
@@ -322,9 +380,9 @@ export function TechnicalSheetPanel({
                         <Stack space="xs" testID={`${testID}-cost`}>
                             <Inline space="sm">
                                 <Heading level={3}>{t('kitchen:recipes.sheetCostSaved')}</Heading>
-                                <Badge tone="warning" label={t('kitchen:rollup.confidential')} />
+                                <DeskChip tone="warning" label={t('kitchen:rollup.confidential')} />
                                 {figures.basisMismatch ? (
-                                    <Badge
+                                    <DeskChip
                                         tone="warning"
                                         testID={`${testID}-cost-mismatch`}
                                         label={t('kitchen:recipes.sheetBasisMismatch')}
@@ -339,7 +397,7 @@ export function TechnicalSheetPanel({
                             {figures.costPerYieldUnit !== null ? (
                                 <DescriptionRow
                                     label={t('kitchen:recipes.sheetCostPerUnit', {
-                                        unit: version.yieldUnit,
+                                        unit: yieldUnitLabel,
                                     })}
                                     value={cost(figures.costPerYieldUnit)}
                                     testID={`${testID}-cost-per-unit`}
@@ -384,7 +442,7 @@ export function TechnicalSheetPanel({
                                 <>
                                     <DescriptionRow
                                         label={t('kitchen:recipes.sheetPackagingPerUnit', {
-                                            unit: version.yieldUnit,
+                                            unit: yieldUnitLabel,
                                         })}
                                         value={cost(packagingFigures.costPerYieldUnit)}
                                         testID={`${testID}-packaging-per-unit`}
@@ -406,7 +464,7 @@ export function TechnicalSheetPanel({
                             {computed?.totalCostPerYieldUnit == null ? null : (
                                 <DescriptionRow
                                     label={t('kitchen:recipes.sheetCostAllIn', {
-                                        unit: version.yieldUnit,
+                                        unit: yieldUnitLabel,
                                     })}
                                     value={cost(computed.totalCostPerYieldUnit)}
                                     testID={`${testID}-cost-all-in`}
@@ -453,7 +511,7 @@ export function TechnicalSheetPanel({
                                     {weekly.block.totalCostPerYieldUnit === null ? null : (
                                         <DescriptionRow
                                             label={t('kitchen:recipes.sheetCostAllIn', {
-                                                unit: version.yieldUnit,
+                                                unit: yieldUnitLabel,
                                             })}
                                             value={cost(weekly.block.totalCostPerYieldUnit)}
                                             testID={`${testID}-weekly-all-in`}
@@ -461,7 +519,7 @@ export function TechnicalSheetPanel({
                                     )}
 
                                     {weekly.block.hasCarriedForwardPrices ? (
-                                        <Badge
+                                        <DeskChip
                                             tone="warning"
                                             label={t('kitchen:recipes.sheetWeeklyCarried')}
                                             testID={`${testID}-weekly-carried-forward`}
@@ -469,7 +527,7 @@ export function TechnicalSheetPanel({
                                     ) : null}
 
                                     {weekly.needingPrice > 0 ? (
-                                        <Badge
+                                        <DeskChip
                                             tone="warning"
                                             label={t('kitchen:recipes.sheetWeeklyNeedsPrice', {
                                                 count: weekly.needingPrice,

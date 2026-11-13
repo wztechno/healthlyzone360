@@ -58,6 +58,7 @@ import type {
     SubscriptionDelivery,
     SubscriptionDeliveryFilter,
     SubscriptionMealChoice,
+    SubscriptionPlanDays,
     SubscriptionPreview,
     SubscriptionQuote,
     SubscriptionQuoteRequest,
@@ -92,7 +93,6 @@ import type {
     MealAdminFilter,
     PlanAdmin,
     PlanAdminFilter,
-    PlanMenu,
     PriceListAdmin,
     PriceListAdminFilter,
     ProductAdmin,
@@ -103,7 +103,6 @@ import type {
     RecipeAdminSummary,
     RecipeRollupDraft,
     RecipeRollupPreview,
-    ReplacePlanMenuRequest,
     ServiceArea,
     ServiceAreaFilter,
     SetBranchOperatingRequest,
@@ -113,7 +112,9 @@ import type {
     CreateDeliveryWindowRequest,
     DeliveryWindow,
     ItemChannelPrices,
+    ItemPacks,
     SetItemChannelPricesRequest,
+    SetItemPacksRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
     SetPlanCombinationsRequest,
@@ -132,6 +133,11 @@ import type {
     UpdateProductRequest,
     UpdateRecipeRequest,
     TechnicalSheetAdmin,
+    DownloadedFile,
+    ImportReport,
+    ImportUpload,
+    RecipeSheetBundle,
+    TransferResource,
 } from '../contracts/kitchen-admin.ts';
 import type {
     DietCategory,
@@ -552,6 +558,9 @@ export const apiCommerceRepository: CommerceRepository = {
     getMyOrder(_orderId: OrderId): Promise<PlacedOrder> {
         return notImplemented(`GET ${BASE}/me/orders/{order}`);
     },
+    cancelMyOrder(_orderId: OrderId): Promise<PlacedOrder> {
+        return notImplemented(`POST ${BASE}/me/orders/{order}/cancel`);
+    },
     /**
      * Subscription lifecycle (quote preview, create, reads, pause/resume/skip, address/window) is
      * served — implemented in `./subscription-repository.ts` and spread over this object by
@@ -640,6 +649,9 @@ export const apiCommerceRepository: CommerceRepository = {
         _request: SetSubscriptionMealChoicesRequest,
     ): Promise<readonly SubscriptionMealChoice[]> {
         return notImplemented(`PUT ${BASE}/me/subscriptions/{subscription}/choices`);
+    },
+    listSubscriptionDays(_subscriptionId: SubscriptionId): Promise<SubscriptionPlanDays> {
+        return notImplemented(`GET ${BASE}/me/subscriptions/{subscription}/days`);
     },
 };
 
@@ -778,6 +790,26 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     removeRecordPhoto(): Promise<void> {
         return notImplemented(`DELETE ${BASE}/catalogue/{record}/photo`);
     },
+    importRecords(_resource: TransferResource, _upload: ImportUpload): Promise<ImportReport> {
+        return notImplemented(`POST ${BASE}/catalogue/{resource}/imports`);
+    },
+    exportIngredients(_filter?: IngredientAdminFilter): Promise<DownloadedFile> {
+        return notImplemented(`GET ${BASE}/catalogue/ingredients/export`);
+    },
+    exportRecipes(_filter?: RecipeAdminFilter): Promise<DownloadedFile> {
+        return notImplemented(`GET ${BASE}/catalogue/recipes/export`);
+    },
+    exportStock(): Promise<DownloadedFile> {
+        return notImplemented(`GET ${BASE}/catalogue/inventory/levels/export`);
+    },
+    downloadImportTemplate(_resource: TransferResource): Promise<DownloadedFile> {
+        return notImplemented(`GET ${BASE}/catalogue/{resource}/import-template`);
+    },
+    listRecipeTechnicalSheets(
+        _recipeIds: readonly RecipeId[],
+    ): Promise<readonly RecipeSheetBundle[]> {
+        return notImplemented(`GET ${BASE}/catalogue/recipes/technical-sheets`);
+    },
     updateIngredient(
         _ingredientId: IngredientId,
         _request: UpdateIngredientRequest,
@@ -850,6 +882,13 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     retireRecipe(_recipeId: RecipeId, _request: LockedRequest): Promise<RecipeAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/recipes/{recipe}/archive`);
     },
+    releaseRecipeVersion(
+        _recipeId: RecipeId,
+        _versionId: RecipeVersionId,
+        _lockVersion: number,
+    ): Promise<RecipeAdmin> {
+        return notImplemented(`POST ${BASE}/catalogue/recipes/{recipe}/versions/{version}/release`);
+    },
 
     listProducts(_filter?: ProductAdminFilter): Promise<CursorPage<ProductAdmin>> {
         return notImplemented(`GET ${BASE}/catalogue/items?item_type=product`);
@@ -887,6 +926,12 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     ): Promise<ItemChannelPrices> {
         return notImplemented(`PUT ${BASE}/catalogue/items/{item}/channel-prices`);
     },
+    getItemPacks(_itemId: ProductId | MealId): Promise<ItemPacks> {
+        return notImplemented(`GET ${BASE}/catalogue/items/{item}/packs`);
+    },
+    setItemPacks(_itemId: ProductId | MealId, _request: SetItemPacksRequest): Promise<ItemPacks> {
+        return notImplemented(`PUT ${BASE}/catalogue/items/{item}/packs`);
+    },
 
     listPriceLists(_filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {
         return notImplemented(`GET ${BASE}/catalogue/price-lists`);
@@ -902,6 +947,35 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
     publishPriceList(_priceListId: PriceListId, _request: LockedRequest): Promise<PriceListAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/price-lists/{price_list}/publish`);
+    },
+
+    // The wholesale setup is served by `./kitchen-admin-wholesale.ts`; untyped stubs suffice here.
+    listSalesChannels() {
+        return notImplemented(`GET ${BASE}/catalogue/sales-channels`);
+    },
+    createSalesChannel() {
+        return notImplemented(`POST ${BASE}/catalogue/sales-channels`);
+    },
+    createPriceList() {
+        return notImplemented(`POST ${BASE}/catalogue/price-lists`);
+    },
+    getPriceListChannels() {
+        return notImplemented(`GET ${BASE}/catalogue/price-lists/{price_list}`);
+    },
+    listPriceListChannels() {
+        return notImplemented(`GET ${BASE}/catalogue/price-lists?include=channels`);
+    },
+    setPriceListChannels() {
+        return notImplemented(`PUT ${BASE}/catalogue/price-lists/{price_list}/channels`);
+    },
+    getItemChannelOffering() {
+        return notImplemented(`GET ${BASE}/catalogue/items/{item}`);
+    },
+    listItemChannelOfferings() {
+        return notImplemented(`GET ${BASE}/catalogue/items?ids=&include=channels`);
+    },
+    offerItemOnChannel() {
+        return notImplemented(`PUT ${BASE}/catalogue/items/{item}/channels`);
     },
 
     listMeals(_filter?: MealAdminFilter): Promise<CursorPage<MealAdmin>> {
@@ -921,6 +995,9 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
     },
     retireMeal(_mealId: MealId, _request: LockedRequest): Promise<MealAdmin> {
         return notImplemented(`POST ${BASE}/catalogue/items/{item}/retire`);
+    },
+    markAllergensAssessed(_itemId: ProductId | MealId): Promise<void> {
+        return notImplemented(`POST ${BASE}/catalogue/items/{item}/allergens-assessed`);
     },
     setMealAvailability(_mealId: MealId, _request: SetMealAvailabilityRequest): Promise<MealAdmin> {
         return notImplemented(`PUT ${BASE}/catalogue/items/{item}/availability`);
@@ -961,15 +1038,6 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         _request: SetPlanCombinationsRequest,
     ): Promise<PlanAdmin> {
         return notImplemented(`PUT ${BASE}/catalogue/plan-vocabulary/combinations`);
-    },
-    getPlanMenu(_planId: SubscriptionPlanId): Promise<PlanMenu> {
-        return notImplemented(`GET ${BASE}/catalogue/plans/{plan}/menu`);
-    },
-    replacePlanMenu(
-        _planId: SubscriptionPlanId,
-        _request: ReplacePlanMenuRequest,
-    ): Promise<PlanMenu> {
-        return notImplemented(`PUT ${BASE}/catalogue/plans/{plan}/menu`);
     },
 
     listZones(_filter?: DeliveryZoneAdminFilter): Promise<CursorPage<DeliveryZoneAdmin>> {

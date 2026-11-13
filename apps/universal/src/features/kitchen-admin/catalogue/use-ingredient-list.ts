@@ -5,6 +5,7 @@ import type {
     AllergenClass,
     ApiFailure,
     IngredientAdmin,
+    IngredientAdminFilter,
     IngredientCategoryAdmin,
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
@@ -14,11 +15,11 @@ import {
 } from '@healthy360/api-client/contracts';
 import type { IngredientReferenceSeries } from '@healthy360/api-client/contracts';
 import { useLocale } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 
 import { toFailure } from '../../../data/hooks.ts';
-import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+import { safeReturnTo, withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import {
     KITCHEN_PAGE_SIZE,
     pagesInResult,
@@ -31,6 +32,7 @@ import {
     useIngredientQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
+import { inStatuses, statusTally, withoutStatuses } from './use-catalogue-filters.ts';
 import { useDestructiveRow } from './use-destructive-row.ts';
 import {
     useListMemory,
@@ -151,6 +153,13 @@ export interface IngredientListState {
     readonly setAllergen: (allergen: AllergenCode | null) => void;
     /** Every class the platform declares — the column filter's value list. */
     readonly allergenClasses: readonly AllergenClass[];
+    /**
+     * Only the rows with no unit price. Applied here rather than by the request —
+     * `IngredientAdminFilter` has no parameter for it — so while it is on the rows, the count and
+     * the pages come from the whole-set read, in its order rather than the list's sort.
+     */
+    readonly uncosted: boolean;
+    readonly setUncosted: (uncosted: boolean) => void;
     /** True when no filter of any kind is in force — the empty state branches on it. */
     readonly isUnfiltered: boolean;
     readonly clearFilters: () => void;
@@ -189,6 +198,17 @@ export interface IngredientListState {
     readonly shown: number;
     /** The whole-set read behind the other cards has not landed yet. */
     readonly countsPending: boolean;
+    /** The filter every read of this list is built from — what Export sends, so the file is the list. */
+    readonly filter: IngredientAdminFilter;
+    /**
+     * Every row the filters match, every page of it — empty while `countsPending`. In the server's
+     * whole-set order, **not** the list's sort: that read drops the sort from its key, so a caller
+     * printing it orders it itself.
+     */
+    readonly everyRow: readonly IngredientAdmin[];
+    /** Every row in scope — the filters bar the status — so the status figures do not zero each other. */
+    readonly scopeCount: number;
+    readonly statusCounts: Readonly<Record<PublishableStatus, number>>;
     readonly draftCount: number;
     readonly missingArabicCount: number;
     /** Rows with no unit price on file, so no cost per kilo can resolve downstream. */
@@ -221,6 +241,8 @@ export interface IngredientListState {
 /** `view` is the route's `?view=` — the record whose page is open (`use-viewed-record.ts`). */
 export function useIngredientList(view?: string): IngredientListState {
     const router = useRouter();
+    const rawReturn = useLocalSearchParams().returnTo;
+    const listReturn = safeReturnTo(Array.isArray(rawReturn) ? rawReturn[0] : rawReturn);
     const { locale } = useLocale();
     // Search, filters, sort, page and the row last opened survive leaving the list for a record.
     const memory = useListMemory('kitchen.ingredients');
@@ -253,6 +275,7 @@ export function useIngredientList(view?: string): IngredientListState {
         'sortDirection',
         'asc',
     );
+    const [uncosted, setUncostedFilter] = useRememberedFilter<boolean>(memory, 'uncosted', false);
     const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
 
     const filter = useMemo(
@@ -303,7 +326,8 @@ export function useIngredientList(view?: string): IngredientListState {
     useRestoredPageFallback(memory, page, ingredients.isError, () => {
         setPage(1);
     });
-    const wholeSet = useIngredientWholeSetQuery(filter);
+    // Without the status, so the figures count every state in scope; `everyRow` re-applies it.
+    const wholeSet = useIngredientWholeSetQuery(withoutStatuses(filter));
     const categories = useIngredientCategoriesQuery();
     const allergenClasses = useAllergenClassesQuery();
     const archive = useDestructiveRow(useArchiveIngredientMutation(), (row: IngredientAdmin) => ({
@@ -311,9 +335,33 @@ export function useIngredientList(view?: string): IngredientListState {
         request: { lockVersion: row.meta.lockVersion },
     }));
 
-    const rows = ingredients.data?.items;
-    const total = ingredients.data?.totalCount ?? null;
-    const totalPages = pagesInResult(ingredients.data) ?? 0;
+    // The figures count every page the filters match, not the eighteen rows on this one.
+    const scopeRows = wholeSet.data ?? NO_ROWS;
+    const everyRow = useMemo(() => inStatuses(scopeRows, statuses), [scopeRows, statuses]);
+    const uncostedRows = useMemo(
+        () => everyRow.filter((row) => row.unitPrice === null),
+        [everyRow],
+    );
+
+    // Uncosted is narrowed here, so its pages are cut from the whole set rather than requested.
+    const uncostedPage = useMemo(
+        () => uncostedRows.slice((page - 1) * KITCHEN_PAGE_SIZE, page * KITCHEN_PAGE_SIZE),
+        [uncostedRows, page],
+    );
+    const rows = uncosted
+        ? wholeSet.data === undefined
+            ? undefined
+            : uncostedPage
+        : ingredients.data?.items;
+    const total = uncosted
+        ? wholeSet.data === undefined
+            ? null
+            : uncostedRows.length
+        : (ingredients.data?.totalCount ?? null);
+    const totalPages = uncosted
+        ? Math.ceil(uncostedRows.length / KITCHEN_PAGE_SIZE)
+        : (pagesInResult(ingredients.data) ?? 0);
+    const source = uncosted ? wholeSet : ingredients;
 
     /*
      * The page as the server ordered it. Frozen empty while there is none, so "no rows yet" keeps
@@ -325,25 +373,24 @@ export function useIngredientList(view?: string): IngredientListState {
         view,
         pageRows,
         (row) => String(row.id),
-        ingredients.isSuccess && !ingredients.isFetching,
+        source.isSuccess && !source.isFetching,
         { useLookup: useIngredientById },
     );
 
-    // The cards count every page the filters match, not the eighteen rows on this one.
-    const everyRow = wholeSet.data ?? NO_ROWS;
-    const draftCount = everyRow.filter((row) => row.meta.status === 'draft').length;
+    const statusCounts = useMemo(() => statusTally(scopeRows), [scopeRows]);
+    const draftCount = statusCounts.draft;
     const missingArabicCount = everyRow.filter(
         (row) => displayName(row.name, locale).isFallback,
     ).length;
-    const uncostedCount = everyRow.filter((row) => row.unitPrice === null).length;
+    const uncostedCount = uncostedRows.length;
 
     return {
         rows: pageRows,
-        isPending: ingredients.isPending,
-        isFetching: ingredients.isFetching,
-        failure: toFailure(ingredients.error),
+        isPending: source.isPending,
+        isFetching: source.isFetching,
+        failure: toFailure(source.error),
         refetch: () => {
-            void ingredients.refetch();
+            void source.refetch();
         },
 
         query,
@@ -356,11 +403,18 @@ export function useIngredientList(view?: string): IngredientListState {
         allergen,
         setAllergen,
         allergenClasses: allergenClasses.data ?? [],
-        isUnfiltered: searchAndStatusUnset && category === null && allergen === null,
+        uncosted,
+        setUncosted: (next) => {
+            setUncostedFilter(next);
+            // Not part of the request's filter, so the remembered page does not reset on its own.
+            setPage(1);
+        },
+        isUnfiltered: searchAndStatusUnset && category === null && allergen === null && !uncosted,
         clearFilters: () => {
             clearSearchAndStatus();
             setCategory(null);
             setAllergen(null);
+            setUncostedFilter(false);
         },
         categories: topLevelCategories(categories.data).filter(
             (entry) =>
@@ -381,8 +435,12 @@ export function useIngredientList(view?: string): IngredientListState {
         totalPages,
         total,
         countsPending: wholeSet.isPending,
+        filter,
+        everyRow: uncosted ? uncostedRows : everyRow,
         // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
         shown: Math.min(page * KITCHEN_PAGE_SIZE, total ?? pageRows.length),
+        scopeCount: scopeRows.length,
+        statusCounts,
         draftCount,
         missingArabicCount,
         uncostedCount,
@@ -394,7 +452,11 @@ export function useIngredientList(view?: string): IngredientListState {
                 withReturnTo(
                     `/kitchen/ingredients/${ingredientId}`,
                     viewed.viewingId === ingredientId
-                        ? withQuery('/kitchen/ingredients', { view: ingredientId })
+                        ? // The list's own way back rides along — to Requirements, say.
+                          withReturnTo(
+                              withQuery('/kitchen/ingredients', { view: ingredientId }),
+                              listReturn,
+                          )
                         : null,
                 ) as never,
             );

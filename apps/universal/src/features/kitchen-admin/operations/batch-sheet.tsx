@@ -5,7 +5,7 @@ import type {
     RecipePackagingLine,
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
-import { Badge, Inline, Text } from '@healthy360/design-system';
+import { Inline, Text } from '@healthy360/design-system';
 import type { IngredientId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { MeasureUnit } from '@healthy360/nutrition';
@@ -23,6 +23,7 @@ import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, unitShortKey } from '../format.ts';
 import { ProductionTable } from '../production-desk/production-table.tsx';
 
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * The batch sheet (Operations handoff `edProduction`) — what one version, scaled, will consume, set
  * against this branch's shelves: the production editor's, for the batch being started. The batch
@@ -82,6 +83,24 @@ export function useShelfAvailability(): ShelfAvailability {
             return shelf.unit.toLowerCase() === unit.toLowerCase() ? shelf.quantity : null;
         };
     }, [itemRows, levelRows]);
+}
+
+/**
+ * The stock item each ingredient is kept as, for handing a shortfall to the supply-order builder,
+ * which proposes by stock item. `null` for an ingredient no stock item holds yet.
+ */
+export function useShelfStockItems(): (ingredientId: IngredientId) => string | null {
+    const canView = useCan(INVENTORY_VIEW_PERMISSION);
+    const items = useStockItemsQuery(canView);
+    const rows = items.data;
+    return useMemo(() => {
+        const byIngredient = new Map<string, string>();
+        for (const item of rows ?? []) {
+            if (item.ingredientId !== null)
+                byIngredient.set(String(item.ingredientId), String(item.id));
+        }
+        return (ingredientId) => byIngredient.get(String(ingredientId)) ?? null;
+    }, [rows]);
 }
 
 /** Every ingredient the version names — lines and packaging — resolved by id from the catalogue. */
@@ -206,10 +225,9 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
                         {nameOf(line.ingredientId)}
                     </Text>
                     {line.isOptional ? (
-                        <Badge
+                        <DeskChip
                             testID={`kitchen-batch-row-${String(line.ingredientId)}-optional`}
                             tone="neutral"
-                            icon={null}
                             label={t('kitchen:ops.batch.optionalBadge')}
                         />
                     ) : null}
@@ -301,7 +319,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
                 const figure = shortOf(line).short;
                 if (figure === null) return <Text tone="secondary">{dash}</Text>;
                 return (
-                    <Badge
+                    <DeskChip
                         testID={`kitchen-batch-row-${String(line.ingredientId)}-position`}
                         tone={figure > 0 ? 'danger' : 'success'}
                         label={position(line)}
@@ -417,9 +435,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
                 sectionTestID="kitchen-batch-consume"
                 title={t('kitchen:ops.batch.consumeHeading')}
                 description={t('kitchen:ops.batch.consumeBody')}
-                aside={
-                    <Badge tone="info" icon={null} label={t('kitchen:ops.batch.fromDatabase')} />
-                }
+                aside={<DeskChip tone="info" label={t('kitchen:ops.batch.fromDatabase')} />}
                 rows={version.lines}
                 columns={shelfLineColumns}
                 rowKey={(line) => String(line.ingredientId)}

@@ -11,6 +11,7 @@
         "save": "حفظ",
         "retry": "إعادة المحاولة",
         "close": "إغلاق",
+        "actions": "الإجراءات",
         "select": "اختيار",
         "change": "تغيير",
         "signIn": "تسجيل الدخول",
@@ -51,6 +52,8 @@
         "label": "اللغة",
         "english": "English",
         "arabic": "العربية",
+        "englishShort": "EN",
+        "arabicShort": "ع",
         "changed": "تم تغيير اللغة إلى {{language}}",
         "reloadRequiredTitle": "يلزم إعادة التشغيل",
         "reloadRequiredBody": "يحتاج تطبيق هلثي ٣٦٠ إلى إعادة التشغيل قبل تغيير اتجاه التخطيط.",
@@ -128,5 +131,27 @@
             "stockGapFix": "إصلاح نقص المخزون · {{subject}}",
             "recipeDetour": "تعديل {{subject}}"
         }
+    },
+    "keptWork": {
+        "title": "عمل غير مكتمل · {{n}}",
+        "inProgress": "قيد التنفيذ",
+        "detail": "{{kind}} · غير محفوظ",
+        "kind": {
+            "recipe": "وصفة",
+            "ingredient": "مكوّن",
+            "packaging": "تغليف"
+        },
+        "new": {
+            "recipe": "وصفة جديدة",
+            "ingredient": "مكوّن جديد",
+            "packaging": "تغليف جديد"
+        },
+        "minimise": "تصغير",
+        "close": "إغلاق",
+        "discardLabel": "تجاهل {{title}}",
+        "discardTitle": "تجاهل هذا العمل؟",
+        "discardBody": "سيُحذف {{title}} نهائيًا.",
+        "discardCancel": "الإبقاء عليه",
+        "discardConfirm": "تجاهل"
     }
 }

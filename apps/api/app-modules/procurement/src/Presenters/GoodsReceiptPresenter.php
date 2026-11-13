@@ -59,6 +59,7 @@ final class GoodsReceiptPresenter
             'invoice_date' => $receipt->invoice_date?->toDateString(),
             'variance_note' => $receipt->variance_note,
             'purchase_order_id' => $receipt->purchase_order_id,
+            'purchase_order_number' => $receipt->purchaseOrder?->number,
             'received_at' => $receipt->received_at?->toIso8601String(),
             // The branch-local business day, and what §3.7 groups spend by. A
             // date string rather than a timestamp, because that is exactly the
@@ -151,8 +152,8 @@ final class GoodsReceiptPresenter
 
     /**
      * One purchases-ledger row: a receipt line flattened with the date, supplier
-     * and item it belongs to. Expects `goodsReceipt`, `goodsReceipt.supplier`
-     * and `stockItem` loaded.
+     * and item it belongs to. Expects `goodsReceipt`, `goodsReceipt.supplier`,
+     * `goodsReceipt.purchaseOrder` and `stockItem` loaded.
      *
      * @return array<string, mixed>
      */
@@ -169,6 +170,7 @@ final class GoodsReceiptPresenter
             'supplier' => $receipt instanceof GoodsReceipt ? $this->supplier($receipt) : null,
             'document_ref' => $receipt?->document_ref,
             'purchase_order_id' => $receipt?->purchase_order_id,
+            'purchase_order_number' => $receipt?->purchaseOrder?->number,
             'cost_status' => $receipt?->cost_status,
             'stock_item_id' => (string) $line->stock_item_id,
             'item_code' => $stockItem?->code,
@@ -179,6 +181,10 @@ final class GoodsReceiptPresenter
             'unit_price_amount' => $showCosts && $line->unit_price_amount !== null ? (string) $line->unit_price_amount : null,
             'line_total_amount' => $showCosts && $line->line_total_amount !== null ? (string) $line->line_total_amount : null,
             'cost_currency_code' => $showCosts ? $line->cost_currency_code : null,
+            // What the last delivery cost per this line's unit, and this price
+            // against it; null when the two could not be compared.
+            'last_unit_price_amount' => $showCosts && $line->last_unit_price_amount !== null ? (string) $line->last_unit_price_amount : null,
+            'price_variance_percent' => $showCosts && $line->price_variance_percent !== null ? (string) $line->price_variance_percent : null,
             'valuation_pending_fx' => $line->valuation_pending_fx,
             'costs_redacted' => ! $showCosts,
         ] + $this->traceability($line);
@@ -198,6 +204,10 @@ final class GoodsReceiptPresenter
             'unit_price_amount' => $showCosts && $line->unit_price_amount !== null ? (string) $line->unit_price_amount : null,
             'line_total_amount' => $showCosts && $line->line_total_amount !== null ? (string) $line->line_total_amount : null,
             'cost_currency_code' => $showCosts ? $line->cost_currency_code : null,
+            // What the last delivery cost per this line's unit, and this price
+            // against it; null when the two could not be compared.
+            'last_unit_price_amount' => $showCosts && $line->last_unit_price_amount !== null ? (string) $line->last_unit_price_amount : null,
+            'price_variance_percent' => $showCosts && $line->price_variance_percent !== null ? (string) $line->price_variance_percent : null,
             // A work state, not a money value: whether this line still needs
             // somebody's attention is not the same question as what it cost.
             'costed_at' => $line->costed_at?->toIso8601String(),

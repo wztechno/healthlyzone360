@@ -11,6 +11,7 @@ use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Orders\OrderDesk\Enums\OrderDeskWindow;
 use Healthy360\Orders\OrderDesk\Presenters\OrderDeskPresenter;
 use Healthy360\Orders\OrderDesk\Services\OrderDeskQueue;
+use Healthy360\Orders\Services\OrderAmendability;
 use Healthy360\Orders\Services\OrderLocator;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -65,6 +66,7 @@ final class OrderDeskQueueController
         private readonly OrderLocator $locator,
         private readonly OrderDeskQueue $queue,
         private readonly OrderDeskPresenter $presenter,
+        private readonly OrderAmendability $amendability,
     ) {}
 
     /**
@@ -89,6 +91,7 @@ final class OrderDeskQueueController
             // `OrderDeskQueue::applyFulfilmentType()` for why the two filters
             // that look alike are shaped differently.
             'fulfilment_type' => ['nullable', Rule::in(FulfilmentType::codes())],
+            'lens' => ['nullable', Rule::in([OrderDeskQueue::LENS_PAST_DUE])],
         ]);
 
         $page = $this->queue->forSeller(
@@ -103,6 +106,7 @@ final class OrderDeskQueueController
                 : null,
             isset($validated['from']) ? (string) $validated['from'] : null,
             isset($validated['to']) ? (string) $validated['to'] : null,
+            ($validated['lens'] ?? null) === OrderDeskQueue::LENS_PAST_DUE,
         );
 
         $orders = $page['orders'];
@@ -121,6 +125,9 @@ final class OrderDeskQueueController
         // confirmed yet.
         $deliveryJobs = $this->queue->deliveryJobsByOrder($orderIds);
 
+        // Whether each row may still be edited, for the page at once.
+        $amendable = $this->amendability->reasons($orders, $lines);
+
         // Resolved once for the whole page rather than per row, and only when
         // it will be spent: an unpermitted caller never causes the confidential
         // columns to be read at all.
@@ -131,6 +138,9 @@ final class OrderDeskQueueController
         // that number rather than the account's primary. See
         // `OrderDeskQueue::contactsForOrders()`.
         $contacts = $includeContact ? $this->queue->contactsForOrders($orders) : [];
+
+        // Which meal went in which sitting, for every plan day on the page.
+        $this->presenter->preloadPlanDays($orderIds);
 
         $rows = [];
 
@@ -149,6 +159,7 @@ final class OrderDeskQueueController
                 $deliveryJobs[$id] ?? null,
                 $includeContact,
                 $contacts[$id] ?? null,
+                ($amendable[$id] ?? null) === null,
             );
         }
 
@@ -167,6 +178,10 @@ final class OrderDeskQueueController
             // them: which day the window was measured from, and on whose clock.
             'today' => $page['today'],
             'timezone' => $page['timezone'],
+            // Across every date, unlike the rows. See `OrderDeskQueue`.
+            'past_due_count' => $page['past_due_count'],
+            'overdue_count' => $page['overdue_count'],
+            'overdue_grace_minutes' => OrderDeskQueue::OVERDUE_GRACE_MINUTES,
         ]);
     }
 

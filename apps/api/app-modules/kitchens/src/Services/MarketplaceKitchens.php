@@ -35,6 +35,8 @@ use Illuminate\Database\Eloquent\Builder;
  * 3. **It has at least one active branch.** A kitchen with no open location has
  *    no address, no operating week and therefore no calendar; listing it would
  *    offer food nobody can produce.
+ * 4. **It has gone live.** A kitchen still `not_open_yet` is absent, not
+ *    refused at checkout (owner, 3 Nov 2026).
  *
  * ## On the tenant scope
  *
@@ -77,7 +79,10 @@ final readonly class MarketplaceKitchens
                 fn ($query) => $query->from('organisation_branches')
                     ->whereColumn('organisation_branches.organisation_id', 'organisations.id')
                     ->where('organisation_branches.status', BranchStatus::Active->value),
-            );
+            )
+            // A kitchen still in setup is absent until it goes live, through the
+            // definer function because the settings table is closed to this caller.
+            ->whereRaw('organisations.id NOT IN (SELECT kitchens_not_open_yet())');
     }
 
     /**

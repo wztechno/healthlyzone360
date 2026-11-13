@@ -71,8 +71,9 @@ use Healthy360\Orders\Presenters\OrderPresenter;
  * `due_at` already computed.
  *
  * **What is deliberately not here.** No address beyond the delivery snapshot
- * the order book already serves, no email, no allergen declaration, no account
- * identifier the desk could pivot on, and no order history. A name and a number
+ * the order book already serves, no email, no allergen declaration beyond the
+ * order's own `allergy` snapshot, no account identifier the desk could pivot on,
+ * and no order history. A name and a number
  * is the least somebody can be called back on, and the permission is named for
  * exactly that much.
  *
@@ -123,6 +124,18 @@ use Healthy360\Orders\Presenters\OrderPresenter;
 final class OrderDeskPresenter
 {
     public function __construct(private readonly OrderPresenter $orders) {}
+
+    /**
+     * Read the page's plan days, remake links and cancellers in one go, for
+     * the rows `row()` is about to present.
+     *
+     * @param  list<string>  $orderIds
+     */
+    public function preloadPlanDays(array $orderIds): void
+    {
+        $this->orders->preloadPlanDays($orderIds);
+        $this->orders->preloadRemakes($orderIds);
+    }
 
     /**
      * One queue row.
@@ -181,6 +194,8 @@ final class OrderDeskPresenter
      *     created_by: string|null,
      *     placed_on_behalf_by: string|null,
      *     lock_version: int,
+     *     amendable: bool,
+     *     allergy: array{severe: bool, items: list<array{allergen_code: string, severity: string, notes: string|null, conflicts_with_line: list<string>}>, note: string|null, acknowledged_at: string|null}|null,
      *     line_count: int,
      *     lines: list<array{
      *         id: string,
@@ -195,6 +210,8 @@ final class OrderDeskPresenter
      *         currency_code: string,
      *         allergens: list<array{allergen_code: string, containment: string}>,
      *         pack_summary: array<string, mixed>|null,
+     *         options: list<array<string, string|null>>,
+     *         note: string|null,
      *         price_list_id: string|null,
      *         price_list_item_id: string|null
      *     }>,
@@ -214,8 +231,9 @@ final class OrderDeskPresenter
         ?array $deliveryJob,
         bool $includeContact,
         ?array $contact = null,
+        ?bool $amendable = null,
     ): array {
-        $row = $this->orders->kitchen($order, $lines);
+        $row = $this->orders->kitchen($order, $lines, amendable: $amendable);
 
         $row['due_at'] = $dueAt;
 

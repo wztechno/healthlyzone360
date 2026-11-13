@@ -1,30 +1,37 @@
-import { Button } from '@healthy360/design-system';
+import { cx, useBreakpoint } from '@healthy360/design-system';
 import type { Subscription, SubscriptionPlan } from '@healthy360/api-client/contracts';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { usePlansQuery } from '../../../data/catalogue-hooks.ts';
 import { useKitchensQuery, useSubscriptionsQuery } from '../../../data/marketplace-hooks.ts';
 import { withQuery } from '../../../navigation/return-to.ts';
-import { useRememberQuery } from '../../../navigation/use-return-to.ts';
+import { useGoToAuth, useRememberQuery } from '../../../navigation/use-return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
-import { ListingHeader } from '../../../ui/listing-header.tsx';
 import { PillChip } from '../../../ui/pill-chip.tsx';
 import { useMarketplaceFilters } from '../../marketplace/filter-bar.tsx';
+import { configuratorHref } from '../../commerce/configurator-draft.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
+import { ShopStateButton } from '../../../ui/shop-state.tsx';
 import { distinctKitchenIds, toPlanFilter } from '../plan-catalogue.ts';
 import { PlanCard } from '../plan-card.tsx';
 import { PlanComparisonTray } from '../plan-comparison-tray.tsx';
-import { TextLink } from '../plan-controls.tsx';
+import { bestMatch, defaultAnswers, finderOptions, matchPlans } from '../plan-finder.ts';
+import type { FinderAnswers } from '../plan-finder.ts';
+import { PlanFinder } from '../plan-finder-panel.tsx';
 import { PlanGrid, PlanGridItem } from '../plan-grid.tsx';
-import { PlanSubscriberPanel, isLiveSubscription } from '../plan-subscriber-panel.tsx';
+import { isLiveSubscription } from '../plan-subscription.ts';
+import type { ShelfTint } from '../shelf-tints.ts';
 
 /**
- * `/plans` — the subscription-plan catalogue: the listing title with its count and "How plans work
- * →" on its baseline, the plan cards three across, for a subscriber the "Your week" card beside the
- * "Active subscription" card, and — once a plan is ticked — the comparison bar pinned to the foot.
+ * `/plans` — the subscription-plan catalogue, as the accepted shop board draws it: the title with a
+ * count pill and "How plans work"; "Find your plan" — three questions and the best match
+ * (`plan-finder.ts`); the plan cards three across, the match ringed, a held plan marked "Current"
+ * with "Manage" to its subscription page; and — once a plan is ticked — the dark comparison bar
+ * pinned to the foot. Meals are picked in setup, and a subscription is run from its own page: this
+ * page only lists and compares.
  *
  * ## The design's structure over a many-kitchen catalogue
  *
@@ -47,16 +54,13 @@ import { PlanSubscriberPanel, isLiveSubscription } from '../plan-subscriber-pane
  *
  * The "How to read the nutrition figures" notice is gone from this page: a plan card states calorie
  * bands, not nutrition figures, and the plan page that does show them keeps it.
- *
- * ## The subscriber band is real data
- *
- * It renders only for a signed-in person who holds a live subscription — for anybody else it would
- * be sample data — and its actions are the subscription's own transitions
- * (`plan-subscriber-panel.tsx`).
  */
 
 const FILTER_KEYS = ['kitchen'] as const;
 export const MAX_COMPARED_PLANS = 3;
+
+/** The cards' heads, in turn — the board's three. */
+const PLAN_TINTS: readonly ShelfTint[] = ['orange', 'green', 'blue', 'violet'];
 
 /** Reads a route parameter that expo-router may hand back as a string or a one-element array. */
 function readParam(raw: string | string[] | undefined): string {
@@ -66,9 +70,12 @@ function readParam(raw: string | string[] | undefined): string {
 
 export function PlansScreen() {
     const { t } = useTranslation();
+    // Shop · Weekly plans, phone board: the count beside the title, finder rows, a row of plans.
+    const phone = !useBreakpoint().atLeast('md');
     const router = useRouter();
     const params = useLocalSearchParams();
     const { me } = useSession();
+    const goToAuth = useGoToAuth();
     const filters = useMarketplaceFilters(FILTER_KEYS);
     const kitchenIds = useMemo(() => filters.selected['kitchen'] ?? [], [filters.selected]);
     useRememberQuery();
@@ -104,7 +111,7 @@ export function PlansScreen() {
     const allPlans = usePlansQuery({});
     const kitchens = useKitchensQuery({ channels: ['marketplace'], limit: 20 });
 
-    const items = plans.data?.items ?? [];
+    const items = useMemo(() => plans.data?.items ?? [], [plans.data]);
 
     // Only asked for a signed-in person: the list is theirs, and an anonymous request is a 401.
     // Every live one, not the newest: a person holding two plans sees both marked and both
@@ -151,33 +158,94 @@ export function PlansScreen() {
         [compared, fullById],
     );
 
+    // The finder: options from the whole catalogue on screen, answers held by the page.
+    const options = useMemo(() => finderOptions(items), [items]);
+    const [answered, setAnswered] = useState<FinderAnswers | null>(null);
+    const answers = useMemo(() => answered ?? defaultAnswers(options), [answered, options]);
+    const matches = useMemo(() => matchPlans(items, answers), [items, answers]);
+    const best = bestMatch(matches);
+
+    /** "Start this plan": setup for the configuration in front of the person, via sign-in if need be. */
+    const startPlan = (plan: SubscriptionPlan, variantId: string | undefined) => {
+        const setUp = configuratorHref({ plan: String(plan.id), variant: variantId });
+        if (me !== null) {
+            router.push(setUp as never);
+            return;
+        }
+        goToAuth('/sign-in', setUp);
+    };
+
+    const singleKitchen = kitchenOptions.length === 1 ? (kitchenOptions[0]?.label ?? null) : null;
+
     return (
-        <View testID="plans-screen" className="flex-col">
-            <ListingHeader
+        <View testID="plans-screen" className="flex-col pb-24">
+            <View
                 testID="plans-header"
-                title={t('catalogue:nav.plans')}
-                metaTestID="plans-count"
-                {...(plans.data === undefined
-                    ? {}
-                    : { meta: t('catalogue:plans.count', { count: items.length }) })}
-                trailing={
-                    <TextLink
+                className={cx(
+                    'flex-row flex-wrap pt-1',
+                    phone ? 'items-end gap-2' : 'items-center gap-3.5',
+                )}
+            >
+                <RNText
+                    testID="plans-header-title"
+                    role="heading"
+                    aria-level={1}
+                    className={cx(
+                        'font-display font-bold tracking-display text-content-primary text-start',
+                        phone ? 'text-2xl' : 'text-3xl',
+                    )}
+                >
+                    {t('marketplace:nav.weeklyPlans')}
+                </RNText>
+                {plans.data === undefined ? null : (
+                    <View
+                        className={
+                            phone
+                                ? 'self-end pb-1'
+                                : 'h-[30px] justify-center rounded-full bg-surface-brand-subtle px-3'
+                        }
+                    >
+                        <RNText
+                            testID="plans-count"
+                            className={cx(
+                                'text-sm tabular-nums',
+                                phone
+                                    ? 'text-content-secondary'
+                                    : 'font-medium text-content-on-brand-subtle',
+                            )}
+                        >
+                            {t('catalogue:plans.count', { count: items.length })}
+                        </RNText>
+                    </View>
+                )}
+                <View className="ms-auto flex-row items-center gap-3">
+                    {singleKitchen === null ? null : (
+                        <RNText className="text-sm text-content-secondary">
+                            {t('catalogue:plans.fromKitchen', { kitchen: singleKitchen })}
+                        </RNText>
+                    )}
+                    <Pressable
                         testID="plans-how-link"
-                        align="end"
-                        label={t('catalogue:plans.howItWorksLink')}
+                        role="link"
+                        accessibilityRole="link"
                         onPress={() => {
                             router.push('/plans/how-it-works' as never);
                         }}
-                    />
-                }
-            />
+                        className="min-h-touch flex-row items-center gap-1 rounded-full px-2 hover:bg-surface-brand-subtle"
+                    >
+                        <RNText className="text-sm font-semibold text-content-on-brand-subtle">
+                            {t('catalogue:plans.howItWorksLink')}
+                        </RNText>
+                    </Pressable>
+                </View>
+            </View>
 
             {kitchenOptions.length > 1 ? (
                 <View
                     testID="plans-kitchens"
                     role="group"
                     aria-label={t('catalogue:plans.kitchenFilterLabel')}
-                    className="mt-6 flex-row flex-wrap gap-2"
+                    className="mt-4 flex-row flex-wrap gap-2"
                 >
                     <PillChip
                         testID="plans-kitchen-all"
@@ -204,36 +272,56 @@ export function PlansScreen() {
                 </View>
             ) : null}
 
-            <View className="mt-6">
+            {items.length === 0 ? null : (
+                <PlanFinder
+                    options={options}
+                    answers={answers}
+                    onChange={setAnswered}
+                    matchName={best?.plan.name ?? null}
+                />
+            )}
+
+            <View className="mt-3.5">
                 <QueryStates
+                    skeleton="plans"
                     query={plans}
                     isEmpty={items.length === 0}
                     emptyTitle={t('catalogue:plans.emptyTitle')}
                     emptyBody={t('catalogue:plans.emptyBody')}
                     emptyActions={
                         filters.isFiltered ? (
-                            <Button
+                            <ShopStateButton
                                 testID="plans-empty-clear"
-                                variant="secondary"
+                                kind="secondary"
                                 label={t('catalogue:plans.allKitchens')}
                                 onPress={filters.clear}
                             />
                         ) : undefined
                     }
+                    // Weekly plans, pin 2.
+                    emptyIcon="calendarDays"
                     testID="plans"
                 >
                     <PlanGrid testID="plans-grid">
-                        {items.map((plan) => {
+                        {items.map((plan, index) => {
                             const isSelected = compared.includes(String(plan.id));
                             const held = liveSubscriptions.find(
                                 (subscription) =>
                                     String(subscription.configuration.planId) === String(plan.id),
                             );
+                            const found = matches.find((entry) => entry.plan.id === plan.id);
                             return (
                                 <PlanGridItem key={plan.id}>
                                     <PlanCard
                                         plan={plan}
-                                        kitchenName={kitchenNameById.get(String(plan.kitchenId))}
+                                        tint={PLAN_TINTS[index % PLAN_TINTS.length] ?? 'green'}
+                                        variant={found?.variant}
+                                        match={best !== null && best.plan.id === plan.id}
+                                        kitchenName={
+                                            singleKitchen === null
+                                                ? kitchenNameById.get(String(plan.kitchenId))
+                                                : undefined
+                                        }
                                         current={
                                             held === undefined
                                                 ? undefined
@@ -243,8 +331,11 @@ export function PlansScreen() {
                                                       },
                                                   }
                                         }
-                                        onOpen={() => {
+                                        onView={() => {
                                             router.push(`/plans/${String(plan.id)}` as never);
+                                        }}
+                                        onOpen={() => {
+                                            startPlan(plan, found?.variant.id);
                                         }}
                                         comparison={{
                                             selected: isSelected,
@@ -263,17 +354,11 @@ export function PlansScreen() {
                 </QueryStates>
             </View>
 
-            {liveSubscriptions.map((subscription) => (
-                <View key={subscription.id} className="mt-6">
-                    <PlanSubscriberPanel subscription={subscription} />
-                </View>
-            ))}
-
             {/* Sticky on the web against the shell's scroll port, so the bar stays in reach while
                 the cards scroll under it. The wrapper sticks, not the bar: a sticky box sticks
                 within its parent, and the parent here is the whole screen. */}
             {compared.length === 0 ? null : (
-                <View className="z-10 mt-6 web:sticky web:bottom-4">
+                <View className="z-10 mt-6 web:sticky web:bottom-[22px]">
                     <PlanComparisonTray
                         plans={comparedPlans}
                         selectedCount={compared.length}

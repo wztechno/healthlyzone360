@@ -7,6 +7,7 @@ use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\AccessControl\Services\PermissionRegistry;
 use Healthy360\Identity\Models\UserProfile;
 use Healthy360\Organisations\Enums\MembershipStatus;
@@ -58,8 +59,10 @@ $tenantContext->during($userId, $cedarId, null, function () use ($userId, $cedar
         ],
     );
 
+    app(OrganisationRoles::class)->provision((string) $cedarId);
+
     $ownerRole = Role::withoutTenancy()
-        ->whereNull('organisation_id')
+        ->where('organisation_id', $cedarId)
         ->where('code', 'organisation_owner')
         ->firstOrFail();
 

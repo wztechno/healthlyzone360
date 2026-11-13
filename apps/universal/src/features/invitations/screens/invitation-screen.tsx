@@ -338,9 +338,19 @@ export function InvitationScreen({ token }: InvitationScreenProps) {
                             <Button
                                 testID="invitation-open-workspace"
                                 size="sm"
-                                label={t('invitations:accepted.openWorkspace')}
+                                label={
+                                    invitation.organisation.type === 'corporate_customer'
+                                        ? t('invitations:accepted.openBusinessWorkspace')
+                                        : t('invitations:accepted.openWorkspace')
+                                }
                                 onPress={() => {
-                                    router.push('/kitchen' as never);
+                                    // A business buyer's people land on the buyer workspace; a
+                                    // kitchen's on the kitchen.
+                                    router.push(
+                                        (invitation.organisation.type === 'corporate_customer'
+                                            ? '/corporate'
+                                            : '/kitchen') as never,
+                                    );
                                 }}
                             />
                         ) : undefined

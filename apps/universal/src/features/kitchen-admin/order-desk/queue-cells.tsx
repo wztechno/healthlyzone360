@@ -1,5 +1,5 @@
 import type { OrderDeskQueueRow } from '@healthy360/api-client/contracts';
-import { Badge, Text } from '@healthy360/design-system';
+import { Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -10,6 +10,7 @@ import {
     orderDeskRowTestId,
 } from '../ops-format.ts';
 
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * The queue's cells that are more than a plain value: how late, and how the order is being paid.
  * Each keeps the test ids the queue suite has always read.
@@ -18,16 +19,24 @@ import {
 /**
  * How late an order is, as the interval itself.
  *
- * The tone is the kitchen display's ageing scale (`orderDeskDueTone`: amber at fifteen minutes
- * past due, red at thirty, neutral while early). The label *is* the interval, spelled by the
- * locale's relative-time formatter, so the badge reads the same in greyscale as in colour.
+ * The tone is `orderDeskDueTone`: amber at fifteen minutes past due, red at the server's grace,
+ * neutral while early. The label *is* the interval, spelled by the locale's relative-time
+ * formatter, so the badge reads the same in greyscale as in colour.
  */
-export function DueBadge({ row, now }: { readonly row: OrderDeskQueueRow; readonly now: Date }) {
+export function DueBadge({
+    row,
+    now,
+    overdueGraceMinutes,
+}: {
+    readonly row: OrderDeskQueueRow;
+    readonly now: Date;
+    readonly overdueGraceMinutes: number;
+}) {
     const formatter = useFormatter();
     return (
-        <Badge
+        <DeskChip
             testID={`${orderDeskRowTestId(String(row.id))}-due-age`}
-            tone={orderDeskDueTone(row.dueAt, now)}
+            tone={orderDeskDueTone(row.dueAt, now, overdueGraceMinutes)}
             label={formatter.formatRelativeTime(row.dueAt, now)}
         />
     );

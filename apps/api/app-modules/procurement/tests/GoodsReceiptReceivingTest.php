@@ -715,6 +715,37 @@ it('keeps two lots and two brands of one order line as separate lines, and sums 
         ->assertJsonFragment(['supplier_lot' => 'L2', 'expires_on' => '2027-01-31']);
 });
 
+it('names the order on the receipts list and the ledger, and nothing on a market purchase', function (): void {
+    $world = receivingWorld('order-number@kitchen.test');
+    $order = issuedOrder($world, '10');
+    $delivery = receive($world, $order, [
+        ['stock_item_id' => $world->itemId, 'purchase_order_line_id' => orderLineId($order), 'quantity' => 4],
+    ]);
+    $market = receive($world, null, [['stock_item_id' => $world->itemId, 'quantity' => 2]]);
+    $this->actingAs($world->tenant->user);
+
+    $listed = collect($this->getJson('/api/v1/catalogue/procurement/goods-receipts', $world->headers)
+        ->assertOk()
+        ->json('data.goods_receipts'))
+        ->pluck('purchase_order_number', 'id');
+
+    expect($listed->get((string) $delivery->getKey()))->toBe($order->number)
+        ->and($listed->get((string) $market->getKey()))->toBeNull();
+
+    $ledger = collect($this->getJson('/api/v1/catalogue/procurement/purchases-ledger', $world->headers)
+        ->assertOk()
+        ->json('data.purchases'))
+        ->pluck('purchase_order_number', 'goods_receipt_id');
+
+    expect($ledger->get((string) $delivery->getKey()))->toBe($order->number)
+        ->and($ledger->get((string) $market->getKey()))->toBeNull();
+
+    // The number survives on the receipt's own page, where the order is read separately.
+    $this->getJson('/api/v1/catalogue/procurement/goods-receipts/'.$delivery->getKey(), $world->headers)
+        ->assertOk()
+        ->assertJsonPath('data.goods_receipt.purchase_order_number', $order->number);
+});
+
 it('refuses a GTIN whose check digit fails and a lot GS1 cannot carry', function (array $trace): void {
     $world = receivingWorld('bad-trace@kitchen.test');
     $this->actingAs($world->tenant->user);
@@ -752,4 +783,32 @@ it('answers which deliveries brought a supplier lot', function (): void {
         ->all();
 
     expect($ids)->toBe([$first]);
+});
+
+it('narrows the receipts to the days they were received, both ends inclusive', function (): void {
+    $world = receivingWorld('received-window@kitchen.test');
+    $line = [['stock_item_id' => $world->itemId, 'quantity' => '1', 'unit_id' => $world->kgId]];
+    $today = now()->toDateString();
+    $threeDaysAgo = now()->subDays(3)->toDateString();
+    $tenDaysAgo = now()->subDays(10)->toDateString();
+
+    $old = receive($world, null, $line, ['received_on' => $tenDaysAgo]);
+    $middle = receive($world, null, $line, ['received_on' => $threeDaysAgo]);
+    $recent = receive($world, null, $line, ['received_on' => $today]);
+
+    $this->actingAs($world->tenant->user);
+    $idsFor = fn (string $query): array => collect($this->getJson('/api/v1/catalogue/procurement/goods-receipts?'.$query, $world->headers)
+        ->assertOk()
+        ->json('data.goods_receipts'))
+        ->map(fn (array $receipt): string => (string) $receipt['id'])
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($idsFor("from={$threeDaysAgo}&to={$threeDaysAgo}"))->toBe([(string) $middle->id])
+        ->and($idsFor("from={$threeDaysAgo}"))->toBe(collect([(string) $middle->id, (string) $recent->id])->sort()->values()->all())
+        ->and($idsFor("to={$threeDaysAgo}"))->toBe(collect([(string) $old->id, (string) $middle->id])->sort()->values()->all());
+
+    $this->getJson('/api/v1/catalogue/procurement/goods-receipts?from=last-week', $world->headers)
+        ->assertUnprocessable();
 });

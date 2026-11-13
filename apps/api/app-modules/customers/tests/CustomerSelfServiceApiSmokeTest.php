@@ -153,6 +153,35 @@ it('takes a destination, an address, a dietary declaration and a consent', funct
         ->and($position['consent.marketing_email']['status'])->not->toBe('granted');
 });
 
+it('pins an address only to the caller\'s own live phone', function (): void {
+    $this->actingAs($this->user);
+
+    $this->postJson('/api/v1/customer-account', [], firstPartyHeaders())->assertCreated();
+
+    $own = ContactPoint::factory()->phone()->create(['user_id' => $this->user->getKey()]);
+    $retired = ContactPoint::factory()->phone()->create(['user_id' => $this->user->getKey(), 'retired_at' => now()]);
+    $email = ContactPoint::factory()->create(['user_id' => $this->user->getKey()]);
+    $stranger = ContactPoint::factory()->phone()->create();
+
+    $address = fn (string $contactId) => $this->postJson('/api/v1/me/addresses', [
+        'address_type' => 'delivery',
+        'delivery_area_id' => (string) $this->world->area->getKey(),
+        'line_one' => 'Rue Gouraud 12',
+        'contact_point_id' => $contactId,
+    ], firstPartyHeaders());
+
+    foreach ([$retired, $email, $stranger] as $refused) {
+        $address((string) $refused->getKey())->assertUnprocessable();
+    }
+
+    $id = $address((string) $own->getKey())->assertCreated()->json('data.address.id');
+
+    $this->patchJson("/api/v1/me/addresses/{$id}", ['contact_point_id' => (string) $stranger->getKey()], firstPartyHeaders())
+        ->assertUnprocessable();
+    $this->patchJson("/api/v1/me/addresses/{$id}", ['contact_point_id' => (string) $own->getKey()], firstPartyHeaders())
+        ->assertOk();
+});
+
 it('takes the diet by its code, stores the classification and answers with the code', function (): void {
     $this->actingAs($this->user);
     $this->postJson('/api/v1/customer-account', [], firstPartyHeaders())->assertCreated();

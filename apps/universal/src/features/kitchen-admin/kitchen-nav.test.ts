@@ -28,6 +28,9 @@ describe('kitchen nav', () => {
             'catalogue',
             'commercial',
             'operations',
+            'buying',
+            'foodSafety',
+            'reports',
             // AA1. A kitchen manager reads the staff list — the registry has always granted
             // `membership.view_organisation` to the role, and the fixture had simply never said so.
             // Last, because the group order is "how immediate is this" and nobody is waiting on
@@ -44,6 +47,31 @@ describe('kitchen nav', () => {
         };
 
         expect(kitchenNavSections(cook).map((section) => section.group)).not.toContain('access');
+    });
+
+    it('withholds the storefront from somebody who may only read the catalogue', () => {
+        const reader: AccessState = {
+            ...managerState,
+            permissions: new Set(['catalogue.view_organisation']),
+        };
+        const keys = (state: AccessState) =>
+            kitchenNavSections(state).flatMap((section) => section.items.map((item) => item.key));
+
+        expect(keys(managerState)).toContain('storefront');
+        expect(keys(reader)).not.toContain('storefront');
+        expect(keys(reader)).toContain('branch-operating');
+    });
+
+    it('shows a cashier who may only settle cash the Cash page', () => {
+        const cashier: AccessState = {
+            ...managerState,
+            permissions: new Set(['order.settle_cash_organisation']),
+        };
+
+        const sections = kitchenNavSections(cashier);
+
+        expect(sections.map((section) => section.group)).toEqual(['orderDesk']);
+        expect(sections[0]?.items.map((item) => item.key)).toEqual(['cash']);
     });
 
     it('shows a permissions administrator the access group and nothing else', () => {

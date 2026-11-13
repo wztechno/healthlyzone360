@@ -10,7 +10,7 @@ import { cx } from '../internal/class-names.ts';
 import { KEYS, keyDownProps } from '../internal/web-props.ts';
 import type { WebKeyEvent } from '../internal/web-props.ts';
 
-export const TABS_VARIANTS = ['underline', 'segmented', 'steps'] as const;
+export const TABS_VARIANTS = ['underline', 'segmented', 'steps', 'strip'] as const;
 export type TabsVariant = (typeof TABS_VARIANTS)[number];
 
 export interface TabItem<T extends string = string> {
@@ -74,6 +74,7 @@ const COMFORTABLE_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline: 'flex-row flex-wrap items-end gap-1 border-b border-stroke-subtle',
     segmented: 'flex-row flex-wrap items-stretch gap-1 rounded-lg bg-surface-sunken p-1',
     steps: 'flex-row flex-wrap items-stretch gap-1 rounded-lg border border-stroke-subtle bg-surface-sunken p-1',
+    strip: 'flex-row flex-wrap items-stretch gap-1 self-start rounded-2xl bg-surface-sunken p-1',
 };
 
 /**
@@ -88,13 +89,14 @@ const COMFORTABLE_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
  */
 const COMPACT_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline: 'flex-row flex-wrap items-end gap-hair border-b border-stroke-subtle',
-    segmented: 'flex-row flex-wrap items-stretch gap-0.5 rounded bg-surface-sunken p-0.5',
+    segmented: 'flex-row flex-wrap items-stretch gap-0.5 rounded-xl bg-surface-sunken p-[3px]',
     /*
      * The step row the Catalogue's recipe editor opens on: a sunken track with a hairline, holding
      * one raised tab per step. Not a control height — it is the form's opening, not a field in a
      * row of fields — so it keeps the panel radius and a 4px inset around 36px tabs.
      */
     steps: 'flex-row flex-wrap items-stretch gap-hair rounded-md border border-stroke-subtle bg-surface-sunken p-hair',
+    strip: 'flex-row flex-wrap items-stretch gap-1 self-start rounded-2xl bg-surface-sunken p-1',
 };
 
 const LIST_VARIANT: Readonly<Record<Density, Readonly<Record<TabsVariant, string>>>> = {
@@ -106,14 +108,15 @@ const COMFORTABLE_TAB_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline: 'min-h-touch flex-row items-center justify-center gap-2 border-b-2 px-3 py-2',
     segmented: 'min-h-touch flex-row items-center justify-center gap-2 rounded-md px-3 py-2',
     steps: 'min-h-touch min-w-0 flex-row items-center justify-start gap-2 rounded-md px-3 py-2',
+    strip: 'h-10 flex-row items-center justify-center gap-2 rounded-xl px-[18px]',
 };
 
 const COMPACT_TAB_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline:
         'h-control-md flex-row items-center justify-center gap-control-md border-b-2 px-control-md',
-    segmented:
-        'h-control-xs flex-row items-center justify-center gap-control-sm rounded px-control-sm',
+    segmented: 'h-7 flex-row items-center justify-center gap-control-sm rounded-[9px] px-[11px]',
     steps: 'h-control-lg min-w-0 flex-row items-center justify-start gap-control-sm rounded px-control-sm',
+    strip: 'h-10 flex-row items-center justify-center gap-2 rounded-xl px-[18px]',
 };
 
 const TAB_VARIANT: Readonly<Record<Density, Readonly<Record<TabsVariant, string>>>> = {
@@ -128,6 +131,7 @@ const TAB_SELECTED: Readonly<Record<TabsVariant, string>> = {
     segmented: 'border border-brand-500 bg-surface-brand-subtle',
     // The open step is a raised card on the sunken track; the numbered dot carries the brand.
     steps: 'border border-stroke bg-surface-raised shadow-elevation-card',
+    strip: 'border border-transparent bg-surface-raised shadow-elevation-1',
 };
 
 const TAB_UNSELECTED: Readonly<Record<TabsVariant, string>> = {
@@ -136,6 +140,7 @@ const TAB_UNSELECTED: Readonly<Record<TabsVariant, string>> = {
     // geometry by a pixel every time the choice changes.
     segmented: 'border border-transparent bg-transparent',
     steps: 'border border-transparent bg-transparent',
+    strip: 'border border-transparent bg-transparent',
 };
 
 /**
@@ -249,7 +254,11 @@ export function Tabs<T extends string = string>({
                         }}
                         className={cx(
                             TAB_VARIANT[density][variant],
-                            selected ? TAB_SELECTED[variant] : TAB_UNSELECTED[variant],
+                            selected
+                                ? density === 'compact' && variant === 'segmented'
+                                    ? 'border border-transparent bg-surface-raised shadow-elevation-1'
+                                    : TAB_SELECTED[variant]
+                                : TAB_UNSELECTED[variant],
                             block || steps ? 'flex-1' : null,
                             disabled ? 'opacity-50' : null,
                         )}
@@ -295,7 +304,11 @@ export function Tabs<T extends string = string>({
                             numberOfLines={1}
                             className={cx(
                                 steps ? 'min-w-0 flex-1 text-start' : 'text-center',
-                                density === 'compact' ? 'text-role-label' : 'text-sm',
+                                density === 'compact'
+                                    ? variant === 'segmented' || variant === 'strip'
+                                        ? 'text-[13px] font-semibold'
+                                        : 'text-role-label'
+                                    : 'text-sm',
                                 selected
                                     ? variant === 'segmented'
                                         ? 'font-semibold text-content-on-brand-subtle'
@@ -305,7 +318,22 @@ export function Tabs<T extends string = string>({
                         >
                             {item.label}
                         </RNText>
-                        {item.count === undefined ? null : (
+                        {item.count === undefined ||
+                        (variant === 'strip' && item.count === 0) ? null : variant === 'strip' ? (
+                            <View className="h-5 min-w-5 items-center justify-center rounded-full bg-warning-subtle px-1.5">
+                                <RNText
+                                    aria-hidden
+                                    testID={
+                                        item.testID === undefined
+                                            ? undefined
+                                            : `${item.testID}-count`
+                                    }
+                                    className="text-[11px] font-bold tabular-nums text-warning-on-subtle"
+                                >
+                                    {String(item.count)}
+                                </RNText>
+                            </View>
+                        ) : (
                             <RNText
                                 aria-hidden
                                 testID={

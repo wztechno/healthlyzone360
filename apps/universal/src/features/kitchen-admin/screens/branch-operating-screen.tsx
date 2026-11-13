@@ -1,16 +1,20 @@
+import type { KitchenServiceSettings } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
+    Dialog,
     EmptyState,
     ErrorState,
+    FormGrid,
     FormSection,
     FormSkeleton,
+    Text,
+    TextInputField,
     useToast,
 } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
@@ -20,8 +24,14 @@ import {
     useBranchOperatingQuery,
     useSetBranchOperatingMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
+import { useCreateBranchMutation } from '../../../data/kitchen-ops-hooks.ts';
+import {
+    useKitchenServiceSettingsQuery,
+    useSaveKitchenServiceSettingsMutation,
+} from '../../../data/staff-alerts-hooks.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import { weekdayKey } from '../../marketplace/format.ts';
+import { BranchClosuresSection } from '../branch-closures-section.tsx';
 import {
     copyDayToOpenDays,
     operatingDraftsFrom,
@@ -40,6 +50,11 @@ import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { useLocalSearchParams } from 'expo-router';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { useFinishDetour } from '../finish-detour.ts';
+import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/branch-operating` — when this branch trades, and when it stops taking today's orders.
  *
@@ -88,6 +103,13 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
  * IANA zones a picker would need. A free-text field for `Asia/Dubai` is a field that accepts
  * `Asia/Duabi`, and a mistyped zone shifts every cut-off on this page by hours without saying so.
  * Changing it belongs with whoever owns the branch record.
+ *
+ * ## The service timings sit here, and save on their own
+ *
+ * How long a kitchen needs before a window, and how long an order may wait before somebody is told,
+ * sit beside the hours they count against. They are one record per organisation rather than one per
+ * branch, so they carry their own Save and their own unsaved guard, and they are drawn only for
+ * someone who may edit them, because their read refuses a reader who may only look at this page.
  */
 
 /**
@@ -110,6 +132,20 @@ const ASIDE_WIDTH = 300;
 const FORM_MIN_WIDTH = 830;
 const COLUMN_GAP = 16;
 
+type ServiceTimingKey = keyof KitchenServiceSettings;
+
+/** The four timings: each field's copy, its name on the wire, and its place in the form. */
+const SERVICE_TIMINGS = [
+    { key: 'orderLeadMinutes', copy: 'lead', server: 'order_lead_minutes' },
+    { key: 'alarmAfterMinutes', copy: 'alarm', server: 'alarm_after_minutes' },
+    { key: 'managerAlertAfterMinutes', copy: 'manager', server: 'manager_alert_after_minutes' },
+    { key: 'ownerAlertAfterMinutes', copy: 'owner', server: 'owner_alert_after_minutes' },
+] as const satisfies readonly {
+    readonly key: ServiceTimingKey;
+    readonly copy: string;
+    readonly server: string;
+}[];
+
 export function BranchOperatingScreen() {
     return (
         <Gate
@@ -123,8 +159,14 @@ export function BranchOperatingScreen() {
 }
 
 function BranchOperatingEditor() {
+    // Opened from Setup or an alert: saving the week is the job, and it goes back there.
+    const rawReturn = useLocalSearchParams().returnTo;
+    const back = useReturnTo(
+        Array.isArray(rawReturn) ? rawReturn[0] : rawReturn,
+        '/kitchen/branch-operating',
+    );
+    const finishDetour = useFinishDetour(back);
     const { t } = useTranslation();
-    const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
     const access = useAccessState();
     const { me } = useSession();
@@ -157,7 +199,9 @@ function BranchOperatingEditor() {
     const [days, setDays] = useState<readonly OperatingDayDraft[]>([]);
     const [daysKey, setDaysKey] = useState<string | null>(null);
     const [dirty, setDirty] = useState(false);
+    const [timingsDirty, setTimingsDirty] = useState(false);
     const [announcement, setAnnouncement] = useState('');
+    const [addingBranch, setAddingBranch] = useState(false);
     /*
      * Read from the node rather than `onLayout`, which on the web delivered one early width and
      * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
@@ -221,7 +265,7 @@ function BranchOperatingEditor() {
                     setDays(operatingDraftsFrom(saved));
                     setDirty(false);
                     guard.markClean();
-                    toast.show({
+                    finishDetour({
                         testID: 'kitchen-branch-hours-saved-toast',
                         tone: 'success',
                         message: t('kitchen:branchHours.savedToast', {
@@ -262,8 +306,10 @@ function BranchOperatingEditor() {
         );
     }
 
+    // Only a first load. A background refetch that fails keeps the week it has, and whatever is
+    // typed in this page's forms with it.
     const loadFailure = toFailure(record.error);
-    if (loadFailure !== null) {
+    if (loadFailure !== null && data === undefined) {
         return (
             <Cascade space="md" testID="kitchen-branch-hours-screen">
                 <ErrorState
@@ -280,8 +326,8 @@ function BranchOperatingEditor() {
     }
 
     const saveFailure = toFailure(save.error);
-    // What the server refused, put on the day's field it named (BUG-06). No issue banner here, so
-    // the callout stays and carries whatever no field could.
+    // What the server refused, put on the day's field it named (BUG-06). No issue tray here, so
+    // the callout carries whatever no field could.
     const server = serverFieldErrors(saveFailure, {
         'days.*.weekday': {
             label: t('kitchen:branchHours.columnTrading'),
@@ -321,38 +367,49 @@ function BranchOperatingEditor() {
             <RecordFormOpening
                 testID="kitchen-branch-hours-screen"
                 title={title}
-                dirty={guard.isDirty}
+                dirty={guard.isDirty || timingsDirty}
+                save={
+                    canManage
+                        ? {
+                              testID: 'kitchen-branch-hours-screen-save',
+                              label: t('kitchen:branchHours.save'),
+                              loading: save.isPending,
+                              disabled: !dirty || dayIssues.size > 0 || save.isPending,
+                              onPress: saveWeek,
+                          }
+                        : undefined
+                }
                 badges={
                     <Badge
                         variant="label"
                         testID="kitchen-branch-hours-screen-chip"
                         tone="neutral"
-                        icon={null}
                         label={t('kitchen:branchHours.chip')}
                     />
                 }
                 actions={
                     canManage ? (
-                        <Button
-                            testID="kitchen-branch-hours-screen-save"
-                            label={t('kitchen:branchHours.save')}
-                            loading={save.isPending}
-                            disabled={!dirty || dayIssues.size > 0 || save.isPending}
-                            onPress={saveWeek}
-                        />
+                        <>
+                            <DeskButton
+                                testID="kitchen-branch-new"
+                                variant="secondary"
+                                size="sm"
+                                label={t('kitchen:branchClosures.newBranch')}
+                                onPress={() => {
+                                    setAddingBranch(true);
+                                }}
+                            />
+                        </>
                     ) : undefined
                 }
             />
 
-            {saveFailure === null ? null : (
-                <Callout
-                    testID="kitchen-branch-hours-save-error"
-                    role="alert"
-                    tone="danger"
-                    title={t('kitchen:branchHours.saveError')}
-                    body={server.unplaced ?? saveFailure.message}
-                />
-            )}
+            <FailureToast
+                failure={saveFailure}
+                testID="kitchen-branch-hours-save-error"
+                title={t('kitchen:branchHours.saveError')}
+                body={server.unplaced ?? saveFailure?.message}
+            />
 
             {everyDayClosed ? (
                 <Callout
@@ -375,10 +432,11 @@ function BranchOperatingEditor() {
                 <View className="z-auto min-w-0 flex-1 flex-col gap-base">
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-branch-hours-week"
                         title={t('kitchen:branchHours.weekTitle')}
                         description={t('kitchen:branchHours.cutOffHint')}
+                        printDescription
                     >
                         <OperatingWeekRows
                             testID="kitchen-branch-hours-rows"
@@ -406,6 +464,10 @@ function BranchOperatingEditor() {
                             }}
                         />
                     </FormSection>
+
+                    <BranchClosuresSection canManage={canManage} />
+
+                    {canManage ? <ServiceTimingsSection onDirtyChange={setTimingsDirty} /> : null}
                 </View>
 
                 {/*
@@ -414,6 +476,7 @@ function BranchOperatingEditor() {
                  */}
                 <RecordSummaryAside
                     testID="kitchen-branch-hours-summary"
+                    variant="panel"
                     title={t('kitchen:branchHours.summaryTitle')}
                     width={sideBySide ? ASIDE_WIDTH : null}
                     rows={[
@@ -482,6 +545,352 @@ function BranchOperatingEditor() {
                 concurrency={concurrency}
                 testID="kitchen-branch-hours-screen"
             />
+
+            <NewBranchDialog
+                open={addingBranch}
+                onClose={() => {
+                    setAddingBranch(false);
+                }}
+            />
         </Cascade>
+    );
+}
+
+/** Opens another branch. It joins the branch picker at the next sign-in or context refresh. */
+function NewBranchDialog({
+    open,
+    onClose,
+}: {
+    readonly open: boolean;
+    readonly onClose: () => void;
+}) {
+    const { t } = useTranslation();
+    const toast = useToast();
+    const create = useCreateBranchMutation();
+    const [name, setName] = useState('');
+    const [city, setCity] = useState('');
+    const failure = toFailure(create.error);
+
+    return (
+        <Dialog
+            look="card"
+            testID="kitchen-branch-new-dialog"
+            open={open}
+            onClose={onClose}
+            title={t('kitchen:branchClosures.newBranch')}
+            actions={
+                <>
+                    <DeskButton
+                        testID="kitchen-branch-new-cancel"
+                        variant="quiet"
+                        label={t('kitchen:common.cancel')}
+                        onPress={onClose}
+                    />
+                    <DeskButton
+                        testID="kitchen-branch-new-save"
+                        label={t('kitchen:branchClosures.newBranchSave')}
+                        loading={create.isPending}
+                        disabled={name.trim() === '' || create.isPending}
+                        onPress={() => {
+                            create.mutate(
+                                {
+                                    name: name.trim(),
+                                    city: city.trim() === '' ? null : city.trim(),
+                                },
+                                {
+                                    onSuccess: () => {
+                                        setName('');
+                                        setCity('');
+                                        onClose();
+                                        toast.show({
+                                            testID: 'kitchen-branch-new-toast',
+                                            tone: 'success',
+                                            message: t('kitchen:branchClosures.newBranchToast'),
+                                        });
+                                    },
+                                },
+                            );
+                        }}
+                    />
+                </>
+            }
+        >
+            <FailureToast
+                failure={failure}
+                testID="kitchen-branch-new-error"
+                title={t('kitchen:branchClosures.newBranchError')}
+                body={failure?.message}
+            />
+            <TextInputField
+                testID="kitchen-branch-new-name"
+                id="kitchen-branch-new-name"
+                label={t('kitchen:branchClosures.newBranchName')}
+                size="sm"
+                required
+                value={name}
+                onChangeText={setName}
+            />
+            <TextInputField
+                testID="kitchen-branch-new-city"
+                id="kitchen-branch-new-city"
+                label={t('kitchen:branchClosures.newBranchCity')}
+                size="sm"
+                value={city}
+                onChangeText={setCity}
+            />
+        </Dialog>
+    );
+}
+
+/** The kitchen's service timings. See the note on the screen for why they save on their own. */
+function ServiceTimingsSection({
+    onDirtyChange,
+}: {
+    /** The page's one unsaved marker covers this form too. */
+    readonly onDirtyChange: (dirty: boolean) => void;
+}) {
+    const { t } = useTranslation();
+    const toast = useToast();
+    const settings = useKitchenServiceSettingsQuery();
+    const save = useSaveKitchenServiceSettingsMutation();
+    const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
+    /** Only what has been typed, as typed: a field may be empty on its way to a new number. */
+    const [edits, setEdits] = useState<Partial<Record<ServiceTimingKey, string>>>({});
+    const dirty = Object.keys(edits).length > 0;
+    useEffect(() => {
+        onDirtyChange(dirty);
+    }, [dirty, onDirtyChange]);
+
+    const loadFailure = toFailure(settings.error);
+    if (loadFailure !== null && settings.data === undefined) {
+        return (
+            <ErrorState
+                testID="kitchen-service-timings-load-error"
+                failure={loadFailure}
+                title={t('kitchen:serviceTimings.loadErrorTitle')}
+                onRetry={() => {
+                    void settings.refetch();
+                }}
+                retrying={settings.isFetching}
+            />
+        );
+    }
+
+    const stored = settings.data;
+    if (stored === undefined) {
+        return (
+            <FormSkeleton
+                testID="kitchen-service-timings-loading"
+                partTestID="kitchen-service-timings"
+                heading={false}
+                sections={1}
+                tabs={0}
+            />
+        );
+    }
+
+    const shown = (key: ServiceTimingKey) => edits[key] ?? String(stored[key]);
+    /** Typed in whole dollars, kept in cents. */
+    const refundLimit =
+        edits.refundApprovalAboveMinor ?? String(stored.refundApprovalAboveMinor / 100);
+    /** Left empty, the kitchen has no limit. */
+    const windowLimit = edits.ordersPerWindow ?? String(stored.ordersPerWindow ?? '');
+    /** Whole percentages. Left empty, the check is off. */
+    const priceLimit =
+        edits.priceApprovalAbovePercent ?? String(stored.priceApprovalAbovePercent ?? '');
+    const marginTarget =
+        edits.dishMarginTargetPercent ?? String(stored.dishMarginTargetPercent ?? '');
+    const complete = SERVICE_TIMINGS.every(({ key }) => shown(key) !== '') && refundLimit !== '';
+
+    const saveFailure = toFailure(save.error);
+    const server = serverFieldErrors(
+        saveFailure,
+        Object.fromEntries(
+            [
+                ...SERVICE_TIMINGS,
+                { copy: 'refund', server: 'refund_approval_above_minor' },
+                { copy: 'capacity', server: 'orders_per_window' },
+                { copy: 'priceLimit', server: 'price_approval_above_percent' },
+                { copy: 'marginTarget', server: 'dish_margin_target_percent' },
+            ].map(({ copy, server: field }) => [
+                field,
+                {
+                    label: t(`kitchen:serviceTimings.${copy}Label`),
+                    fieldId: `kitchen-service-timings-${copy}`,
+                },
+            ]),
+        ),
+    );
+
+    const saveTimings = () => {
+        save.mutate(
+            {
+                orderLeadMinutes: Number(shown('orderLeadMinutes')),
+                alarmAfterMinutes: Number(shown('alarmAfterMinutes')),
+                managerAlertAfterMinutes: Number(shown('managerAlertAfterMinutes')),
+                ownerAlertAfterMinutes: Number(shown('ownerAlertAfterMinutes')),
+                refundApprovalAboveMinor: Number(refundLimit) * 100,
+                ordersPerWindow: windowLimit === '' ? null : Number(windowLimit),
+                priceApprovalAbovePercent: priceLimit === '' ? null : Number(priceLimit),
+                dishMarginTargetPercent: marginTarget === '' ? null : Number(marginTarget),
+            },
+            {
+                onSuccess: () => {
+                    setEdits({});
+                    guard.markClean();
+                    toast.show({
+                        testID: 'kitchen-service-timings-saved-toast',
+                        tone: 'success',
+                        message: t('kitchen:serviceTimings.savedToast'),
+                    });
+                },
+            },
+        );
+    };
+
+    return (
+        <>
+            <FormSection
+                variant="panel"
+                testID="kitchen-service-timings"
+                title={t('kitchen:serviceTimings.title')}
+                description={t('kitchen:serviceTimings.description')}
+                printDescription
+                actions={
+                    <DeskButton
+                        testID="kitchen-service-timings-save"
+                        size="sm"
+                        label={t('kitchen:serviceTimings.save')}
+                        loading={save.isPending}
+                        disabled={!dirty || !complete || save.isPending}
+                        onPress={saveTimings}
+                    />
+                }
+            >
+                <FailureToast
+                    failure={saveFailure}
+                    testID="kitchen-service-timings-save-error"
+                    title={t('kitchen:serviceTimings.saveError')}
+                    body={server.unplaced ?? saveFailure?.message}
+                />
+                <FormGrid track="half" testID="kitchen-service-timings-grid">
+                    {SERVICE_TIMINGS.map(({ key, copy, server: field }) => (
+                        <TextInputField
+                            key={key}
+                            testID={`kitchen-service-timings-${copy}`}
+                            id={`kitchen-service-timings-${copy}`}
+                            label={t(`kitchen:serviceTimings.${copy}Label`)}
+                            hint={t(`kitchen:serviceTimings.${copy}Hint`)}
+                            size="sm"
+                            inputMode="numeric"
+                            autoCorrect={false}
+                            required
+                            trailing={
+                                <Text variant="caption" tone="secondary">
+                                    {t('kitchen:serviceTimings.unit')}
+                                </Text>
+                            }
+                            value={shown(key)}
+                            {...server.flag(field)}
+                            onChangeText={(next) => {
+                                setEdits({ ...edits, [key]: next.replace(/[^0-9]/gu, '') });
+                                guard.markDirty();
+                            }}
+                        />
+                    ))}
+                    <TextInputField
+                        testID="kitchen-service-timings-refund"
+                        id="kitchen-service-timings-refund"
+                        label={t('kitchen:serviceTimings.refundLabel')}
+                        hint={t('kitchen:serviceTimings.refundHint')}
+                        size="sm"
+                        inputMode="numeric"
+                        autoCorrect={false}
+                        required
+                        trailing={
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:serviceTimings.refundUnit')}
+                            </Text>
+                        }
+                        value={refundLimit}
+                        {...server.flag('refund_approval_above_minor')}
+                        onChangeText={(next) => {
+                            setEdits({
+                                ...edits,
+                                refundApprovalAboveMinor: next.replace(/[^0-9]/gu, ''),
+                            });
+                            guard.markDirty();
+                        }}
+                    />
+                    <TextInputField
+                        testID="kitchen-service-timings-capacity"
+                        id="kitchen-service-timings-capacity"
+                        label={t('kitchen:serviceTimings.capacityLabel')}
+                        hint={t('kitchen:serviceTimings.capacityHint')}
+                        size="sm"
+                        inputMode="numeric"
+                        autoCorrect={false}
+                        trailing={
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:serviceTimings.capacityUnit')}
+                            </Text>
+                        }
+                        value={windowLimit}
+                        {...server.flag('orders_per_window')}
+                        onChangeText={(next) => {
+                            setEdits({ ...edits, ordersPerWindow: next.replace(/[^0-9]/gu, '') });
+                            guard.markDirty();
+                        }}
+                    />
+                    <TextInputField
+                        testID="kitchen-service-timings-priceLimit"
+                        id="kitchen-service-timings-priceLimit"
+                        label={t('kitchen:serviceTimings.priceLimitLabel')}
+                        hint={t('kitchen:serviceTimings.priceLimitHint')}
+                        size="sm"
+                        inputMode="numeric"
+                        autoCorrect={false}
+                        trailing={
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:serviceTimings.percentUnit')}
+                            </Text>
+                        }
+                        value={priceLimit}
+                        {...server.flag('price_approval_above_percent')}
+                        onChangeText={(next) => {
+                            setEdits({
+                                ...edits,
+                                priceApprovalAbovePercent: next.replace(/[^0-9]/gu, ''),
+                            });
+                            guard.markDirty();
+                        }}
+                    />
+                    <TextInputField
+                        testID="kitchen-service-timings-marginTarget"
+                        id="kitchen-service-timings-marginTarget"
+                        label={t('kitchen:serviceTimings.marginTargetLabel')}
+                        hint={t('kitchen:serviceTimings.marginTargetHint')}
+                        size="sm"
+                        inputMode="numeric"
+                        autoCorrect={false}
+                        trailing={
+                            <Text variant="caption" tone="secondary">
+                                {t('kitchen:serviceTimings.percentUnit')}
+                            </Text>
+                        }
+                        value={marginTarget}
+                        {...server.flag('dish_margin_target_percent')}
+                        onChangeText={(next) => {
+                            setEdits({
+                                ...edits,
+                                dishMarginTargetPercent: next.replace(/[^0-9]/gu, ''),
+                            });
+                            guard.markDirty();
+                        }}
+                    />
+                </FormGrid>
+            </FormSection>
+            <EditorGuardDialogs guard={guard} testID="kitchen-service-timings" />
+        </>
     );
 }

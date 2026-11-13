@@ -9,10 +9,12 @@ use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
 use Healthy360\Catalogues\Models\CatalogueItemDietClassification;
 use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Catalogues\Services\CatalogueItemService;
 use Healthy360\Catalogues\Services\DerivedAllergenService;
 use Healthy360\Catalogues\Services\DerivedNutritionService;
 use Healthy360\Pricing\Services\PriceResolver;
@@ -21,6 +23,7 @@ use Healthy360\ReferenceData\Models\DietClassification;
 use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Healthy360\Tenancy\Scopes\OrganisationScope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Query\Builder as QueryBuilder;
 
 /**
  * The published sellable catalogue a customer can see on the marketplace, and
@@ -28,7 +31,7 @@ use Illuminate\Database\Eloquent\Builder;
  *
  * ## What makes a listing public
  *
- * Four conditions, and every one of them is somebody's decision rather than an
+ * Five conditions, and every one of them is somebody's decision rather than an
  * inference:
  *
  * 1. **`item_type` is anything but a plan** — meal, product, sauce, dressing or
@@ -53,6 +56,10 @@ use Illuminate\Database\Eloquent\Builder;
  *    price at all (`PriceResolver` makes the three indistinguishable on
  *    purpose), so an item a kitchen has not finished pricing simply does not
  *    appear — which is the same answer the kitchen's own readiness gate gives.
+ * * 5. **Somebody has assessed it for allergens.** The listing shows "None
+ *    declared" for an empty label, which reads as safe, so a dish nobody checked
+ *    cannot be listed. In SQL, through {@see CatalogueItem::scopeAllergensAssessed()},
+ *    which also answers correctly here with no tenant context.
  *
  * ## Where the price comes from
  *
@@ -96,6 +103,7 @@ final readonly class MarketplaceMeals
             ->with(['category' => fn ($query) => $query->withoutGlobalScope(OrganisationScope::class)])
             ->whereIn('item_type', self::LISTING_ITEM_TYPES)
             ->where('status', CatalogueItemStatus::Published->value)
+            ->allergensAssessed()
             ->whereIn('organisation_id', app(MarketplaceKitchens::class)->visible()->select('organisations.id'))
             ->whereExists(fn ($query) => $query->from('channel_catalogue_items')
                 ->join('sales_channels', 'sales_channels.id', '=', 'channel_catalogue_items.sales_channel_id')
@@ -196,9 +204,13 @@ final readonly class MarketplaceMeals
         }
 
         foreach ($ids as $id) {
-            $query->whereExists(fn ($exists) => $exists->from('catalogue_item_diet_classifications')
-                ->whereColumn('catalogue_item_diet_classifications.catalogue_item_id', 'catalogue_items.id')
-                ->where('catalogue_item_diet_classifications.diet_classification_id', $id));
+            $query->whereExists(function (QueryBuilder $exists) use ($id): void {
+                $exists->from('catalogue_item_diet_classifications')
+                    ->whereColumn('catalogue_item_diet_classifications.catalogue_item_id', 'catalogue_items.id')
+                    ->where('catalogue_item_diet_classifications.diet_classification_id', $id);
+
+                self::withoutContradictedFreeFrom($exists);
+            });
         }
     }
 
@@ -262,6 +274,222 @@ final readonly class MarketplaceMeals
 
             return null;
         });
+    }
+
+    /**
+     * {@see priceOf()} and {@see packSizeOf()} for many items of **one kitchen**
+     * at once — the listing's batch.
+     *
+     * The answer per item is exactly `priceOf()`'s: candidates in the same order
+     * (active packs default first, then the item-level row), and for each
+     * candidate the channels in the kitchen's order, first answer wins. Each
+     * round asks {@see PriceResolver::firstPricedForMany()} — itself proven equal
+     * to `currentFor()` — for one candidate position across every item still
+     * unpriced. What changes is the cost: a page of twenty paid five reads per
+     * item for the price (channel, its lists twice, the rows, the packs) and two
+     * for the size; this pays a handful per channel and round.
+     *
+     * @param  list<CatalogueItem>  $items  every one of the same organisation
+     * @param  list<SalesChannel>  $channels
+     * @return array<string, array{price: ResolvedPrice, pack: array{size: string, unit: string}|null}> item id → its price and size; an unpriced item is absent
+     */
+    public function pricesOf(array $items, array $channels): array
+    {
+        if ($items === [] || $channels === []) {
+            return [];
+        }
+
+        $candidates = $this->listingCandidatesOf($items);
+        // Every item has at least the item-level candidate, so the deepest list is at least one.
+        $depth = max(1, ...array_values(array_map(count(...), $candidates)));
+
+        return $this->tenantContext->during(null, $items[0]->organisation_id, null, function () use ($candidates, $channels, $depth): array {
+            /** @var array<string, ResolvedPrice> $resolved */
+            $resolved = [];
+
+            for ($position = 0; $position < $depth; $position++) {
+                $pending = [];
+
+                foreach ($candidates as $itemId => $variants) {
+                    if (! isset($resolved[$itemId]) && array_key_exists($position, $variants)) {
+                        $pending[$itemId] = [$variants[$position]];
+                    }
+                }
+
+                foreach ($channels as $channel) {
+                    if ($pending === []) {
+                        break;
+                    }
+
+                    foreach ($this->prices->firstPricedForMany((string) $channel->getKey(), $pending) as $itemId => $price) {
+                        $resolved[(string) $itemId] = $price;
+                        unset($pending[(string) $itemId]);
+                    }
+                }
+            }
+
+            $sizes = CatalogueItemPackVariant::sizesOf(array_values(array_filter(array_map(
+                static fn (ResolvedPrice $price): ?string => $price->catalogueItemVariantId,
+                $resolved,
+            ))));
+
+            return array_map(
+                static fn (ResolvedPrice $price): array => [
+                    'price' => $price,
+                    'pack' => $price->catalogueItemVariantId === null ? null : ($sizes[$price->catalogueItemVariantId] ?? null),
+                ],
+                $resolved,
+            );
+        });
+    }
+
+    /**
+     * {@see listingPackVariantIds()} for many items in one query: item id → the
+     * variants to try in order, the item-level row (null) last. An item that is
+     * not sold by the pack tries the item-level row alone, as `priceOf()` does.
+     *
+     * @param  list<CatalogueItem>  $items
+     * @return array<string, list<string|null>>
+     */
+    private function listingCandidatesOf(array $items): array
+    {
+        $packItemIds = [];
+
+        foreach ($items as $item) {
+            if ($item->item_type->variantType() === VariantType::Pack) {
+                $packItemIds[] = (string) $item->getKey();
+            }
+        }
+
+        /** @var array<string, list<string>> $packs */
+        $packs = [];
+
+        if ($packItemIds !== []) {
+            $rows = CatalogueItemVariant::withoutTenancy()
+                ->whereIn('catalogue_item_id', $packItemIds)
+                ->where('status', VariantStatus::Active->value)
+                ->orderByDesc('is_default')
+                ->orderBy('created_at')
+                ->get(['id', 'catalogue_item_id']);
+
+            foreach ($rows as $row) {
+                $packs[(string) $row->catalogue_item_id][] = (string) $row->getKey();
+            }
+        }
+
+        $candidates = [];
+
+        foreach ($items as $item) {
+            $id = (string) $item->getKey();
+            $candidates[$id] = in_array($id, $packItemIds, true) ? [...($packs[$id] ?? []), null] : [null];
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * {@see dietClassificationCodesOf()} for many items in two queries.
+     *
+     * @param  list<CatalogueItem>  $items
+     * @return array<string, list<string>> item id → codes, in display order; every item present
+     */
+    public function dietClassificationCodesOfMany(array $items): array
+    {
+        $ids = array_map(static fn (CatalogueItem $item): string => (string) $item->getKey(), $items);
+        $byItem = array_fill_keys($ids, []);
+
+        if ($ids === []) {
+            return [];
+        }
+
+        $links = CatalogueItemDietClassification::withoutTenancy()
+            ->whereIn('catalogue_item_id', $ids);
+
+        // The same filter the one-meal read applies, so a primed listing never
+        // shows a free-from tag the dish's label contradicts.
+        self::withoutContradictedFreeFrom($links);
+
+        $links = $links->get(['catalogue_item_id', 'diet_classification_id']);
+
+        if ($links->isEmpty()) {
+            return $byItem;
+        }
+
+        /** @var array<string, string> $codes classification id → code, in display order */
+        $codes = DietClassification::query()
+            ->whereIn('id', $links->pluck('diet_classification_id')->map(strval(...))->unique()->values()->all())
+            ->where('is_active', true)
+            ->orderBy('display_order')
+            ->orderBy('code')
+            ->pluck('code', 'id')
+            ->mapWithKeys(static fn (mixed $code, mixed $id): array => [(string) $id => (string) $code])
+            ->all();
+
+        /** @var array<string, array<string, true>> $linked */
+        $linked = [];
+
+        foreach ($links as $link) {
+            $linked[(string) $link->catalogue_item_id][(string) $link->diet_classification_id] = true;
+        }
+
+        foreach ($linked as $itemId => $classifications) {
+            // Walked in the codes' own order, so the result reads like codesFor().
+            $byItem[$itemId] = array_values(array_filter(
+                array_map(static fn (string $id): ?string => isset($classifications[$id]) ? $codes[$id] : null, array_keys($codes)),
+                static fn (?string $code): bool => $code !== null,
+            ));
+        }
+
+        return $byItem;
+    }
+
+    /**
+     * The portions a customer can pick between: every active pack with a price on
+     * these channels. Empty unless there are two, because one is no choice. The
+     * pack is the portion, so its price is its price-list row and a chosen one
+     * reaches the order as `catalogue_item_variant_id`, as any pack does.
+     *
+     * @param  list<SalesChannel>  $channels
+     * @return list<array{catalogue_item_variant_id: string, name_en: string, name_ar: string, unit_price_minor: int, currency_code: string}>
+     */
+    public function portionsOf(CatalogueItem $meal, array $channels): array
+    {
+        $packs = CatalogueItemVariant::withoutTenancy()
+            ->where('catalogue_item_id', $meal->getKey())
+            ->where('status', VariantStatus::Active->value)
+            ->orderByDesc('is_default')
+            ->orderBy('created_at')
+            ->get();
+
+        if ($packs->count() < 2) {
+            return [];
+        }
+
+        $portions = $this->tenantContext->during(null, $meal->organisation_id, null, function () use ($meal, $channels, $packs): array {
+            $priced = [];
+
+            foreach ($packs as $pack) {
+                foreach ($channels as $channel) {
+                    $price = $this->prices->currentFor((string) $channel->getKey(), (string) $meal->getKey(), (string) $pack->getKey());
+
+                    if ($price instanceof ResolvedPrice) {
+                        $priced[] = [
+                            'catalogue_item_variant_id' => (string) $pack->getKey(),
+                            'name_en' => $pack->name_en ?? $pack->code,
+                            'name_ar' => $pack->name_ar ?? $pack->name_en ?? $pack->code,
+                            'unit_price_minor' => $price->amountMinor,
+                            'currency_code' => $price->currencyCode,
+                        ];
+
+                        break;
+                    }
+                }
+            }
+
+            return $priced;
+        });
+
+        return count($portions) < 2 ? [] : $portions;
     }
 
     /**
@@ -388,16 +616,62 @@ final readonly class MarketplaceMeals
     }
 
     /**
+     * Each meal's own calendar days, for a page of meals in one query.
+     *
+     * The rows `LineProbe::calendarRefusal()` refuses on, read the same way: a
+     * day with `is_available` off is a day off, and a counted day with fewer
+     * than one portion left is sold out (a listing asks about one portion, the
+     * least anyone can order). A date with no row says nothing, so it is absent
+     * here and the kitchen's calendar stands. `remaining` is the counted figure,
+     * or null when nobody is counting; `order_cut_off_at` is the meal's own
+     * clock-face cut-off, which the projector applies on the branch's clock.
+     *
+     * No tenant context: the table has no row-level policy, only the Eloquent
+     * scope `withoutTenancy()` lifts, so the anonymous marketplace reads it as
+     * placement does.
+     *
+     * @param  list<string>  $itemIds
+     * @return array<string, array<string, array{available: bool, remaining: int|null, order_cut_off_at: string|null}>>
+     */
+    public function availabilityByMeal(array $itemIds, CarbonImmutable $from, int $days = MarketplaceAvailability::WINDOW_DAYS): array
+    {
+        if ($itemIds === []) {
+            return [];
+        }
+
+        $byMeal = [];
+
+        $rows = CatalogueItemAvailabilityDay::withoutTenancy()
+            ->whereIn('catalogue_item_id', $itemIds)
+            ->whereBetween('date', [$from->toDateString(), $from->addDays($days - 1)->toDateString()])
+            ->get(['catalogue_item_id', 'date', 'is_available', 'remaining_portions', 'order_cut_off_at']);
+
+        foreach ($rows as $row) {
+            $remaining = $row->remaining_portions === null ? null : max(0, $row->remaining_portions);
+
+            $byMeal[$row->catalogue_item_id][$row->date->toDateString()] = [
+                'available' => $row->is_available && ($remaining === null || $remaining >= 1),
+                'remaining' => $remaining,
+                'order_cut_off_at' => $row->order_cut_off_at,
+            ];
+        }
+
+        return $byMeal;
+    }
+
+    /**
      * The meal's diet classification codes.
      *
      * @return list<string>
      */
     public function dietClassificationCodesOf(CatalogueItem $meal): array
     {
-        return $this->codesFor(array_values(CatalogueItemDietClassification::withoutTenancy()
-            ->where('catalogue_item_id', $meal->getKey())
-            ->pluck('diet_classification_id')
-            ->all()));
+        $tags = CatalogueItemDietClassification::withoutTenancy()
+            ->where('catalogue_item_id', $meal->getKey());
+
+        self::withoutContradictedFreeFrom($tags);
+
+        return $this->codesFor(array_values($tags->pluck('diet_classification_id')->all()));
     }
 
     /**
@@ -412,13 +686,87 @@ final readonly class MarketplaceMeals
      */
     public function dietClassificationCodesOfKitchen(string $organisationId): array
     {
-        $ids = CatalogueItemDietClassification::withoutTenancy()
+        $tags = CatalogueItemDietClassification::withoutTenancy()
             ->where('organisation_id', $organisationId)
-            ->whereIn('catalogue_item_id', $this->visible()->where('organisation_id', $organisationId)->select('catalogue_items.id'))
-            ->pluck('diet_classification_id')
-            ->all();
+            ->whereIn('catalogue_item_id', $this->visible()->where('organisation_id', $organisationId)->select('catalogue_items.id'));
 
-        return $this->codesFor(array_values($ids));
+        self::withoutContradictedFreeFrom($tags);
+
+        return $this->codesFor(array_values($tags->pluck('diet_classification_id')->all()));
+    }
+
+    /**
+     * Drop every free-from tag its dish's allergen label contradicts, on a query
+     * over `catalogue_item_diet_classifications`.
+     *
+     * Owner, 3 Nov 2026: a dish already on sale loses the tag on the customer
+     * side (the kitchen is warned, and can no longer save or publish one). A
+     * correlated `NOT EXISTS` inside the query that reads the tags, so the meal
+     * list pays no extra round trip for it.
+     *
+     * The label is {@see allergenCodesOf()}'s, spelt in SQL: the published recipe
+     * version's frozen rows when there is a version, else the item's listed
+     * ingredients, else the one ingredient it is, each from both mapping layers.
+     * Any containment contradicts, and so does the published label of any choice
+     * the dish offers (a `nut_free` bowl with a peanut-sauce choice is not nut
+     * free). The version is read through
+     * `recipe_published_label_has()` because the anonymous marketplace
+     * cannot see `recipe_versions`, and a plain join would keep the tag.
+     *
+     * @param  Builder<CatalogueItemDietClassification>|QueryBuilder  $tags
+     */
+    private static function withoutContradictedFreeFrom(Builder|QueryBuilder $tags): void
+    {
+        $pairs = [];
+        $bindings = [];
+
+        foreach (CatalogueItemService::FREE_FROM as $tag => $allergenCodes) {
+            foreach ($allergenCodes as $allergenCode) {
+                $pairs[] = '(?::text, ?::text)';
+                $bindings[] = $tag;
+                $bindings[] = $allergenCode;
+            }
+        }
+
+        $values = implode(', ', $pairs);
+
+        $tags->whereRaw(<<<SQL
+            NOT EXISTS (
+                SELECT 1
+                FROM diet_classifications free_from_tag
+                JOIN (VALUES {$values}) AS free_from (tag, allergen_code) ON free_from.tag = free_from_tag.code
+                JOIN catalogue_items tagged ON tagged.id = catalogue_item_diet_classifications.catalogue_item_id
+                WHERE free_from_tag.id = catalogue_item_diet_classifications.diet_classification_id
+                  AND (COALESCE(
+                      recipe_published_label_has(tagged.recipe_id, tagged.organisation_id, ARRAY[free_from.allergen_code]),
+                      CASE
+                          WHEN EXISTS (SELECT 1 FROM catalogue_item_ingredients listed WHERE listed.catalogue_item_id = tagged.id)
+                          THEN EXISTS (
+                              SELECT 1
+                              FROM catalogue_item_ingredients listed
+                              JOIN ingredient_allergens mapped ON mapped.ingredient_id = listed.ingredient_id
+                              WHERE listed.catalogue_item_id = tagged.id
+                                AND (mapped.organisation_id IS NULL OR mapped.organisation_id = tagged.organisation_id)
+                                AND mapped.allergen_code = free_from.allergen_code
+                          )
+                          ELSE EXISTS (
+                              SELECT 1
+                              FROM ingredient_allergens mapped
+                              WHERE mapped.ingredient_id = tagged.ingredient_id
+                                AND (mapped.organisation_id IS NULL OR mapped.organisation_id = tagged.organisation_id)
+                                AND mapped.allergen_code = free_from.allergen_code
+                          )
+                      END
+                  ) OR EXISTS (
+                      SELECT 1
+                      FROM catalogue_item_options offered
+                      WHERE offered.catalogue_item_id = tagged.id
+                        AND offered.kind = 'choice'
+                        AND offered.recipe_id IS NOT NULL
+                        AND recipe_published_label_has(offered.recipe_id, tagged.organisation_id, ARRAY[free_from.allergen_code])
+                  ))
+            )
+            SQL, $bindings);
     }
 
     /**

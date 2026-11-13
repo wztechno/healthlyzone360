@@ -49,6 +49,12 @@ it('lists this kitchen\'s active windows in display order to a desk agent', func
         ->and($response->json('meta.count'))->toBe(2);
 });
 
+it('lets a supervisor who cannot sell read the windows to re-deliver into', function (): void {
+    $this->actingAs(DeskWorld::agent($this->world, 'supervisor@desk.test', ['order.supervise_organisation']));
+
+    $this->getJson('/api/v1/catalogue/order-desk/delivery-windows', $this->headers)->assertOk();
+});
+
 it('refuses somebody who may read the book but not sell from it', function (): void {
     $this->actingAs(DeskWorld::agent($this->world, 'reader-only@desk.test', ['order.view_organisation']));
 

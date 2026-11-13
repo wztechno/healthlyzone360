@@ -1,23 +1,22 @@
 import type { ConsentState } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Callout,
-    Card,
-    Checkbox,
-    Heading,
-    Inline,
-    Separator,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { Icon, cx } from '@healthy360/design-system';
+import type { IconName } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
 
 import { toFailure, useConsentsQuery, useSetConsentMutation } from '../../../data/account-hooks.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
-import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
+import { AuthCheck, AuthError } from '../../../ui/auth-form.tsx';
+import { ShopSwitch } from '../../../ui/shop-switch.tsx';
 import { QueryStates } from '../../marketplace/query-states.tsx';
+import {
+    ExtraButton,
+    ExtraCard,
+    ExtraChip,
+    ExtraPage,
+    ExtraSmallButton,
+} from '../account-extra.tsx';
 import {
     AGE_CONFIRMATION_KEY,
     ageConfirmed,
@@ -27,7 +26,9 @@ import {
 import { useConsentLabel } from '../consent-labels.ts';
 
 /**
- * `/customer/account/consents` — what a person has agreed to, in the words they agreed to.
+ * `/customer/account/consents` — what a person has agreed to, in the words they agreed to, drawn as
+ * the accepted Permissions board: the amber age gate, "Needed to order" with each row's chip and
+ * Agree, "Offers and updates" on the shop's switch, and the line saying what is left.
  *
  * ## One plain line per consent (BUG-11)
  *
@@ -69,10 +70,10 @@ export interface ConsentsScreenProps {
 }
 
 const STATUS_TONE = {
-    granted: 'success',
-    reconsent: 'warning',
-    withdrawn: 'neutral',
-    never: 'neutral',
+    granted: 'ok',
+    reconsent: 'amber',
+    withdrawn: 'mute',
+    never: 'mute',
 } as const;
 
 export function ConsentsScreen({ returnTo }: ConsentsScreenProps) {
@@ -100,82 +101,129 @@ export function ConsentsScreen({ returnTo }: ConsentsScreenProps) {
         setConsent.mutate({ key: consent.definition.key, granted });
     };
 
+    /** The row's glyph, from what the consent is about. */
+    const glyph = (key: string): IconName => {
+        if (key.includes('privacy')) return 'shield';
+        if (key.includes('health')) return 'heartPulse';
+        if (key.includes('allergen')) return 'warning';
+        if (key.includes('whatsapp') || key.includes('sms')) return 'smartphone';
+        if (key.includes('email') || key.includes('marketing')) return 'send';
+        return 'fileText';
+    };
+
     function consentRow(consent: ConsentState, index: number) {
         const status = consentStatus(consent);
         const testID = `consent-${consent.definition.key}`;
+        const required = consent.definition.required;
         // Optional consents are never gated on the age confirmation: withdrawing marketing email
         // has nothing to do with how old somebody is, and blocking it would be coercive.
-        const gated = consent.definition.required && !confirmed;
+        const gated = required && !confirmed;
         const saving = savingKey === consent.definition.key;
         const waiting = busy && !saving;
+        const note =
+            status === 'reconsent'
+                ? t('account:consents.reconsentTitle')
+                : required && !consent.granted
+                  ? t('account:consents.neededNote')
+                  : null;
 
         return (
-            <Stack key={consent.definition.key} space="sm" testID={testID}>
-                {index === 0 ? null : <Separator />}
-                <Inline space="sm" align="center" justify="between" wrap>
-                    <Text testID={`${testID}-title`} className="min-w-0 flex-1">
-                        {label(consent.definition.key)}
-                    </Text>
-                    <Inline space="sm" align="center">
-                        <Badge
-                            testID={`${testID}-status`}
-                            // `label`, not the pill: it sits in a row beside the button, and the
-                            // pill's own top alignment would hang it above the button's centre.
-                            variant="label"
-                            tone={STATUS_TONE[status]}
-                            label={t(`account:consents.status.${status}`)}
-                        />
-                        {consent.granted ? (
-                            <Button
-                                testID={`${testID}-withdraw`}
-                                size="sm"
-                                variant="secondary"
-                                label={t('account:consents.withdraw')}
-                                loading={saving}
-                                disabled={waiting}
-                                onPress={() => {
-                                    change(consent, false);
-                                }}
-                            />
-                        ) : (
-                            <Button
-                                testID={`${testID}-grant`}
-                                size="sm"
-                                label={t('account:consents.grant')}
-                                loading={saving}
-                                disabled={gated || waiting}
-                                onPress={() => {
-                                    change(consent, true);
-                                }}
-                            />
-                        )}
-                    </Inline>
-                </Inline>
-
-                {status === 'reconsent' ? (
-                    <Callout
-                        testID={`${testID}-reconsent`}
-                        role="status"
-                        tone="warning"
-                        title={t('account:consents.reconsentTitle')}
+            <View
+                key={consent.definition.key}
+                testID={testID}
+                className={cx(
+                    'flex-row flex-wrap items-center gap-3 py-3',
+                    index === 0 ? '' : 'border-t border-stroke-subtle',
+                    gated ? 'opacity-45' : '',
+                )}
+            >
+                <View className="h-10 w-10 items-center justify-center rounded-[13px] bg-surface-base">
+                    <Icon
+                        name={glyph(consent.definition.key)}
+                        size="md"
+                        className="text-content-on-brand-subtle"
                     />
-                ) : null}
-
-                {consent.grantedAt === null ? null : (
-                    <Text variant="caption" tone="secondary" testID={`${testID}-granted-at`}>
-                        {t('account:consents.grantedOn', {
-                            date: formatter.formatDate(consent.grantedAt, { dateStyle: 'long' }),
-                        })}
-                    </Text>
+                </View>
+                <View className="min-w-0 flex-1">
+                    <RNText
+                        testID={`${testID}-title`}
+                        className="text-base font-semibold text-content-primary text-start"
+                    >
+                        {label(consent.definition.key)}
+                    </RNText>
+                    {note === null ? null : (
+                        <RNText
+                            testID={status === 'reconsent' ? `${testID}-reconsent` : undefined}
+                            className="mt-0.5 text-xs font-medium text-content-secondary text-start"
+                        >
+                            {note}
+                        </RNText>
+                    )}
+                    {consent.grantedAt === null ? null : (
+                        <RNText
+                            testID={`${testID}-granted-at`}
+                            className="mt-0.5 text-xs font-medium text-content-secondary text-start"
+                        >
+                            {t('account:consents.grantedOn', {
+                                date: formatter.formatDate(consent.grantedAt, {
+                                    dateStyle: 'long',
+                                }),
+                            })}
+                        </RNText>
+                    )}
+                    {consent.withdrawnAt === null ? null : (
+                        <RNText
+                            testID={`${testID}-withdrawn-at`}
+                            className="mt-0.5 text-xs font-medium text-content-secondary text-start"
+                        >
+                            {t('account:consents.withdrawnOn', {
+                                date: formatter.formatDate(consent.withdrawnAt, {
+                                    dateStyle: 'long',
+                                }),
+                            })}
+                        </RNText>
+                    )}
+                </View>
+                <ExtraChip
+                    testID={`${testID}-status`}
+                    tone={STATUS_TONE[status]}
+                    label={t(`account:consents.status.${status}`)}
+                />
+                {required ? (
+                    consent.granted ? (
+                        <ExtraSmallButton
+                            testID={`${testID}-withdraw`}
+                            tone="secondary"
+                            label={t('account:consents.withdraw')}
+                            busy={saving}
+                            disabled={waiting}
+                            onPress={() => {
+                                change(consent, false);
+                            }}
+                        />
+                    ) : (
+                        <ExtraSmallButton
+                            testID={`${testID}-grant`}
+                            label={t('account:consents.grant')}
+                            busy={saving}
+                            disabled={gated || waiting}
+                            onPress={() => {
+                                change(consent, true);
+                            }}
+                        />
+                    )
+                ) : (
+                    <ShopSwitch
+                        testID={`${testID}-toggle`}
+                        label={label(consent.definition.key)}
+                        checked={consent.granted}
+                        disabled={busy}
+                        onChange={(granted) => {
+                            change(consent, granted);
+                        }}
+                    />
                 )}
-                {consent.withdrawnAt === null ? null : (
-                    <Text variant="caption" tone="secondary" testID={`${testID}-withdrawn-at`}>
-                        {t('account:consents.withdrawnOn', {
-                            date: formatter.formatDate(consent.withdrawnAt, { dateStyle: 'long' }),
-                        })}
-                    </Text>
-                )}
-            </Stack>
+            </View>
         );
     }
 
@@ -183,36 +231,37 @@ export function ConsentsScreen({ returnTo }: ConsentsScreenProps) {
     function group(id: string, title: string, rows: readonly ConsentState[]) {
         if (rows.length === 0) return null;
         return (
-            <Card testID={`${TEST_ID}-${id}`} padding="md">
-                <Stack space="md">
-                    <Heading level={2}>{title}</Heading>
-                    <Stack space="sm">{rows.map(consentRow)}</Stack>
-                </Stack>
-            </Card>
+            <ExtraCard testID={`${TEST_ID}-${id}`} title={title}>
+                <View className="mt-1">{rows.map(consentRow)}</View>
+            </ExtraCard>
         );
     }
 
-    return (
-        <Stack space="lg" testID={TEST_ID}>
-            <SubpageTrail
-                testID={`${TEST_ID}-trail`}
-                back={back}
-                current={t('account:consents.title')}
-            />
-            <Heading level={1} testID={`${TEST_ID}-title`}>
-                {t('account:consents.title')}
-            </Heading>
+    const required = listed.filter((consent) => consent.definition.required);
+    const left = (confirmed ? 0 : 1) + required.filter((consent) => !consent.granted).length;
 
+    return (
+        <ExtraPage
+            testID={TEST_ID}
+            backTestID={`${TEST_ID}-trail-up`}
+            backLabel={
+                back.returnTo === null
+                    ? t('account:title')
+                    : t(`common:destination.${back.destination}`)
+            }
+            onBack={back.up}
+            icon="shield"
+            title={t('account:consents.title')}
+            titleTestID={`${TEST_ID}-title`}
+        >
             {failure === null ? null : (
-                <Callout
-                    testID={`${TEST_ID}-error`}
-                    role="alert"
-                    tone="danger"
-                    title={failure.message}
-                />
+                <View className="mt-[18px]">
+                    <AuthError testID={`${TEST_ID}-error`} message={failure.message} />
+                </View>
             )}
 
             <QueryStates
+                skeleton="rows"
                 query={consents}
                 isEmpty={all.length === 0}
                 emptyTitle={t('account:consents.empty')}
@@ -220,58 +269,74 @@ export function ConsentsScreen({ returnTo }: ConsentsScreenProps) {
                 skeletonCount={3}
                 testID={`${TEST_ID}-list`}
             >
-                <Stack space="md">
-                    <Card testID={`${TEST_ID}-age`} padding="md" tone="sunken">
-                        <Stack space="sm">
-                            <Heading level={2}>{t('account:consents.ageTitle')}</Heading>
-                            <Checkbox
-                                testID={`${TEST_ID}-age-checkbox`}
-                                label={label(age?.definition.key ?? AGE_CONFIRMATION_KEY)}
-                                required
-                                checked={confirmed}
-                                disabled={busy || age === undefined}
-                                onChange={(granted) => {
-                                    if (age !== undefined) change(age, granted);
-                                }}
-                            />
-                            {confirmed ? null : (
-                                <Callout
-                                    testID={`${TEST_ID}-age-blocking`}
-                                    role="alert"
-                                    tone="warning"
-                                    title={t('account:consents.ageGateTitle')}
-                                />
-                            )}
-                        </Stack>
-                    </Card>
-
-                    {group(
-                        'required',
-                        t('account:consents.neededTitle'),
-                        listed.filter((consent) => consent.definition.required),
+                {/* The age confirmation: a gate, drawn as one — amber until it is ticked. */}
+                <View
+                    testID={`${TEST_ID}-age`}
+                    className={cx(
+                        'mt-[18px] flex-row flex-wrap items-center gap-3.5 rounded-[20px] border-[1.5px] px-[18px] py-2',
+                        confirmed
+                            ? 'border-surface-brand bg-surface-brand-subtle'
+                            : 'border-warning-border bg-warning-subtle',
                     )}
-                    {group(
-                        'optional',
-                        t('account:consents.offersTitle'),
-                        listed.filter((consent) => !consent.definition.required),
-                    )}
-
-                    <Inline space="sm">
-                        <Button
-                            testID={`${TEST_ID}-done`}
-                            label={
-                                back.returnTo === null
-                                    ? t('common:action.done')
-                                    : t(`common:returnTo.${back.destination}`)
-                            }
-                            disabled={busy || (back.returnTo !== null && !requiredAgreed)}
-                            onPress={() => {
-                                back.finish();
+                >
+                    <View className="min-w-0 flex-1">
+                        <AuthCheck
+                            testID={`${TEST_ID}-age-checkbox`}
+                            label={label(age?.definition.key ?? AGE_CONFIRMATION_KEY)}
+                            checked={confirmed}
+                            onChange={(granted) => {
+                                if (age !== undefined && !busy) change(age, granted);
                             }}
                         />
-                    </Inline>
-                </Stack>
+                        {confirmed ? null : (
+                            <RNText
+                                testID={`${TEST_ID}-age-blocking`}
+                                role="alert"
+                                className="-mt-1 mb-1.5 ms-[34px] text-xs font-semibold text-warning-on-subtle text-start"
+                            >
+                                {t('account:consents.ageGateTitle')}
+                            </RNText>
+                        )}
+                    </View>
+                    {confirmed ? (
+                        <ExtraChip tone="ok" label={t('account:consents.status.granted')} />
+                    ) : null}
+                </View>
+
+                {group('required', t('account:consents.neededTitle'), required)}
+                {group(
+                    'optional',
+                    t('account:consents.offersTitle'),
+                    listed.filter((consent) => !consent.definition.required),
+                )}
+
+                <View className="mt-[18px] flex-row flex-wrap items-center justify-between gap-3 rounded-[20px] bg-surface-base px-[18px] py-4">
+                    {requiredAgreed ? (
+                        <View className="flex-row items-center gap-2">
+                            <Icon name="check" size="sm" className="text-content-on-brand-subtle" />
+                            <RNText className="text-sm font-semibold text-content-on-brand-subtle">
+                                {t('account:consents.allAgreed')}
+                            </RNText>
+                        </View>
+                    ) : (
+                        <RNText className="text-sm font-semibold text-content-secondary">
+                            {t('account:consents.leftToAgree', { count: Math.max(1, left) })}
+                        </RNText>
+                    )}
+                    <ExtraButton
+                        testID={`${TEST_ID}-done`}
+                        label={
+                            back.returnTo === null
+                                ? t('common:action.done')
+                                : t(`common:returnTo.${back.destination}`)
+                        }
+                        disabled={busy || (back.returnTo !== null && !requiredAgreed)}
+                        onPress={() => {
+                            back.finish();
+                        }}
+                    />
+                </View>
             </QueryStates>
-        </Stack>
+        </ExtraPage>
     );
 }

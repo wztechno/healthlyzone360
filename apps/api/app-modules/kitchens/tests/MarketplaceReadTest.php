@@ -3,10 +3,18 @@
 declare(strict_types=1);
 
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemAvailabilityDay;
+use Healthy360\Kitchens\Models\BranchClosure;
+use Healthy360\Kitchens\Models\BranchOpeningHour;
+use Healthy360\Kitchens\Models\KitchenServiceSettings;
 use Healthy360\Organisations\Enums\OrganisationStatus;
 use Healthy360\Organisations\Models\Organisation;
+use Healthy360\Organisations\Models\OrganisationBranch;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Route;
 use Tests\SeedDatabaseOnce;
 
 /*
@@ -66,6 +74,17 @@ it('reads one kitchen by slug', function (): void {
         ->assertOk()
         ->assertJsonPath('data.slug', 'verdant-kitchen')
         ->assertJsonPath('meta.locale', 'en');
+});
+
+it('tells the storefront when a timed pause ends, and nothing once it has', function (): void {
+    $kitchenId = Organisation::query()->where('slug', 'verdant-kitchen')->value('id');
+    $settings = KitchenServiceSettings::withoutTenancy()->firstOrCreate(['organisation_id' => $kitchenId]);
+
+    $settings->update(['paused_until' => now()->addHour()]);
+    expect($this->getJson('/api/v1/marketplace/kitchens/verdant-kitchen')->assertOk()->json('data.paused_until'))->not->toBeNull();
+
+    $settings->update(['paused_until' => now()->subMinute()]);
+    $this->getJson('/api/v1/marketplace/kitchens/verdant-kitchen')->assertOk()->assertJsonPath('data.paused_until', null);
 });
 
 it('lists published products beside meals and filters by item type', function (): void {
@@ -133,17 +152,18 @@ it('surfaces seeded Verdant products on the wholesale B2B catalogue at B2B amoun
 
     expect($products->count())->toBeGreaterThan(0);
 
-    // Honey Mustard: B2B $5 / B2C $3 on dual packs — public list must show the
-    // retail bottle amount, not vanish because the kilo pack is is_default.
+    // Turkey Bacon: B2B $23 / B2C $5.50 on dual packs — public list must show
+    // the retail 200 g amount, not vanish because the kilo pack is is_default.
+    // A bought-in row: what the kitchen makes stays an unassessed draft.
     $public = collect($this->getJson('/api/v1/marketplace/meals?item_types=product')->assertOk()->json('data'))
-        ->firstWhere('name', 'Honey Mustard Sauce');
+        ->firstWhere('name', 'Turkey Bacon');
 
     expect($public)->not->toBeNull()
-        ->and($public['price']['amount'])->toBe(300);
+        ->and($public['price']['amount'])->toBe(550);
 
-    $wholesale = $products->firstWhere('name', 'Honey Mustard Sauce');
+    $wholesale = $products->firstWhere('name', 'Turkey Bacon');
     expect($wholesale)->not->toBeNull()
-        ->and($wholesale['price']['amount_minor'])->toBe(500);
+        ->and($wholesale['price']['amount_minor'])->toBe(2300);
 });
 
 it('lists the published menu with prices, derived allergens and preview nutrition', function (): void {
@@ -194,6 +214,34 @@ it('lists the published menu with prices, derived allergens and preview nutritio
         ->and($serving['grams'])->toBe(340)
         ->and($serving['millilitres'])->toBeNull()
         ->and($serving['household_measure'])->toBeNull();
+});
+
+it('prices a listing page in a batch and agrees, meal by meal, with the one-meal read', function (): void {
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    $listed = collect($this->getJson('/api/v1/marketplace/meals?limit=100')->assertOk()->json('data'));
+
+    $log = collect(DB::getQueryLog())->pluck('query');
+    DB::disableQueryLog();
+
+    // The batch reads each list's rows once per channel and round, never once
+    // per meal (2026-11-07: twenty meals cost 387 queries, ~1.5 s on dev).
+    $priceRowReads = $log->filter(static fn (string $sql): bool => str_contains($sql, 'from "price_list_items"'))->count();
+    $tenantSwitches = $log->filter(static fn (string $sql): bool => str_contains($sql, "set_config('app.user_id'"))->count();
+
+    expect($listed->count())->toBeGreaterThan(3)
+        ->and($priceRowReads)->toBeLessThan($listed->count())
+        ->and($tenantSwitches)->toBeLessThanOrEqual(2 * $listed->count() + 4);
+
+    // The detail read still prices one meal on its own, so it is the oracle
+    // the batch must match: price, pack and diet tags, for every meal listed.
+    foreach ($listed as $meal) {
+        $one = $this->getJson('/api/v1/marketplace/meals/'.$meal['slug'])->assertOk()->json('data');
+
+        expect([$meal['price'], $meal['pack'], $meal['diet_classifications']])
+            ->toBe([$one['price'], $one['pack'], $one['diet_classifications']], $meal['slug']);
+    }
 });
 
 it('reads one meal and localises its name', function (): void {
@@ -249,6 +297,28 @@ it('answers 404 for a kitchen the platform has suspended', function (): void {
     $this->getJson('/api/v1/marketplace/meals')->assertOk()->assertJsonPath('data', []);
 });
 
+it('hides a kitchen that has not gone live, and lists it once it has', function (): void {
+    $kitchenId = Organisation::query()->where('slug', 'verdant-kitchen')->value('id');
+    $settings = KitchenServiceSettings::withoutTenancy()->firstOrCreate(['organisation_id' => $kitchenId]);
+
+    $settings->update(['not_open_yet' => true]);
+
+    // Absent everywhere a customer looks, and a direct link is the not-found path.
+    expect(collect($this->getJson('/api/v1/marketplace/kitchens')->assertOk()->json('data'))->pluck('slug')->all())->not->toContain('verdant-kitchen')
+        ->and(collect($this->getJson('/api/v1/marketplace/kitchens?query=Verdant')->assertOk()->json('data')))->toBeEmpty();
+    $this->getJson('/api/v1/marketplace/kitchens/verdant-kitchen')->assertNotFound()
+        ->assertJsonPath('error.code', 'resource.not_found');
+    $this->getJson('/api/v1/marketplace/meals')->assertOk()->assertJsonPath('data', []);
+    $this->getJson('/api/v1/marketplace/meals/mezze-plate')->assertNotFound();
+
+    // The setup gate opens it.
+    $settings->update(['not_open_yet' => false]);
+
+    expect(collect($this->getJson('/api/v1/marketplace/kitchens')->assertOk()->json('data'))->pluck('slug')->all())->toContain('verdant-kitchen');
+    $this->getJson('/api/v1/marketplace/kitchens/verdant-kitchen')->assertOk();
+    $this->getJson('/api/v1/marketplace/meals/mezze-plate')->assertOk();
+});
+
 it('withdraws a retired meal from the marketplace', function (): void {
     CatalogueItem::withoutTenancy()
         ->where('slug', 'mezze-plate')
@@ -259,4 +329,179 @@ it('withdraws a retired meal from the marketplace', function (): void {
     $slugs = collect($this->getJson('/api/v1/marketplace/meals')->assertOk()->json('data'))->pluck('slug')->all();
 
     expect($slugs)->not->toContain('mezze-plate');
+});
+
+/**
+ * A test's requests share one router, which caches each route's controller —
+ * and with it the projector's kitchen context and meal days. Production builds
+ * both per request; flush them so each read here is one too.
+ */
+$freshControllers = function (): void {
+    foreach (Route::getRoutes()->getRoutes() as $route) {
+        $route->flushController();
+    }
+};
+
+/**
+ * The freekeh's published fourteen days, read fresh on every call.
+ *
+ * @return list<array{date: string, available: bool, remaining: int|null, order_cut_off_at: string|null}>
+ */
+$freekehCalendar = function () use ($freshControllers): array {
+    $freshControllers();
+
+    return collect(test()->getJson('/api/v1/marketplace/meals?item_types=meal&limit=50')->assertOk()->json('data'))
+        ->firstWhere('slug', 'grilled-chicken-freekeh')['availability'];
+};
+
+it('shows a closed day as unavailable, the day placement refuses', function () use ($freekehCalendar): void {
+    $kitchenId = (string) Organisation::query()->where('slug', 'verdant-kitchen')->value('id');
+    $branchId = (string) OrganisationBranch::withoutTenancy()->where('organisation_id', $kitchenId)->value('id');
+    $date = collect($freekehCalendar())->skip(1)->firstWhere('available', true)['date'];
+
+    BranchClosure::withoutTenancy()->create([
+        'organisation_id' => $kitchenId,
+        'branch_id' => $branchId,
+        'closed_from' => $date,
+        'closed_to' => $date,
+    ]);
+
+    expect(collect($freekehCalendar())->firstWhere('date', $date))->toMatchArray(['available' => false, 'order_cut_off_at' => null]);
+});
+
+it('keeps a day available when one branch is closed and another is open', function () use ($freekehCalendar): void {
+    $kitchenId = (string) Organisation::query()->where('slug', 'verdant-kitchen')->value('id');
+    $branchId = (string) OrganisationBranch::withoutTenancy()->where('organisation_id', $kitchenId)->value('id');
+    $date = collect($freekehCalendar())->skip(1)->firstWhere('available', true)['date'];
+
+    $second = OrganisationBranch::withoutTenancy()->create([
+        'organisation_id' => $kitchenId,
+        'name' => 'Second kitchen',
+        'country_code' => 'AE',
+        'city' => 'Dubai',
+        'timezone' => 'Asia/Dubai',
+        'status' => 'active',
+        'lock_version' => 0,
+    ]);
+
+    foreach (range(1, 7) as $weekday) {
+        BranchOpeningHour::withoutTenancy()->create([
+            'organisation_id' => $kitchenId,
+            'branch_id' => $second->getKey(),
+            'weekday' => $weekday,
+            'opens_at' => '09:00:00',
+            'closes_at' => '21:00:00',
+        ]);
+    }
+
+    BranchClosure::withoutTenancy()->create([
+        'organisation_id' => $kitchenId,
+        'branch_id' => $branchId,
+        'closed_from' => $date,
+        'closed_to' => $date,
+    ]);
+
+    expect(collect($freekehCalendar())->firstWhere('date', $date)['available'])->toBeTrue();
+});
+
+/**
+ * Give the freekeh its own row on a day the kitchen is open, the row placement
+ * refuses on, and return that date.
+ *
+ * @param  array{is_available: bool, remaining_portions: int|null, order_cut_off_at?: string}  $row
+ */
+$freekehDay = function (array $row, ?string $date = null) use ($freekehCalendar): string {
+    $meal = CatalogueItem::withoutTenancy()->where('slug', 'grilled-chicken-freekeh')->firstOrFail();
+    $date ??= collect($freekehCalendar())->skip(1)->firstWhere('available', true)['date'];
+
+    CatalogueItemAvailabilityDay::withoutTenancy()->create($row + [
+        'organisation_id' => $meal->organisation_id,
+        'catalogue_item_id' => $meal->getKey(),
+        'date' => $date,
+    ]);
+
+    return $date;
+};
+
+it('shows a sold-out day as sold out, the day placement refuses', function () use ($freekehCalendar, $freekehDay): void {
+    $date = $freekehDay(['is_available' => true, 'remaining_portions' => 0]);
+
+    expect(collect($freekehCalendar())->firstWhere('date', $date))
+        ->toMatchArray(['available' => false, 'remaining' => 0, 'order_cut_off_at' => null]);
+});
+
+it('shows the meal day off as unavailable while the kitchen is open', function () use ($freekehCalendar, $freekehDay): void {
+    $date = $freekehDay(['is_available' => false, 'remaining_portions' => null]);
+
+    expect(collect($freekehCalendar())->firstWhere('date', $date))
+        ->toMatchArray(['available' => false, 'remaining' => null]);
+});
+
+it('publishes the portions left on a counted day that is still open', function () use ($freekehCalendar, $freekehDay): void {
+    $date = $freekehDay(['is_available' => true, 'remaining_portions' => 5]);
+
+    expect(collect($freekehCalendar())->firstWhere('date', $date))
+        ->toMatchArray(['available' => true, 'remaining' => 5]);
+});
+
+it('reads the per-meal days table once whether the page has one meal or a page of them', function () use ($freshControllers): void {
+    $ids = collect($this->getJson('/api/v1/marketplace/meals?limit=50')->assertOk()->json('data'))->pluck('id')->take(20);
+
+    $reads = function (string $ids) use ($freshControllers): int {
+        $freshControllers();
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        $this->getJson('/api/v1/marketplace/meals?ids='.$ids)->assertOk();
+        DB::disableQueryLog();
+
+        return collect(DB::getQueryLog())->filter(fn (array $query): bool => str_contains($query['query'], 'catalogue_item_availability_days'))->count();
+    };
+
+    expect($ids->count())->toBeGreaterThan(1)
+        ->and($reads($ids->first()))->toBe(1)
+        ->and($reads($ids->implode(',')))->toBe(1);
+});
+
+/**
+ * Pin the clock at noon on the freekeh's next open day, on its kitchen's wall,
+ * and return that day and the wall's timezone: it is now today, with the
+ * kitchen's 18:00 cut-off ahead.
+ *
+ * @return array{0: string, 1: string}
+ */
+$noonOnAnOpenDay = function () use ($freekehCalendar): array {
+    $meal = CatalogueItem::withoutTenancy()->where('slug', 'grilled-chicken-freekeh')->firstOrFail();
+    $timezone = (string) OrganisationBranch::withoutTenancy()->where('organisation_id', $meal->organisation_id)
+        ->where('status', 'active')->orderBy('created_at')->orderBy('id')->value('timezone');
+    $date = collect($freekehCalendar())->skip(1)->firstWhere('available', true)['date'];
+
+    test()->travelTo(CarbonImmutable::parse($date.' 12:00:00', $timezone));
+
+    expect($freekehCalendar()[0])->toMatchArray(['date' => $date, 'available' => true]);
+
+    return [$date, $timezone];
+};
+
+it('shows today as unavailable once the meal own cut-off has passed, as placement refuses', function () use ($freekehCalendar, $freekehDay, $noonOnAnOpenDay): void {
+    [$today] = $noonOnAnOpenDay();
+    $freekehDay(['is_available' => true, 'remaining_portions' => null, 'order_cut_off_at' => '11:59:00'], $today);
+
+    expect($freekehCalendar()[0])->toMatchArray(['date' => $today, 'available' => false, 'order_cut_off_at' => null]);
+});
+
+it('keeps today available at the very second of the meal own cut-off, as placement does', function () use ($freekehCalendar, $freekehDay, $noonOnAnOpenDay): void {
+    [$today] = $noonOnAnOpenDay();
+    $freekehDay(['is_available' => true, 'remaining_portions' => null, 'order_cut_off_at' => '12:00:00'], $today);
+
+    expect($freekehCalendar()[0])->toMatchArray(['date' => $today, 'available' => true]);
+});
+
+it('publishes the meal own cut-off when it comes before the kitchen one', function () use ($freekehCalendar, $freekehDay, $noonOnAnOpenDay): void {
+    [$today, $timezone] = $noonOnAnOpenDay();
+    $freekehDay(['is_available' => true, 'remaining_portions' => null, 'order_cut_off_at' => '15:00:00'], $today);
+
+    $day = $freekehCalendar()[0];
+
+    expect($day['available'])->toBeTrue()
+        ->and(CarbonImmutable::parse($day['order_cut_off_at'])->equalTo(CarbonImmutable::parse($today.' 15:00:00', $timezone)))->toBeTrue();
 });

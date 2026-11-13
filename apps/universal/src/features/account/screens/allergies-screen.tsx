@@ -1,83 +1,20 @@
-import type { AllergenDeclaration, DietaryProfile } from '@healthy360/api-client/contracts';
-import {
-    Button,
-    Callout,
-    Card,
-    Heading,
-    Inline,
-    SegmentedControl,
-    Stack,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
-import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
-import {
-    toFailure,
-    useDietaryProfileQuery,
-    useSaveDietaryProfileMutation,
-} from '../../../data/account-hooks.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useUnsavedGuard } from '../../../navigation/use-unsaved-guard.ts';
-import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
-import { SubpageTrail } from '../../../ui/subpage-trail.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
 import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
-import { QueryStates } from '../../marketplace/query-states.tsx';
-import { AllergyPicker } from '../allergy-picker.tsx';
-import { DietaryTagsPicker } from '../dietary-tags-picker.tsx';
-import { declarationsFor, initialAllergyAnswer } from '../dietary.ts';
+import { AllergiesPanel } from '../account-allergies-panel.tsx';
 
 /**
- * `/customer/account/allergies` — the store of record for what a person cannot eat.
- *
- * ## Why there is a Yes/No question in front of the tick-list
- *
- * "No allergies" and "has not said yet" are different facts, and only one of them completes the
- * step. An empty tick-list cannot tell them apart — which is how a meal configurator ends up asking
- * the same question on every order, and how a checklist shows an outstanding step to somebody who
- * answered it honestly with a "no". The contract's `DietaryProfile.updatedAt` is what distinguishes
- * them, and the branch is what lets a person *say* no rather than leave a list empty and hope.
- *
- * Answering "no" saves an empty declaration. That is a real answer with a real timestamp, not a
- * no-op.
- *
- * ## The list is kept while the answer is "no"
- *
- * Flipping to "no" clears what is *saved*, not what is on screen: a person who ticks peanuts,
- * changes their mind, then changes it back should not have to tick peanuts again. The rule lives in
- * `../dietary.ts` so it is one function rather than a condition inside a submit handler.
- *
- * ## The disclaimer is not decoration
- *
- * This screen collects health information and the product acts on it. `MedicalDisclaimer` is
- * mandatory here (plan §5) and it says the thing that matters: the platform filters meals against
- * what it was told, and being told correctly is a shared responsibility rather than a guarantee.
+ * `/customer/account/allergies` — the account's Allergies pane on a page of its own, for the flows
+ * (checkout, plan setup, the account checklist) that send a person here with `?returnTo=` and expect
+ * saving to send them straight back. The pane, its rules and its save are `../account-allergies-panel.tsx`;
+ * the account page shows the same pane as its Allergies section.
  */
 
 const TEST_ID = 'allergies-screen';
-
-const ANSWERS = ['yes', 'no'] as const;
-type Answer = (typeof ANSWERS)[number];
-
-/** Component state, seeded from the profile the first time it arrives. */
-interface Edit {
-    readonly answer: Answer | null;
-    readonly allergens: readonly AllergenDeclaration[];
-    readonly diet: string | null;
-    /** `updatedAt` of the profile this edit was seeded from — `null` before the first save. */
-    readonly from: string | null;
-}
-
-function seed(profile: DietaryProfile): Edit {
-    const answered = initialAllergyAnswer(profile);
-    return {
-        answer: answered === null ? null : answered ? 'yes' : 'no',
-        allergens: profile.allergens,
-        diet: profile.dietCategoryCode,
-        from: profile.updatedAt,
-    };
-}
 
 export interface AllergiesScreenProps {
     /**
@@ -89,168 +26,38 @@ export interface AllergiesScreenProps {
 
 export function AllergiesScreen({ returnTo }: AllergiesScreenProps) {
     const { t } = useTranslation();
-    const toast = useToast();
-    const back = useReturnTo(returnTo, '/customer/account?section=profile');
+    const back = useReturnTo(returnTo, '/customer/account?section=allergies');
     const guard = useUnsavedGuard({ message: t('common:unsaved.browserPrompt') });
 
-    const profile = useDietaryProfileQuery();
-    const save = useSaveDietaryProfileMutation();
-
-    const [edit, setEdit] = useState<Edit | null>(null);
-
-    /**
-     * Derived rather than pushed by an effect, on the same rule as the address editor: the refetch
-     * that follows a save would otherwise overwrite the very edit that caused it.
-     */
-    const loaded = profile.data;
-    const current: Edit =
-        loaded === undefined
-            ? { answer: null, allergens: [], diet: null, from: null }
-            : edit !== null && edit.from === loaded.updatedAt
-              ? edit
-              : seed(loaded);
-
-    const set = (patch: Partial<Edit>) => {
-        guard.markDirty();
-        setEdit({ ...current, ...patch, from: loaded?.updatedAt ?? null });
-    };
-
-    const saveFailure = toFailure(save.error);
-
     return (
-        <Stack space="lg" testID={TEST_ID}>
-            <SubpageTrail
-                testID={`${TEST_ID}-trail`}
-                back={{ ...back, up: () => guard.intercept(back.up) }}
-                current={t('account:dietary.title')}
+        <View testID={TEST_ID} className="flex-col gap-4 pb-10">
+            {/* Shop · Account: the Back pill the Mobile number and Consents pages use, naming where
+                it goes, in place of the underlined "Back › Allergies" trail. */}
+            <View className="items-start pt-1">
+                <BackPill
+                    testID={`${TEST_ID}-trail-up`}
+                    label={
+                        back.returnTo === null
+                            ? t('account:title')
+                            : t(`common:destination.${back.destination}`)
+                    }
+                    onPress={() => {
+                        guard.intercept(back.up);
+                    }}
+                />
+            </View>
+            <AllergiesPanel
+                testID={TEST_ID}
+                guard={guard}
+                onSaved={() => {
+                    // Sent here by a step: back to it at once.
+                    if (back.returnTo !== null) back.finish();
+                }}
+                onCancel={() => {
+                    guard.intercept(back.up);
+                }}
             />
-            <Stack space="xs">
-                <Heading level={1} testID={`${TEST_ID}-title`}>
-                    {t('account:dietary.title')}
-                </Heading>
-                <Text tone="secondary">{t('account:dietary.subtitle')}</Text>
-                <Text tone="secondary" variant="caption" testID={`${TEST_ID}-store-of-record`}>
-                    {t('account:dietary.storeOfRecord')}
-                </Text>
-            </Stack>
-
-            <MedicalDisclaimer context={t('account:dietary.disclaimerContext')} />
-
-            <QueryStates
-                query={profile}
-                isEmpty={false}
-                emptyTitle={t('account:dietary.title')}
-                skeletonCount={2}
-                testID={`${TEST_ID}-profile`}
-            >
-                <Stack space="md">
-                    {saveFailure === null ? null : (
-                        <Callout
-                            testID={`${TEST_ID}-error`}
-                            role="alert"
-                            tone="danger"
-                            title={saveFailure.message}
-                        />
-                    )}
-
-                    <Card padding="md">
-                        <Stack space="sm">
-                            <SegmentedControl
-                                testID={`${TEST_ID}-answer`}
-                                label={t('account:dietary.hasAllergiesLabel')}
-                                block
-                                value={current.answer ?? ''}
-                                onChange={(next) => {
-                                    set({ answer: next as Answer });
-                                }}
-                                items={ANSWERS.map((answer) => ({
-                                    value: answer,
-                                    label: t(`account:dietary.hasAllergies.${answer}`),
-                                    testID: `${TEST_ID}-answer-${answer}`,
-                                }))}
-                            />
-
-                            {current.answer === null ? (
-                                <Text tone="secondary" testID={`${TEST_ID}-unanswered`}>
-                                    {t('account:dietary.unanswered')}
-                                </Text>
-                            ) : null}
-
-                            {current.answer === 'no' ? (
-                                <Text tone="secondary" testID={`${TEST_ID}-none`}>
-                                    {t('account:dietary.noneBody')}
-                                </Text>
-                            ) : null}
-
-                            {current.answer === 'yes' ? (
-                                <AllergyPicker
-                                    testID={`${TEST_ID}-allergens`}
-                                    value={current.allergens}
-                                    disabled={save.isPending}
-                                    onChange={(allergens) => {
-                                        set({ allergens });
-                                    }}
-                                />
-                            ) : null}
-                        </Stack>
-                    </Card>
-
-                    <Card padding="md">
-                        <DietaryTagsPicker
-                            testID={`${TEST_ID}-diets`}
-                            value={current.diet}
-                            disabled={save.isPending}
-                            onChange={(diet) => {
-                                set({ diet });
-                            }}
-                        />
-                    </Card>
-
-                    <Inline space="sm">
-                        <Button
-                            testID={`${TEST_ID}-save`}
-                            label={t('account:dietary.save')}
-                            loading={save.isPending}
-                            disabled={current.answer === null}
-                            onPress={() => {
-                                save.mutate(
-                                    {
-                                        dietCategoryCode: current.diet,
-                                        allergens: declarationsFor(
-                                            current.answer === 'yes',
-                                            current.allergens,
-                                        ),
-                                        // Ingredient-level exclusions are a separate surface (the
-                                        // configurator's "leave this out"), and this screen has no
-                                        // control for them — so it preserves what is stored rather
-                                        // than sending an empty list that would silently drop them.
-                                        excludedIngredientIds: loaded?.excludedIngredientIds ?? [],
-                                    },
-                                    {
-                                        onSuccess: () => {
-                                            // Drop the local edit so the saved profile becomes the
-                                            // seed again.
-                                            setEdit(null);
-                                            guard.markClean();
-                                            // A toast, not a notice in the page: the page's top —
-                                            // where a notice would sit — is a long scroll above
-                                            // the Save that was just pressed.
-                                            toast.show({
-                                                testID: `${TEST_ID}-saved-toast`,
-                                                tone: 'success',
-                                                message: t('account:dietary.savedToast'),
-                                            });
-                                            // Sent here by a step: back to it at once.
-                                            if (back.returnTo !== null) back.finish();
-                                        },
-                                    },
-                                );
-                            }}
-                        />
-                    </Inline>
-                </Stack>
-            </QueryStates>
-            <UnsavedChangesDialog guard={guard} testID={`${TEST_ID}-unsaved`} />
-        </Stack>
+            <UnsavedChangesDialog look="shop" guard={guard} testID={`${TEST_ID}-unsaved`} />
+        </View>
     );
 }

@@ -167,6 +167,10 @@ final readonly class StockItemDerivationService
         $existing = $this->stockItemFor($organisationId, 'ingredient_id', (string) $ingredient->getKey());
         $unitId = (string) $ingredient->default_unit_id;
 
+        if (! $existing instanceof StockItem && $this->counterpartHasShelf($organisationId, $ingredient)) {
+            return false;
+        }
+
         if ($existing instanceof StockItem) {
             // Never rename a shelf that a product owns: a resold product's own
             // name is what the kitchen put on it, and the anchor ingredient
@@ -181,6 +185,41 @@ final readonly class StockItemDerivationService
         $this->create($organisationId, $ingredient->slug, $ingredient->name_en, $unitId, (string) $ingredient->getKey(), null);
 
         return true;
+    }
+
+    /**
+     * A copy and its original are one thing on one shelf, whichever of them has it:
+     * `MealExplosion::resolveStockItem()` reads across the pair, and a second empty
+     * row is what used to repeat a name on the stock list.
+     */
+    private function counterpartHasShelf(string $organisationId, Ingredient $ingredient): bool
+    {
+        $counterpartId = $ingredient->forked_from_ingredient_id
+            ?? Ingredient::withoutTenancy()
+                ->where('organisation_id', $organisationId)
+                ->where('forked_from_ingredient_id', $ingredient->getKey())
+                ->value('id');
+
+        return $counterpartId !== null
+            && $this->stockItemFor($organisationId, 'ingredient_id', (string) $counterpartId) instanceof StockItem;
+    }
+
+    /**
+     * An ingredient was archived: its shelf goes too if nothing ever happened on
+     * it, because derivation will not recreate it and nobody can remove it by hand.
+     * A shelf with stock or history stays, and a resold product's stays with it.
+     */
+    public function clearEmptyShelf(Ingredient $ingredient): void
+    {
+        if ($ingredient->organisation_id === null) {
+            return;
+        }
+
+        $shelf = $this->stockItemFor((string) $ingredient->organisation_id, 'ingredient_id', (string) $ingredient->getKey());
+
+        if ($shelf instanceof StockItem && $shelf->catalogue_item_id === null && DuplicateStockShelves::isUnused($shelf)) {
+            $shelf->delete();
+        }
     }
 
     /** @return bool whether a row was created */

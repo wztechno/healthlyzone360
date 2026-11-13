@@ -1,191 +1,186 @@
-import { Button, Callout, Inline } from '@healthy360/design-system';
-import { useFormatter } from '@healthy360/i18n';
-import { usePathname, useRouter } from 'expo-router';
+import { Cascade } from '@healthy360/design-system';
+import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Text as RNText, View } from 'react-native';
 
-import { useSubscriptionsQuery } from '../../../data/marketplace-hooks.ts';
-import { pathnameOf } from '../../../navigation/return-to.ts';
-import { MedicalDisclaimer } from '../../../safety/medical-disclaimer.tsx';
-import { useSession } from '../../../session/session-provider.tsx';
-import { subscriptionDayPrice } from '../../catalogue/plan-balance.ts';
-import { isLiveSubscription } from '../../catalogue/plan-subscriber-panel.tsx';
+import { mealsFromPages, useMealsQuery } from '../../../data/catalogue-hooks.ts';
+import {
+    SHOWN_SHELVES,
+    isShownShelf,
+    shownCategory,
+    shownItemTypes,
+} from '../../catalogue/shown-shelves.ts';
+import { useMealShelves } from '../../catalogue/use-meal-shelves.ts';
 import { useBasketAdd } from '../../commerce/use-basket-add.tsx';
-import { formatMoney } from '../format.ts';
-import { HomeHero, HomeSections } from '../home/home-sections.tsx';
-import type { HomeOffer } from '../home/home-sections.tsx';
-import { useHomeMeals } from '../home/use-home-meals.ts';
-import { clearResumeIntent, useResumeIntent } from '../resume-intent.ts';
+import { DiscoverSearchBar } from '../discover/discover-search-bar.tsx';
+import { PickedForToday } from '../discover/picked-for-today.tsx';
+import type { PickedCard, PickTint } from '../discover/picked-for-today.tsx';
+import { PopularCarousel } from '../discover/popular-carousel.tsx';
+import { ShopByTabs } from '../discover/shop-by-tabs.tsx';
+import type { ShopByTab } from '../discover/shop-by-tabs.tsx';
+
+/** How many dishes the carousel carries. */
+const POPULAR_COUNT = 12;
+
+/** Everything on the menu's shown shelves, best rated first — the carousel and the tiles read it. */
+const POPULAR_FILTER = (() => {
+    const shelf = shownCategory();
+    return {
+        itemTypes: shownItemTypes(['meal']),
+        ...(shelf === undefined ? {} : { categorySlug: shelf }),
+        sort: 'rating' as const,
+        limit: 100,
+    };
+})();
+
+/** "Picked for today": a shortcut to each shelf, in the design's order and colours. */
+const SHELF_PICKS: readonly {
+    readonly code: string;
+    readonly headlineKey: string;
+    readonly tint: PickTint;
+}[] = [
+    { code: 'meal', headlineKey: 'marketplace:discover.pickMeals', tint: 'orange' },
+    { code: 'frozen', headlineKey: 'marketplace:discover.pickFrozen', tint: 'blue' },
+    { code: 'sauce', headlineKey: 'marketplace:discover.pickSauces', tint: 'yellow' },
+    { code: 'dressing', headlineKey: 'marketplace:discover.pickDressings', tint: 'green' },
+    { code: 'beverage', headlineKey: 'marketplace:discover.pickBeverages', tint: 'pink' },
+];
+
+const shelfOf = (meal: MarketplaceMeal) => meal.publishedCategory?.code ?? null;
+
+/** How many of a chosen shelf's dishes "Picked for today" shows. */
+const PICK_DISHES = 6;
 
 /**
- * Discover — the marketplace home, and HealthZone's `home` screen for everybody.
+ * Discover — the marketplace home, as the accepted shop design draws it, top to bottom:
  *
- * It is the only home. `/` sends an anonymous visitor here and the landing kernel sends a signed-in
- * customer here (`ROUTE_PATHS.customerHome`); `/customer` forwards here too. Those three used to be
- * three screens drawing the same sections, which is how the site came to carry one page three times.
+ * 1. **The search bar** — where the food goes, a search with a rolling hint, and go.
+ * 2. **Shop by** — the menu's shelves as photo tiles; choosing one narrows the carousel.
+ * 3. **Picked for today** — colour-coded shortcuts to the plans, each shelf and the kitchens.
+ * 4. **Popular right now** — the best-rated dishes as a carousel that moves on by itself.
  *
- * The design's home top to bottom, through `../home/home-sections.tsx`: the canopy hero beside the
- * photograph, "Browse by category", the top-rated grid, and the offer band beside the
- * recommendation card.
- *
- * ## What a signed-in person's account adds
- *
- * Fitted into places the design already has, so the page keeps the design's shape:
- *
- * - **Where was I** — the resume notice for a marketplace page recorded before sign-in. Transient,
- *   actionable and only ever present right after signing in, so it sits above the hero, where a
- *   notice belongs, and leaves no trace once dismissed.
- * - **The hero's eyebrow** is the next subscription delivery when there is one — the design's
- *   delivery-slot fact, made true for this person. Its second button tracks their latest order
- *   (`HomeHero`); with none it is the other way into the catalogue, by kitchen.
- * - **The running subscription** takes the offer band. The band pitches plans; somebody already on
- *   one is better served by seeing theirs, and the band's button manages it. With no subscription
- *   the band is the plans offer again.
- * - **No account tiles.** The page used to close on tiles for subscriptions, profile and account.
- *   The header's account icon now opens the account page, subscriptions are a section of it, and
- *   staff reach their profile from their own header icon, so the tiles had nothing left to do.
- *
- * The cards carry figures and the band can carry a price, so a signed-in page keeps the medical
- * disclaimer at the foot, as every customer surface that prints nutrition does.
- *
- * ## The search field is in the chrome, not on the page
- *
- * It lives in `shell/marketplace-shell.tsx`, reachable from every marketplace screen.
- *
- * ## Add is on every card, for everybody
- *
- * `commerce/use-basket-add.tsx` asks an anonymous visitor the same question the meal page asks —
- * sign in or create an account — and the meal is added once they have.
- *
- * ## The resume notice is a fallback
- *
- * Signing in now finishes on the page it was started from (`?returnTo=`), and that clears the
- * intent, so the notice is left for the trip a return cannot make. It is never offered for the page
- * the person is already on — "pick up where you left off" pointing at this very page is a button
- * that does nothing (AUTH-13).
+ * It is the only home: `/` sends an anonymous visitor here and the landing kernel sends a signed-in
+ * customer here. Add is on every card, for everybody — `use-basket-add.tsx` asks a visitor to sign
+ * in first, and the add is made once they have.
  */
 export function DiscoverScreen() {
     const { t } = useTranslation();
-    const router = useRouter();
-    const pathname = usePathname();
-    const formatter = useFormatter();
-    const { me } = useSession();
-    const signedIn = me !== null;
-
     const basket = useBasketAdd({ labelKey: 'marketplace:nav.discover', testID: 'discover' });
-    // Only the shown shelves — see `catalogue/shown-shelves.ts`.
-    const meals = useHomeMeals({ shownShelvesOnly: true });
-    const subscriptions = useSubscriptionsQuery(signedIn);
-    const recorded = useResumeIntent();
-    const resume = recorded !== null && pathnameOf(recorded.href) !== pathname ? recorded : null;
+    const shelves = useMealShelves();
+    const query = useMealsQuery(POPULAR_FILTER);
+    const ranked = useMemo(() => mealsFromPages(query.data?.pages), [query.data]);
+    const [shelf, setShelf] = useState<string | null>(null);
 
-    // The plan the person is on — live, not merely "not cancelled", which also matched a
-    // subscription that had run its full length.
-    const activeSubscription = signedIn
-        ? (subscriptions.data?.items ?? []).find(isLiveSubscription)
-        : undefined;
+    // The shown shelves that hold something, in the menu's own order.
+    const stocked = useMemo(
+        () =>
+            shelves.shelves
+                .filter((item) => isShownShelf(item.code))
+                .sort((a, b) => SHOWN_SHELVES.indexOf(a.code) - SHOWN_SHELVES.indexOf(b.code)),
+        [shelves.shelves],
+    );
+    const firstOn = (code: string) => ranked.find((meal) => shelfOf(meal) === code);
 
-    const nextDelivery =
-        activeSubscription?.nextDeliveryDate === undefined ||
-        activeSubscription.nextDeliveryDate === null
-            ? null
-            : formatter.formatDate(`${activeSubscription.nextDeliveryDate}T12:00:00.000Z`, {
-                  day: 'numeric',
-                  month: 'long',
-              });
+    const tabs: readonly ShopByTab[] = [
+        { code: null, label: t('marketplace:discover.allShelves'), meal: undefined },
+        ...stocked.map((item) => ({ code: item.code, label: item.name, meal: firstOn(item.code) })),
+    ];
 
-    const subscriptionOffer: HomeOffer | undefined =
-        activeSubscription === undefined
-            ? undefined
-            : {
-                  eyebrow: t('marketplace:consumer.subscription.eyebrow', {
-                      state: t(`marketplace:subscriptionStates.${activeSubscription.state}`),
-                  }),
-                  title: activeSubscription.planName,
-                  body: `${
-                      nextDelivery === null
-                          ? t('marketplace:consumer.subscription.noNextDelivery')
-                          : t('marketplace:consumer.subscription.nextDelivery', {
-                                date: nextDelivery,
-                            })
-                  } · ${t('marketplace:consumer.subscription.dayPrice', {
-                      price: formatMoney(formatter, subscriptionDayPrice(activeSubscription)),
-                  })}`,
-                  action: {
-                      testID: 'discover-subscription-manage',
-                      label: t('marketplace:consumer.subscription.manage'),
-                      onPress: () => {
-                          router.push(
-                              `/customer/subscriptions/${String(activeSubscription.id)}` as never,
-                          );
-                      },
-                  },
-              };
+    const cards: readonly PickedCard[] = [
+        {
+            key: 'plans',
+            headlineKey: 'marketplace:discover.pickPlans',
+            href: '/plans',
+            tint: 'violet',
+            meal: ranked[0],
+        },
+        ...SHELF_PICKS.filter((pick) => stocked.some((item) => item.code === pick.code)).map(
+            (pick) => ({
+                key: pick.code,
+                headlineKey: pick.headlineKey,
+                href: `/meals?category=${pick.code}`,
+                tint: pick.tint,
+                meal: firstOn(pick.code),
+            }),
+        ),
+        {
+            key: 'kitchens',
+            headlineKey: 'marketplace:discover.pickKitchens',
+            href: '/kitchens',
+            tint: 'teal',
+            meal: ranked[1],
+        },
+    ];
+
+    /*
+     * A shelf chosen above turns "Picked for today" into that shelf's own dishes, each opening the
+     * dish, in the shelf's colour; All brings back the shortcuts. A shelf with nothing ranked yet
+     * keeps the shortcuts rather than an empty row.
+     */
+    const shelfDishes =
+        shelf === null
+            ? []
+            : ranked.filter((meal) => shelfOf(meal) === shelf).slice(0, PICK_DISHES);
+    const shownCards: readonly PickedCard[] =
+        shelfDishes.length === 0
+            ? cards
+            : shelfDishes.map((meal) => ({
+                  key: meal.slug,
+                  headline: meal.name,
+                  href: `/meals/${meal.slug}`,
+                  tint: SHELF_PICKS.find((pick) => pick.code === shelf)?.tint ?? 'green',
+                  meal,
+              }));
+
+    const popular = (
+        shelf === null ? ranked : ranked.filter((meal) => shelfOf(meal) === shelf)
+    ).slice(0, POPULAR_COUNT);
 
     return (
-        <View testID="discover-screen" className="flex-col pb-11">
-            {!signedIn || resume === null ? null : (
-                <Callout
-                    testID="discover-resume"
-                    role="status"
-                    tone="info"
-                    className="mb-6"
-                    title={t('marketplace:consumer.resume.title')}
-                    body={t('marketplace:consumer.resume.body', {
-                        destination: resume.name ?? t(resume.labelKey),
-                    })}
-                    actions={
-                        <Inline space="sm" wrap>
-                            <Button
-                                testID="discover-resume-continue"
-                                size="sm"
-                                label={t('marketplace:consumer.resume.continue')}
-                                onPress={() => {
-                                    const { href } = resume;
-                                    clearResumeIntent();
-                                    router.push(href as never);
-                                }}
-                            />
-                            <Button
-                                testID="discover-resume-dismiss"
-                                size="sm"
-                                variant="ghost"
-                                label={t('marketplace:consumer.resume.dismiss')}
-                                onPress={clearResumeIntent}
-                            />
-                        </Inline>
-                    }
+        <View testID="discover-screen" className="relative flex-col pb-11">
+            {/* The design's soft shapes behind the page. */}
+            <View
+                aria-hidden
+                pointerEvents="none"
+                className="absolute -start-40 -top-28 h-[520px] w-[520px] rounded-full bg-surface-brand-subtle opacity-60"
+            />
+            <View
+                aria-hidden
+                pointerEvents="none"
+                className="absolute -end-44 top-[300px] h-[460px] w-[460px] rounded-full bg-tint-yellow opacity-50"
+            />
+
+            {/* The page's name, for a screen reader; the design shows the search bar instead. */}
+            <RNText role="heading" aria-level={1} className="absolute h-px w-px overflow-hidden">
+                {t('marketplace:discover.pageTitle')}
+            </RNText>
+
+            <Cascade space="none">
+                <DiscoverSearchBar
+                    testID="discover-search"
+                    kitchenId={ranked[0]?.kitchenId ?? null}
                 />
-            )}
-
-            <HomeHero
-                testID="discover-hero"
-                meals={meals}
-                eyebrow={
-                    nextDelivery === null
-                        ? undefined
-                        : t('marketplace:consumer.subscription.nextDelivery', {
-                              date: nextDelivery,
-                          })
-                }
-                primaryTestID="discover-hero-meals"
-                secondary={{
-                    testID: 'discover-hero-kitchens',
-                    label: t('marketplace:landing.browseKitchens'),
-                    onPress: () => {
-                        router.push('/kitchens');
-                    },
-                }}
-            />
-
-            <HomeSections
-                testID="discover"
-                meals={meals}
-                onAdd={basket.add}
-                offer={subscriptionOffer}
-            />
-
-            {signedIn ? <MedicalDisclaimer className="mt-11" /> : null}
+                <ShopByTabs
+                    testID="discover-shelves"
+                    tabs={tabs}
+                    selected={shelf}
+                    onSelect={setShelf}
+                />
+                <PickedForToday
+                    testID="discover-picks"
+                    cards={shownCards}
+                    entranceKey={shelf ?? 'all'}
+                />
+                <PopularCarousel
+                    testID="discover-popular"
+                    meals={popular}
+                    entranceKey={shelf ?? 'all'}
+                    onAdd={(meal) => {
+                        basket.add(meal);
+                    }}
+                />
+            </Cascade>
 
             {basket.dialog}
         </View>

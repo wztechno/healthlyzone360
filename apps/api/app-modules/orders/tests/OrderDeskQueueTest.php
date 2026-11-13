@@ -17,6 +17,7 @@ use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderPaymentReceipt;
+use Healthy360\Orders\OrderDesk\Services\OrderDeskQueue;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
@@ -906,4 +907,111 @@ it('falls back to the account number when the order snapshotted none', function 
             ->assertOk()
             ->json('data.0.customer.phone')
     )->toBe('+96170222222');
+});
+
+/*
+| Past due used to be counted over the rows on screen, so the audit's desk read 0 on
+| Today with 11 orders overdue from other days.
+*/
+
+it('counts the 11 overdue orders from other dates while viewing Today', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
+
+    foreach (range(1, 11) as $days) {
+        deskOrder($this, ['requested_delivery_date' => CarbonImmutable::parse('2026-05-10')->subDays($days)->toDateString()]);
+    }
+
+    $response = $this->getJson('/api/v1/catalogue/order-desk/queue?window=today', $this->headers)->assertOk();
+
+    expect($response->json('data'))->toBe([])
+        ->and($response->json('meta.past_due_count'))->toBe(11)
+        ->and($response->json('meta.overdue_count'))->toBe(11)
+        ->and($response->json('meta.overdue_grace_minutes'))->toBe(OrderDeskQueue::OVERDUE_GRACE_MINUTES);
+});
+
+it('lists the past due orders through the lens, whatever the window', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
+
+    $yesterday = deskOrder($this, ['requested_delivery_date' => '2026-05-09']);
+    $lastWeek = deskOrder($this, ['requested_delivery_date' => '2026-05-03']);
+    deskOrder($this, ['requested_delivery_date' => '2026-05-11']);
+
+    expect(deskIds($this, 'window=today&lens=past_due'))
+        ->toBe([(string) $lastWeek->getKey(), (string) $yesterday->getKey()]);
+});
+
+it('refuses a lens it does not know', function (): void {
+    $this->getJson('/api/v1/catalogue/order-desk/queue?lens=everything', $this->headers)->assertUnprocessable();
+});
+
+it('keeps the grace apart from past due, on the same boundary as the red badge', function (): void {
+    $branch = deskBranch($this->orgId, 'UTC', 'Clock kitchen');
+    deskWindow($this->orgId, 'noon', '12:00:00');
+    $today = ['requested_delivery_date' => '2026-05-10', 'delivery_window_code' => 'noon', 'branch_id' => $branch->getKey()];
+
+    deskOrder($this, $today);
+
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 12:00:00', 'UTC'));
+    $onTheMinute = $this->getJson('/api/v1/catalogue/order-desk/queue', $this->headers)->assertOk();
+
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 12:29:00', 'UTC'));
+    $inGrace = $this->getJson('/api/v1/catalogue/order-desk/queue', $this->headers)->assertOk();
+
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 12:30:00', 'UTC'));
+    $overdue = $this->getJson('/api/v1/catalogue/order-desk/queue', $this->headers)->assertOk();
+
+    expect($onTheMinute->json('meta.past_due_count'))->toBe(0)
+        ->and($inGrace->json('meta.past_due_count'))->toBe(1)
+        ->and($inGrace->json('meta.overdue_count'))->toBe(0)
+        ->and($overdue->json('meta.overdue_count'))->toBe(1);
+});
+
+it('counts neither finished work nor another kitchen\'s orders', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
+
+    $late = ['requested_delivery_date' => '2026-05-01'];
+
+    deskOrder($this, $late);
+    deskOrder($this, [...$late, 'status' => OrderStatus::Confirmed, 'confirmed_at' => now()]);
+    Order::factory()->fulfilled()->create([
+        'organisation_id' => $this->orgId,
+        'customer_account_id' => $this->customerId,
+        'sales_channel_id' => $this->channelId,
+        ...$late,
+    ]);
+    Order::factory()->cancelled()->create([
+        'organisation_id' => $this->orgId,
+        'customer_account_id' => $this->customerId,
+        'sales_channel_id' => $this->channelId,
+        ...$late,
+    ]);
+
+    $other = PricingWorld::kitchen('other-desk@kitchen.test', ['order.view_organisation']);
+    Order::factory()->create([
+        'organisation_id' => $other->organisation->getKey(),
+        'customer_account_id' => $this->customerId,
+        'sales_channel_id' => PricingWorld::channel($other->organisation, 'web-shop')->getKey(),
+        ...$late,
+    ]);
+
+    $response = $this->getJson('/api/v1/catalogue/order-desk/queue', $this->headers)->assertOk();
+
+    expect($response->json('meta.past_due_count'))->toBe(2)
+        ->and($response->json('meta.overdue_count'))->toBe(2);
+});
+
+it('counts past the row cap and ignores the view\'s filters', function (): void {
+    $this->travelTo(CarbonImmutable::parse('2026-05-10 08:00:00', 'UTC'));
+
+    Order::factory()->count(OrderDeskQueue::MAX_ROWS + 2)->create([
+        'organisation_id' => $this->orgId,
+        'customer_account_id' => $this->customerId,
+        'sales_channel_id' => $this->channelId,
+        'requested_delivery_date' => '2026-05-01',
+    ]);
+
+    $response = $this->getJson('/api/v1/catalogue/order-desk/queue?window=overdue&query=no-such-order', $this->headers)->assertOk();
+
+    expect($response->json('data'))->toBe([])
+        ->and($response->json('meta.past_due_count'))->toBe(OrderDeskQueue::MAX_ROWS + 2);
 });

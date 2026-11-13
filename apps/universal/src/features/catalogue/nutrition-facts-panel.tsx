@@ -1,4 +1,4 @@
-import { Badge, Card, Stack, Table, Tabs, Text } from '@healthy360/design-system';
+import { Card, Stack, Table, Tabs, Text } from '@healthy360/design-system';
 import type { TableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { coreNutrientDefinition, findAmount, precisionFor } from '@healthy360/nutrition';
@@ -27,17 +27,14 @@ import { orderedNutrientIds, per100gFacts } from './format.ts';
  * a "Per serving" tab in place would label a hundred grams of sauce as somebody's portion, which is
  * the fabrication the server refused to make when it chose this basis.
  *
- * ## Provenance is not decoration
+ * ## Provenance, as a customer reads it
  *
- * Doc 09, IMP-06 and IMP-11, and doc 17, NUT-04 and NUT-09, all land on the same requirement:
- * source, version and calculation timestamp on *every* panel, and every synthetic figure visibly
- * labelled synthetic. Neither reference offers any provenance at all. So the source block is part
- * of the component rather than an optional prop — a panel that could be rendered without it is a
- * panel that eventually will be.
- *
- * The calculation notes are rendered verbatim because that is where the recipe and its version are
- * named. Parsing them into a field would mean the screen inventing a link the consumer contract
- * deliberately does not publish.
+ * The panel names where its figures come from, and nothing else of the calculation: the data-set
+ * version, the method key, the rounding and the synthetic/prototype badge read as internal noise
+ * on a customer surface (owner, 3 Nov 2026), so only the source name stays. The source block is
+ * still part of the component rather than an optional prop. The calculation notes are not shown:
+ * the server writes them for staff (`mass_basis: …`), untranslated. A meal with no recorded source
+ * says so in one catalogue sentence instead.
  */
 export interface NutritionFactsPanelProps {
     readonly facts: NutritionFacts;
@@ -54,10 +51,8 @@ interface NutrientRow {
     readonly amount: string;
 }
 
-/** True when `value` can be passed to `formatDate` without throwing. */
-function isRenderableTimestamp(value: string): boolean {
-    return value.length > 0 && !Number.isNaN(Date.parse(value));
-}
+/** `NO_NUTRITION_FACTS`' method: the API-client fallback for a meal with no stored facts. */
+const NO_RECORDED_SOURCE = 'none.no_recorded_source';
 
 export function NutritionFactsPanel({
     facts,
@@ -160,58 +155,18 @@ export function NutritionFactsPanel({
                     />
                 )}
 
-                <Stack space="xs" testID={`${testID}-source`}>
-                    <Text variant="label">{t('catalogue:facts.sourceTitle')}</Text>
-
-                    {active.source.kind === 'synthetic_prototype' ? (
-                        <Badge
-                            testID={`${testID}-synthetic`}
-                            tone="info"
-                            icon="prototype"
-                            label={t('catalogue:facts.syntheticNote')}
-                        />
-                    ) : null}
-
-                    <Text tone="secondary" variant="caption">
-                        {t('catalogue:facts.source', { source: active.source.label })}
+                {/* The source name only: version, method, rounding, the prototype flags and the
+                    calculation notes are the platform's bookkeeping, not the customer's. */}
+                {active.calculation.method === NO_RECORDED_SOURCE ? (
+                    <Text testID={`${testID}-no-source`} tone="secondary" variant="caption">
+                        {t('catalogue:facts.noSource')}
                     </Text>
-                    <Text testID={`${testID}-version`} tone="secondary" variant="caption">
-                        {t('catalogue:facts.version', { version: active.source.version })}
-                    </Text>
-                    {/* `UNKNOWN_ISO_DATE_TIME` is `''` when the API has no timestamp — never
-                        hand that to `formatDate`, which throws on an unparseable value. */}
-                    {isRenderableTimestamp(active.calculation.calculatedAt) ? (
-                        <Text testID={`${testID}-calculated-at`} tone="secondary" variant="caption">
-                            {t('catalogue:facts.calculatedAt', {
-                                timestamp: formatter.formatDate(active.calculation.calculatedAt, {
-                                    dateStyle: 'medium',
-                                    timeStyle: 'short',
-                                }),
-                            })}
-                        </Text>
-                    ) : null}
-                    <Text tone="secondary" variant="caption">
-                        {t('catalogue:facts.method', { method: active.calculation.method })}
-                    </Text>
-                    <Text tone="secondary" variant="caption">
-                        {t('catalogue:facts.rounding', { rounding: active.calculation.rounding })}
-                    </Text>
-
-                    {active.calculation.prototype ? (
+                ) : (
+                    <Stack space="xs" testID={`${testID}-source`}>
+                        <Text variant="label">{t('catalogue:facts.sourceTitle')}</Text>
                         <Text tone="secondary" variant="caption">
-                            {t('catalogue:facts.prototypeFlag')}
+                            {t('catalogue:facts.source', { source: active.source.label })}
                         </Text>
-                    ) : null}
-                </Stack>
-
-                {active.calculation.notes.length === 0 ? null : (
-                    <Stack space="xs" testID={`${testID}-notes`}>
-                        <Text variant="label">{t('catalogue:facts.notesTitle')}</Text>
-                        {active.calculation.notes.map((note) => (
-                            <Text key={note} tone="secondary" variant="caption">
-                                {note}
-                            </Text>
-                        ))}
                     </Stack>
                 )}
             </Stack>

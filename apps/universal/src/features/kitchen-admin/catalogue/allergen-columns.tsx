@@ -1,5 +1,5 @@
 import type { AllergenClass } from '@healthy360/api-client/contracts';
-import { Badge, Inline, Text } from '@healthy360/design-system';
+import { Inline, Text } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 
@@ -7,6 +7,7 @@ import { displayName } from '../format.ts';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * The fourteen regulatory allergen classes, as a column spec.
  *
@@ -81,8 +82,9 @@ export function allergenColumns({
             // Keyed `regulation` so the header sorts through the list hook's own regulation order.
             key: 'regulation',
             label: t('kitchen:list.columnReference'),
-            width: 96,
-            min: 84,
+            // Wide enough for "EU 1169/2011 Annex II 1", which the board holds on one line.
+            width: 180,
+            min: 120,
             priority: CATALOGUE_PRIORITY.reference,
             role: 'meta',
             mono: true,
@@ -113,7 +115,7 @@ export function allergenColumns({
                             {displayName(entry.name, locale).value}
                         </Text>
                         {entry.severeByDefault ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${testID}-severe`}
                                 tone="danger"
                                 // One word on the row. `classes.severe` is the sentence — "trace
@@ -151,7 +153,7 @@ export function allergenColumns({
                 ) : (
                     <Inline space="xs" wrap testID={`${testID}-markets`}>
                         {entry.markets.map((market) => (
-                            <Badge
+                            <DeskChip
                                 key={market}
                                 testID={`${testID}-market-${market}`}
                                 tone="info"
@@ -171,12 +173,15 @@ export function allergenColumns({
             // The row's headline figure: what a kitchen is actually looking up when it opens this
             // page is the amount at which a class becomes declarable.
             role: 'metric',
-            mono: true,
             sortable: true,
             sortType: 'number',
             value: (entry) => thresholdLabel(entry, t, formatter),
+            // Plain text; "any amount" is quiet because it is the common answer.
             render: (entry) => (
-                <Text testID={`${allergenRowTestId(String(entry.code))}-threshold`} variant="mono">
+                <Text
+                    testID={`${allergenRowTestId(String(entry.code))}-threshold`}
+                    tone={entry.declarationThreshold === null ? 'secondary' : 'primary'}
+                >
                     {thresholdLabel(entry, t, formatter)}
                 </Text>
             ),
@@ -195,18 +200,14 @@ export function allergenColumns({
                 entry.isActive ? t('kitchen:classes.active') : t('kitchen:classes.inactive'),
             render: (entry) =>
                 entry.isActive ? (
-                    <Badge
+                    <DeskChip
                         testID={`${allergenRowTestId(String(entry.code))}-active`}
                         tone="brand"
-                        // No mark on the settled state, the call every Catalogue status column
-                        // makes about Published: the word needs no help, and a row of ticks down a
-                        // fourteen-row page is noise. Inactive keeps its ⚠, because that is the one
-                        // a reader is scanning for.
-                        icon={null}
+                        // A pill and its word, as the board draws both states.
                         label={t('kitchen:classes.active')}
                     />
                 ) : (
-                    <Badge
+                    <DeskChip
                         testID={`${allergenRowTestId(String(entry.code))}-inactive`}
                         tone="warning"
                         label={t('kitchen:classes.inactive')}

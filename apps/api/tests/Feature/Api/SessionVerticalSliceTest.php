@@ -9,6 +9,7 @@ use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Illuminate\Support\Facades\Cache;
+use Laravel\Fortify\Actions\EnableTwoFactorAuthentication;
 use PragmaRX\Google2FA\Google2FA;
 use Tests\SeedDatabaseOnce;
 
@@ -129,6 +130,51 @@ it('lists the workspaces a person may act under', function (): void {
         ->toBe(['cedar-clinic', 'verdant-kitchen']);
 });
 
+/*
+| An organisation-wide member of a kitchen with two branches is given no
+| branch by default, and kitchen and KDS routes require one. Until /me listed
+| what the membership may select, the client had nothing to offer and the
+| person was locked out of both.
+*/
+it('lists the branches a membership may choose between', function (): void {
+    OrganisationBranch::factory()->create([
+        'organisation_id' => $this->verdant->getKey(),
+        'country_code' => $this->verdant->country_code,
+        'name' => 'Marina',
+    ]);
+    OrganisationBranch::factory()->closed()->create([
+        'organisation_id' => $this->verdant->getKey(),
+        'country_code' => $this->verdant->country_code,
+        'name' => 'Shut',
+    ]);
+
+    signIn('owner@verdant.test');
+
+    $this->putJson('/api/v1/me/context', ['organisation_id' => $this->verdant->getKey()])
+        ->assertOk()
+        ->assertJsonPath('data.active_context.branch', null);
+
+    $membership = collect($this->getJson('/api/v1/me')->assertOk()->json('data.memberships'))
+        ->firstWhere('organisation.slug', 'verdant-kitchen');
+
+    expect(array_column($membership['branches'], 'name'))->toBe(['Al Quoz', 'Marina']);
+});
+
+it('offers a branch-scoped membership its own branch and no other', function (): void {
+    OrganisationBranch::factory()->create([
+        'organisation_id' => $this->verdant->getKey(),
+        'country_code' => $this->verdant->country_code,
+        'name' => 'Marina',
+    ]);
+
+    signIn('chef@verdant.test');
+
+    $membership = collect($this->getJson('/api/v1/me')->assertOk()->json('data.memberships'))
+        ->firstWhere('organisation.slug', 'verdant-kitchen');
+
+    expect(array_column($membership['branches'], 'name'))->toBe(['Al Quoz']);
+});
+
 it('refuses an organisation the person is not a member of', function (): void {
     signIn('owner@cedar.test');
 
@@ -177,6 +223,8 @@ it('denies an active member whose roles do not grant the permission', function (
 
 it('enrols two factor authentication and then requires it at the next login', function (): void {
     signIn('owner@cedar.test');
+
+    $this->postJson('/api/v1/auth/confirm-password', ['password' => 'password'])->assertOk();
 
     $this->postJson('/api/v1/auth/two-factor-authentication')
         ->assertCreated()
@@ -237,7 +285,11 @@ it('enrols two factor authentication and then requires it at the next login', fu
 it('requires a recent password confirmation before two factor authentication is switched off', function (): void {
     signIn('owner@cedar.test');
 
-    $this->postJson('/api/v1/auth/two-factor-authentication')->assertCreated();
+    // Armed directly: enabling through the API now needs the step-up this
+    // test is about. The next request must re-read the user, not the one
+    // the guard cached at sign-in.
+    app(EnableTwoFactorAuthentication::class)($this->owner);
+    forgetResolvedGuards();
 
     $this->deleteJson('/api/v1/auth/two-factor-authentication')
         ->assertForbidden()
@@ -259,6 +311,25 @@ it('requires a recent password confirmation before two factor authentication is 
     $this->deleteJson('/api/v1/auth/two-factor-authentication')
         ->assertOk()
         ->assertJsonPath('data.enabled', false);
+});
+
+it('requires a recent password confirmation before the second factor can be read or replaced', function (): void {
+    signIn('owner@cedar.test');
+
+    app(EnableTwoFactorAuthentication::class)($this->owner);
+    forgetResolvedGuards();
+
+    foreach ([
+        ['POST', '/api/v1/auth/two-factor-authentication'],
+        ['GET', '/api/v1/auth/two-factor-qr-code'],
+        ['GET', '/api/v1/auth/two-factor-secret-key'],
+        ['GET', '/api/v1/auth/two-factor-recovery-codes'],
+        ['POST', '/api/v1/auth/two-factor-recovery-codes'],
+    ] as [$method, $uri]) {
+        $this->json($method, $uri)
+            ->assertForbidden()
+            ->assertJsonPath('error.code', 'auth.step_up_required');
+    }
 });
 
 it('sends a password reset link that points at the client application', function (): void {

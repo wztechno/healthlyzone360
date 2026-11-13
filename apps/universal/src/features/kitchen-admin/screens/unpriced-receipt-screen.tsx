@@ -4,24 +4,26 @@ import type {
     StockItem,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
-    Callout,
-    Card,
     Cascade,
     DataList,
     Dialog,
     EmptyState,
     ErrorState,
+    FormSection,
+    IssueTrayFrame,
     RecordSkeleton,
-    RecordWindowFieldGrid,
-    Stack,
     QuantityInput,
     Text,
+    useIssueTrayController,
     useToast,
     useContentWidth,
 } from '@healthy360/design-system';
-import type { DataListColumn, RecordWindowField } from '@healthy360/design-system';
+import type {
+    DataListColumn,
+    IssueCardItem,
+    IssueTrayContent,
+    RecordWindowField,
+} from '@healthy360/design-system';
 import { GoodsReceiptId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -44,6 +46,8 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
+import { unitCodeLabel } from '../format.ts';
+import { BoardFieldRows } from '../catalogue/record-view-page.tsx';
 import { RECORD_RAIL_MIN, RECORD_SPLIT_MIN } from '../desk-layout.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
@@ -51,13 +55,16 @@ import { readAmount } from '../receive-delivery-model.ts';
 import { focusFirstRefusal } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
- * `/kitchen/procurement/unpriced-receipts/{receipt}` — one receipt's missing prices (SUP5, §7).
+ * `/kitchen/supplier-bills/{receipt}` — one receipt's missing prices (SUP5, §7).
  *
  * ```
- * Kitchen workspace › Prices to finish › Receipt DN-0412      ← the queue crumb is the way back
+ * Kitchen workspace › Supplier bills › Receipt DN-0412      ← the queue crumb is the way back
  * Receipt DN-0412 [UNPRICED]                                        [Cancel] [Save prices]
  * ┌ TO PRICE ┐ ┌ TYPED ┐ ┌ WAITING ON A RATE ┐ ┌ RECEIVED ┐
  * ┌ LINES ─────────────────────────────────┐   ┌ RECEIPT ── supplier · delivery note · … ┐
@@ -91,7 +98,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 /** The dialog this page replaces priced in USD; the contract has no per-receipt default to read. */
 const RECEIPT_CURRENCY = 'USD';
 
-const QUEUE_ROUTE = '/kitchen/procurement/unpriced-receipts';
+const QUEUE_ROUTE = '/kitchen/supplier-bills?tab=unpriced';
 
 export interface UnpricedReceiptScreenProps {
     /** The route parameter. Anything that is not an identifier lands on the not-found state. */
@@ -129,6 +136,11 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
     // The lines the last save sent, in order: the server names a refused one by its position.
     const [sentLineIds, setSentLineIds] = useState<readonly string[]>([]);
 
+    // The page's issue tray; a refused save opens it.
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+    useNudgeOnRefusal(complete.error, nudgeTray);
+
     const detail = record.data;
     const failure = toFailure(record.error);
 
@@ -164,7 +176,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                 title={t('kitchen:ops.unpricedReceipts.notFoundTitle')}
                 body={t('kitchen:ops.unpricedReceipts.notFoundBody')}
                 actions={
-                    <Button
+                    <DeskButton
                         testID="kitchen-unpriced-receipt-not-found-back"
                         variant="secondary"
                         size="sm"
@@ -200,8 +212,8 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
     const entered = priceable.filter((line) => (prices[line.id] ?? '').trim() !== '');
     const unreadable = entered.filter((line) => readAmount(prices[line.id] ?? '') === null);
     const saveFailure = toFailure(complete.error);
-    // What the server refused, put on the price it named (BUG-06). No banner here, so the
-    // callout stays and carries anything the lines cannot.
+    // What the server refused, put on the price it named (BUG-06) and named again in the tray, a
+    // card per price; the refused save's own card carries anything the lines cannot.
     const priceTargetsFor = (lineIds: readonly string[]): Record<string, ServerFieldTarget> => {
         const targets: Record<string, ServerFieldTarget> = {};
         lineIds.forEach((lineId, index) => {
@@ -285,85 +297,123 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
         serverPriceError,
     });
 
+    /*
+     * The page's problems, in its issue tray: each price the server refused, its Fix the price box,
+     * and the refused save itself when there is more to say than the boxes can — in the server's
+     * own words. The lines waiting on a rate are a fact, not this page's job, so they are a note.
+     */
+    const saveCards: IssueCardItem[] = [
+        ...server.items.map((item) => ({
+            key: item.key,
+            tone: 'danger' as const,
+            label: item.label,
+            action: { onPress: item.onPress },
+            testID: `kitchen-unpriced-receipt-issues-errors-${item.key}`,
+        })),
+        ...(saveFailure === null || (server.isValidation && server.unplaced === null)
+            ? []
+            : [
+                  {
+                      key: 'save-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:ops.unpricedReceipts.completeFailed'),
+                      detail: server.unplaced ?? saveFailure.message,
+                      testID: 'kitchen-unpriced-receipt-save-error',
+                  },
+              ]),
+    ];
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-unpriced-receipt-tray',
+        groups: [{ key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards }],
+        notes: {
+            title: t('kitchen:tray.groupNote'),
+            lines:
+                detail.valuationPendingCount === 0
+                    ? []
+                    : [
+                          {
+                              key: 'pending-fx',
+                              text: t('kitchen:ops.unpricedReceipts.pendingFxTitle'),
+                              testID: 'kitchen-unpriced-receipt-pending-fx',
+                          },
+                      ],
+        },
+    };
+
     return (
-        <Cascade space="md" testID="kitchen-unpriced-receipt-screen">
-            <CataloguePageHeader
-                testID="kitchen-unpriced-receipt-header"
-                title={title ?? undefined}
-                titleAside={
-                    <Badge
-                        testID="kitchen-unpriced-receipt-status"
-                        tone={receiptCostStatusTone(detail.costStatus)}
-                        label={t(receiptCostStatusKey(detail.costStatus))}
-                    />
-                }
-                primaryAction={
-                    <View className="flex-row flex-wrap items-center gap-tight">
-                        <Button
-                            testID="kitchen-unpriced-receipt-cancel"
-                            variant="secondary"
-                            label={t('kitchen:editor.cancel')}
-                            onPress={() => {
-                                guard.intercept(backToQueue);
-                            }}
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
+            <Cascade space="md" testID="kitchen-unpriced-receipt-screen">
+                <CataloguePageHeader
+                    testID="kitchen-unpriced-receipt-header"
+                    title={title ?? undefined}
+                    titleAside={
+                        <DeskChip
+                            testID="kitchen-unpriced-receipt-status"
+                            tone={receiptCostStatusTone(detail.costStatus)}
+                            label={t(receiptCostStatusKey(detail.costStatus))}
                         />
-                        {priceable.length === 0 ? null : (
-                            <Button
-                                testID="kitchen-unpriced-receipt-save"
-                                label={t('kitchen:ops.unpricedReceipts.savePrices', {
-                                    count: typed.length,
-                                })}
-                                loading={complete.isPending}
-                                // A wrong price does not disable Save: pressing it takes you there.
-                                disabled={entered.length === 0}
-                                onPress={save}
-                            />
-                        )}
-                    </View>
-                }
-            />
-
-            {saveFailure === null ? null : (
-                <Callout
-                    testID="kitchen-unpriced-receipt-save-error"
-                    tone="danger"
-                    role="alert"
-                    title={t('kitchen:ops.unpricedReceipts.completeFailed')}
-                    body={server.unplaced ?? saveFailure.message}
-                />
-            )}
-
-            <CatalogueStatCards
-                testID="kitchen-unpriced-receipt-facts"
-                cards={receiptFacts(detail, priceable.length, typed.length, formatter, t)}
-            />
-
-            {/*
-             * The lines beside the paperwork, where the *page* has room for both — the content
-             * width, not the window, which on a laptop clears `xl` with the page at ~920px. Below
-             * `RECORD_SPLIT_MIN` the rail drops under the lines.
-             */}
-            <View
-                testID="kitchen-unpriced-receipt-body"
-                className={split ? 'flex-row items-start gap-base' : 'flex-col gap-base'}
-            >
-                <View
-                    className={
-                        split ? 'min-w-0 flex-[21] flex-col gap-base' : 'min-w-0 flex-col gap-base'
                     }
+                    primaryAction={
+                        <View className="flex-row flex-wrap items-center gap-tight">
+                            <DeskButton
+                                testID="kitchen-unpriced-receipt-cancel"
+                                variant="secondary"
+                                label={t('kitchen:editor.cancel')}
+                                onPress={() => {
+                                    guard.intercept(backToQueue);
+                                }}
+                            />
+                            {priceable.length === 0 ? null : (
+                                <DeskButton
+                                    testID="kitchen-unpriced-receipt-save"
+                                    label={t('kitchen:ops.unpricedReceipts.savePrices', {
+                                        count: typed.length,
+                                    })}
+                                    loading={complete.isPending}
+                                    // A wrong price does not disable Save: pressing it takes you
+                                    // there.
+                                    disabled={entered.length === 0}
+                                    onPress={save}
+                                />
+                            )}
+                        </View>
+                    }
+                />
+
+                <CatalogueStatCards
+                    testID="kitchen-unpriced-receipt-facts"
+                    cards={receiptFacts(detail, priceable.length, typed.length, formatter, t)}
+                />
+
+                {/*
+                 * The lines beside the paperwork, where the *page* has room for both — the
+                 * content width, not the window, which on a laptop clears `xl` with the page at
+                 * ~920px. Below `RECORD_SPLIT_MIN` the rail drops under the lines.
+                 */}
+                <View
+                    testID="kitchen-unpriced-receipt-body"
+                    className={split ? 'flex-row items-start gap-base' : 'flex-col gap-base'}
                 >
-                    <Card
-                        testID="kitchen-unpriced-receipt-lines"
-                        tone="raised"
-                        padding="md"
-                        title={t('kitchen:ops.unpricedReceipts.linesHeading')}
+                    <View
+                        className={
+                            split
+                                ? 'min-w-0 flex-[21] flex-col gap-base'
+                                : 'min-w-0 flex-col gap-base'
+                        }
                     >
-                        <Stack space="sm">
-                            <Text variant="caption" tone="secondary">
-                                {priceable.length === 0
+                        <FormSection
+                            first
+                            variant="panel"
+                            testID="kitchen-unpriced-receipt-lines"
+                            title={t('kitchen:ops.unpricedReceipts.linesHeading')}
+                            printDescription
+                            description={
+                                priceable.length === 0
                                     ? t('kitchen:ops.unpricedReceipts.nothingToPrice')
-                                    : t('kitchen:ops.unpricedReceipts.quantitiesImmutable')}
-                            </Text>
+                                    : t('kitchen:ops.unpricedReceipts.quantitiesImmutable')
+                            }
+                        >
                             <DataList<GoodsReceiptLine>
                                 testID="kitchen-unpriced-receipt-lines-table"
                                 label={t('kitchen:ops.unpricedReceipts.linesHeading')}
@@ -372,65 +422,58 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                                 rowKey={(line) => line.id}
                                 density="sm"
                             />
-                            {/*
-                             * Said once, under the lines, rather than on each: the reason is the
-                             * same for every line waiting on a rate, and it is not a job for here.
-                             */}
-                            {detail.valuationPendingCount === 0 ? null : (
-                                <Callout
-                                    testID="kitchen-unpriced-receipt-pending-fx"
-                                    tone="warning"
-                                    title={t('kitchen:ops.unpricedReceipts.pendingFxTitle')}
-                                />
-                            )}
-                        </Stack>
-                    </Card>
-                </View>
+                        </FormSection>
+                    </View>
 
-                <View
-                    className={
-                        split ? 'min-w-0 flex-[10] flex-col gap-base' : 'min-w-0 flex-col gap-base'
-                    }
-                    style={split ? { minWidth: RECORD_RAIL_MIN } : undefined}
-                >
-                    <Card
-                        testID="kitchen-unpriced-receipt-record"
-                        tone="raised"
-                        padding="md"
-                        title={t('kitchen:ops.unpricedReceipts.recordHeading')}
+                    <View
+                        className={
+                            split
+                                ? 'min-w-0 flex-[10] flex-col gap-base'
+                                : 'min-w-0 flex-col gap-base'
+                        }
+                        style={split ? { minWidth: RECORD_RAIL_MIN } : undefined}
                     >
-                        <RecordWindowFieldGrid
-                            testID="kitchen-unpriced-receipt-field"
-                            fields={receiptFields(detail, formatter, t)}
-                        />
-                    </Card>
+                        <FormSection
+                            first
+                            variant="panel"
+                            testID="kitchen-unpriced-receipt-record"
+                            title={t('kitchen:ops.unpricedReceipts.recordHeading')}
+                        >
+                            <BoardFieldRows
+                                stacked
+                                testID="kitchen-unpriced-receipt-field"
+                                fields={receiptFields(detail, formatter, t)}
+                            />
+                        </FormSection>
+                    </View>
                 </View>
-            </View>
 
-            <Dialog
-                testID="kitchen-unpriced-receipt-unsaved-dialog"
-                open={guard.isPrompting}
-                onClose={guard.cancelDiscard}
-                title={t('kitchen:unsaved.title')}
-                description={t('kitchen:unsaved.body')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-unpriced-receipt-unsaved-keep"
-                            variant="quiet"
-                            label={t('kitchen:unsaved.keepEditing')}
-                            onPress={guard.cancelDiscard}
-                        />
-                        <Button
-                            testID="kitchen-unpriced-receipt-unsaved-discard"
-                            variant="danger"
-                            label={t('kitchen:unsaved.discard')}
-                            onPress={guard.confirmDiscard}
-                        />
-                    </>
-                }
-            />
-        </Cascade>
+                <Dialog
+                    look="card"
+                    testID="kitchen-unpriced-receipt-unsaved-dialog"
+                    open={guard.isPrompting}
+                    onClose={guard.cancelDiscard}
+                    title={t('kitchen:unsaved.title')}
+                    description={t('kitchen:unsaved.body')}
+                    actions={
+                        <>
+                            <DeskButton
+                                testID="kitchen-unpriced-receipt-unsaved-keep"
+                                variant="quiet"
+                                label={t('kitchen:unsaved.keepEditing')}
+                                onPress={guard.cancelDiscard}
+                            />
+                            <DeskButton
+                                testID="kitchen-unpriced-receipt-unsaved-discard"
+                                variant="danger"
+                                label={t('kitchen:unsaved.discard')}
+                                onPress={guard.confirmDiscard}
+                            />
+                        </>
+                    }
+                />
+            </Cascade>
+        </IssueTrayFrame>
     );
 }
 
@@ -490,13 +533,15 @@ function lineColumns({
             label: t('kitchen:ops.unpricedReceipts.columnReceived'),
             width: 110,
             priority: 90,
-            render: (line) => (
-                <Text variant="mono" testID={`kitchen-unpriced-line-${line.id}-quantity`}>
-                    {`${formatter.formatNumber(Number(line.quantity))} ${
-                        itemsById.get(String(line.stockItemId))?.unitCode ?? ''
-                    }`.trim()}
-                </Text>
-            ),
+            render: (line) => {
+                const code = itemsById.get(String(line.stockItemId))?.unitCode;
+                const unit = code === undefined ? '' : unitCodeLabel(code, t);
+                return (
+                    <Text variant="mono" testID={`kitchen-unpriced-line-${line.id}-quantity`}>
+                        {`${formatter.formatNumber(Number(line.quantity))} ${unit}`.trim()}
+                    </Text>
+                );
+            },
         },
         {
             key: 'unitPrice',
@@ -578,7 +623,7 @@ function lineColumns({
             render: (line) => {
                 const state = lineState(line);
                 return (
-                    <Badge
+                    <DeskChip
                         testID={`kitchen-unpriced-line-${line.id}-state`}
                         tone={state === 'priced' ? 'success' : 'warning'}
                         label={t(

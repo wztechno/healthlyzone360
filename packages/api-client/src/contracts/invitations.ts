@@ -80,6 +80,11 @@ export function isAcceptable(status: InvitationStatus): boolean {
 export interface InvitationOrganisation {
     readonly name: string;
     readonly languageCode: string;
+    /**
+     * The organisation type code — `corporate_customer` for a business buyer, a kitchen type
+     * otherwise — so an accepted invitation lands on the workspace the person was invited into.
+     */
+    readonly type: string | null;
 }
 
 /**

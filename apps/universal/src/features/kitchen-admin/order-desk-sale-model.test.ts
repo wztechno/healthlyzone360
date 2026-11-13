@@ -1,3 +1,6 @@
+import type { KitchenOrder } from '@healthy360/api-client/contracts';
+import { OrderId } from '@healthy360/domain-types';
+
 import type { BasketLine } from './order-desk/basket.ts';
 import {
     MAX_LINE_QUANTITY,
@@ -25,9 +28,12 @@ import {
     offeredDeskWindows,
     paymentMethodsFor,
     saleShortfall,
+    saleStateFromOrder,
     scheduleFor,
     windowsOverAt,
+    partyChosen,
     withCustomer,
+    withWalkIn,
     withFulfilmentType,
     withPaymentMethod,
 } from './order-desk/sale-state.ts';
@@ -86,7 +92,7 @@ describe('desk sale — what each kind of sale asks for', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('desk sale — what changing the kind clears', () => {
-    it('drops the customer and the address when a delivery becomes a counter sale', () => {
+    it('drops the address and keeps the customer when a delivery becomes a counter sale', () => {
         const delivery = withFulfilmentType(counterState(), 'delivery');
         const named = {
             ...withCustomer(delivery, 'account-1'),
@@ -95,10 +101,20 @@ describe('desk sale — what changing the kind clears', () => {
 
         const counter = withFulfilmentType(named, 'counter');
 
-        // A counter body carrying an address is refused `address_not_applicable`, and the page has
-        // no card on which the agent could see the customer it was still sending.
+        // A counter body carrying an address is refused `address_not_applicable`. The customer was
+        // chosen before the food, and the menu's allergy marks are theirs.
         expect(counter.customerAddressId).toBeNull();
-        expect(counter.customerAccountId).toBeNull();
+        expect(counter.customerAccountId).toBe('account-1');
+    });
+
+    it('ends a walk-in when the sale must name somebody, and keeps it on a counter sale', () => {
+        const walkIn = withWalkIn(withCustomer(counterState(), 'account-1'));
+
+        expect(walkIn.customerAccountId).toBeNull();
+        expect(partyChosen(walkIn)).toBe(true);
+        expect(withFulfilmentType(walkIn, 'pickup').walkIn).toBe(false);
+        expect(partyChosen(withFulfilmentType(walkIn, 'delivery'))).toBe(false);
+        expect(withCustomer(walkIn, 'account-2').walkIn).toBe(false);
     });
 
     it('drops only the address when a delivery becomes a pickup', () => {
@@ -562,5 +578,99 @@ describe('desk basket — decimal quantities', () => {
         // An emptied stepper answers null, which is not a quantity.
         expect(quantityFromNumber(null)).toBe('0');
         expect(quantityFromNumber(2)).toBe('2');
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * Editing a placed order
+ * ---------------------------------------------------------------------------------------------- */
+
+describe('desk sale — an existing order as the sale it is', () => {
+    const order: KitchenOrder = {
+        id: OrderId.unsafe('order-0001'),
+        orderNumber: 'H360-2026-0148',
+        branchId: null,
+        status: 'placed',
+        currencyCode: 'AED',
+        subtotalMinor: 6_400,
+        deliveryFeeMinor: 1_000,
+        totalMinor: 7_400,
+        paymentMethod: 'cash_on_delivery',
+        fulfilmentType: 'delivery',
+        delivery: {
+            label: null,
+            lineOne: 'Villa 12',
+            lineTwo: null,
+            city: null,
+            areaNameEn: 'Al Quoz 1',
+            areaNameAr: 'القوز ١',
+            areaId: null,
+            windowCode: 'morning',
+            requestedDate: '2026-08-16',
+            zoneId: null,
+        },
+        placedAt: '2026-08-15T09:00:00.000Z',
+        confirmedAt: null,
+        fulfilledAt: null,
+        cancelledAt: null,
+        cancellationReason: null,
+        lockVersion: 3,
+        customerAccountId: 'account-1',
+        amendable: true,
+        allergy: { severe: false, items: [], note: 'Coeliac', acknowledgedAt: null },
+        lineCount: 1,
+        lines: [
+            {
+                id: 'line-1',
+                catalogueItemId: ITEM,
+                catalogueItemVariantId: PACK,
+                nameEn: 'Flat white',
+                nameAr: 'فلات وايت',
+                variantLabel: 'Box of 6',
+                quantity: '2.000',
+                unitPriceMinor: 3_200,
+                lineTotalMinor: 6_400,
+                currencyCode: 'AED',
+                allergens: [],
+                packSummary: null,
+                priceListId: null,
+                priceListItemId: null,
+            },
+        ],
+    };
+
+    it('carries the lines, the customer, the stored slot and the method, and no new address', () => {
+        const state = saleStateFromOrder(order);
+        expect(state).toEqual({
+            fulfilmentType: 'delivery',
+            customerAccountId: 'account-1',
+            walkIn: false,
+            // `null` on an edit is "keep the stored destination".
+            customerAddressId: null,
+            lines: [
+                {
+                    catalogueItemId: ITEM,
+                    catalogueItemVariantId: PACK,
+                    // Normalised, so the stepper steps from 2 rather than from "2.000".
+                    quantity: '2',
+                    name: { en: 'Flat white', ar: 'فلات وايت' },
+                    variantLabel: 'Box of 6',
+                },
+            ],
+            paymentMethod: 'cash_on_delivery',
+            payment: null,
+            requestedDeliveryDate: '2026-08-16',
+            deliveryWindowCode: 'morning',
+            driverUserId: null,
+            // The stored note, to be read and changed. The tick is about a basket, so it never seeds.
+            allergyNote: 'Coeliac',
+            allergyAcknowledged: false,
+        });
+    });
+
+    it('does not ask an edited delivery for an address it already has', () => {
+        const state = saleStateFromOrder(order);
+        expect(saleShortfall(state)).toBe('address');
+        expect(saleShortfall(state, true)).toBeNull();
     });
 });

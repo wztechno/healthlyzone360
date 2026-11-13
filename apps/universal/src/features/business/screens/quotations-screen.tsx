@@ -5,7 +5,6 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
-    Inline,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
@@ -214,7 +213,6 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
             role: 'meta',
             label: t('business:quotations.columnLines'),
             width: 80,
-            align: 'end',
             priority: 60,
             value: (row) => formatter.formatNumber(row.lines.length),
         },
@@ -223,7 +221,6 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
             role: 'metric',
             label: t('business:quotations.columnTotal'),
             width: 150,
-            align: 'end',
             priority: 85,
             value: totalText,
             render: (row) =>
@@ -288,8 +285,8 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
             ? decided
             : listed;
 
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID={`quotation-${viewing.reference}`}
                 onBack={() => {
@@ -416,22 +413,25 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                                 }
                             />
                         ) : null}
-                        {viewing.state === 'quoted' ? (
-                            <Inline space="xs" wrap>
-                                <Button
-                                    testID={`quotation-${viewing.reference}-decline`}
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('business:quotations.decline')}
-                                    onPress={() => {
-                                        setDeciding({ kind: 'decline', quotation: viewing });
-                                    }}
-                                />
-                            </Inline>
-                        ) : null}
                         {dialog}
                     </>
                 }
+                {...(viewing.state === 'quoted'
+                    ? {
+                          actions: [
+                              {
+                                  key: 'decline',
+                                  label: t('business:quotations.decline'),
+                                  icon: 'circleX' as const,
+                                  tone: 'danger' as const,
+                                  testID: `quotation-${viewing.reference}-decline`,
+                                  onSelect: () => {
+                                      setDeciding({ kind: 'decline', quotation: viewing });
+                                  },
+                              },
+                          ],
+                      }
+                    : {})}
                 primaryAction={
                     viewing.state === 'quoted'
                         ? {
@@ -446,7 +446,6 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                 }
             />
         );
-    }
 
     const all = everything.data?.items ?? [];
     const count = (key: FilterKey) =>
@@ -509,7 +508,7 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                 search={search}
                 onSearchChange={setSearch}
                 searchLabel={t('business:quotations.searchLabel')}
-                searchPlaceholder={t('business:quotations.columnReference')}
+                searchPlaceholder={t('business:quotations.searchPlaceholder')}
                 statusLabel={t('business:quotations.filterLabel')}
                 statusSegments={FILTERS.map((value) => ({
                     value,
@@ -617,6 +616,8 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
                 />
             )}
             {dialog}
+
+            {viewPopup}
         </Cascade>
     );
 }
@@ -642,7 +643,6 @@ function QuotationLines({ quotation }: { readonly quotation: Quotation }) {
             role: 'meta',
             label: t('business:quotations.columnQuantity'),
             width: 90,
-            align: 'end',
             priority: 90,
             value: (line) => formatter.formatNumber(line.quantity),
         },
@@ -651,7 +651,6 @@ function QuotationLines({ quotation }: { readonly quotation: Quotation }) {
             role: 'metric',
             label: t('business:quotations.columnLineTotal'),
             width: 150,
-            align: 'end',
             priority: 95,
             value: (line) =>
                 line.quotedTotal === null

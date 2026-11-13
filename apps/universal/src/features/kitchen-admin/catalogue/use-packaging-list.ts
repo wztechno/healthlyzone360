@@ -22,6 +22,7 @@ import {
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
 import { missingLast } from './catalogue-column-spec.ts';
+import { inStatuses, statusTally, withoutStatuses } from './use-catalogue-filters.ts';
 import { useDestructiveRow } from './use-destructive-row.ts';
 import {
     useListMemory,
@@ -60,7 +61,7 @@ function usePackagingById(id: string | null) {
  *
  * Sharing a table is not sharing a question. A box is scanned for what it costs, what it holds and
  * how much of it is thrown away; an ingredient is scanned for what it is made of and what it might
- * trigger. So the columns, the stat cards and the sort keys here stay packaging's own — they read
+ * trigger. So the columns, the Lens figures and the sort keys here stay packaging's own — they read
  * `purchasePrice`, `capacity` and `wastePercent`, which are null on every food row.
  *
  * ## Archive is the only write
@@ -71,6 +72,9 @@ function usePackagingById(id: string | null) {
  * — see the note on `openEditor` below. `new` is a value of the same parameter, so the create
  * button and a row's Edit reach one place.
  */
+
+/** Frozen empty, so "no rows yet" keeps one identity across renders. */
+const NO_ROWS: readonly IngredientAdmin[] = [];
 
 export type PackagingSortKey =
     | 'reference'
@@ -148,11 +152,13 @@ export interface PackagingListState {
     /** The server's count for the whole filtered set, or `null` before the first answer. */
     readonly total: number | null;
     readonly shown: number;
-    /** The whole-set read behind the other cards has not landed yet. */
+    /** The whole-set read behind the figures has not landed yet. */
     readonly countsPending: boolean;
     /** How many rows on this page still have no price — the figure this page exists to chase. */
     readonly unpricedCount: number;
-    readonly inactiveCount: number;
+    /** Every row in scope, the status aside. */
+    readonly scopeCount: number;
+    readonly statusCounts: Readonly<Record<PublishableStatus, number>>;
     readonly missingArabicCount: number;
 
     readonly openEditor: (itemId: string) => void;
@@ -217,9 +223,11 @@ export function usePackagingList(view?: string): PackagingListState {
     useRestoredPageFallback(memory, page, packaging.isError, () => {
         setPage(1);
     });
-    // The cards count every page the filters match, not the eighteen rows on this one.
-    const wholeSet = usePackagingWholeSetQuery(filter);
-    const everyRow = wholeSet.data ?? [];
+    // Without the status, so the figures count every state in scope; `everyRow` re-applies it.
+    const wholeSet = usePackagingWholeSetQuery(withoutStatuses(filter));
+    const scopeRows = wholeSet.data ?? NO_ROWS;
+    const everyRow = useMemo(() => inStatuses(scopeRows, statuses), [scopeRows, statuses]);
+    const statusCounts = useMemo(() => statusTally(scopeRows), [scopeRows]);
     const categories = usePackagingCategoriesQuery();
     const archive = useDestructiveRow(useArchiveIngredientMutation(), (row: IngredientAdmin) => ({
         ingredientId: row.id,
@@ -350,8 +358,8 @@ export function usePackagingList(view?: string): PackagingListState {
         // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
         shown: Math.min(page * KITCHEN_PAGE_SIZE, packaging.data?.totalCount ?? sorted.length),
         unpricedCount: everyRow.filter((row) => row.purchasePrice === null).length,
-        // `draft` is what the packaging table called `inactive` — a row recorded but not in use.
-        inactiveCount: everyRow.filter((row) => row.meta.status === 'draft').length,
+        scopeCount: scopeRows.length,
+        statusCounts,
         missingArabicCount: everyRow.filter((row) => displayName(row.name, locale).isFallback)
             .length,
 

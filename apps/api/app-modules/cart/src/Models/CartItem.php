@@ -29,13 +29,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $catalogue_item_variant_id
  * @property string $quantity
  * @property CarbonImmutable|null $delivery_date
+ * @property list<array{id: string, kind: string, group_en: string|null, group_ar: string|null, name_en: string, name_ar: string}>|null $selected_options
+ * @property string|null $note
+ * @property string $line_key
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  * @property-read Cart|null $cart
  * @property-read CatalogueItem|null $item
  * @property-read CatalogueItemVariant|null $variant
  */
-#[Classified(DataClassification::Internal, 'quantity', 'delivery_date')]
+#[Classified(DataClassification::Internal, 'quantity', 'delivery_date', 'selected_options', 'note')]
 class CartItem extends BaseModel
 {
     /** @use HasFactory<CartItemFactory> */
@@ -49,6 +52,7 @@ class CartItem extends BaseModel
         return [
             'quantity' => 'decimal:4',
             'delivery_date' => 'immutable_date',
+            'selected_options' => 'array',
         ];
     }
 

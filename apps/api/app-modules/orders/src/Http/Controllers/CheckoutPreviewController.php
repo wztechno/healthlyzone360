@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Healthy360\Orders\Http\Controllers;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Cart\Services\CartLocator;
 use Healthy360\Orders\Http\Requests\PreviewCheckoutRequest;
 use Healthy360\Orders\Services\CheckoutPreviewService;
 use Healthy360\Orders\Services\OrderLocator;
@@ -43,6 +44,7 @@ final class CheckoutPreviewController
     public function __construct(
         private readonly OrderLocator $locator,
         private readonly CheckoutPreviewService $preview,
+        private readonly CartLocator $carts,
     ) {}
 
     /**
@@ -54,6 +56,7 @@ final class CheckoutPreviewController
 
         $account = $this->locator->shopper();
         $cart = $this->locator->cart($account, $payload['cart_id']);
+        $this->carts->assertShopperMayTradeOnCart($account, $cart);
 
         $addressId = $payload['customer_address_id'] ?? null;
         $address = $addressId === null ? null : $this->locator->address($account, $addressId);

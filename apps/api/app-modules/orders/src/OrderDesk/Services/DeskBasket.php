@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Orders\OrderDesk\Services;
 
+use Healthy360\Catalogues\Services\DishOptions;
 use Healthy360\Orders\Services\ComposedLine;
 use InvalidArgumentException;
 
@@ -65,12 +66,12 @@ final readonly class DeskBasket
     /**
      * Merge a tapped basket into one line per article.
      *
-     * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string}>  $lines
+     * @param  list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: string, option_ids?: list<string>, note?: string|null}>  $lines
      * @return list<ComposedLine>
      */
     public function aggregate(array $lines): array
     {
-        /** @var array<string, array{item: string, variant: string|null, quantity: numeric-string}> $merged */
+        /** @var array<string, array{item: string, variant: string|null, quantity: numeric-string, options: list<string>, note: string|null}> $merged */
         $merged = [];
 
         foreach ($lines as $line) {
@@ -83,10 +84,16 @@ final readonly class DeskBasket
             // the index will happily take, so they must stay two lines here. The
             // empty string stands in for the null so that the two shapes cannot
             // collide through a coincidence of identifiers.
-            $key = $itemId.'|'.($variantId ?? '');
+            //
+            // The dish made differently is a different line too: two teas, one
+            // with a note, are not a tea twice.
+            $optionIds = $line['option_ids'] ?? [];
+            $note = trim((string) ($line['note'] ?? ''));
+            $note = $note === '' ? null : $note;
+            $key = $itemId.'|'.($variantId ?? '').'|'.DishOptions::lineKey($optionIds, $note);
 
             if (! array_key_exists($key, $merged)) {
-                $merged[$key] = ['item' => $itemId, 'variant' => $variantId, 'quantity' => '0'];
+                $merged[$key] = ['item' => $itemId, 'variant' => $variantId, 'quantity' => '0', 'options' => $optionIds, 'note' => $note];
             }
 
             $merged[$key]['quantity'] = bcadd($merged[$key]['quantity'], $this->numeric($line['quantity']), self::SCALE);
@@ -97,6 +104,8 @@ final readonly class DeskBasket
                 catalogueItemId: $line['item'],
                 catalogueItemVariantId: $line['variant'],
                 quantity: $line['quantity'],
+                optionIds: $line['options'],
+                note: $line['note'],
             ),
             $merged,
         ));

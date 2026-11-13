@@ -7,12 +7,12 @@ import type {
 import { RECEIPT_COST_STATUSES } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Cascade,
-    DatePickerButton,
     EmptyState,
     ErrorState,
+    InfoTip,
     Inline,
+    SegmentedControl,
     Stack,
     TableSkeleton,
     Text,
@@ -21,7 +21,7 @@ import type { BadgeTone, MenuItem } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -37,10 +37,8 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CATALOGUE_PAGE_SIZE, CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
-import type { CatalogueStatusSegment } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensMixPart, LensToken } from '../catalogue/lens-bar.tsx';
 import {
     compareAmount,
     compareNumber,
@@ -53,6 +51,7 @@ import { displayName } from '../format.ts';
 import { receiptCostStatusKey } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
+import { ReceiptOrderRef, useReceiptOpenOrderActions } from '../receipt-order-ref.tsx';
 import {
     useListMemory,
     useRememberedFilter,
@@ -63,6 +62,8 @@ import {
 } from '../list-memory.ts';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
+import { DeskDateButton } from '../desk-kit/mini-month.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/purchases-ledger` — the browsable record behind the monthly spend figure (INV1.1), and
  * since SUP6 the weekly and monthly check over the same rows (§3.7, §7).
@@ -85,10 +86,13 @@ import { useViewedRecord } from '../use-viewed-record.ts';
  * mode fetches, because two modes should not cost two requests.
  *
  * A summary period is an **envelope**: the money sits in per-currency rows, and the completeness
- * facts sit on the period itself, because an unpriced line has no currency to belong to. A period
- * with nothing priced in it renders as an Incomplete card with no money rows at all — §3.7's rule
- * that an unpriced line contributes to quantity history and not to money, made visible rather than
- * arithmetic nobody can see.
+ * facts sit on the period itself, because an unpriced line has no currency to belong to. So a
+ * summary is one table with a row per period, each money cell holding one line per currency, and
+ * the status cell naming what is missing — unpriced lines, prices waiting on a rate — as badges. A
+ * period with nothing priced in it shows "Nothing priced" and no money at all — §3.7's rule that an
+ * unpriced line contributes to quantity history and not to money, made visible rather than
+ * arithmetic nobody can see. The charges behind the invoiced figure are columns the reader adds from
+ * the column picker, not on by default.
  *
  * There is deliberately **no total across currencies** anywhere on this screen, and no grand total
  * across periods: this system has no exchange rate (§4.4), and one figure adding two currencies
@@ -104,8 +108,9 @@ import { useViewedRecord } from '../use-viewed-record.ts';
  *
  * ## On the Catalogue list (Operations handoff)
  *
- * The cost note sits first, then stat cards counted over the lines in hand, then one toolbar row:
- * the search, the three read-as modes, and at its end the received-between window. Supplier, item
+ * One Lens bar over the list: figures counted over the page in hand — or, in a summary, the periods
+ * by completeness, which filter the table — then the read-as mode, the received-between window and
+ * (in detail only, since a period has no item to search for) the search on its query row. Supplier, item
  * and price state are filtered from their column headers, which send them with the request, so the
  * row carries no picker that repeats a header. The search box narrows only the page in hand,
  * because the endpoint has no text search. Read-only: View is the one row action, and it opens the
@@ -197,7 +202,13 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
     );
     const [page, setPage] = useRememberedPageNumber(memory);
     const cursor = cursors[page - 1];
-    const [expandedCharges, setExpandedCharges] = useState<readonly string[]>([]);
+    // A summary's own narrowing: which periods, by completeness. Client-side — the summary is
+    // never paged — so it is not sent and does not touch the detail filters.
+    const [periodStatus, setPeriodStatus] = useRememberedFilter<PeriodStatus | null>(
+        memory,
+        'periodStatus',
+        null,
+    );
     const [query, setQuery] = useRememberedQuery(memory);
     const [lastOpenedId, rememberOpened] = useRememberedOpened(memory);
     const openView = (row: PurchaseLedgerLine) => {
@@ -288,7 +299,13 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
             trimmed === ''
                 ? pageRows
                 : pageRows.filter((row) =>
-                      [row.itemNameEn, row.itemCode, row.supplier?.nameEn, row.documentRef]
+                      [
+                          row.itemNameEn,
+                          row.itemCode,
+                          row.supplier?.nameEn,
+                          row.documentRef,
+                          row.purchaseOrderNumber,
+                      ]
                           .filter((value): value is string => value !== null && value !== undefined)
                           .some((value) => value.toLocaleLowerCase().includes(trimmed)),
                   ),
@@ -311,6 +328,18 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
               : formatter.formatDate(row.receivedAt, { dateStyle: 'medium' });
 
     const itemTitle = (row: PurchaseLedgerLine): string => row.itemNameEn ?? row.stockItemId;
+
+    const varianceText = (percent: string | null): string =>
+        percent === null
+            ? '—'
+            : t(
+                  Number(percent) > 0
+                      ? 'kitchen:ops.ledger.varianceUp'
+                      : Number(percent) < 0
+                        ? 'kitchen:ops.ledger.varianceDown'
+                        : 'kitchen:ops.ledger.varianceFlat',
+                  { percent: formatter.formatNumber(Math.abs(Number(percent))) },
+              );
 
     const columns: readonly ControlledColumn<
         PurchaseLedgerLine,
@@ -432,6 +461,26 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
             ),
         },
         {
+            key: 'order',
+            label: t('kitchen:ops.procurement.columnOrder'),
+            width: 120,
+            priority: 45,
+            value: (row) => row.purchaseOrderNumber ?? '—',
+            sort: (left, right, direction) =>
+                compareText(
+                    left.purchaseOrderNumber ?? '',
+                    right.purchaseOrderNumber ?? '',
+                    direction,
+                ),
+            render: (row) => (
+                <ReceiptOrderRef
+                    orderId={row.purchaseOrderId}
+                    orderNumber={row.purchaseOrderNumber}
+                    testID={`kitchen-ledger-${row.id}-order`}
+                />
+            ),
+        },
+        {
             key: 'unitPrice',
             role: 'metric',
             label: t('kitchen:ops.ledger.columnUnitPrice'),
@@ -445,6 +494,31 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                     {money(row.unitPriceAmount, row.costCurrencyCode)}
                 </Text>
             ),
+        },
+        {
+            // This price against the last one paid for the shelf, in this line's unit. A rise wears
+            // the warning badge; nothing to compare reads as a dash. Offered from the column picker:
+            // the first visit keeps the catalogue's six.
+            key: 'variance',
+            label: t('kitchen:ops.ledger.columnVariance'),
+            width: 110,
+            priority: 65,
+            value: (row) => varianceText(row.priceVariancePercent),
+            sort: (left, right, direction) =>
+                compareAmount(left.priceVariancePercent, right.priceVariancePercent, direction),
+            render: (row) =>
+                row.priceVariancePercent !== null && Number(row.priceVariancePercent) > 0 ? (
+                    <Badge
+                        testID={`kitchen-ledger-${row.id}-variance`}
+                        tone="warning"
+                        icon="warning"
+                        label={varianceText(row.priceVariancePercent)}
+                    />
+                ) : (
+                    <Text variant="mono" testID={`kitchen-ledger-${row.id}-variance`}>
+                        {varianceText(row.priceVariancePercent)}
+                    </Text>
+                ),
         },
         {
             key: 'lineTotal',
@@ -493,7 +567,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                 },
             },
             render: (row) => (
-                <Badge
+                <DeskChip
                     testID={`kitchen-ledger-${row.id}-state`}
                     tone={LINE_STATE_TONES[ledgerLineState(row)]}
                     label={t(LINE_STATE_KEYS[ledgerLineState(row)])}
@@ -502,34 +576,112 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
         },
     ];
 
-    // Seven columns, one over the catalogue's six: a price without its quantity, or a quantity
-    // without its price, is half of a purchase line.
     const controls = useColumnControls(rows, columns, 'kitchen-purchases-ledger', {
-        picker: { max: 7 },
+        picker: { defaults: LINE_DEFAULT_COLUMNS },
     });
 
     const failure = toFailure(isDetail ? ledger.error : summary.error);
     const pending = isDetail ? ledger.isPending : summary.isPending;
-    const periods = summary.data?.periods ?? [];
+    const periods = useMemo(() => summary.data?.periods ?? [], [summary.data]);
+    const shownPeriods = useMemo(
+        () =>
+            periodStatus === null
+                ? periods
+                : periods.filter((entry) => entry.isComplete === (periodStatus === 'complete')),
+        [periods, periodStatus],
+    );
+    const summaryControls = useColumnControls(
+        shownPeriods,
+        periodColumns(activeMode === 'weekly' ? 'weekly' : 'monthly', periods, t, formatter),
+        'kitchen-purchases-ledger-summary',
+        { picker: { defaults: PERIOD_DEFAULT_COLUMNS } },
+    );
 
-    function toggleCharges(key: string) {
-        setExpandedCharges((current) =>
-            current.includes(key) ? current.filter((entry) => entry !== key) : [...current, key],
-        );
-    }
-
-    const modeSegments: readonly CatalogueStatusSegment<LedgerMode>[] = [
+    const modeOptions: readonly { readonly value: LedgerMode; readonly label: string }[] = [
         { value: 'detail', label: t('kitchen:ops.ledger.modeDetail') },
         { value: 'weekly', label: t('kitchen:ops.ledger.modeWeekly') },
         { value: 'monthly', label: t('kitchen:ops.ledger.modeMonthly') },
     ];
 
+    // The mode is a scope, not a filter: Clear leaves it. Each mode counts only the narrowing it
+    // draws, so Clear never appears for a filter the reader cannot see.
+    const filtered =
+        (isDetail ? query.trim() !== '' || costStatus !== null : periodStatus !== null) ||
+        supplierId !== null ||
+        stockItemId !== null ||
+        from !== '' ||
+        to !== '';
+
+    function clearFilters() {
+        setQuery('');
+        setCostStatus(null);
+        setPeriodStatus(null);
+        setSupplierId(null);
+        setStockItemId(null);
+        setFrom('');
+        setTo('');
+        resetCursor();
+    }
+
+    function clearCostStatus() {
+        setCostStatus(null);
+        resetCursor();
+    }
+
+    const costStatusLabel =
+        costStatus === null
+            ? null
+            : t('kitchen:lens.token', {
+                  label: t('kitchen:ops.ledger.columnState'),
+                  value: t(receiptCostStatusKey(costStatus)),
+              });
+    const tokens: readonly LensToken[] =
+        costStatusLabel === null || !isDetail
+            ? []
+            : [
+                  {
+                      key: 'costStatus',
+                      label: costStatusLabel,
+                      removeLabel: t('kitchen:toolbar.removeFilter', { filter: costStatusLabel }),
+                      onRemove: clearCostStatus,
+                  },
+              ];
+    const lens =
+        failure !== null
+            ? { figures: [] }
+            : isDetail
+              ? ledgerLens(pending ? null : pageRows, costStatus === null, clearCostStatus, t)
+              : periodLens(
+                    pending ? null : periods,
+                    activeMode === 'weekly' ? 'weekly' : 'monthly',
+                    periodStatus,
+                    setPeriodStatus,
+                    t,
+                );
+
+    // The window the summary actually read, in the date buttons while the reader has set none —
+    // the server defaults it, and the reader should see which months they are looking at.
+    const summaryBound = (bound: 'from' | 'to'): string | null =>
+        isDetail || summary.data === undefined
+            ? null
+            : formatter.formatDate(summary.data[bound], { dateStyle: 'medium', timeZone: 'UTC' });
+
     const viewingState = viewing === null ? null : ledgerLineState(viewing);
 
-    if (viewing !== null && viewingState !== null) {
-        return (
+    // The table closes the toolbar's card only when it is drawn.
+    const joined =
+        !pending && failure === null && (isDetail ? controls.rows.length > 0 : periods.length > 0);
+
+    const openOrderActions = useReceiptOpenOrderActions(
+        viewing?.purchaseOrderId ?? null,
+        'kitchen-ledger-view-open-order',
+    );
+    const viewPopup =
+        viewing === null || viewingState === null ? null : (
             <RecordViewPage
                 testID="kitchen-purchases-ledger-view"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowLedger')}
                 onBack={() => {
                     setViewing(null);
                 }}
@@ -548,6 +700,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                                   : 'kitchen:ops.ledger.viewUnpricedNote',
                           ),
                       })}
+                actions={openOrderActions}
                 fields={[
                     {
                         key: 'supplier',
@@ -564,6 +717,12 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                         key: 'documentRef',
                         label: t('kitchen:ops.procurement.fieldDocumentRef'),
                         value: viewing.documentRef ?? '—',
+                        mono: true,
+                    },
+                    {
+                        key: 'order',
+                        label: t('kitchen:ops.procurement.columnOrder'),
+                        value: viewing.purchaseOrderNumber ?? '—',
                         mono: true,
                     },
                     {
@@ -607,6 +766,11 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                         mono: true,
                     },
                     {
+                        key: 'variance',
+                        label: t('kitchen:ops.ledger.columnVariance'),
+                        value: varianceText(viewing.priceVariancePercent),
+                    },
+                    {
                         key: 'lineTotal',
                         label: t('kitchen:ops.ledger.columnLineTotal'),
                         value: money(viewing.lineTotalAmount, viewing.costCurrencyCode),
@@ -616,168 +780,229 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                 footNote={t('kitchen:ops.ledger.viewFoot')}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-purchases-ledger-screen">
-            {isDetail && failure === null ? (
-                <CatalogueStatCards
-                    testID="kitchen-purchases-ledger-stats"
-                    cards={ledgerStatCards(controls.rows, t)}
-                    pending={pending}
-                />
-            ) : null}
-
-            <CatalogueToolbar<LedgerMode>
-                testID="kitchen-ledger-toolbar"
-                search={query}
-                onSearchChange={(next) => {
-                    setQuery(next);
-                    setViewing(null);
-                }}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:ops.ledger.searchPlaceholder')}
-                statusLabel={t('kitchen:ops.ledger.modeLabel')}
-                statusSegments={modeSegments}
-                status={activeMode}
-                onStatusChange={(next) => {
-                    setActiveMode(next);
-                    setViewing(null);
-                }}
-                /*
-                 * The received-between window, among the filters: the one filter with no column to
-                 * live on. Two days with "to" between, either bound open, and each picker keeps the
-                 * other honest — From cannot pass To, nor To precede From.
-                 */
-                filters={
-                    <View className="flex-row items-center gap-tight">
-                        <DatePickerButton
-                            testID="kitchen-ledger-filter-from"
-                            label={t('kitchen:ops.ledger.filterFrom')}
-                            value={from}
-                            max={to === '' ? undefined : to}
-                            placeholder={t('kitchen:ops.ledger.fromPlaceholder')}
-                            onChange={(value) => {
-                                setFrom(value);
-                                resetCursor();
-                            }}
-                            onClear={() => {
-                                setFrom('');
-                                resetCursor();
-                            }}
+            {/*
+             * The Lens bar — figures, mix and query row as one object over the list
+             * (`lens-bar.tsx`). The figures count the detail page in hand; a summary has none.
+             */}
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-ledger-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    {...lens}
+                    /* A period has no item or supplier to find, so only the lines are searched. */
+                    {...(isDetail
+                        ? {
+                              search: query,
+                              onSearchChange: (next: string) => {
+                                  setQuery(next);
+                                  setViewing(null);
+                              },
+                              searchLabel: t('kitchen:toolbar.searchLabel'),
+                              searchPlaceholder: t('kitchen:ops.ledger.searchPlaceholder'),
+                          }
+                        : {})}
+                    tokens={tokens}
+                    result={
+                        pending
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: isDetail ? controls.rows.length : shownPeriods.length,
+                                  total: isDetail ? pageRows.length : periods.length,
+                              })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(filtered ? { onClear: clearFilters } : {})}
+                    /*
+                     * The read-as mode — three buttons, every choice in sight — then the
+                     * received-between window: the one filter with no column to live on. Two days with
+                     * "to" between, either bound open, and each picker keeps the other honest — From
+                     * cannot pass To, nor To precede From.
+                     */
+                    scope={
+                        <>
+                            <Text variant="body" tone="secondary" aria-hidden>
+                                {t('kitchen:ops.ledger.modeLabel')}
+                            </Text>
+                            <SegmentedControl<LedgerMode>
+                                testID="kitchen-ledger-mode"
+                                label={t('kitchen:ops.ledger.modeLabel')}
+                                value={activeMode}
+                                onChange={(next) => {
+                                    setActiveMode(next);
+                                    setViewing(null);
+                                }}
+                                items={modeOptions.map((option) => ({
+                                    ...option,
+                                    testID: `kitchen-ledger-mode-${option.value}`,
+                                }))}
+                            />
+                            <View aria-hidden className="mx-1 h-5 w-px bg-brand-100" />
+                            <View className="flex-row items-center gap-tight">
+                                <DeskDateButton
+                                    testID="kitchen-ledger-filter-from"
+                                    label={t('kitchen:ops.ledger.filterFrom')}
+                                    value={from}
+                                    max={to === '' ? undefined : to}
+                                    placeholder={
+                                        summaryBound('from') ??
+                                        t('kitchen:ops.ledger.fromPlaceholder')
+                                    }
+                                    onChange={(value) => {
+                                        setFrom(value);
+                                        resetCursor();
+                                    }}
+                                    onClear={() => {
+                                        setFrom('');
+                                        resetCursor();
+                                    }}
+                                />
+                                <Text variant="caption" tone="secondary" aria-hidden>
+                                    {t('kitchen:ops.requirements.windowTo')}
+                                </Text>
+                                <DeskDateButton
+                                    testID="kitchen-ledger-filter-to"
+                                    label={t('kitchen:ops.ledger.filterTo')}
+                                    value={to}
+                                    min={from === '' ? undefined : from}
+                                    placeholder={
+                                        summaryBound('to') ?? t('kitchen:ops.ledger.toPlaceholder')
+                                    }
+                                    onChange={(value) => {
+                                        setTo(value);
+                                        resetCursor();
+                                    }}
+                                    onClear={() => {
+                                        setTo('');
+                                        resetCursor();
+                                    }}
+                                />
+                            </View>
+                        </>
+                    }
+                    trailing={(narrow) => (
+                        <ColumnPicker
+                            {...(isDetail ? controls.picker : summaryControls.picker)}
+                            compact={narrow}
                         />
-                        <Text variant="caption" tone="secondary" aria-hidden>
-                            {t('kitchen:ops.requirements.windowTo')}
-                        </Text>
-                        <DatePickerButton
-                            testID="kitchen-ledger-filter-to"
-                            label={t('kitchen:ops.ledger.filterTo')}
-                            value={to}
-                            min={from === '' ? undefined : from}
-                            placeholder={t('kitchen:ops.ledger.toPlaceholder')}
-                            onChange={(value) => {
-                                setTo(value);
-                                resetCursor();
-                            }}
-                            onClear={() => {
-                                setTo('');
-                                resetCursor();
-                            }}
-                        />
-                    </View>
-                }
-            >
-                <ColumnPicker {...controls.picker} />
-            </CatalogueToolbar>
+                    )}
+                />
 
-            {pending ? (
-                <TableSkeleton
-                    testID="kitchen-purchases-ledger-loading"
-                    partTestID="kitchen-purchases-ledger"
-                />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-purchases-ledger-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void (isDetail ? ledger.refetch() : summary.refetch());
-                    }}
-                    retrying={isDetail ? ledger.isFetching : summary.isFetching}
-                />
-            ) : isDetail ? (
-                controls.rows.length === 0 ? (
-                    <EmptyState
-                        testID="kitchen-purchases-ledger-empty"
-                        title={t('kitchen:ops.ledger.emptyTitle')}
-                        body={t('kitchen:ops.ledger.emptyBody')}
+                {pending ? (
+                    <TableSkeleton
+                        testID="kitchen-purchases-ledger-loading"
+                        partTestID="kitchen-purchases-ledger"
+                    />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-purchases-ledger-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void (isDetail ? ledger.refetch() : summary.refetch());
+                        }}
+                        retrying={isDetail ? ledger.isFetching : summary.isFetching}
+                    />
+                ) : isDetail ? (
+                    controls.rows.length === 0 ? (
+                        <CatalogueList
+                            testID="kitchen-purchases-ledger-empty-list"
+                            label={t('kitchen:lens.label')}
+                            columns={controls.columns}
+                            rows={[]}
+                            rowKey={() => ''}
+                            density="sm"
+                            joined
+                            frameEmpty
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            emptyState={
+                                <EmptyState
+                                    shape="table"
+                                    testID="kitchen-purchases-ledger-empty"
+                                    title={t('kitchen:ops.ledger.emptyTitle')}
+                                    body={t('kitchen:ops.ledger.emptyBody')}
+                                />
+                            }
+                        />
+                    ) : (
+                        <Stack space="sm">
+                            <CatalogueList<PurchaseLedgerLine>
+                                testID="kitchen-purchases-ledger-table"
+                                joined
+                                label={t('kitchen:ops.ledger.title')}
+                                columns={controls.columns}
+                                rows={controls.rows}
+                                rowKey={(row) => row.id}
+                                density="sm"
+                                highlightedId={lastOpenedId}
+                                onRowPress={openView}
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                                // View only: there is nothing to write from a ledger.
+                                rowActions={(row): readonly MenuItem[] => [
+                                    {
+                                        key: 'view',
+                                        label: t('kitchen:list.view'),
+                                        icon: CATALOGUE_ROW_ICONS.view,
+                                        testID: `kitchen-ledger-${row.id}-view`,
+                                        onSelect: () => {
+                                            openView(row);
+                                        },
+                                    },
+                                ]}
+                            />
+                            <CataloguePager
+                                testID="kitchen-purchases-ledger-pagination"
+                                page={page}
+                                totalPages={cursors.length}
+                                onPageChange={(next) => {
+                                    setPage(next);
+                                    setViewing(null);
+                                }}
+                                label={t('kitchen:catalogue.pagerLabel')}
+                            />
+                        </Stack>
+                    )
+                ) : periods.length === 0 ? (
+                    <CatalogueList
+                        testID="kitchen-purchases-ledger-summary-empty-list"
+                        label={t('kitchen:lens.label')}
+                        columns={summaryControls.columns}
+                        rows={[]}
+                        rowKey={() => ''}
+                        density="sm"
+                        joined
+                        frameEmpty
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        emptyState={
+                            <EmptyState
+                                shape="table"
+                                testID="kitchen-purchases-ledger-summary-empty"
+                                title={t('kitchen:ops.ledger.summaryEmptyTitle')}
+                            />
+                        }
                     />
                 ) : (
-                    <Stack space="sm">
-                        <CatalogueList<PurchaseLedgerLine>
-                            testID="kitchen-purchases-ledger-table"
-                            label={t('kitchen:ops.ledger.title')}
-                            columns={controls.columns}
-                            rows={controls.rows}
-                            rowKey={(row) => row.id}
-                            density="sm"
-                            highlightedId={lastOpenedId}
-                            onRowPress={openView}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                            // View only: there is nothing to write from a ledger.
-                            rowActions={(row): readonly MenuItem[] => [
-                                {
-                                    key: 'view',
-                                    label: t('kitchen:list.view'),
-                                    icon: CATALOGUE_ROW_ICONS.view,
-                                    testID: `kitchen-ledger-${row.id}-view`,
-                                    onSelect: () => {
-                                        openView(row);
-                                    },
-                                },
-                            ]}
-                        />
-                        <CataloguePager
-                            testID="kitchen-purchases-ledger-pagination"
-                            page={page}
-                            totalPages={cursors.length}
-                            onPageChange={(next) => {
-                                setPage(next);
-                                setViewing(null);
-                            }}
-                            label={t('kitchen:catalogue.pagerLabel')}
-                        />
-                    </Stack>
-                )
-            ) : periods.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-purchases-ledger-summary-empty"
-                    title={t('kitchen:ops.ledger.summaryEmptyTitle')}
-                    body={t('kitchen:ops.ledger.summaryEmptyBody')}
-                />
-            ) : (
-                <Stack space="md" testID="kitchen-purchases-ledger-summary">
-                    {summary.data === undefined ? null : (
-                        <Text
-                            variant="caption"
-                            tone="secondary"
-                            testID="kitchen-ledger-summary-range"
-                        >
-                            {t('kitchen:ops.ledger.summaryRange', {
-                                from: summary.data.from,
-                                to: summary.data.to,
-                            })}
-                        </Text>
-                    )}
-                    {periods.map((period) => (
-                        <PeriodCard
-                            key={period.period}
-                            period={period}
-                            expanded={expandedCharges}
-                            onToggleCharges={toggleCharges}
-                        />
-                    ))}
-                </Stack>
-            )}
+                    <CatalogueList<SpendSummaryPeriod>
+                        testID="kitchen-purchases-ledger-summary"
+                        joined
+                        label={t(
+                            activeMode === 'weekly'
+                                ? 'kitchen:ops.ledger.summaryWeeklyLabel'
+                                : 'kitchen:ops.ledger.summaryMonthlyLabel',
+                        )}
+                        columns={summaryControls.columns}
+                        rows={summaryControls.rows}
+                        rowKey={(row) => row.period}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                    />
+                )}
+            </View>
+
+            {viewPopup}
         </Cascade>
     );
 }
@@ -808,232 +1033,490 @@ const LINE_STATE_TONES: Readonly<Record<LedgerLineState, BadgeTone>> = {
     priced: 'success',
 };
 
-/** Counted over the lines in hand, like the design's CARDS. */
-function ledgerStatCards(
-    rows: readonly PurchaseLedgerLine[],
+/**
+ * The Lens bar's figures: All lines, then the three money states, counted over the page in hand —
+ * the endpoint gives no total. The states are the lines', not the receipt cost status the State
+ * header filters by, so they are read-only; All clears that filter. `null` rows: in flight.
+ */
+function ledgerLens(
+    rows: readonly PurchaseLedgerLine[] | null,
+    allActive: boolean,
+    onAll: () => void,
     t: TFunction,
-): readonly CatalogueStatCard[] {
-    const count = (state: LedgerLineState) =>
-        rows.filter((row) => ledgerLineState(row) === state).length;
-    const unpriced = count('unpriced');
-    const pendingFx = count('pendingFx');
-    return [
-        {
-            key: 'unpriced',
-            label: t('kitchen:ops.ledger.stateUnpriced'),
-            value: String(unpriced),
-            unit: t('kitchen:ops.ledger.statLinesUnit'),
-            caption: t('kitchen:ops.ledger.statUnpricedCaption'),
-            mark: 'coins',
-            tone: unpriced === 0 ? 'default' : 'warning',
-        },
-        {
-            key: 'pendingFx',
-            label: t('kitchen:ops.ledger.statePendingFx'),
-            value: String(pendingFx),
-            unit: t('kitchen:ops.ledger.statLinesUnit'),
-            caption: t('kitchen:ops.ledger.statPendingFxCaption'),
-            mark: 'clock',
-        },
-        {
-            key: 'priced',
-            label: t('kitchen:ops.ledger.statePriced'),
-            value: String(count('priced')),
-            unit: t('kitchen:ops.ledger.statLinesUnit'),
-            caption: t('kitchen:ops.ledger.statPricedCaption'),
-            mark: 'circleCheck',
-        },
-    ];
+): {
+    readonly figures: readonly LensFigure[];
+    readonly mix: readonly LensMixPart[];
+    readonly mixLabel: string;
+} {
+    const count = (state: LedgerLineState): number =>
+        rows === null ? 0 : rows.filter((row) => ledgerLineState(row) === state).length;
+    const counted = (state: LedgerLineState): number | null =>
+        rows === null ? null : count(state);
+    return {
+        figures: [
+            {
+                key: 'all',
+                label: t('kitchen:lens.allLines'),
+                value: rows === null ? null : rows.length,
+                active: allActive,
+                onPress: onAll,
+                accessibilityLabel: t('kitchen:lens.allAction'),
+            },
+            {
+                key: 'unpriced',
+                label: t('kitchen:ops.ledger.stateUnpriced'),
+                value: counted('unpriced'),
+                tone: 'warning',
+                separated: true,
+            },
+            {
+                key: 'pendingFx',
+                label: t('kitchen:ops.ledger.statePendingFx'),
+                value: counted('pendingFx'),
+                tone: 'info',
+            },
+            {
+                key: 'priced',
+                label: t('kitchen:ops.ledger.statePriced'),
+                value: counted('priced'),
+                tone: 'success',
+            },
+        ],
+        mix: [
+            { key: 'unpriced', value: count('unpriced'), tone: 'warning' },
+            { key: 'pendingFx', value: count('pendingFx'), tone: 'info' },
+            { key: 'priced', value: count('priced'), tone: 'success' },
+        ],
+        mixLabel: t('kitchen:lens.ledgerMix', {
+            unpriced: count('unpriced'),
+            pendingFx: count('pendingFx'),
+            priced: count('priced'),
+        }),
+    };
+}
+
+/** A summary's narrowing by completeness — the Lens figures' filter. */
+type PeriodStatus = 'complete' | 'incomplete';
+
+/**
+ * What a first visit draws: the six-column cap, with quantity, price and total kept together — a
+ * price without its quantity is half of a purchase line. The received date waits in the column
+ * picker; the toolbar's From and Until already narrow by it.
+ */
+const LINE_DEFAULT_COLUMNS = ['item', 'supplier', 'quantity', 'unitPrice', 'lineTotal', 'state'];
+
+/** What a first visit draws. The four charges wait in the column picker, as the cards' toggle did. */
+const PERIOD_DEFAULT_COLUMNS = ['period', 'status', 'lines', 'goods', 'invoiced'];
+
+type Formatter = ReturnType<typeof useFormatter>;
+
+function formatMoney(formatter: Formatter, amount: string | null, currency: string): string {
+    if (amount === null) return '—';
+    return `${formatter.formatNumber(Number(amount), {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    })} ${currency}`;
 }
 
 /**
- * One ISO week or calendar month.
- *
- * The Complete/Incomplete badge is a fact about the **period**, not about a currency row, and it sits
- * in the header for that reason: what is missing from the figures below is missing from all of them.
- * A period with nothing priced renders its badge and its counts and no money at all, which is the
- * honest rendering of "nothing here has been costed yet" — a zero would read as a quiet month.
+ * Every line received in the period. A priced line — pending FX included, since it carries a total —
+ * is counted in its currency's row; an unpriced one has no currency and is counted on the period.
  */
-function PeriodCard({
-    period,
-    expanded,
-    onToggleCharges,
-}: {
-    readonly period: SpendSummaryPeriod;
-    readonly expanded: readonly string[];
-    readonly onToggleCharges: (key: string) => void;
-}) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-
+function periodLineCount(period: SpendSummaryPeriod): number {
     return (
-        <View
-            testID={`kitchen-ledger-period-${period.period}`}
-            className="gap-3 rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
-        >
-            <Inline space="sm" align="center" wrap>
-                <Stack space="none" className="min-w-0 flex-1">
-                    <Text
-                        variant="bodyStrong"
-                        testID={`kitchen-ledger-period-${period.period}-label`}
-                    >
-                        {period.period}
-                    </Text>
-                    <Text variant="caption" tone="secondary">
-                        {t('kitchen:ops.ledger.periodDates', {
-                            from: formatter.formatDate(period.periodStart, { dateStyle: 'medium' }),
-                            to: formatter.formatDate(period.periodEnd, { dateStyle: 'medium' }),
-                        })}
-                    </Text>
-                </Stack>
-                <Badge
-                    testID={`kitchen-ledger-period-${period.period}-state`}
-                    tone={period.isComplete ? 'success' : 'warning'}
-                    icon={period.isComplete ? 'check' : 'warning'}
-                    label={t(
-                        period.isComplete
-                            ? 'kitchen:ops.ledger.completeBadge'
-                            : 'kitchen:ops.ledger.incompleteBadge',
-                    )}
-                />
-            </Inline>
-
-            {period.unpricedLineCount > 0 ? (
-                <Text
-                    variant="caption"
-                    tone="secondary"
-                    testID={`kitchen-ledger-period-${period.period}-unpriced`}
-                >
-                    {t('kitchen:ops.ledger.unpricedLines', { count: period.unpricedLineCount })}
-                </Text>
-            ) : null}
-
-            {period.valuationPendingLineCount > 0 ? (
-                <Text
-                    variant="caption"
-                    tone="secondary"
-                    testID={`kitchen-ledger-period-${period.period}-pending-fx`}
-                >
-                    {t('kitchen:ops.ledger.pendingFxNote', {
-                        count: period.valuationPendingLineCount,
-                    })}
-                </Text>
-            ) : null}
-
-            {period.totalsByCurrency.length === 0 ? (
-                <Text tone="secondary" testID={`kitchen-ledger-period-${period.period}-no-money`}>
-                    {t('kitchen:ops.ledger.noPricedDeliveries')}
-                </Text>
-            ) : (
-                <Stack space="sm">
-                    {period.totalsByCurrency.map((totals) => (
-                        <CurrencyRow
-                            key={totals.currencyCode}
-                            periodLabel={period.period}
-                            totals={totals}
-                            expanded={expanded.includes(`${period.period}|${totals.currencyCode}`)}
-                            onToggleCharges={() =>
-                                onToggleCharges(`${period.period}|${totals.currencyCode}`)
-                            }
-                        />
-                    ))}
-                </Stack>
-            )}
-        </View>
+        period.unpricedLineCount +
+        period.totalsByCurrency.reduce((sum, totals) => sum + totals.receivedLineCount, 0)
     );
 }
 
 /**
- * One currency inside one period.
- *
- * Item subtotal and invoice total are two named figures side by side, never one: §3.7 is explicit
- * that tax and delivery must not be mislabelled as an ingredient's purchase price, and an invoice
- * total nobody recorded reads as an em dash rather than as zero. The charges are collapsed by
- * default — they are the detail behind the difference between the two figures, and a manager who
- * wants to know why the invoice exceeds the goods opens them.
+ * The Lens bar's figures over a summary: the periods, then how many are complete and incomplete —
+ * each a filter on the table — then the unpriced lines behind the incomplete ones. Counted over
+ * every period the server answered, not the filtered table. `null` periods: in flight.
  */
-function CurrencyRow({
-    periodLabel,
-    totals,
-    expanded,
-    onToggleCharges,
+function periodLens(
+    periods: readonly SpendSummaryPeriod[] | null,
+    mode: 'weekly' | 'monthly',
+    status: PeriodStatus | null,
+    onStatus: (next: PeriodStatus | null) => void,
+    t: TFunction,
+): {
+    readonly figures: readonly LensFigure[];
+    readonly mix: readonly LensMixPart[];
+    readonly mixLabel: string;
+} {
+    const count = (complete: boolean): number =>
+        periods === null ? 0 : periods.filter((entry) => entry.isComplete === complete).length;
+    const counted = (complete: boolean): number | null =>
+        periods === null ? null : count(complete);
+    const unpriced =
+        periods === null ? null : periods.reduce((sum, entry) => sum + entry.unpricedLineCount, 0);
+    // A figure narrows while it has something to show, and pressing the one in force lets go.
+    const filterOn = (next: PeriodStatus, complete: boolean) =>
+        count(complete) === 0 && status !== next
+            ? {}
+            : {
+                  onPress: () => {
+                      onStatus(status === next ? null : next);
+                  },
+              };
+
+    return {
+        figures: [
+            {
+                key: 'all',
+                label: t(mode === 'weekly' ? 'kitchen:lens.allWeeks' : 'kitchen:lens.allMonths'),
+                value: periods === null ? null : periods.length,
+                active: status === null,
+                onPress: () => {
+                    onStatus(null);
+                },
+                accessibilityLabel: t('kitchen:lens.allPeriodsAction'),
+            },
+            {
+                key: 'complete',
+                label: t('kitchen:ops.ledger.completeBadge'),
+                value: counted(true),
+                tone: 'success',
+                separated: true,
+                active: status === 'complete',
+                ...filterOn('complete', true),
+                accessibilityLabel: t('kitchen:lens.completePeriodsAction'),
+            },
+            {
+                key: 'incomplete',
+                label: t('kitchen:ops.ledger.incompleteBadge'),
+                value: counted(false),
+                tone: 'warning',
+                active: status === 'incomplete',
+                ...filterOn('incomplete', false),
+                accessibilityLabel: t('kitchen:lens.incompletePeriodsAction'),
+            },
+            {
+                key: 'unpriced',
+                label: t('kitchen:lens.unpricedLines'),
+                value: unpriced,
+                tone: 'warning',
+                separated: true,
+            },
+        ],
+        mix: [
+            {
+                key: 'complete',
+                value: count(true),
+                tone: 'success',
+                dimmed: status === 'incomplete',
+            },
+            {
+                key: 'incomplete',
+                value: count(false),
+                tone: 'warning',
+                dimmed: status === 'complete',
+            },
+        ],
+        mixLabel: t('kitchen:lens.periodsMix', { complete: count(true), incomplete: count(false) }),
+    };
+}
+
+/**
+ * The summary table's columns: a row per period, every money cell one line per currency.
+ *
+ * Goods carries a bar — the period's subtotal against the largest one in the same currency across
+ * the answer — so a quiet month and a busy one read apart before a figure is read. Per currency,
+ * because there is no exchange rate to put two on one scale (§4.4).
+ */
+function periodColumns(
+    mode: 'weekly' | 'monthly',
+    periods: readonly SpendSummaryPeriod[],
+    t: TFunction,
+    formatter: Formatter,
+): readonly ControlledColumn<SpendSummaryPeriod, CatalogueColumn<SpendSummaryPeriod>>[] {
+    const largest = new Map<string, number>();
+    for (const entry of periods) {
+        for (const totals of entry.totalsByCurrency) {
+            const amount = Number(totals.itemSubtotal);
+            largest.set(
+                totals.currencyCode,
+                Math.max(largest.get(totals.currencyCode) ?? 0, amount),
+            );
+        }
+    }
+
+    const dayMonth = (day: string): string =>
+        formatter.formatDate(day, { day: 'numeric', month: 'short', timeZone: 'UTC' });
+    const label = (entry: SpendSummaryPeriod): string =>
+        mode === 'weekly'
+            ? t('kitchen:ops.ledger.weekLabel', {
+                  week: Number(entry.period.slice(entry.period.indexOf('W') + 1)),
+              })
+            : formatter.formatDate(entry.periodStart, {
+                  month: 'short',
+                  year: 'numeric',
+                  timeZone: 'UTC',
+              });
+    const moneyText = (
+        entry: SpendSummaryPeriod,
+        amount: (totals: SpendSummaryCurrencyTotals) => string | null,
+    ): string =>
+        entry.totalsByCurrency
+            .map((totals) => formatMoney(formatter, amount(totals), totals.currencyCode))
+            .join(' · ');
+
+    const charge = (
+        key: string,
+        labelKey: string,
+        amount: (totals: SpendSummaryCurrencyTotals) => string,
+    ): ControlledColumn<SpendSummaryPeriod, CatalogueColumn<SpendSummaryPeriod>> => ({
+        key,
+        label: t(labelKey),
+        width: 120,
+        priority: 30,
+        value: (entry) => moneyText(entry, amount),
+        render: (entry) => <MoneyLines period={entry} amount={amount} suffix={key} />,
+    });
+
+    return [
+        {
+            key: 'period',
+            role: 'title',
+            label: t(
+                mode === 'weekly'
+                    ? 'kitchen:ops.ledger.columnWeek'
+                    : 'kitchen:ops.ledger.columnMonth',
+            ),
+            width: 170,
+            priority: 100,
+            value: label,
+            sort: (left, right, direction) => compareText(left.period, right.period, direction),
+            render: (entry) => (
+                <View testID={`kitchen-ledger-period-${entry.period}`} className="min-w-0">
+                    <Text
+                        variant="strong"
+                        numberOfLines={1}
+                        testID={`kitchen-ledger-period-${entry.period}-label`}
+                    >
+                        {label(entry)}
+                    </Text>
+                    <Text variant="caption" tone="secondary" numberOfLines={1}>
+                        {t('kitchen:ops.ledger.periodDates', {
+                            from: dayMonth(entry.periodStart),
+                            to: dayMonth(entry.periodEnd),
+                        })}
+                    </Text>
+                </View>
+            ),
+        },
+        {
+            key: 'status',
+            role: 'status',
+            label: t('kitchen:ops.ledger.columnStatus'),
+            width: 190,
+            priority: 90,
+            value: (entry) =>
+                t(
+                    entry.isComplete
+                        ? 'kitchen:ops.ledger.completeBadge'
+                        : 'kitchen:ops.ledger.incompleteBadge',
+                ),
+            render: (entry) => <PeriodStatusCell period={entry} />,
+        },
+        {
+            key: 'lines',
+            label: t('kitchen:ops.ledger.summaryLines'),
+            width: 80,
+            priority: 60,
+            value: (entry) => formatter.formatNumber(periodLineCount(entry)),
+            sort: (left, right, direction) =>
+                compareNumber(periodLineCount(left), periodLineCount(right), direction),
+            render: (entry) => (
+                <Text variant="mono" testID={`kitchen-ledger-period-${entry.period}-lines`}>
+                    {formatter.formatNumber(periodLineCount(entry))}
+                </Text>
+            ),
+        },
+        {
+            key: 'goods',
+            role: 'metric',
+            label: t('kitchen:ops.ledger.summarySubtotal'),
+            width: 260,
+            priority: 85,
+            value: (entry) =>
+                entry.totalsByCurrency.length === 0
+                    ? t('kitchen:ops.ledger.nothingPriced')
+                    : moneyText(entry, (totals) => totals.itemSubtotal),
+            sort: (left, right, direction) =>
+                compareAmount(
+                    left.totalsByCurrency[0]?.itemSubtotal ?? null,
+                    right.totalsByCurrency[0]?.itemSubtotal ?? null,
+                    direction,
+                ),
+            render: (entry) => <GoodsCell period={entry} largest={largest} />,
+        },
+        {
+            key: 'invoiced',
+            label: t('kitchen:ops.ledger.summaryInvoiceTotal'),
+            width: 150,
+            priority: 80,
+            value: (entry) => moneyText(entry, (totals) => totals.invoiceTotal),
+            render: (entry) => (
+                <MoneyLines
+                    period={entry}
+                    amount={(totals) => totals.invoiceTotal}
+                    suffix="invoice-total"
+                />
+            ),
+        },
+        charge('discount', 'kitchen:ops.ledger.chargeDiscount', (totals) => totals.discountTotal),
+        charge('tax', 'kitchen:ops.ledger.chargeTax', (totals) => totals.taxTotal),
+        charge('delivery', 'kitchen:ops.ledger.chargeDelivery', (totals) => totals.deliveryTotal),
+        charge('other', 'kitchen:ops.ledger.chargeOther', (totals) => totals.otherChargesTotal),
+    ];
+}
+
+/**
+ * Complete, or what keeps the period from it — unpriced lines and prices waiting on a rate are two
+ * different jobs and get a badge each. Why the figures are short sits behind the (i), never as a
+ * line on the row.
+ */
+function PeriodStatusCell({ period }: { readonly period: SpendSummaryPeriod }) {
+    const { t } = useTranslation();
+    const testID = `kitchen-ledger-period-${period.period}`;
+
+    if (period.isComplete) {
+        return (
+            <DeskChip
+                testID={`${testID}-state`}
+                tone="success"
+                label={t('kitchen:ops.ledger.completeBadge')}
+            />
+        );
+    }
+
+    const unpriced = period.unpricedLineCount;
+    const pendingFx = period.valuationPendingLineCount;
+    const reasons = [
+        period.totalsByCurrency.length === 0
+            ? t('kitchen:ops.ledger.statusNothingPriced')
+            : unpriced > 0
+              ? t('kitchen:ops.ledger.statusUnpricedInfo', { count: unpriced })
+              : null,
+        pendingFx > 0 ? t('kitchen:ops.ledger.statusPendingFxInfo', { count: pendingFx }) : null,
+    ].filter((reason): reason is string => reason !== null);
+
+    return (
+        <Inline space="xs" align="center" wrap={false} testID={`${testID}-state`}>
+            {unpriced > 0 ? (
+                <DeskChip
+                    testID={`${testID}-unpriced`}
+                    tone="warning"
+                    label={t('kitchen:ops.ledger.unpricedBadge', { count: unpriced })}
+                />
+            ) : null}
+            {pendingFx > 0 ? (
+                <DeskChip
+                    testID={`${testID}-pending-fx`}
+                    tone="info"
+                    label={t('kitchen:ops.ledger.pendingFxBadge', { count: pendingFx })}
+                />
+            ) : null}
+            {unpriced === 0 && pendingFx === 0 ? (
+                <Badge
+                    tone="warning"
+                    icon="warning"
+                    label={t('kitchen:ops.ledger.incompleteBadge')}
+                />
+            ) : null}
+            {reasons.length === 0 ? null : (
+                <InfoTip
+                    testID={`${testID}-info`}
+                    label={t('kitchen:ops.ledger.incompleteBadge')}
+                    text={reasons.join(' ')}
+                />
+            )}
+        </Inline>
+    );
+}
+
+/** One figure per currency, stacked; a period with no money at all draws a dash. */
+function MoneyLines({
+    period,
+    amount,
+    suffix,
 }: {
-    readonly periodLabel: string;
-    readonly totals: SpendSummaryCurrencyTotals;
-    readonly expanded: boolean;
-    readonly onToggleCharges: () => void;
+    readonly period: SpendSummaryPeriod;
+    readonly amount: (totals: SpendSummaryCurrencyTotals) => string | null;
+    readonly suffix: string;
+}) {
+    const formatter = useFormatter();
+    if (period.totalsByCurrency.length === 0) {
+        return <Text tone="secondary">—</Text>;
+    }
+    return (
+        <Stack space="none">
+            {period.totalsByCurrency.map((totals) => (
+                <Text
+                    key={totals.currencyCode}
+                    variant="mono"
+                    testID={`kitchen-ledger-period-${period.period}-${totals.currencyCode}-${suffix}`}
+                >
+                    {formatMoney(formatter, amount(totals), totals.currencyCode)}
+                </Text>
+            ))}
+        </Stack>
+    );
+}
+
+/**
+ * The goods subtotal per currency, each with its bar. Nothing priced is said in words rather than
+ * drawn as a zero, which would read as a quiet month.
+ */
+function GoodsCell({
+    period,
+    largest,
+}: {
+    readonly period: SpendSummaryPeriod;
+    readonly largest: ReadonlyMap<string, number>;
 }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
-    const testID = `kitchen-ledger-period-${periodLabel}-${totals.currencyCode}`;
 
-    const money = (amount: string | null): string =>
-        amount === null
-            ? '—'
-            : `${formatter.formatNumber(Number(amount), {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-              })} ${totals.currencyCode}`;
+    if (period.totalsByCurrency.length === 0) {
+        return (
+            <Text tone="secondary" testID={`kitchen-ledger-period-${period.period}-no-money`}>
+                {t('kitchen:ops.ledger.nothingPriced')}
+            </Text>
+        );
+    }
 
     return (
-        <View testID={testID} className="gap-2 rounded-lg bg-surface-sunken p-3">
-            <Inline space="md" wrap>
-                <Stack space="none" className="min-w-[140px]">
-                    <Text variant="caption" tone="secondary">
-                        {t('kitchen:ops.ledger.summarySubtotal')}
-                    </Text>
-                    <Text variant="bodyStrong" testID={`${testID}-subtotal`}>
-                        {money(totals.itemSubtotal)}
-                    </Text>
-                </Stack>
-                <Stack space="none" className="min-w-[140px]">
-                    <Text variant="caption" tone="secondary">
-                        {t('kitchen:ops.ledger.summaryInvoiceTotal')}
-                    </Text>
-                    <Text variant="bodyStrong" testID={`${testID}-invoice-total`}>
-                        {money(totals.invoiceTotal)}
-                    </Text>
-                </Stack>
-                <Stack space="none" className="min-w-[140px]">
-                    <Text variant="caption" tone="secondary">
-                        {t('kitchen:ops.ledger.summaryLines')}
-                    </Text>
-                    <Text testID={`${testID}-lines`}>
-                        {formatter.formatNumber(totals.receivedLineCount)}
-                    </Text>
-                </Stack>
-            </Inline>
-
-            <Inline space="sm" wrap>
-                <Button
-                    testID={`${testID}-charges-toggle`}
-                    variant="ghost"
-                    size="sm"
-                    label={t(
-                        expanded
-                            ? 'kitchen:ops.ledger.hideCharges'
-                            : 'kitchen:ops.ledger.showCharges',
-                    )}
-                    onPress={onToggleCharges}
-                />
-            </Inline>
-
-            {expanded ? (
-                <Stack space="xs" testID={`${testID}-charges`}>
-                    <Text variant="caption" tone="secondary">
-                        {`${t('kitchen:ops.ledger.chargeDiscount')}: ${money(totals.discountTotal)}`}
-                    </Text>
-                    <Text variant="caption" tone="secondary">
-                        {`${t('kitchen:ops.ledger.chargeTax')}: ${money(totals.taxTotal)}`}
-                    </Text>
-                    <Text variant="caption" tone="secondary">
-                        {`${t('kitchen:ops.ledger.chargeDelivery')}: ${money(totals.deliveryTotal)}`}
-                    </Text>
-                    <Text variant="caption" tone="secondary">
-                        {`${t('kitchen:ops.ledger.chargeOther')}: ${money(totals.otherChargesTotal)}`}
-                    </Text>
-                </Stack>
-            ) : null}
-        </View>
+        <Stack space="none">
+            {period.totalsByCurrency.map((totals) => {
+                const top = largest.get(totals.currencyCode) ?? 0;
+                const share =
+                    top <= 0
+                        ? 0
+                        : Math.max(2, Math.round((Number(totals.itemSubtotal) / top) * 100));
+                return (
+                    <Inline key={totals.currencyCode} space="sm" align="center" wrap={false}>
+                        <Text
+                            variant="mono"
+                            className="font-semibold"
+                            testID={`kitchen-ledger-period-${period.period}-${totals.currencyCode}-subtotal`}
+                        >
+                            {formatMoney(formatter, totals.itemSubtotal, totals.currencyCode)}
+                        </Text>
+                        <View
+                            aria-hidden
+                            className="h-1.5 w-20 overflow-hidden rounded-full bg-surface-sunken"
+                        >
+                            <View
+                                className="h-1.5 rounded-full bg-surface-brand"
+                                style={{ width: `${share}%` }}
+                            />
+                        </View>
+                    </Inline>
+                );
+            })}
+        </Stack>
     );
 }

@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 /**
  * Replay-protection record for explicitly idempotent command endpoints.
  *
- * Only the response envelope (redacted) is snapshotted — request bodies are
+ * Only the response envelope (encrypted) is snapshotted — request bodies are
  * never stored (plan §12). Rows are append-once and expire.
  *
  * @property string $id
@@ -38,7 +38,10 @@ class IdempotencyKey extends BaseModel
     protected function casts(): array
     {
         return [
-            'response_snapshot' => 'array',
+            // Encrypted: an envelope can carry a secret (a new staff account's
+            // initial password). Write it through the model, never a query
+            // builder update, which skips casts and would store plaintext.
+            'response_snapshot' => 'encrypted:array',
             'expires_at' => 'datetime',
         ];
     }

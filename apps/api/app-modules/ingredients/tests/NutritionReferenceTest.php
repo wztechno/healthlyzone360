@@ -43,9 +43,13 @@ it('supports Atwater and decimal number fallbacks and rejects wrong units and vo
     $food = NutritionReferenceFixture::food();
     $food['dataType'] = 'Branded';
     $food['servingSizeUnit'] = 'ml';
-    expect($service->map(['food' => $food, 'retrieved_at' => 'now'])->candidate['suitable'])->toBeFalse();
+    $perMillilitre = $service->map(['food' => $food, 'retrieved_at' => 'now'])->candidate;
+    expect($perMillilitre['suitable'])->toBeFalse()
+        ->and($perMillilitre['unsupported_basis'])->toBeTrue()
+        ->and($perMillilitre['missing_nutrients'])->toBe([]);
     $food['servingSizeUnit'] = 'g';
-    expect($service->map(['food' => $food, 'retrieved_at' => 'now'])->candidate['suitable'])->toBeTrue();
+    $perGram = $service->map(['food' => $food, 'retrieved_at' => 'now'])->candidate;
+    expect($perGram['suitable'])->toBeTrue()->and($perGram['unsupported_basis'])->toBeFalse();
 });
 
 it('hydrates search in bulk and retains cached retrieval timestamps', function (): void {

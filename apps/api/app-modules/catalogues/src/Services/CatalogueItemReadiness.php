@@ -10,14 +10,16 @@ use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Enums\VariantStatus;
 use Healthy360\Catalogues\Enums\VariantType;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemDietClassification;
 use Healthy360\Catalogues\Models\CatalogueItemIngredient;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
-use Healthy360\Catalogues\Models\PlanMenuEntry;
 use Healthy360\Catalogues\Models\PlanVariantDuration;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
+use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
+use Healthy360\ReferenceData\Models\DietClassification;
 
 /**
  * Why a catalogue item is not ready to be published — as a list, computed, and
@@ -42,7 +44,9 @@ use Healthy360\Recipes\Models\RecipeVersionOutput;
  *   an untranslated listing reaching an Arabic-speaking customer as English is
  *   the failure §4.18 exists to prevent.
  * - **Something to buy.** A product with no active variant is a name with no
- *   pack behind it, and a price has nothing to attach to.
+ *   pack behind it, and a price has nothing to attach to. A meal, sauce,
+ *   dressing or frozen meal answers {@see SellingReadiness} instead: a pack, a
+ *   place it is offered on, and a price on every such place (S3).
  * - **An allergen basis.** A meal must either link a recipe with a published
  *   version, or list its own ingredients. Silence is not a statement of
  *   absence.
@@ -75,6 +79,8 @@ final readonly class CatalogueItemReadiness
         private DerivedAllergenService $allergens,
         private ConfirmedPriceRegistry $prices,
         private StockDeductionReadiness $stock,
+        private CatalogueItemService $items,
+        private SellingReadiness $selling,
     ) {}
 
     /**
@@ -84,9 +90,13 @@ final readonly class CatalogueItemReadiness
      * the reason the whole apparatus exists: a plan missing its profile *and*
      * its prices should learn both facts in one attempt rather than two.
      *
+     * `$applySellingRule` is off only for a seeder or a repair command that
+     * publishes past a price it writes later, or never: the rule is the
+     * owner's (S3), and every HTTP surface asks with it on.
+     *
      * @return list<array{code: string, detail: string, context: array<string, mixed>}>
      */
-    public function reasons(CatalogueItem $item): array
+    public function reasons(CatalogueItem $item, bool $applySellingRule = true): array
     {
         $reasons = [];
 
@@ -110,7 +120,8 @@ final readonly class CatalogueItemReadiness
             $untranslated[] = 'name_en';
         }
 
-        if (trim($item->name_ar) === '') {
+        // The English copied across is still untranslated, whatever the field holds.
+        if (trim($item->name_ar) === '' || trim($item->name_ar) === trim($item->name_en)) {
             $untranslated[] = 'name_ar';
         }
 
@@ -122,9 +133,15 @@ final readonly class CatalogueItemReadiness
             ];
         }
 
+        // A cooked kind's packs are its only variants, so its `no_pack` is the
+        // fact `no_active_variant` states, with a fix attached: with the selling
+        // rule on it speaks for the four, and `no_active_variant` is reported
+        // only where it would be alone — a product, or a run with the rule off.
         $packKinds = [CatalogueItemType::Product, CatalogueItemType::Sauce, CatalogueItemType::Dressing];
 
-        if (in_array($item->item_type, $packKinds, true) && ! $this->hasActiveVariant($item)) {
+        if ($applySellingRule && in_array($item->item_type->value, RecipeUsageRegistry::KINDS, true)) {
+            $reasons = [...$reasons, ...$this->selling->reasons($item)];
+        } elseif (in_array($item->item_type, $packKinds, true) && ! $this->hasActiveVariant($item)) {
             $reasons[] = [
                 'code' => 'no_active_variant',
                 'detail' => 'A product with no active pack is a name with nothing behind it, and a price has nothing to attach to.',
@@ -169,11 +186,43 @@ final readonly class CatalogueItemReadiness
             ];
         }
 
+        foreach ($this->freeFromClashes($item) as $clash) {
+            $reasons[] = [
+                'code' => 'diet_tag_contradicts_allergens',
+                'detail' => 'A free-from tag contradicts the allergen label. Remove the tag, or change what the label says, before this listing goes on sale.',
+                'context' => $clash,
+            ];
+        }
+
         if ($item->item_type === CatalogueItemType::SubscriptionPlan) {
             $reasons = [...$reasons, ...$this->planReasons($item)];
         }
 
         return [...$reasons, ...$this->stock->reasons($item)];
+    }
+
+    /**
+     * The item's stored free-from tags its current label, or a choice it offers, contradicts. The label is
+     * read only when a free-from tag is there to contradict.
+     *
+     * @return list<array{tag: string, allergen_codes: list<string>}>
+     */
+    private function freeFromClashes(CatalogueItem $item): array
+    {
+        /** @var list<string> $tags */
+        $tags = DietClassification::query()
+            ->whereIn('code', array_keys(CatalogueItemService::FREE_FROM))
+            ->whereIn('id', CatalogueItemDietClassification::withoutTenancy()
+                ->where('catalogue_item_id', $item->getKey())
+                ->select('diet_classification_id'))
+            ->pluck('code')
+            ->all();
+
+        if ($tags === []) {
+            return [];
+        }
+
+        return CatalogueItemService::freeFromClashes($tags, $this->items->labelAllergenCodes($item));
     }
 
     /**
@@ -194,8 +243,6 @@ final readonly class CatalogueItemReadiness
                 'context' => [],
             ];
         }
-
-        $reasons = [...$reasons, ...$this->menuReasons($item, $profile)];
 
         /** @var array<string, string> $activeConfigurations identifier → code */
         $activeConfigurations = CatalogueItemVariant::withoutTenancy()
@@ -256,52 +303,6 @@ final readonly class CatalogueItemReadiness
         }
 
         return $reasons;
-    }
-
-    /**
-     * A menu is whole or it is absent; a half-written one is neither.
-     *
-     * A plan with no menu at all is publishable — generation falls back to the
-     * variant's meal count and the customer's own choices, which is how every
-     * plan worked before the menu table existed. But once `menu_cycle_days` is
-     * set the plan has *promised* a dish for every day of the cycle, and a day
-     * with no entry is a delivery the kitchen has not decided. `PlanMenuService`
-     * refuses an entries-less cycle at write time; this is the same rule for
-     * the cycle a kitchen lengthened after writing the entries.
-     *
-     * @return list<array{code: string, detail: string, context: array<string, mixed>}>
-     */
-    private function menuReasons(CatalogueItem $item, ?SubscriptionPlanProfile $profile): array
-    {
-        $cycleDays = $profile?->menu_cycle_days;
-
-        if ($cycleDays === null || $cycleDays < 1) {
-            return [];
-        }
-
-        /** @var list<int> $filled */
-        $filled = PlanMenuEntry::withoutTenancy()
-            ->where('catalogue_item_id', $item->getKey())
-            ->distinct()
-            ->pluck('cycle_day')
-            ->map(static fn (mixed $day): int => (int) $day)
-            ->all();
-
-        $empty = array_values(array_diff(range(1, $cycleDays), $filled));
-
-        if ($empty === []) {
-            return [];
-        }
-
-        return [[
-            'code' => 'menu_days_empty',
-            'detail' => 'The menu runs on a cycle, and some days of that cycle name no dish. A subscriber on one of those days would be sent nothing the kitchen decided on. Fill every day, or withdraw the cycle to sell the plan without a fixed menu.',
-            'context' => [
-                'menu_cycle_days' => $cycleDays,
-                'empty_day_count' => count($empty),
-                'empty_days' => $empty,
-            ],
-        ]];
     }
 
     private function hasActiveVariant(CatalogueItem $item): bool

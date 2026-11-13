@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Healthy360\Kitchens\Http\Controllers;
 
+use Carbon\CarbonInterface;
+use Healthy360\Kitchens\Models\KitchenServiceSettings;
 use Healthy360\Kitchens\Presenters\MarketplaceLocale;
 use Healthy360\Kitchens\Services\MarketplaceKitchens;
 use Healthy360\Kitchens\Services\MarketplaceProjector;
@@ -11,6 +13,7 @@ use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -25,12 +28,18 @@ use Illuminate\Http\Request;
  * existed gets. The alternative, a `403` or a "temporarily unavailable" body,
  * would tell an anonymous caller which organisations exist and what the
  * platform has done to them, which is nobody's business but the tenant's.
+ *
+ * `paused_until` is the kitchen's own timed pause, for the storefront's banner.
+ * It is the only setting that leaves here, and it is on this read rather than the
+ * list. The settings row sits behind the kitchen's row policy, so it is read in
+ * that kitchen's context, and read rather than created: a `GET` writes nothing.
  */
 final class PublicKitchenShowController
 {
     public function __construct(
         private readonly MarketplaceKitchens $kitchens,
         private readonly MarketplaceProjector $projector,
+        private readonly DatabaseTenantContext $tenantContext,
     ) {}
 
     /**
@@ -55,8 +64,19 @@ final class PublicKitchenShowController
         }
 
         return ApiResponse::data(
-            $this->projector->kitchen($found, $locale),
+            [...$this->projector->kitchen($found, $locale), 'paused_until' => $this->pausedUntil($found)],
             ['locale' => $locale],
         );
+    }
+
+    private function pausedUntil(Organisation $kitchen): ?string
+    {
+        $organisationId = (string) $kitchen->getKey();
+
+        $until = $this->tenantContext->during(null, $organisationId, null, static fn (): ?CarbonInterface => KitchenServiceSettings::withoutTenancy()
+            ->where('organisation_id', $organisationId)
+            ->first()?->paused_until);
+
+        return $until?->isFuture() === true ? $until->toIso8601String() : null;
     }
 }

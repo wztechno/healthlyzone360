@@ -34,6 +34,8 @@ const plan: AdminCatalogueItem = {
     status: 'published',
     data_quality_flags: [],
     stock_blockers: [],
+    allergens_assessed: true,
+    on_sale_without_recipe: false,
     lock_version: 0,
 };
 

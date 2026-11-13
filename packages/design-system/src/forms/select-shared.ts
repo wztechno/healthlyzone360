@@ -27,6 +27,32 @@ export interface SelectOption<T extends string = string> {
      */
     readonly keywords?: string | undefined;
     readonly disabled?: boolean | undefined;
+    /**
+     * A heading the option is listed under, as `Menu`'s `sections` label its runs. Consecutive
+     * options with the same `section` share one heading, so the caller orders the list. Never
+     * searched: a filter by heading would empty a group the reader is looking inside. An option with
+     * no section is drawn exactly as before — no heading, no group around it.
+     */
+    readonly section?: string | undefined;
+}
+
+/** A run of consecutive options under one heading; `section` undefined is a run with none. */
+export interface SelectOptionRun<T extends string = string> {
+    readonly section: string | undefined;
+    readonly options: readonly SelectOption<T>[];
+}
+
+/** Splits options into runs of the same `section`, in order. A list with none is one run. */
+export function sectionRuns<T extends string>(
+    options: readonly SelectOption<T>[],
+): readonly SelectOptionRun<T>[] {
+    const runs: { section: string | undefined; options: SelectOption<T>[] }[] = [];
+    for (const option of options) {
+        const last = runs[runs.length - 1];
+        if (last !== undefined && last.section === option.section) last.options.push(option);
+        else runs.push({ section: option.section, options: [option] });
+    }
+    return runs;
 }
 
 /**

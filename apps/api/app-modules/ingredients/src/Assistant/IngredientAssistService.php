@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Healthy360\Ingredients\Assistant;
 
+use Healthy360\Allergens\Models\Allergen;
+use Healthy360\Ingredients\Allergens\AllergenReferenceService;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAlias;
@@ -25,21 +27,29 @@ use Throwable;
  *    the typed name. No AI, so a duplicate is still caught with the assistant down. This is
  *    `IngredientCatalogueService::resolveDesignation()`'s query returning every row rather than
  *    the one it would prefer.
- * 2. **USDA candidates** — the same search the nutrition picker runs. A provider failure is
- *    reported as `unavailable: nutrition`, not an error.
+ * 2. **USDA and Open Food Facts candidates** — the same searches the nutrition and allergen
+ *    pickers run. A provider failure is reported as `unavailable: nutrition` / `allergens`, not an
+ *    error.
  * 3. **The agent** — one call that may only answer with codes and numbers from lists it was
  *    given. Each answer is validated here and anything off-list becomes null.
  *
- * The Arabic name is a suggestion the form shows as AI-generated and the cook can edit; nothing
- * here writes it to a row.
+ * The Arabic name, the unit, the mass of one litre or piece and the allergen read are suggestions
+ * the form shows as AI-generated and the cook can edit or confirm; nothing here writes to a row.
  */
 final readonly class IngredientAssistService
 {
     /** Finished goods filed in the ingredient taxonomy; the ingredient form does not offer them. */
     private const array HIDDEN_CATEGORY_CODES = ['sauce', 'dressings', 'beverage', 'bread'];
 
+    /**
+     * The plausible mass of one unit, in grams. Outside it the estimate is dropped rather than
+     * shown: a litre of anything a kitchen buys weighs 0.4–2.5 kg (oils ~0.9, honey ~1.4).
+     */
+    private const array GRAMS_PER_UNIT_BOUNDS = ['l' => [400, 2500], 'piece' => [0.1, 20000]];
+
     public function __construct(
         private NutritionReferenceService $references,
+        private AllergenReferenceService $allergenReferences,
         private PackagingBranch $packaging,
         private TenantContext $context,
     ) {}
@@ -61,7 +71,18 @@ final readonly class IngredientAssistService
             $unavailable[] = 'nutrition';
         }
 
+        try {
+            $allergenLookup = $this->allergenReferences->search($nameEn, null);
+        } catch (Throwable $error) {
+            report($error);
+            $allergenLookup = ['candidates' => [], 'notices' => ['open_food_facts.unavailable']];
+        }
+        if ($allergenLookup['notices'] !== []) {
+            $unavailable[] = 'allergens';
+        }
+
         $categories = $this->selectableCategories();
+        $allergenCodes = Allergen::query()->where('is_active', true)->orderBy('code')->pluck('name_en', 'code')->all();
         $answer = [];
 
         try {
@@ -75,6 +96,12 @@ final readonly class IngredientAssistService
                 candidates: array_map(fn (int $number, array $candidate): string => sprintf(
                     '%d — %s — %s — %s', $number, $candidate['label'], $candidate['data_type'], $candidate['suitable'] ? 'suitable' : 'unsuitable',
                 ), array_keys($candidates ?? []), $candidates ?? []),
+                allergenClasses: array_map(fn (string $code, string $name): string => $code.' — '.$name, array_keys($allergenCodes), $allergenCodes),
+                allergenCandidates: array_map(fn (int $number, array $candidate): string => sprintf(
+                    '%d — %s — %s — %s — %s', $number, $candidate['label'], $candidate['brand'] ?? 'no brand',
+                    implode(', ', array_map(fn (array $mapping): string => $mapping['allergen_code'].' '.$mapping['containment'], $candidate['mappings'])) ?: 'none declared',
+                    $candidate['importable'] ? 'importable' : 'not importable',
+                ), array_keys($allergenLookup['candidates']), $allergenLookup['candidates']),
             ))->prompt($nameEn);
             $answer = $response instanceof StructuredAgentResponse ? $response->toArray() : [];
         } catch (Throwable $error) {
@@ -82,6 +109,8 @@ final readonly class IngredientAssistService
             $unavailable[] = 'assistant';
         }
 
+        $assistantAnswered = ! in_array('assistant', $unavailable, true);
+        [$unit, $gramsPerUnit] = $this->unit($answer['unit'] ?? null, $answer['grams_per_unit'] ?? null);
         [$categoryCode, $subcategoryCode] = $this->categoryPair(
             $categories, $this->stringOrNull($answer['category_code'] ?? null), $this->stringOrNull($answer['subcategory_code'] ?? null),
         );
@@ -93,6 +122,16 @@ final readonly class IngredientAssistService
             'category_code' => $categoryCode,
             'subcategory_code' => $subcategoryCode,
             'nutrition' => $candidates === null ? null : $this->nutrition($candidates, $answer),
+            'unit' => $unit,
+            'grams_per_unit' => $gramsPerUnit,
+            'allergens' => [
+                'candidates' => $allergenLookup['candidates'],
+                'notices' => $allergenLookup['notices'],
+                'pick' => $this->allergenPick($answer['allergen_pick'] ?? null, $allergenLookup['candidates']),
+                // Null, not empty, when the model did not answer: an empty list means "none".
+                'codes' => $assistantAnswered ? $this->allergenCodes($answer['allergens'] ?? [], array_keys($allergenCodes)) : null,
+                'reason' => $assistantAnswered ? $this->stringOrNull($answer['allergens_reason'] ?? null) : null,
+            ],
             'unavailable' => $unavailable,
         ];
     }
@@ -227,6 +266,51 @@ final readonly class IngredientAssistService
             'relation' => $valid && in_array($relation, ['same', 'more_specific', 'different'], true) ? $relation : null,
             'reason' => $valid ? $this->stringOrNull($answer['nutrition_reason'] ?? null) : null,
         ];
+    }
+
+    /**
+     * A unit the admin offers, and a mass only for the units that need weighing and only inside
+     * {@see self::GRAMS_PER_UNIT_BOUNDS}.
+     *
+     * @return array{0: string|null, 1: float|null}
+     */
+    private function unit(mixed $unit, mixed $grams): array
+    {
+        if (! in_array($unit, ['kg', 'l', 'piece'], true)) {
+            return [null, null];
+        }
+        $bounds = self::GRAMS_PER_UNIT_BOUNDS[$unit] ?? null;
+        $usable = $bounds !== null && (is_int($grams) || is_float($grams)) && $grams >= $bounds[0] && $grams <= $bounds[1];
+
+        return [$unit, $usable ? round((float) $grams, 1) : null];
+    }
+
+    /** @param list<array<string, mixed>> $candidates */
+    private function allergenPick(mixed $pick, array $candidates): ?int
+    {
+        return is_int($pick) && ($candidates[$pick]['importable'] ?? false) === true ? $pick : null;
+    }
+
+    /**
+     * Codes from the active classes, once each, with a containment the server accepts.
+     *
+     * @param  list<string>  $known
+     * @return list<array{code: string, containment: string}>
+     */
+    private function allergenCodes(mixed $answered, array $known): array
+    {
+        $codes = [];
+
+        foreach (is_iterable($answered) ? $answered : [] as $entry) {
+            $code = is_array($entry) ? ($entry['code'] ?? null) : null;
+            $containment = is_array($entry) ? ($entry['containment'] ?? null) : null;
+
+            if (in_array($code, $known, true) && in_array($containment, ['contains', 'may_contain'], true) && ! isset($codes[$code])) {
+                $codes[$code] = ['code' => $code, 'containment' => $containment];
+            }
+        }
+
+        return array_values($codes);
     }
 
     private function arabic(mixed $value): ?string

@@ -7,6 +7,7 @@ import {
     Inline,
     IssueTrayButton,
     OfflineIndicator,
+    RailAccount,
     useBreakpoint,
 } from '@healthy360/design-system';
 import type { AppShellVariant, NavigationItem } from '@healthy360/design-system';
@@ -15,17 +16,19 @@ import { Redirect, usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Gate } from '../access/gate.tsx';
 import { useLogoutMutation } from '../data/hooks.ts';
 import { isAreaAvailable } from '../features/availability.ts';
+import { isShopViewOnly } from '../features/marketplace/shop-view-only.tsx';
 import { workspaceGroup } from '../navigation/workspace-group.tsx';
 import { guardNavigation } from '../navigation/use-unsaved-guard.ts';
 import { useOnlineStatus } from '../online/online-status.tsx';
-import { useAccessState } from '../session/session-provider.tsx';
+import { useAccessState, useSession } from '../session/session-provider.tsx';
+import { accountIdentity } from './account-identity.ts';
 import { LocaleToggle } from './locale-toggle.tsx';
-import { ProcessResumeButton } from './process-resume-button.tsx';
+import { KeptWorkButton, KeptWorkDock } from './kept-work-dock.tsx';
 import { ThemeToggle } from './theme-toggle.tsx';
 
 /**
@@ -75,14 +78,10 @@ export interface AreaShellProps {
     readonly sidebarStartCollapsed?: ReactNode | undefined;
     /** Drawn in the top bar in place of the area title — the kitchen's breadcrumb trail. */
     readonly topbarTitle?: ReactNode | undefined;
-    /** Leads the top bar's trailing controls — the kitchen area's page search. */
+    /** After the trail in the top bar — the kitchen area's page search. */
     readonly topbarSearch?: ReactNode | undefined;
-    /**
-     * Move Sign out from the top bar to the bottom of the sidebar (KITCHEN.md sidebar spec). Only
-     * where the sidebar exists: below `lg` the top bar keeps it, because the drawer is a light
-     * overlay with its own title bar.
-     */
-    readonly signOutInSidebar?: boolean | undefined;
+    /** Beside the kept-work and issue-tray buttons — the kitchen's staff alerts. */
+    readonly topbarActions?: ReactNode | undefined;
     /** `auth` variant only: the brand panel beside the card from `lg` up. */
     readonly authAside?: ReactNode | undefined;
     readonly testID?: string | undefined;
@@ -121,7 +120,7 @@ function GuardedAreaShell({
     sidebarStartCollapsed,
     topbarTitle,
     topbarSearch,
-    signOutInSidebar = false,
+    topbarActions,
     authAside,
     testID = 'app-shell',
 }: AreaShellProps) {
@@ -129,14 +128,12 @@ function GuardedAreaShell({
     const router = useRouter();
     const pathname = usePathname();
     const accessState = useAccessState();
+    const { me } = useSession();
     const { state: connectivity } = useOnlineStatus();
     const logout = useLogoutMutation();
     const { atLeast } = useBreakpoint();
 
     const resolvedVariant = variant ?? AREA_SHELL_VARIANT[area];
-    // Same threshold AppShell uses to swap the sidebar for the drawer: when there is no sidebar,
-    // Sign out must stay in the top bar or it stops existing.
-    const sidebarPresent = signOutInSidebar && atLeast('lg');
 
     /*
      * The driver chrome's tabs, when a caller asks for that chrome: the areas and the account pages.
@@ -161,13 +158,30 @@ function GuardedAreaShell({
         if (resolvedVariant === 'driver') return switcher;
         return navigationOverride ?? [];
     }, [navigationOverride, resolvedVariant, switcher]);
-    // Not on the workspace page itself, which is where it leads.
+    /*
+     * The same test AppShell draws its module rail on. Where the rail is, Workspaces and the account
+     * avatar sit at its foot and Sign out lives in the avatar's card; without it — a phone, or an
+     * area with no modules — the top bar keeps Sign out, or it would stop existing.
+     */
+    const railPresent = resolvedVariant === 'workspace' && navigation.length > 0 && atLeast('lg');
+    // Not on the workspace page itself, which is where it leads, and never for a shopper, who has
+    // none: they reach `/devices` from their account.
     const showWorkspacesButton =
-        WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) && pathname !== '/workspace';
+        WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) &&
+        pathname !== '/workspace' &&
+        isShopViewOnly(accessState);
     // The bar sits outside `KitchenOpsShell`'s compact provider, so on a staff page its two buttons
     // would otherwise come out at the customer app's 44px. Every staff area takes the 28px pair —
     // the KDS and the driver area included, by the user's choice on 2026-10-25.
     const barDensity = WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) ? 'compact' : 'comfortable';
+    // On a phone the staff bar's two labelled buttons pushed it 33px past the window, so below `md`
+    // they are their glyphs, named for a screen reader and on hover.
+    const iconsOnly = WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) && !atLeast('md');
+    const toWorkspace = () => {
+        guardNavigation(() => {
+            router.push('/workspace' as never);
+        });
+    };
 
     const signOut = () => {
         logout.mutate(undefined, {
@@ -179,64 +193,85 @@ function GuardedAreaShell({
 
     const banner = (
         <View>
-            <OfflineIndicator testID="offline-indicator" state={connectivity} />
+            <OfflineIndicator
+                testID="offline-indicator"
+                // The desk system bar is the kitchen's; the other areas keep the strip.
+                look={area === 'kitchen' || area === 'kds' ? 'bar' : 'strip'}
+                state={connectivity}
+            />
         </View>
     );
 
+    const workspacesLabel = t('marketplace:nav.workspaces');
     const topbarEnd =
         resolvedVariant === 'auth' || resolvedVariant === 'kiosk' ? undefined : (
             <Inline space="xs" wrap={false}>
                 {/*
-                 * The page's issue tray, ahead of everything else in the bar: what is left to fix
-                 * here, from anywhere on the page. Drawn only on a page that has a tray.
+                 * The way back into unfinished work — a process stepped out of, editors kept for
+                 * later — when its card at the bottom of the page is minimised (`kept-work-dock.tsx`),
+                 * then the page's issue tray: what is left to fix here, from anywhere on the page.
+                 * Each is drawn only when it has something to hold.
                  */}
-                {/* The way back into a process the reader stepped out of — `active-process.ts`. */}
-                <ProcessResumeButton />
+                <KeptWorkButton />
                 <IssueTrayButton />
-                {topbarSearch}
-                <LocaleToggle />
-                <ThemeToggle />
+                {topbarActions}
+                <LocaleToggle round={WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant)} />
                 {/*
                  * Back to the workspace page, to choose another area. Labelled, because it is the
-                 * one way between areas. Drawn as the app's other "back" controls are — outlined,
-                 * with a backward chevron — so it reads as a way back rather than an action.
-                 *
-                 * Both buttons are `self-center`: `Button` is `self-start` by default, which pinned
-                 * them to the top of a row whose toggles are taller.
+                 * one way between areas; `self-center`, because `Button` is `self-start` by default.
                  */}
                 <DensityProvider value={barDensity}>
-                    {showWorkspacesButton ? (
+                    {!showWorkspacesButton ? null : iconsOnly ? (
+                        <IconButton
+                            testID="workspaces-button"
+                            label={workspacesLabel}
+                            icon={<Icon name="gridDots" />}
+                            onPress={toWorkspace}
+                        />
+                    ) : (
                         <Button
                             testID="workspaces-button"
                             size="sm"
                             variant="secondary"
-                            label={t('marketplace:nav.workspaces')}
-                            iconStart={<Icon name="chevronBackward" size="sm" />}
-                            className="self-center"
-                            onPress={() => {
-                                guardNavigation(() => {
-                                    router.push('/workspace' as never);
-                                });
-                            }}
+                            label={workspacesLabel}
+                            iconStart={
+                                <Icon name="gridDots" size="sm" className="text-content-primary" />
+                            }
+                            className="!h-11 !min-h-0 self-center !rounded-full !px-4"
+                            onPress={toWorkspace}
                         />
-                    ) : null}
-                    {/*
-                     * Sign out is filled green — a deliberate departure from Rule 4, which would
-                     * keep it quiet and leave the top-bar primary empty. The areas with a core-loop
-                     * action — the kitchen workbench, the editors — still carry it on the screen
-                     * that owns it, never in this bar.
-                     *
-                     * When the area pins Sign out to its sidebar, this control moves there — but only
-                     * while the sidebar is on screen.
-                     */}
-                    {sidebarPresent ? null : (
+                    )}
+                </DensityProvider>
+                <ThemeToggle />
+                <DensityProvider value={barDensity}>
+                    {railPresent ? null : iconsOnly ? (
+                        <IconButton
+                            testID="sign-out"
+                            label={t('common:action.signOut')}
+                            disabled={logout.isPending}
+                            icon={<Icon name="signOut" />}
+                            onPress={signOut}
+                        />
+                    ) : (
                         <Button
                             testID="sign-out"
                             size="sm"
-                            variant="primary"
+                            // The workspace page's bar is the quiet one its board draws.
+                            variant={pathname === '/workspace' ? 'secondary' : 'primary'}
                             label={t('common:action.signOut')}
                             loading={logout.isPending}
-                            className="self-center"
+                            {...(pathname === '/workspace'
+                                ? {
+                                      iconStart: (
+                                          <Icon
+                                              name="signOut"
+                                              size="sm"
+                                              className="text-content-primary"
+                                          />
+                                      ),
+                                      className: '!h-11 !min-h-0 self-center !rounded-full !px-4',
+                                  }
+                                : { className: 'self-center' })}
                             onPress={signOut}
                         />
                     )}
@@ -244,39 +279,27 @@ function GuardedAreaShell({
             </Inline>
         );
 
-    // KITCHEN.md sidebar spec: quiet, bordered, never filled — a filled button would compete with
-    // the active item.
-    const sidebarSignOut = !sidebarPresent ? undefined : (
-        <View className="border-t border-content-on-sidebar-muted/30 p-3">
-            <Pressable
-                testID="sign-out"
-                role="button"
-                accessibilityRole="button"
-                accessibilityLabel={t('common:action.signOut')}
-                accessibilityState={{ disabled: logout.isPending }}
-                disabled={logout.isPending}
-                focusable
-                onPress={signOut}
-                className="min-h-touch items-center justify-center rounded-lg border border-content-on-sidebar-muted/60"
-            >
-                <RNText className="text-sm font-semibold text-content-on-sidebar">
-                    {t('common:action.signOut')}
-                </RNText>
-            </Pressable>
-        </View>
-    );
-
-    // The same control on the collapsed sidebar: its glyph, named on hover.
-    const sidebarSignOutCollapsed = !sidebarPresent ? undefined : (
-        <View className="items-center border-t border-content-on-sidebar-muted/30 py-3">
-            <IconButton
-                testID="sign-out-rail"
-                label={t('common:action.signOut')}
-                disabled={logout.isPending}
-                icon={<Icon name="signOut" size="lg" className="text-content-on-sidebar" />}
-                onPress={signOut}
+    const identity = accountIdentity(me);
+    /*
+     * The rail's foot: the avatar alone, whose card holds who is signed in and Sign out — nothing
+     * else. Workspaces left the rail on 2026-11-09 so every module icon fits without scrolling; the
+     * top bar's Workspaces button is the way back to the workspace page.
+     */
+    const railEnd = !railPresent ? undefined : (
+        <>
+            <RailAccount
+                testID="account"
+                name={identity.name || t('designSystem:shell.account')}
+                detail={identity.detail}
+                label={t('designSystem:shell.accountFor', {
+                    name: identity.name || t('designSystem:shell.account'),
+                })}
+                menuLabel={t('designSystem:shell.account')}
+                signOutLabel={t('common:action.signOut')}
+                signingOut={logout.isPending}
+                onSignOut={signOut}
             />
-        </View>
+        </>
     );
 
     const shell = (
@@ -288,21 +311,33 @@ function GuardedAreaShell({
             banner={banner}
             topbarEnd={topbarEnd}
             {...(topbarTitle === undefined ? {} : { topbarTitle })}
+            {...(topbarSearch === undefined ? {} : { topbarSearch })}
+            {...(railEnd === undefined ? {} : { railEnd })}
             {...(sidebarWidth === undefined ? {} : { sidebarWidth })}
             {...(sidebarBackground === undefined ? {} : { sidebarBackground })}
             {...(sidebarStart === undefined ? {} : { sidebarStart })}
             {...(sidebarStartCollapsed === undefined ? {} : { sidebarStartCollapsed })}
-            {...(sidebarSignOut === undefined ? {} : { sidebarEnd: sidebarSignOut })}
-            {...(sidebarSignOutCollapsed === undefined
-                ? {}
-                : { sidebarEndCollapsed: sidebarSignOutCollapsed })}
             {...(authAside === undefined ? {} : { authAside })}
         >
             {children}
         </AppShell>
     );
 
-    if (unguarded) return shell;
+    /*
+     * The kept work's card floats over the page, so it sits beside the shell rather than in its
+     * scroll port. Not on a sign-in page or a kiosk, which have no top bar to minimise it into.
+     */
+    const framed =
+        resolvedVariant === 'auth' || resolvedVariant === 'kiosk' ? (
+            shell
+        ) : (
+            <View className="flex-1">
+                {shell}
+                <KeptWorkDock />
+            </View>
+        );
 
-    return <Gate area={area}>{shell}</Gate>;
+    if (unguarded) return framed;
+
+    return <Gate area={area}>{framed}</Gate>;
 }

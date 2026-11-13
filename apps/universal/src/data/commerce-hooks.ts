@@ -23,6 +23,7 @@ import type {
     SubscriptionDeliveryFilter,
     SubscriptionFilter,
     SubscriptionMealChoice,
+    SubscriptionPlanDays,
     SubscriptionPreview,
     SubscriptionQuote,
     SubscriptionQuoteRequest,
@@ -310,6 +311,30 @@ export function useMyOrderQuery(
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (orderId === null) throw new Error('No order identifier.');
             return repositories.commerce.getMyOrder(orderId);
+        },
+    });
+}
+
+/**
+ * The customer calls off an order the kitchen has not accepted yet. A `409` (the kitchen got there
+ * first) is left on the mutation for the screen to word; either way the order is read again, so the
+ * page shows where it really is.
+ */
+export function useCancelMyOrderMutation(): UseMutationResult<PlacedOrder, unknown, OrderId> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        retry: 0,
+        mutationFn: (orderId: OrderId) => repositories.commerce.cancelMyOrder(orderId),
+        onSuccess: (order) => {
+            queryClient.setQueryData(queryKeys.commerce.myOrder(order.id), order);
+        },
+        onSettled: async (_order, _error, orderId) => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.commerce.myOrder(orderId) }),
+                queryClient.invalidateQueries({ queryKey: queryKeys.commerce.orders() }),
+            ]);
         },
     });
 }
@@ -618,6 +643,23 @@ export function useSubscriptionDeliveriesQuery(
     });
 }
 
+/** The customer's meals, day by day, from today to the end of the balance. */
+export function useSubscriptionDaysQuery(
+    subscriptionId: SubscriptionId | null,
+): UseQueryResult<SubscriptionPlanDays> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.commerce.subscriptionDays(subscriptionId ?? ('' as SubscriptionId)),
+        enabled: repositories !== null && subscriptionId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (subscriptionId === null) throw new Error('No subscription identifier.');
+            return repositories.commerce.listSubscriptionDays(subscriptionId);
+        },
+    });
+}
+
 export interface CancelSubscriptionVariables {
     readonly subscriptionId: SubscriptionId;
     readonly request?: CancelSubscriptionRequest | undefined;
@@ -695,6 +737,9 @@ export function useSetSubscriptionMealChoicesMutation(): UseMutationResult<
                 queryKeys.commerce.subscriptionMealChoices(subscriptionId, request.date),
                 choices,
             );
+            await queryClient.invalidateQueries({
+                queryKey: queryKeys.commerce.subscriptionDays(subscriptionId),
+            });
         },
     });
 }

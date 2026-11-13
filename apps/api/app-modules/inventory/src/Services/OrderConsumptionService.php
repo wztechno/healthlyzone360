@@ -12,12 +12,14 @@ use Healthy360\Inventory\Models\OrderConsumptionException;
 use Healthy360\Inventory\Models\StockItem;
 use Healthy360\Inventory\Models\StockMovement;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
+use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\ReferenceData\Exceptions\UnitConversionUnsupported;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\ReferenceData\Services\UnitConversionService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -126,6 +128,7 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         'insufficient_stock',
         'reserved_for_production',
         'no_net_content',
+        'quality_hold',
     ];
 
     public function __construct(
@@ -134,13 +137,15 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         private MealExplosion $explosion,
         private ConsumptionValuation $valuation,
         private OrderLineEstimator $estimator,
+        private StockQuarantine $quarantine,
     ) {}
 
-    public function consume(Order $order): void
+    public function consume(Order $order, ?iterable $lines = null): void
     {
         // Never deduct twice for one order — the coarse guard the port promises
-        // for a redelivered confirm. A manager retry does not come through here.
-        if ($this->hasConsumed($order)) {
+        // for a redelivered confirm. An edit names its new lines and skips it;
+        // the per-(line, stock item) guard in `deduct()` still holds for those.
+        if ($lines === null && $this->hasConsumed($order)) {
             return;
         }
 
@@ -149,13 +154,16 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         if ($branchId === null) {
             // Stock is a per-branch quantity; an order with no branch, at a
             // kitchen with more than one, has no shelf to take from. Recorded
-            // rather than guessed.
-            $this->persistException($order, null, null, 'no_branch', 'The order has no branch and the kitchen has more than one active branch, so no stock could be deducted.');
+            // rather than guessed — once: an edit re-running consume must not
+            // open a second copy of the same order-level problem.
+            if (! $this->hasOpenOrderLevelException($order, 'no_branch')) {
+                $this->persistException($order, null, null, 'no_branch', 'The order has no branch and the kitchen has more than one active branch, so no stock could be deducted.');
+            }
 
             return;
         }
 
-        foreach ($order->lines()->get() as $line) {
+        foreach ($lines ?? $order->lines()->get() as $line) {
             /** @var list<ConsumptionFailure> $failures */
             $failures = [];
 
@@ -185,20 +193,68 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         }
     }
 
-    public function restore(Order $order): void
+    /**
+     * Reverse every consume that has not been reversed yet — or, given line ids,
+     * only those lines' consumes, settling their open exceptions too.
+     *
+     * Reversed-ness is decided per (order line, stock item), so a line released
+     * by an edit and the order's later cancellation each put back exactly what
+     * is still off the shelf, and neither puts anything back twice. A consume
+     * that predates INV1.5 carries no line and keeps the rule it always had: it
+     * counts as reversed once any line-less reversal exists for the order.
+     */
+    public function restore(Order $order, ?array $orderLineIds = null): void
     {
-        if ($this->hasRestored($order)) {
+        if ($orderLineIds === []) {
             return;
         }
+
+        $amending = $orderLineIds !== null;
 
         $movements = StockMovement::withoutTenancy()
             ->where('organisation_id', $order->organisation_id)
             ->where('reference_type', self::CONSUME_REFERENCE)
             ->where('reference_id', (string) $order->getKey())
             ->where('reason', 'consume')
+            ->when($amending, fn (Builder $query): Builder => $query->whereIn('order_line_id', $orderLineIds))
             ->get();
 
+        /** @var array<string, true> $reversed */
+        $reversed = [];
+        $legacyReversed = false;
+
+        // A consume taken from a shelf that has since been merged goes back onto
+        // the shelf it was merged into, and is matched against its reversals there.
+        /** @var array<string, string> $shelves */
+        $shelves = [];
+        $shelf = static function (string $stockItemId) use (&$shelves): string {
+            return $shelves[$stockItemId] ??= (string) (StockItem::withoutTenancy()->whereKey($stockItemId)->value('merged_into_stock_item_id') ?? $stockItemId);
+        };
+
+        $reversals = StockMovement::withoutTenancy()
+            ->where('organisation_id', $order->organisation_id)
+            ->where('reference_type', self::REVERSAL_REFERENCE)
+            ->where('reference_id', (string) $order->getKey())
+            ->get(['order_line_id', 'stock_item_id']);
+
+        foreach ($reversals as $reversal) {
+            if ($reversal->order_line_id === null) {
+                $legacyReversed = true;
+            } else {
+                $reversed[$reversal->order_line_id.'|'.$shelf((string) $reversal->stock_item_id)] = true;
+            }
+        }
+
         foreach ($movements as $movement) {
+            $target = $shelf((string) $movement->stock_item_id);
+            $alreadyReversed = $movement->order_line_id === null
+                ? $legacyReversed
+                : isset($reversed[$movement->order_line_id.'|'.$target]);
+
+            if ($alreadyReversed) {
+                continue;
+            }
+
             // The consume stored a negative delta; the reversal adds back its
             // magnitude, exactly what was removed.
             $addBack = bcmul($this->numeric((string) $movement->quantity_delta), '-1', self::SCALE);
@@ -210,16 +266,41 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             $this->inventory->recordMovement(
                 (string) $order->organisation_id,
                 (string) $movement->branch_id,
-                (string) $movement->stock_item_id,
+                $target,
                 'adjust',
                 $addBack,
                 self::REVERSAL_REFERENCE,
                 (string) $order->getKey(),
-                notes: 'Reversal of consume '.$movement->getKey().' on order cancellation.',
+                notes: 'Reversal of consume '.$movement->getKey().($amending ? ' on order amendment.' : ' on order cancellation.'),
+                orderLineId: $movement->order_line_id === null ? null : (string) $movement->order_line_id,
             );
 
-            $this->restoreQuantityOnHand($order, $movement, $addBack);
+            $this->restoreQuantityOnHand($order, $target, $addBack);
         }
+
+        if ($amending) {
+            $open = OrderConsumptionException::withoutTenancy()
+                ->where('organisation_id', $order->organisation_id)
+                ->where('order_id', (string) $order->getKey())
+                ->whereIn('order_line_id', $orderLineIds)
+                ->whereNull('resolved_at')
+                ->get();
+
+            foreach ($open as $exception) {
+                $this->markResolved($exception, null, 'Line amended away.');
+            }
+        }
+    }
+
+    public function hasUnattributedConsumption(Order $order): bool
+    {
+        return StockMovement::withoutTenancy()
+            ->where('organisation_id', $order->organisation_id)
+            ->where('reference_type', self::CONSUME_REFERENCE)
+            ->where('reference_id', (string) $order->getKey())
+            ->where('reason', 'consume')
+            ->whereNull('order_line_id')
+            ->exists();
     }
 
     /**
@@ -260,6 +341,15 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
 
             if (! $order instanceof Order) {
                 $fresh->detail = 'Retry could not run: the order no longer exists.';
+                $fresh->save();
+
+                return $fresh;
+            }
+
+            // Its stock was put back on cancellation; deducting now would take it off again for
+            // food nobody is cooking. The sweep already skips these — this is every other way in.
+            if ($order->status === OrderStatus::Cancelled) {
+                $fresh->detail = 'Retry did not run: the order was cancelled, so nothing is deducted for it.';
                 $fresh->save();
 
                 return $fresh;
@@ -365,15 +455,22 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
      * Reconcile a line's freshly-collected failures against the exceptions
      * already open on it.
      *
-     * Failures are matched to open exceptions by reason code, one for one, so
-     * multiplicity is preserved: two ingredients failing `no_stock_item` keep two
-     * rows open, and fixing one closes exactly one. An open exception whose reason
-     * no longer occurs is settled — with one guard: a `no_ingredient_cost` (and a
-     * cost-stage `unit_conversion_unsupported`) sits on a movement that *did*
-     * deduct but could not be valued, and an append-only ledger cannot be
-     * re-valued by re-running, so those are settled by retry only when a real new
-     * deduction happened this run. Otherwise they are left open for a person to
-     * settle, their detail refreshed to say why.
+     * Failures are matched to open exceptions one for one, so multiplicity is
+     * preserved: two ingredients failing `no_stock_item` keep two rows open, and
+     * fixing one closes exactly one. **The one it closes is the fixed one.** A
+     * failure is paired first with the exception that names the same ingredient,
+     * and only then — for a row that names none — by reason alone. Pairing by
+     * reason alone closed whichever row came first: a line short of nine
+     * ingredients, restocked with chicken, closed the lemon's row and moved the
+     * other details around.
+     *
+     * An open exception whose reason no longer occurs is settled — with one
+     * guard: a `no_ingredient_cost` (and a cost-stage `unit_conversion_
+     * unsupported`) sits on a movement that *did* deduct but could not be valued,
+     * and an append-only ledger cannot be re-valued by re-running, so those are
+     * settled by retry only when a real new deduction happened this run.
+     * Otherwise they are left open for a person to settle, their detail refreshed
+     * to say why.
      *
      * @param  list<ConsumptionFailure>  $failures
      */
@@ -386,23 +483,29 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             ->where('order_id', (string) $order->getKey())
             ->where('order_line_id', (string) $line->getKey())
             ->whereNull('resolved_at')
+            ->orderBy('created_at')
+            ->orderBy('id')
             ->get();
 
+        // First every row that names its ingredient takes that ingredient's failure.
+        $unpaired = [];
         foreach ($open as $exception) {
-            $matchIndex = null;
-            foreach ($remaining as $index => $failure) {
-                if ($failure['reason_code'] === $exception->reason_code) {
-                    $matchIndex = $index;
-                    break;
-                }
+            $matchIndex = $this->failureFor($exception, $remaining, sameIngredientOnly: true);
+
+            if ($matchIndex === null) {
+                $unpaired[] = $exception;
+
+                continue;
             }
 
+            $this->keepOpen($exception, $remaining, $matchIndex);
+        }
+
+        foreach ($unpaired as $exception) {
+            $matchIndex = $this->failureFor($exception, $remaining, sameIngredientOnly: false);
+
             if ($matchIndex !== null) {
-                // Still failing for the same reason — refresh the detail, leave open.
-                $exception->detail = $remaining[$matchIndex]['detail'];
-                $exception->save();
-                unset($remaining[$matchIndex]);
-                $remaining = array_values($remaining);
+                $this->keepOpen($exception, $remaining, $matchIndex);
 
                 continue;
             }
@@ -426,6 +529,66 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
         foreach ($remaining as $failure) {
             $this->persistException($order, $line, $failure['catalogue_item_id'], $failure['reason_code'], $failure['detail']);
         }
+    }
+
+    /**
+     * The index of the failure this exception is still raised by, or null.
+     *
+     * With `$sameIngredientOnly` the two must name the same ingredient. Without
+     * it, a pair where one side names an ingredient and the other a different
+     * one never matches — that is a different problem — but a side that names
+     * none (a recipe-level reason, an older detail) matches on reason alone.
+     *
+     * @param  list<ConsumptionFailure>  $failures
+     */
+    private function failureFor(OrderConsumptionException $exception, array $failures, bool $sameIngredientOnly): ?int
+    {
+        $was = $this->ingredientNamed((string) $exception->detail);
+
+        foreach ($failures as $index => $failure) {
+            if ($failure['reason_code'] !== $exception->reason_code) {
+                continue;
+            }
+
+            $now = $this->ingredientNamed($failure['detail']);
+
+            if ($sameIngredientOnly ? ($was !== null && $was === $now) : ($was === null || $now === null)) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Still failing for the same thing: refresh the detail, leave it open, and
+     * take the failure out of the ones still to place.
+     *
+     * @param  list<ConsumptionFailure>  $remaining
+     *
+     * @param-out list<ConsumptionFailure> $remaining
+     */
+    private function keepOpen(OrderConsumptionException $exception, array &$remaining, int $index): void
+    {
+        $exception->detail = $remaining[$index]['detail'];
+        $exception->save();
+
+        $remaining = array_values(array_filter(
+            $remaining,
+            static fn (int $key): bool => $key !== $index,
+            ARRAY_FILTER_USE_KEY,
+        ));
+    }
+
+    /**
+     * The ingredient a detail line names, the way the presenter reads it for the
+     * screen — `Ingredient <uuid>: …`.
+     */
+    private function ingredientNamed(string $detail): ?string
+    {
+        return preg_match('/\bingredient\s+([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i', $detail, $match) === 1
+            ? strtolower($match[1])
+            : null;
     }
 
     /**
@@ -754,8 +917,10 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
 
         // A reason instead of figures when the COGS side cannot be valued — no
         // average held, or a stock unit that will not convert to the cost unit.
-        // The stock deducts either way.
-        $valued = $this->valuation->value((string) $order->organisation_id, $ingredientId, $stockUnit, $consumedInStockUnit);
+        // The stock deducts either way. Valued as whatever the shelf holds, which
+        // for a kitchen's copy drawing on its original's shelf is the original
+        // (see MealExplosion::resolveStockItem()).
+        $valued = $this->valuation->value((string) $order->organisation_id, (string) ($stockItem->ingredient_id ?? $ingredientId), $stockUnit, $consumedInStockUnit);
         $costProblem = is_string($valued) ? $valued : null;
         $figures = is_array($valued) ? $valued : null;
 
@@ -785,17 +950,25 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             // buying, the second by talking to the kitchen about the batch.
             // Reporting both as `insufficient_stock` would make a week of
             // over-eager reservations read as a week of stockouts.
-            $failures[] = $exception->isBlockedByReservation()
-                ? $this->failure(
+            //
+            // A quality hold is a third answer: release it, or throw the food away.
+            $failures[] = match (true) {
+                $exception->isBlockedByReservation() && $this->quarantine->isHolding($branchId, (string) $stockItem->getKey()) => $this->failure(
+                    (string) $item->getKey(),
+                    'quality_hold',
+                    'Ingredient '.$ingredientId.': '.$consumedInStockUnit.' could not be deducted because the stock is on quality hold.',
+                ),
+                $exception->isBlockedByReservation() => $this->failure(
                     (string) $item->getKey(),
                     'reserved_for_production',
                     'Ingredient '.$ingredientId.': '.$consumedInStockUnit.' could not be deducted because production has claimed the stock.',
-                )
-                : $this->failure(
+                ),
+                default => $this->failure(
                     (string) $item->getKey(),
                     'insufficient_stock',
                     'Ingredient '.$ingredientId.': not enough stock to deduct '.$consumedInStockUnit.'.',
-                );
+                ),
+            };
 
             return;
         }
@@ -853,9 +1026,9 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
      *
      * @param  numeric-string  $addBackInStockUnit
      */
-    private function restoreQuantityOnHand(Order $order, StockMovement $movement, string $addBackInStockUnit): void
+    private function restoreQuantityOnHand(Order $order, string $stockItemId, string $addBackInStockUnit): void
     {
-        $stockItem = StockItem::withoutTenancy()->whereKey($movement->stock_item_id)->first();
+        $stockItem = StockItem::withoutTenancy()->whereKey($stockItemId)->first();
 
         if (! $stockItem instanceof StockItem || $stockItem->ingredient_id === null || $stockItem->unit_id === null) {
             return;
@@ -898,12 +1071,14 @@ final readonly class OrderConsumptionService implements OrderStockConsumption
             ->exists();
     }
 
-    private function hasRestored(Order $order): bool
+    private function hasOpenOrderLevelException(Order $order, string $reasonCode): bool
     {
-        return StockMovement::withoutTenancy()
+        return OrderConsumptionException::withoutTenancy()
             ->where('organisation_id', $order->organisation_id)
-            ->where('reference_type', self::REVERSAL_REFERENCE)
-            ->where('reference_id', (string) $order->getKey())
+            ->where('order_id', (string) $order->getKey())
+            ->whereNull('order_line_id')
+            ->where('reason_code', $reasonCode)
+            ->whereNull('resolved_at')
             ->exists();
     }
 

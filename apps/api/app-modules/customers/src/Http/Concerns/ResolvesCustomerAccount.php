@@ -9,10 +9,14 @@ use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Customers\Services\ShopperResolver;
+use Healthy360\Identity\Enums\ContactChannel;
 use Healthy360\Identity\Models\ContactPoint;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Exists;
 
 /**
  * How every `/me/*` endpoint finds the account it is about, and the rows
@@ -185,5 +189,34 @@ trait ResolvesCustomerAccount
         }
 
         return $contact;
+    }
+
+    /**
+     * An address's `contact_point_id`: a live phone of the address book's
+     * account or of the user behind it. The run sheet rings it and
+     * `DeliveryPhone` trusts it, so an email, a retired number or somebody
+     * else's phone is refused here. With no account to own it, nothing passes.
+     */
+    protected function addressContactRule(Request $request): Exists
+    {
+        $user = $request->user();
+        $account = $user instanceof User ? $this->addressBookAccountOrNull($request, $user) : null;
+
+        return Rule::exists('contact_points', 'id')
+            ->where('channel', ContactChannel::Phone->value)
+            ->whereNull('retired_at')
+            ->where(function (Builder $owner) use ($account): void {
+                if (! $account instanceof CustomerAccount) {
+                    $owner->whereRaw('1 = 0');
+
+                    return;
+                }
+
+                $owner->where('customer_account_id', $account->getKey());
+
+                if ($account->user_id !== null) {
+                    $owner->orWhere('user_id', $account->user_id);
+                }
+            });
     }
 }

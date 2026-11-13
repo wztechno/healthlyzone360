@@ -41,12 +41,13 @@ import { todayIso } from '../commerce/dates.ts';
  * use, and local for the same reason: a kitchen in Dubai at 01:00 is on today's board, not
  * yesterday's, whatever UTC thinks.
  *
- * ## Oldest first
+ * ## Soonest due first
  *
- * The endpoint answers newest first, which is right for a book somebody is reading and wrong for a
- * queue somebody is working: the ticket that has waited longest is the one that needs starting.
- * Incoming and In preparation are therefore reversed into oldest-first. Ready keeps newest first —
- * the thing just bumped is the thing being looked for.
+ * The ticket that has to leave first is the one that needs starting, so open work runs by `dueAt` —
+ * the desk queue's instant: the requested day at its window's start in the branch's zone, else when
+ * it was placed — and by `placedAt` between two due at the same moment. A scheduled order that
+ * arrived first no longer queues ahead of a lunch due in twenty minutes. Ready is newest first — the
+ * thing just bumped is the thing being looked for.
  *
  * ## Which branch's tickets — and why the answer is not the endpoint's `branch_id` filter
  *
@@ -57,7 +58,8 @@ import { todayIso } from '../commerce/dates.ts';
  * unattributed order from it, and a display that hides real tickets is worse than no display: the
  * food is still ordered, and nobody is cooking it.
  *
- * So the board asks the endpoint for the book and decides here, with {@link ticketBelongsToBranch}:
+ * So the display endpoint names no branch and the board decides here, with
+ * {@link ticketBelongsToBranch}:
  *
  * * `branchId === null` — nobody has said which kitchen. Whoever is looking at this wall is a
  *   kitchen that may cook it, so it is shown.
@@ -114,6 +116,12 @@ function byPlacedAscending(left: KitchenOrder, right: KitchenOrder): number {
     return (instantOf(left.placedAt) ?? 0) - (instantOf(right.placedAt) ?? 0);
 }
 
+/** Soonest due first, then oldest. Without `dueAt` a ticket is due when placed, as on the server. */
+function byDueAscending(left: KitchenOrder, right: KitchenOrder): number {
+    const due = (order: KitchenOrder) => instantOf(order.dueAt ?? order.placedAt) ?? 0;
+    return due(left) - due(right) || byPlacedAscending(left, right);
+}
+
 function byFulfilledDescending(left: KitchenOrder, right: KitchenOrder): number {
     return (instantOf(right.fulfilledAt) ?? 0) - (instantOf(left.fulfilledAt) ?? 0);
 }
@@ -157,7 +165,7 @@ export function isUpcoming(order: KitchenOrder, now: Date): boolean {
 }
 
 /**
- * Splits one page of orders into the three columns, keeping only what this branch should see.
+ * Splits the board's orders into the three columns, keeping only what this branch should see.
  *
  * `cancelled` reaches none of them, and neither does another kitchen's attributed work.
  */
@@ -180,15 +188,15 @@ export function bucketTickets(
     return {
         incoming: mine
             .filter((order) => isAwaitingStart(order) && !isUpcoming(order, now))
-            .sort(byPlacedAscending),
+            .sort(byDueAscending),
         preparing: mine
             .filter(
                 (order) =>
                     order.status === 'confirmed' && !isReady(order) && !isAwaitingStart(order),
             )
-            .sort(byPlacedAscending),
+            .sort(byDueAscending),
         done: [
-            ...mine.filter(isReady).sort(byPlacedAscending),
+            ...mine.filter(isReady).sort(byDueAscending),
             ...mine
                 .filter(
                     (order) =>
@@ -202,7 +210,35 @@ export function bucketTickets(
     };
 }
 
-/** Upcoming tickets grouped by their requested day, earliest first, oldest order first within. */
+/** One dish on the All day list, in the two languages its lines carry. */
+export interface KdsAllDayLine {
+    readonly nameEn: string;
+    readonly nameAr: string;
+    readonly quantity: number;
+}
+
+/**
+ * What is still to cook, added up by dish, biggest first (the "All day" list).
+ *
+ * Only Incoming and In preparation count: what is Ready is cooked, and Upcoming is another day's
+ * work. Two lines are one dish when both of their names match; the options stay on the tickets.
+ */
+export function allDayTotals(board: KdsBoard): readonly KdsAllDayLine[] {
+    const totals = new Map<string, KdsAllDayLine>();
+    for (const order of [...board.incoming, ...board.preparing]) {
+        for (const line of order.lines) {
+            const key = `${line.nameEn}\u0000${line.nameAr}`;
+            totals.set(key, {
+                nameEn: line.nameEn,
+                nameAr: line.nameAr,
+                quantity: (totals.get(key)?.quantity ?? 0) + Number(line.quantity),
+            });
+        }
+    }
+    return [...totals.values()].sort((left, right) => right.quantity - left.quantity);
+}
+
+/** Upcoming tickets grouped by their requested day, earliest first, soonest due first within. */
 function byDay(orders: readonly KitchenOrder[]): readonly KdsUpcomingDay[] {
     const days = new Map<string, KitchenOrder[]>();
     for (const order of orders) {
@@ -212,7 +248,7 @@ function byDay(orders: readonly KitchenOrder[]): readonly KdsUpcomingDay[] {
     }
     return [...days.keys()]
         .sort((left, right) => left.localeCompare(right))
-        .map((day) => ({ day, tickets: [...(days.get(day) ?? [])].sort(byPlacedAscending) }));
+        .map((day) => ({ day, tickets: [...(days.get(day) ?? [])].sort(byDueAscending) }));
 }
 
 /** Whole minutes between an order being placed and `now`; never negative. */
@@ -237,6 +273,35 @@ export function ticketAgeTone(minutes: number): BadgeTone {
     if (minutes >= KDS_LATE_MINUTES) return 'danger';
     if (minutes >= KDS_WARNING_MINUTES) return 'warning';
     return 'neutral';
+}
+
+/**
+ * Whether a placed ticket has waited past the kitchen's limit. Both figures are the server's, in
+ * minutes while a branch was open, so a client never works out opening hours.
+ */
+export function isAlarming(openMinutes: number, alarmAfterMinutes: number): boolean {
+    return openMinutes >= alarmAfterMinutes;
+}
+
+/** The tickets on this wall a sounding tone is about: placed, and this branch's or nobody's. */
+export function placedTicketIds(
+    orders: readonly KitchenOrder[],
+    branchId: BranchId | null,
+): readonly string[] {
+    return orders
+        .filter((order) => order.status === 'placed' && ticketBelongsToBranch(order, branchId))
+        .map((order) => String(order.id));
+}
+
+/**
+ * The tickets this page load has not met yet. Same rule as the bell's: before the first read
+ * (`seen === null`) nothing is new, so a reload never replays what is already on the wall.
+ */
+export function unseenTickets(
+    ids: readonly string[],
+    seen: ReadonlySet<string> | null,
+): readonly string[] {
+    return seen === null ? [] : ids.filter((id) => !seen.has(id));
 }
 
 /* ── identifiers used by tests and Playwright ────────────────────────────────────────────────── */

@@ -218,6 +218,16 @@ enum ErrorCode: string
     case CartChannelRefused = 'cart.channel_refused';
 
     /**
+     * The caller may look at the retail shop but not trade on it: an account
+     * whose person belongs to an organisation (kitchen staff, a business
+     * buyer's people) on a public channel, or a corporate buyer account on
+     * any channel but a private-pricing one. Raised on a basket, a checkout,
+     * an order and a subscription alike, against the channel the basket was
+     * opened on — not the one it would be opened on today.
+     */
+    case ShopViewOnly = 'shop.view_only';
+
+    /**
      * Checkout was refused. A 409 rather than a 422, because what changed is
      * the *world* — a branch closed, a price was withdrawn, a cut-off passed
      * between building the cart and submitting it — and the remedy is to
@@ -225,6 +235,14 @@ enum ErrorCode: string
      * blocker so a client can show all of them at once.
      */
     case OrderPlacementRefused = 'order.placement_refused';
+
+    /**
+     * The food is on the road, so this order cannot be cancelled by anybody: it
+     * ends as delivered or as failed. Its own code rather than
+     * `resource.conflict` because reloading changes nothing, and a screen has to
+     * tell that apart from a stale version.
+     */
+    case OrderOutForDelivery = 'order.out_for_delivery';
 
     /**
      * The action is not available from the application's current state — a
@@ -482,7 +500,8 @@ enum ErrorCode: string
             self::AccountVerificationRequired,
             self::B2bSignatoryRequired,
             self::AuthzPermissionDenied,
-            self::CartChannelRefused => 403,
+            self::CartChannelRefused,
+            self::ShopViewOnly => 403,
             self::ResourceNotFound => 404,
             self::ResourceConflict,
             self::OrganisationSuspended,
@@ -492,6 +511,7 @@ enum ErrorCode: string
             self::RequestIdempotencyKeyReused,
             self::ContactAlreadyInUse,
             self::OrderPlacementRefused,
+            self::OrderOutForDelivery,
             self::B2bApplicationStateInvalid,
             self::B2bQuotationStateInvalid,
             self::SubscriptionRefused,
@@ -574,7 +594,9 @@ enum ErrorCode: string
             self::GuestSessionInvalid => 'This guest session is not valid for that action.',
             self::CartLineRefused => 'This item cannot be added to the basket as asked for.',
             self::CartChannelRefused => 'This sales channel is only available to corporate buyer accounts.',
+            self::ShopViewOnly => 'This account can browse the shop but cannot order from it.',
             self::OrderPlacementRefused => 'This order cannot be placed as it stands.',
+            self::OrderOutForDelivery => 'This order is out for delivery. Close it as delivered or failed.',
             self::B2bApplicationStateInvalid => 'This application cannot be changed from its current state.',
             self::B2bDocumentsIncomplete => 'The required documents are not all present and accepted.',
             self::B2bSignatoryRequired => 'Signing requires a verified passcode from the named signatory.',

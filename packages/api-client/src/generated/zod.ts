@@ -58,7 +58,9 @@ export const zErrorCode = z.enum([
     'guest.session_invalid',
     'cart.line_refused',
     'cart.channel_refused',
+    'shop.view_only',
     'order.placement_refused',
+    'order.out_for_delivery',
     'b2b.application_state_invalid',
     'b2b.documents_incomplete',
     'b2b.signatory_required',
@@ -154,7 +156,8 @@ export const zMembership = z.object({
     branch_id: zUuid.nullable(),
     joined_at: z.iso.datetime({ offset: true }).nullable(),
     organisation: zOrganisation,
-    roles: z.array(z.string())
+    roles: z.array(z.string()),
+    branches: z.array(zBranch).optional()
 });
 
 /**
@@ -460,7 +463,8 @@ export const zIngredientAllergenMapping = z.object({
         'technical_sheet',
         'supplier_declaration',
         'kitchen_declared',
-        'inferred'
+        'inferred',
+        'recipe_derived'
     ]),
     verification_status: z.enum([
         'verified',
@@ -487,6 +491,12 @@ export const zAdminIngredient = z.object({
     allergens_reviewed_by: z.string().nullish(),
     allergens_reviewed_at: z.iso.datetime({ offset: true }).nullish(),
     allergens_review_evidence: z.string().nullish(),
+    produced_by_recipe: z.object({
+        id: zUuid,
+        name_en: z.string(),
+        name_ar: z.string(),
+        is_published: z.boolean()
+    }).nullish(),
     id: zUuid,
     organisation_id: zUuid.nullable(),
     is_platform: z.boolean(),
@@ -575,6 +585,7 @@ export const zNutritionReferenceCandidate = z.object({
     suitable: z.boolean(),
     reasons: z.array(z.string()),
     missing_nutrients: z.array(z.string()),
+    unsupported_basis: z.boolean(),
     source_hash: z.string().regex(/^[a-f0-9]{64}$/),
     retrieved_at: z.iso.datetime({ offset: true })
 });
@@ -605,7 +616,27 @@ export const zIngredientAssistSuggestion = z.object({
         ]).nullable(),
         reason: z.string().nullable()
     }).nullable(),
-    unavailable: z.array(z.enum(['assistant', 'nutrition']))
+    unit: z.enum([
+        'kg',
+        'l',
+        'piece'
+    ]).nullable(),
+    grams_per_unit: z.number().nullable(),
+    allergens: z.object({
+        candidates: z.array(zAllergenReferenceCandidate),
+        notices: z.array(z.string()),
+        pick: z.int().nullable(),
+        codes: z.array(z.object({
+            code: z.string(),
+            containment: z.enum(['contains', 'may_contain'])
+        })).nullable(),
+        reason: z.string().nullable()
+    }),
+    unavailable: z.array(z.enum([
+        'assistant',
+        'nutrition',
+        'allergens'
+    ]))
 });
 
 export const zConfirmIngredientAllergensRequest = z.object({
@@ -817,7 +848,9 @@ export const zRecipeLine = z.object({
     quantity: z.string().nullish(),
     unit_id: zUuid.nullish(),
     source_designation: z.string().max(160).nullish(),
-    comment: z.string().max(255).nullish()
+    comment: z.string().max(255).nullish(),
+    ingredient_name_en: z.string().nullish(),
+    ingredient_name_ar: z.string().nullish()
 });
 
 /**
@@ -998,7 +1031,19 @@ export const zComputedCostProduction = z.object({
         line_number: z.int().gte(1),
         ingredient_id: z.uuid(),
         unit_cost_amount: z.string().nullable(),
-        line_cost_amount: z.string().nullable()
+        line_cost_amount: z.string().nullable(),
+        cost_source: z.enum([
+            'weekly',
+            'latest_purchase',
+            'component_recipe',
+            'ingredient_fallback',
+            'quoted'
+        ]).nullable(),
+        source_recipe: z.object({
+            id: z.uuid(),
+            name_en: z.string(),
+            name_ar: z.string()
+        }).nullable()
     })).optional()
 });
 
@@ -1074,7 +1119,21 @@ export const zComputedCost = z.object({
         line_number: z.int().gte(1),
         ingredient_id: z.uuid(),
         cost_per_package_amount: z.string().nullable()
-    }))
+    })),
+    packs: z.array(z.object({
+        key: z.string(),
+        contents_amount: z.string().nullable(),
+        packaging_amount: z.string().nullable(),
+        cost_amount: z.string().nullable(),
+        withheld_reason: z.enum([
+            'production_incomplete',
+            'no_yield',
+            'no_piece_count',
+            'unit_unsupported',
+            'packaging_unknown',
+            'packaging_unpriced'
+        ]).nullable()
+    })).optional()
 });
 
 export const zCreateRecipeRequest = z.object({
@@ -1086,7 +1145,8 @@ export const zCreateRecipeRequest = z.object({
     source_kind: z.string().max(40).nullish(),
     confidentiality: zRecipeConfidentiality.optional(),
     notes: z.string().max(2000).nullish(),
-    shelf_life_days: z.int().gte(0).lte(3650).nullish()
+    shelf_life_days: z.int().gte(0).lte(3650).nullish(),
+    produces_ingredient: z.boolean().optional().default(false)
 });
 
 /**
@@ -1326,6 +1386,8 @@ export const zAdminRecipeSoldAs = z.object({
     composition: z.string().nullable(),
     channel_codes: z.array(z.string()),
     stock_blockers: z.array(z.string()),
+    allergens_assessed: z.boolean(),
+    on_sale_without_recipe: z.boolean(),
     pack_count: z.int().gte(0),
     default_pack: z.object({
         label_en: z.string(),
@@ -1562,6 +1624,8 @@ export const zAdminCatalogueItem = z.object({
     image_placeholder_id: z.string().max(80).nullish(),
     data_quality_flags: z.array(z.string()),
     stock_blockers: z.array(z.string()),
+    allergens_assessed: z.boolean(),
+    on_sale_without_recipe: z.boolean(),
     source_system: z.string().nullish(),
     source_ref: z.string().nullish(),
     lock_version: z.int().gte(0),
@@ -1627,6 +1691,14 @@ export const zAdminChannelAssignment = z.object({
     available_to: z.iso.date().nullable()
 });
 
+/**
+ * A catalogue item row; `channels` and `variants` are present when `include` asks for them.
+ */
+export const zAdminCatalogueItemIndexRow = zAdminCatalogueItem.and(z.object({
+    channels: z.array(zAdminChannelAssignment).optional(),
+    variants: z.array(zAdminCatalogueItemVariant).optional()
+}));
+
 export const zDerivedAllergen = z.object({
     allergen_code: zAllergenCode,
     containment: z.enum(['contains', 'may_contain']),
@@ -1664,11 +1736,22 @@ export const zPublicationReadiness = z.object({
     reasons: z.array(zReadinessReason)
 });
 
+/**
+ * The allergen label a quarantined version was published with, as
+ * `{allergen class: containment}` — what a release replaces with the
+ * recomputed label. `{}` when the old label carried nothing. Null outside
+ * review, and on a quarantine older than this field, which recorded only
+ * its `review_reason`.
+ *
+ */
+export const zRecipeVersionPreviousLabel = z.record(z.string(), z.enum(['contains', 'may_contain'])).nullable();
+
 export const zRecipeVersionReadinessMeta = zMeta.and(z.object({
     recipe_id: zUuid,
     version_number: z.int(),
     status: zRecipeVersionStatus,
-    derivation_state: zDerivationState
+    derivation_state: zDerivationState,
+    previous_label: zRecipeVersionPreviousLabel.optional()
 }));
 
 export const zCatalogueItemReadinessMeta = zMeta.and(z.object({
@@ -1752,6 +1835,94 @@ export const zUpdateCatalogueItemRequest = z.object({
  */
 export const zRetireCatalogueItemRequest = z.object({
     reason: z.string().max(200).nullish()
+});
+
+/**
+ * A place that carries a price — the web shop (`home`) or the B2B channel (`business`).
+ */
+export const zItemPackPlace = z.object({
+    sales_channel_id: zUuid,
+    price_list_id: zUuid,
+    currency_code: z.string().length(3),
+    offered: z.boolean()
+});
+
+/**
+ * The order desk. It carries no price of its own.
+ */
+export const zItemPackCounter = z.object({
+    sales_channel_id: zUuid,
+    offered: z.boolean(),
+    follows_home: z.boolean(),
+    price_list_name: z.string().nullable()
+});
+
+export const zItemPackPrice = z.object({
+    amount_minor: z.int().gte(1),
+    inherited: z.boolean()
+});
+
+export const zItemPackComponent = z.object({
+    ingredient_id: zUuid,
+    quantity: z.string(),
+    is_container: z.boolean()
+});
+
+export const zItemPack = z.object({
+    id: zUuid,
+    code: z.string(),
+    name_en: z.string().nullable(),
+    name_ar: z.string().nullable(),
+    is_default: z.boolean(),
+    fill: z.object({
+        quantity: z.string(),
+        unit: z.string()
+    }),
+    components: z.array(zItemPackComponent),
+    prices: z.object({
+        home: zItemPackPrice.nullable(),
+        business: zItemPackPrice.nullable()
+    })
+});
+
+export const zItemPacksEnvelope = z.object({
+    data: z.object({
+        item_id: zUuid,
+        lock_version: z.int().gte(0),
+        places: z.object({
+            home: zItemPackPlace.nullable(),
+            business: zItemPackPlace.nullable(),
+            counter: zItemPackCounter.nullable()
+        }),
+        packs: z.array(zItemPack)
+    }),
+    meta: zMeta
+});
+
+export const zSetItemPack = z.object({
+    id: zUuid.nullish(),
+    fill: z.object({
+        quantity: z.number().gt(0).lte(99999999.9999),
+        unit: z.string().max(20)
+    }),
+    components: z.array(z.object({
+        ingredient_id: zUuid,
+        quantity: z.number().gt(0).lte(99999999.9999),
+        is_container: z.boolean()
+    })).max(20),
+    prices: z.object({
+        home: z.int().gte(1).nullable(),
+        business: z.int().gte(1).nullable()
+    })
+});
+
+export const zSetItemPacksRequest = z.object({
+    places: z.object({
+        home: z.boolean(),
+        business: z.boolean(),
+        counter: z.boolean()
+    }),
+    packs: z.array(zSetItemPack).max(50)
 });
 
 export const zSetItemChannelOffer = z.object({
@@ -1846,6 +2017,7 @@ export const zAdminRecipeVersion = z.object({
     derived_at: z.iso.datetime({ offset: true }).nullish(),
     published_at: z.iso.datetime({ offset: true }).nullish(),
     review_reason: z.string().max(200).nullish(),
+    previous_label: zRecipeVersionPreviousLabel.optional(),
     notes: z.string().nullish(),
     lock_version: z.int().gte(0),
     created_at: z.iso.datetime({ offset: true }).nullish(),
@@ -1875,6 +2047,38 @@ export const zTechnicalSheet = z.object({
     }),
     computed: zComputedCost.nullable(),
     weekly: zWeeklyCost
+});
+
+/**
+ * A whole version — what `showRecipeVersion` serves.
+ */
+export const zRecipeVersionDetail = z.object({
+    version: zAdminRecipeVersion,
+    lines: z.array(zRecipeLine),
+    packaging: z.array(zRecipePackagingLine),
+    outputs: z.array(zRecipeOutput),
+    steps: z.array(zRecipeStep),
+    allergens: z.array(zRecipeVersionAllergen)
+});
+
+/**
+ * One recipe as a printed sheet needs it: `showRecipe`'s answer, the
+ * current version whole, and the costed sheet — `null` for a caller
+ * without `recipe.view_costs_organisation`.
+ *
+ */
+export const zRecipeTechnicalSheetBundle = z.object({
+    recipe: zAdminRecipe,
+    versions: z.array(zAdminRecipeVersion),
+    current: zRecipeVersionDetail,
+    sheet: zTechnicalSheet.nullable()
+});
+
+export const zRecipeTechnicalSheetBatchEnvelope = z.object({
+    data: z.object({
+        sheets: z.array(zRecipeTechnicalSheetBundle)
+    }),
+    meta: zMeta
 });
 
 /**
@@ -2008,6 +2212,15 @@ export const zPriceListChannelAssignment = z.object({
     price_list_id: zUuid,
     priority: z.int()
 });
+
+/**
+ * A price list row; `entries` and `channels` are present when `include` asks for them.
+ */
+export const zAdminPriceListIndexRow = zAdminPriceList.and(z.object({
+    confirmed_entries_count: z.int().gte(0),
+    entries: z.array(zAdminPriceListEntry).optional(),
+    channels: z.array(zPriceListChannelAssignment).optional()
+}));
 
 /**
  * How many standing rows the list has, and how many of those are real
@@ -2247,77 +2460,6 @@ export const zPlanProfileEnvelope = z.object({
 });
 
 /**
- * The four sittings, the same vocabulary a subscription meal choice
- * stores — generation copies this value straight onto a choice row.
- *
- */
-export const zPlanMenuSlot = z.enum([
-    'breakfast',
-    'lunch',
-    'dinner',
-    'snack'
-]);
-
-/**
- * One dish, in one slot, on one day of the plan's cycle.
- *
- */
-export const zPlanMenuEntry = z.object({
-    id: zUuid,
-    cycle_day: z.int().gte(1).lte(366),
-    slot: zPlanMenuSlot,
-    sequence: z.int().gte(1).lte(12),
-    meal_catalogue_item_id: zUuid,
-    meal_name_en: z.string().nullable(),
-    meal_name_ar: z.string().nullable()
-});
-
-/**
- * The rotation the entries sit on. **Both null means no menu is
- * published**, which is the behaviour every plan has by default and the
- * state in which a subscription order deducts no stock.
- *
- */
-export const zPlanMenuCycle = z.object({
-    cycle_days: z.int().gte(1).lte(366).nullable(),
-    anchor_date: z.iso.date().nullable()
-});
-
-export const zPlanMenuEnvelope = z.object({
-    data: z.object({
-        item: zAdminCatalogueItem,
-        cycle: zPlanMenuCycle,
-        entries: z.array(zPlanMenuEntry)
-    }),
-    meta: zMeta.and(z.object({
-        count: z.int()
-    }))
-});
-
-/**
- * The complete menu. All three fields are required to be *present* and
- * may all be null or empty: that combination withdraws the menu, which is
- * a decision a kitchen makes and not a field they forgot.
- *
- * They move together. Entries with no cycle length, or a cycle length
- * with no entries, or a cycle length with no anchor, are each `422` —
- * see the operation description.
- *
- * `catalogue_item_id` is not a field: the plan is in the URL.
- *
- */
-export const zReplacePlanMenuRequest = z.object({
-    entries: z.array(z.object({
-        cycle_day: z.int().gte(1).lte(366),
-        slot: zPlanMenuSlot,
-        sequence: z.int().gte(1).lte(12).nullish(),
-        meal_catalogue_item_id: zUuid
-    })).max(400),
-    menu_cycle_days: z.int().gte(1).lte(366).nullable(),
-    menu_cycle_anchor_date: z.iso.date().nullable()
-});
-
-/**
  * One cell of a plan's availability matrix, together with the variant that
  * carries it. **The variant is the priceable thing**: a price row names
  * `catalogue_item_variant_id`, exactly as it does for a pack.
@@ -2541,6 +2683,8 @@ export const zDeliveryZone = z.object({
     delivery_fee_minor: z.int().gte(0).nullable(),
     minimum_order_minor: z.int().gte(0).nullable(),
     estimated_minutes: z.int().gte(1).nullable(),
+    area_count: z.int().gte(0).optional(),
+    inactive_area_count: z.int().gte(0).optional(),
     status: zDeliveryZoneStatus,
     is_active: z.boolean(),
     source_system: z.string().max(40).nullish(),
@@ -2718,6 +2862,7 @@ export const zMarketplaceDeliveryWindow = z.object({
 });
 
 export const zMarketplaceKitchen = z.object({
+    paused_until: z.iso.datetime({ offset: true }).nullish(),
     id: zUuid,
     name: z.string(),
     slug: z.string(),
@@ -2739,7 +2884,8 @@ export const zMarketplaceKitchen = z.object({
  * One day of the fourteen-day ordering calendar, derived from the
  * branches' operating weeks and cut-offs. A day is orderable when at least
  * one active branch is open on it and that branch's cut-off has not
- * passed; a day nobody has configured is not orderable.
+ * passed; a day nobody has configured is not orderable. On a meal, the
+ * meal's own day off or sold-out day is not orderable either.
  *
  */
 export const zMarketplaceAvailability = z.object({
@@ -2845,57 +2991,120 @@ export const zMarketplaceNutritionFacts = z.object({
     calculation: zMarketplaceNutritionCalculation
 });
 
-export const zMarketplaceMeal = z.object({
-    id: zUuid,
-    kitchen_id: zUuid,
-    kitchen_name: z.string(),
-    item_type: z.enum([
-        'meal',
-        'product',
-        'sauce',
-        'dressing',
-        'frozen_meal'
+export const zTemperatureUnitRequest = z.object({
+    name: z.string().max(80),
+    kind: z.enum(['fridge', 'freezer']),
+    min_c: z.union([
+        z.number(),
+        z.string()
     ]),
-    published_category: z.object({
-        code: z.string(),
-        name: z.string()
-    }).nullable(),
+    max_c: z.union([
+        z.number(),
+        z.string()
+    ]),
+    active: z.boolean().optional()
+});
+
+export const zTemperatureUnit = z.object({
+    id: zUuid,
     name: z.string(),
-    photo_url: z.url().nullish(),
-    slug: z.string(),
-    description: z.string(),
-    meal_types: z.array(zMealTypeCode),
-    diet_classifications: z.array(z.string()),
-    cuisines: z.array(z.string()),
-    allergens: z.array(zAllergenCode),
-    serving: zMarketplaceServing.nullable(),
-    nutrition: zMarketplaceNutritionFacts.nullable(),
-    price: zMarketplaceMoney,
-    pack: zPackSize.nullable(),
-    preparation_minutes: z.int().nullable(),
-    image_placeholder_id: z.string(),
-    availability: z.array(zMarketplaceAvailability),
-    channels: zMarketplaceSalesChannels,
-    rating: z.number().nullable(),
-    rating_count: z.int().gte(0)
+    kind: z.enum(['fridge', 'freezer']),
+    min_c: z.string(),
+    max_c: z.string(),
+    active: z.boolean()
+});
+
+export const zTemperatureReading = z.object({
+    id: zUuid,
+    temperature_unit_id: zUuid,
+    unit_name: z.string(),
+    reading_date: z.iso.date(),
+    slot: z.enum(['am', 'pm']),
+    celsius: z.string(),
+    out_of_range: z.boolean(),
+    note: z.string().nullable(),
+    recorded_by_name: z.string().nullable(),
+    recorded_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zCookingTemperature = z.object({
+    id: zUuid,
+    production_order_id: zUuid,
+    batch_label: z.string().nullable(),
+    recipe: z.string().nullable(),
+    celsius: z.string(),
+    note: z.string().nullable(),
+    recorded_by_name: z.string().nullable(),
+    recorded_at: z.iso.datetime({ offset: true })
+});
+
+export const zTemperatureLog = z.object({
+    units: z.array(zTemperatureUnit),
+    readings: z.array(zTemperatureReading),
+    cooking: z.array(zCookingTemperature)
+});
+
+export const zOrderComplaintCause = z.enum([
+    'wrong_item',
+    'missing_item',
+    'quality',
+    'late',
+    'foreign_object',
+    'other'
+]);
+
+/**
+ * What went wrong with an order, what it cost and how it ended. `outcome`
+ * is null while it is open.
+ *
+ */
+export const zOrderComplaint = z.object({
+    id: zUuid,
+    order_id: zUuid,
+    order_number: z.string().nullable(),
+    cause: zOrderComplaintCause,
+    description: z.string().nullable(),
+    cost_minor: z.int(),
+    currency_code: z.string(),
+    outcome: z.enum([
+        'remade',
+        'refunded',
+        'apologised',
+        'no_action'
+    ]).nullable(),
+    remake_order_id: z.uuid().nullable(),
+    remake_order_number: z.string().nullable(),
+    order_refund_id: z.uuid().nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    closed_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * A pack the customer can pick, at its price on the channel asked about.
+ */
+export const zDishPortion = z.object({
+    catalogue_item_variant_id: zUuid,
+    name_en: z.string(),
+    name_ar: z.string(),
+    unit_price_minor: z.int(),
+    currency_code: z.string()
+});
+
+export const zReplaceDishOptionsRequest = z.object({
+    options: z.array(z.object({
+        id: z.uuid().nullish(),
+        kind: z.enum(['remove', 'choice']),
+        group_en: z.string().max(80).nullish(),
+        group_ar: z.string().max(80).nullish(),
+        name_en: z.string().max(120),
+        name_ar: z.string().max(120),
+        recipe_id: z.uuid().nullish()
+    })).max(40)
 });
 
 export const zMarketplaceEnergyBand = z.object({
     min: z.int(),
     max: z.int()
-});
-
-export const zMarketplacePlanVariant = z.object({
-    id: zUuid,
-    plan_id: zUuid,
-    name: z.string(),
-    energy_range: zMarketplaceEnergyBand.nullable(),
-    protein_range: z.null(),
-    carbohydrate_range: z.null(),
-    fat_range: z.null(),
-    meals_per_day: z.int().gte(1),
-    snacks_per_day: z.int().gte(0),
-    price_per_week: zMarketplaceMoney.nullable()
 });
 
 /**
@@ -2917,23 +3126,6 @@ export const zMarketplacePlanDuration = z.object({
     total_price: zMarketplaceMoney.nullable()
 });
 
-export const zMarketplacePlan = z.object({
-    id: zUuid,
-    kitchen_id: zUuid,
-    name: z.string(),
-    slug: z.string(),
-    summary: z.string(),
-    description: z.string(),
-    category_slugs: z.array(z.string()),
-    diet_classifications: z.array(z.string()),
-    variants: z.array(zMarketplacePlanVariant),
-    durations: z.array(zMarketplacePlanDuration),
-    sample_meal_ids: z.array(zUuid).max(12),
-    image_placeholder_id: z.string(),
-    rating: z.number().nullable(),
-    rating_count: z.int().gte(0)
-});
-
 export const zMarketplaceListMeta = zPaginationMeta.and(z.object({
     locale: z.enum(['en', 'ar']),
     unsupported_filters: z.array(z.string())
@@ -2941,16 +3133,6 @@ export const zMarketplaceListMeta = zPaginationMeta.and(z.object({
 
 export const zMarketplaceKitchensEnvelope = z.object({
     data: z.array(zMarketplaceKitchen),
-    meta: zMarketplaceListMeta
-});
-
-export const zMarketplaceMealsEnvelope = z.object({
-    data: z.array(zMarketplaceMeal),
-    meta: zMarketplaceListMeta
-});
-
-export const zMarketplacePlansEnvelope = z.object({
-    data: z.array(zMarketplacePlan),
     meta: zMarketplaceListMeta
 });
 
@@ -2978,6 +3160,48 @@ export const zPublicDeliveryAreasEnvelope = z.object({
 
 export const zRecordPhotoUploadRequest = z.object({
     photo: z.string()
+});
+
+export const zSpreadsheetImportRequest = z.object({
+    file: z.string()
+});
+
+/**
+ * One reported row. `unchanged` rows are counted, never listed.
+ */
+export const zSpreadsheetImportRow = z.object({
+    row: z.int().gte(2),
+    outcome: z.enum([
+        'created',
+        'updated',
+        'skipped',
+        'failed'
+    ]),
+    reference: z.string().nullable(),
+    message: z.string().nullable()
+});
+
+/**
+ * What an import did. **Always the complete picture**: each row — or, for
+ * recipes, each recipe's group of rows — commits on its own, so a failed
+ * row never undoes an earlier one and nothing here describes work that
+ * was rolled back. Unchanged rows are counted, never listed; every other
+ * outcome has an entry in `rows`.
+ *
+ */
+export const zSpreadsheetImportResult = z.object({
+    created: z.int().gte(0),
+    updated: z.int().gte(0),
+    unchanged: z.int().gte(0),
+    skipped: z.int().gte(0),
+    failed: z.int().gte(0),
+    ignored_columns: z.array(z.string()),
+    rows: z.array(zSpreadsheetImportRow)
+});
+
+export const zSpreadsheetImportEnvelope = z.object({
+    data: zSpreadsheetImportResult,
+    meta: zMeta
 });
 
 export const zRecordPhotoEnvelope = z.object({
@@ -3212,13 +3436,26 @@ export const zOrderStatus = z.enum([
  * in a different way, and the one an operations team can fix.
  * `payment_failed` is **not** here: there is nothing to fail.
  *
+ * `delivery_failed` is set only by closing a failed delivery
+ * (`POST /catalogue/orders/{order}/delivery/close-failed`), and
+ * `CancelOrderRequest` does not accept it.
+ *
  */
 export const zCancellationReason = z.enum([
     'customer_requested',
     'kitchen_unable_to_fulfil',
     'delivery_unavailable',
-    'address_unreachable'
+    'address_unreachable',
+    'delivery_failed'
 ]);
+
+/**
+ * What became of the food on an order cancelled after cooking started.
+ * `returned` restores the stock. `wasted` leaves the deduction in place, so
+ * the cost stays counted.
+ *
+ */
+export const zCancellationDisposition = z.enum(['returned', 'wasted']);
 
 /**
  * **Three cases, and each one has a table behind it.** That is the whole
@@ -3301,7 +3538,9 @@ export const zAddCartItemRequest = z.object({
         z.number(),
         z.string()
     ]).optional(),
-    delivery_date: z.iso.date().nullish()
+    delivery_date: z.iso.date().nullish(),
+    option_ids: z.array(zUuid).max(40).nullish(),
+    note: z.string().max(300).nullish()
 });
 
 export const zSetCartItemQuantityRequest = z.object({
@@ -3309,60 +3548,6 @@ export const zSetCartItemQuantityRequest = z.object({
         z.number(),
         z.string()
     ])
-});
-
-export const zCartLine = z.object({
-    id: zUuid,
-    catalogue_item_id: zUuid,
-    catalogue_item_variant_id: z.uuid().nullable(),
-    quantity: z.string(),
-    delivery_date: z.iso.date().nullable(),
-    created_at: z.iso.datetime({ offset: true }).nullable(),
-    updated_at: z.iso.datetime({ offset: true }).nullable()
-});
-
-/**
- * **No amount of any kind appears here, and none ever will.** The cart
- * tables hold no price column: the server's probe establishes that a line
- * is orderable and discards its price, because a cart price is advisory and
- * every line is repriced at placement. A subtotal here would be a number no
- * table holds and no checkout will honour.
- *
- */
-export const zCart = z.object({
-    id: zUuid,
-    organisation_id: zUuid,
-    sales_channel_id: zUuid,
-    branch_id: z.uuid().nullable(),
-    status: zCartStatus,
-    currency_code: z.string().length(3),
-    expires_at: z.iso.datetime({ offset: true }),
-    lock_version: z.int().gte(0),
-    line_count: z.int().gte(0),
-    lines: z.array(zCartLine),
-    created_at: z.iso.datetime({ offset: true }).nullable(),
-    updated_at: z.iso.datetime({ offset: true }).nullable()
-});
-
-export const zCartEnvelope = z.object({
-    data: z.object({
-        cart: zCart
-    }),
-    meta: zMeta
-});
-
-/**
- * The line the request was about, **and** the basket around it. The write
- * moved the cart's validator and pushed its expiry out, so a response
- * carrying only the line would hand a client two stale facts.
- *
- */
-export const zCartLineEnvelope = z.object({
-    data: z.object({
-        line: zCartLine,
-        cart: zCart
-    }),
-    meta: zMeta
 });
 
 /**
@@ -3440,7 +3625,13 @@ export const zCheckoutPreviewEnvelope = z.object({
 });
 
 export const zCancelOrderRequest = z.object({
-    reason: zCancellationReason
+    reason: z.enum([
+        'customer_requested',
+        'kitchen_unable_to_fulfil',
+        'delivery_unavailable',
+        'address_unreachable'
+    ]),
+    disposition: zCancellationDisposition.nullish()
 });
 
 /**
@@ -3453,6 +3644,138 @@ export const zCancelOrderRequest = z.object({
 export const zOrderLineAllergen = z.object({
     allergen_code: zAllergenCode,
     containment: z.string()
+});
+
+/**
+ * A free change to a dish: `remove` leaves something out, `choice` picks
+ * one from a group such as Sauce. Neither has a price; the only priced
+ * choice is the portion, which is a pack.
+ *
+ */
+export const zDishOption = z.object({
+    id: zUuid,
+    kind: z.enum(['remove', 'choice']),
+    group_en: z.string().nullable(),
+    group_ar: z.string().nullable(),
+    name_en: z.string(),
+    name_ar: z.string(),
+    allergens: z.array(zOrderLineAllergen).nullish()
+});
+
+/**
+ * A dish option as the kitchen edits it. A `choice` links the sauce or side
+ * recipe it is and takes its allergens from that recipe's published version;
+ * `allergens` is null when the link is missing or the recipe has no published
+ * version. A choice with no `recipe_id` is not offered to customers or the desk.
+ *
+ */
+export const zKitchenDishOption = z.object({
+    id: zUuid,
+    kind: z.enum(['remove', 'choice']),
+    group_en: z.string().nullable(),
+    group_ar: z.string().nullable(),
+    name_en: z.string(),
+    name_ar: z.string(),
+    recipe_id: z.uuid().nullable(),
+    allergens: z.array(zOrderLineAllergen).nullable()
+});
+
+export const zMarketplaceMeal = z.object({
+    id: zUuid,
+    options: z.array(zDishOption).optional(),
+    portions: z.array(zDishPortion).optional(),
+    kitchen_id: zUuid,
+    kitchen_name: z.string(),
+    item_type: z.enum([
+        'meal',
+        'product',
+        'sauce',
+        'dressing',
+        'frozen_meal'
+    ]),
+    published_category: z.object({
+        code: z.string(),
+        name: z.string()
+    }).nullable(),
+    name: z.string(),
+    photo_url: z.url().nullish(),
+    slug: z.string(),
+    description: z.string(),
+    meal_types: z.array(zMealTypeCode),
+    diet_classifications: z.array(z.string()),
+    cuisines: z.array(z.string()),
+    allergens: z.array(zAllergenCode),
+    serving: zMarketplaceServing.nullable(),
+    nutrition: zMarketplaceNutritionFacts.nullable(),
+    price: zMarketplaceMoney,
+    pack: zPackSize.nullable(),
+    preparation_minutes: z.int().nullable(),
+    image_placeholder_id: z.string(),
+    availability: z.array(zMarketplaceAvailability),
+    channels: zMarketplaceSalesChannels,
+    rating: z.number().nullable(),
+    rating_count: z.int().gte(0)
+});
+
+export const zMarketplaceMealsEnvelope = z.object({
+    data: z.array(zMarketplaceMeal),
+    meta: zMarketplaceListMeta
+});
+
+export const zCartLine = z.object({
+    id: zUuid,
+    catalogue_item_id: zUuid,
+    catalogue_item_variant_id: z.uuid().nullable(),
+    quantity: z.string(),
+    delivery_date: z.iso.date().nullable(),
+    options: z.array(zDishOption).optional(),
+    note: z.string().max(300).nullish(),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+/**
+ * **No amount of any kind appears here, and none ever will.** The cart
+ * tables hold no price column: the server's probe establishes that a line
+ * is orderable and discards its price, because a cart price is advisory and
+ * every line is repriced at placement. A subtotal here would be a number no
+ * table holds and no checkout will honour.
+ *
+ */
+export const zCart = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    sales_channel_id: zUuid,
+    branch_id: z.uuid().nullable(),
+    status: zCartStatus,
+    currency_code: z.string().length(3),
+    expires_at: z.iso.datetime({ offset: true }),
+    lock_version: z.int().gte(0),
+    line_count: z.int().gte(0),
+    lines: z.array(zCartLine),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zCartEnvelope = z.object({
+    data: z.object({
+        cart: zCart
+    }),
+    meta: zMeta
+});
+
+/**
+ * The line the request was about, **and** the basket around it. The write
+ * moved the cart's validator and pushed its expiry out, so a response
+ * carrying only the line would hand a client two stale facts.
+ *
+ */
+export const zCartLineEnvelope = z.object({
+    data: z.object({
+        line: zCartLine,
+        cart: zCart
+    }),
+    meta: zMeta
 });
 
 /**
@@ -3478,7 +3801,9 @@ export const zCustomerOrderLine = z.object({
     line_total_minor: z.int(),
     currency_code: z.string().length(3),
     allergens: z.array(zOrderLineAllergen),
-    pack_summary: z.record(z.string(), z.unknown()).nullable()
+    pack_summary: z.record(z.string(), z.unknown()).nullable(),
+    options: z.array(zDishOption).optional(),
+    note: z.string().max(300).nullish()
 });
 
 export const zKitchenOrderLine = zCustomerOrderLine.and(z.object({
@@ -3526,7 +3851,8 @@ export const zCustomerOrderDelivery = z.object({
 export const zKitchenOrderDelivery = zCustomerOrderDelivery.and(z.object({
     zone_id: z.uuid().nullable(),
     zone_name_en: z.string().nullish(),
-    zone_name_ar: z.string().nullish()
+    zone_name_ar: z.string().nullish(),
+    picked_up_at: z.iso.datetime({ offset: true }).nullish()
 }));
 
 /**
@@ -3649,10 +3975,20 @@ export const zStockCountRequest = z.object({
     notes: z.string().max(255).nullish()
 });
 
+export const zStockWasteReason = z.enum([
+    'expired',
+    'spoiled',
+    'damaged',
+    'overproduced',
+    'customer_return',
+    'other'
+]);
+
 export const zStockWasteRequest = z.object({
     branch_id: zUuid,
     stock_item_id: zUuid,
     quantity: z.number().gt(0),
+    reason: zStockWasteReason,
     notes: z.string().max(255).nullish()
 });
 
@@ -3771,6 +4107,7 @@ export const zSupplier = z.object({
     address: z.string().nullable(),
     payment_terms: z.string().nullable(),
     lead_time_days: z.int().gte(0).lte(365).nullable(),
+    payment_due_days: z.int().gte(0).lte(365).nullable(),
     notes: z.string().nullable(),
     archived_at: z.iso.datetime({ offset: true }).nullable(),
     contact_count: z.int().gte(0),
@@ -4221,6 +4558,7 @@ export const zCreateSupplierRequest = z.object({
     address: z.string().max(2000).nullish(),
     payment_terms: z.string().max(120).nullish(),
     lead_time_days: z.int().gte(0).lte(365).nullish(),
+    payment_due_days: z.int().gte(0).lte(365).nullish(),
     notes: z.string().max(2000).nullish()
 });
 
@@ -4251,6 +4589,7 @@ export const zUpdateSupplierRequest = z.object({
     address: z.string().max(2000).nullish(),
     payment_terms: z.string().max(120).nullish(),
     lead_time_days: z.int().gte(0).lte(365).nullish(),
+    payment_due_days: z.int().gte(0).lte(365).nullish(),
     notes: z.string().max(2000).nullish()
 });
 
@@ -4390,6 +4729,8 @@ export const zGoodsReceiptLine = z.object({
     unit_price_amount: z.string().nullable(),
     line_total_amount: z.string().nullable(),
     cost_currency_code: z.string().nullable(),
+    last_unit_price_amount: z.string().nullable(),
+    price_variance_percent: z.string().nullable(),
     costed_at: z.iso.datetime({ offset: true }).nullable(),
     valuation_pending_fx: z.boolean(),
     gtin: z.string().regex(/^[0-9]{14}$/).nullable(),
@@ -4550,6 +4891,7 @@ export const zGoodsReceipt = z.object({
     invoice_date: z.iso.date().nullable(),
     variance_note: z.string().max(255).nullable(),
     purchase_order_id: zUuid.nullable(),
+    purchase_order_number: z.string().nullable(),
     received_at: z.iso.datetime({ offset: true }).nullable(),
     received_on: z.iso.date().nullable(),
     cost_status: zReceiptCostStatus,
@@ -4718,6 +5060,7 @@ export const zPurchasesLedgerLine = z.object({
     supplier: zSupplierRef.nullable(),
     document_ref: z.string().nullable(),
     purchase_order_id: zUuid.nullable(),
+    purchase_order_number: z.string().nullable(),
     cost_status: zReceiptCostStatus.nullable(),
     stock_item_id: zUuid,
     item_code: z.string().nullable(),
@@ -4728,6 +5071,8 @@ export const zPurchasesLedgerLine = z.object({
     unit_price_amount: z.string().nullable(),
     line_total_amount: z.string().nullable(),
     cost_currency_code: z.string().nullable(),
+    last_unit_price_amount: z.string().nullable(),
+    price_variance_percent: z.string().nullable(),
     valuation_pending_fx: z.boolean(),
     costs_redacted: z.boolean(),
     gtin: z.string().regex(/^[0-9]{14}$/).nullable(),
@@ -4972,8 +5317,12 @@ export const zMonthlyCostReportRow = z.object({
     waste_amount: z.string().nullable(),
     waste_quantity: z.string().nullable(),
     revenue_amount: z.string(),
-    gross_margin_amount: z.string(),
+    refunds_amount: z.string(),
+    courier_expense_amount: z.string(),
+    gross_margin_amount: z.string().nullable(),
     gross_margin_percent: z.string().nullable(),
+    is_margin_withheld: z.boolean(),
+    uncosted_line_count: z.int(),
     meal_revenue_amount: z.string(),
     product_revenue_amount: z.string(),
     other_revenue_amount: z.string(),
@@ -5004,6 +5353,53 @@ export const zMonthlyCostReportCollection = z.object({
     meta: zMeta
 });
 
+export const zKitchenAnalyticsTotals = z.object({
+    orders: z.int().gte(0),
+    units: z.number().gte(0),
+    cancelled: z.int().gte(0),
+    fulfilled: z.int().gte(0),
+    open: z.int().gte(0),
+    fulfilled_with_due: z.int().gte(0),
+    on_time: z.int().gte(0),
+    avg_lead_minutes: z.int().nullable()
+});
+
+export const zKitchenAnalyticsReport = z.object({
+    from: z.iso.date(),
+    to: z.iso.date(),
+    current: zKitchenAnalyticsTotals,
+    previous: zKitchenAnalyticsTotals,
+    days: z.array(z.object({
+        date: z.iso.date(),
+        orders: z.int().gte(0),
+        units: z.number().gte(0)
+    })),
+    channels: z.array(z.object({
+        key: z.enum([
+            'subscription',
+            'b2b',
+            'pos',
+            'a_la_carte'
+        ]),
+        orders: z.int().gte(0),
+        units: z.number().gte(0)
+    })),
+    items: z.array(z.object({
+        catalogue_item_id: z.uuid(),
+        name_en: z.string(),
+        name_ar: z.string().nullable(),
+        item_type: z.string().nullable(),
+        orders: z.int().gte(0),
+        units: z.number().gte(0),
+        last_ordered_at: z.iso.datetime({ offset: true })
+    })).max(50)
+});
+
+export const zKitchenAnalyticsReportResponse = z.object({
+    data: zKitchenAnalyticsReport,
+    meta: zMeta
+});
+
 /**
  * Why a confirmed order could not deduct a line honestly (INV1.2). A closed
  * vocabulary the consumption service raises; a client renders it as a human
@@ -5015,7 +5411,8 @@ export const zMonthlyCostReportCollection = z.object({
  * spoken for by a confirmed batch — talk to the kitchen, or release the
  * claim. `no_net_content` is an item that sells from finished stock without
  * saying how much of the shelf one sold unit takes, which is a field
- * somebody can go and fill in.
+ * somebody can go and fill in. `quality_hold` is a shelf set aside by a held
+ * quality check: release the check, or throw the food away.
  *
  */
 export const zConsumptionExceptionReasonCode = z.enum([
@@ -5031,7 +5428,8 @@ export const zConsumptionExceptionReasonCode = z.enum([
     'no_ingredient_cost',
     'insufficient_stock',
     'no_net_content',
-    'reserved_for_production'
+    'reserved_for_production',
+    'quality_hold'
 ]);
 
 /**
@@ -5079,6 +5477,61 @@ export const zConsumptionExceptionRetryEnvelope = z.object({
         still_open: z.array(zConsumptionException)
     }),
     meta: zMeta
+});
+
+export const zKitchenSetupEnvelope = z.object({
+    data: z.object({
+        is_live: z.boolean(),
+        steps: z.array(z.object({
+            key: z.enum([
+                'hours',
+                'delivery',
+                'menu',
+                'prices',
+                'team'
+            ]),
+            done: z.boolean(),
+            required: z.boolean()
+        }))
+    }),
+    meta: z.record(z.string(), z.unknown())
+});
+
+export const zBranchClosure = z.object({
+    id: z.uuid(),
+    closed_from: z.iso.date(),
+    closed_to: z.iso.date(),
+    note: z.string().nullable()
+});
+
+export const zDuplicateStockEnvelope = z.object({
+    data: z.array(z.object({
+        name: z.string(),
+        reason: z.enum([
+            'different_units',
+            'not_a_copy',
+            'both_have_history',
+            'both_sold_as_products',
+            'open_work'
+        ]),
+        shelves: z.array(z.object({
+            id: z.uuid(),
+            code: z.string(),
+            unit_code: z.string(),
+            quantity: z.string(),
+            has_history: z.boolean()
+        }))
+    })),
+    meta: z.record(z.string(), z.unknown())
+});
+
+export const zDuplicateStockMergeRequest = z.object({
+    keep_id: z.uuid(),
+    drop_id: z.uuid()
+});
+
+export const zDuplicateStockDismissRequest = z.object({
+    stock_item_ids: z.array(z.uuid()).min(2).max(50)
 });
 
 export const zConsumptionExceptionCountEnvelope = z.object({
@@ -5415,7 +5868,8 @@ export const zProductionOrderDetailEnvelope = z.object({
     data: z.object({
         production_order: zProductionOrder,
         lines: z.array(zProductionOrderLine),
-        plan: zProductionPlan.optional()
+        plan: zProductionPlan.optional(),
+        cooking_temperatures: z.array(zCookingTemperature).optional()
     }),
     meta: zMeta.and(z.object({
         costs_visible: z.boolean().optional()
@@ -5606,9 +6060,56 @@ export const zCustomerOrder = z.object({
     created_at: z.iso.datetime({ offset: true }).nullable()
 });
 
+export const zKitchenOrderRemakeOf = z.object({
+    id: zUuid,
+    number: z.string()
+});
+
 export const zCustomerOrderEnvelope = z.object({
     data: z.object({
         order: zCustomerOrder
+    }),
+    meta: zMeta
+});
+
+export const zOrderRefundKind = z.enum(['refund', 'receipt_correction']);
+
+export const zOrderRefundStatus = z.enum([
+    'pending_approval',
+    'completed',
+    'rejected'
+]);
+
+export const zStoreOrderRefundRequest = z.object({
+    kind: zOrderRefundKind,
+    method: zPaymentMethod,
+    amount_minor: z.int().gte(1),
+    reason: z.string().min(1).max(300)
+});
+
+export const zOrderRefund = z.object({
+    id: zUuid,
+    kind: zOrderRefundKind,
+    status: zOrderRefundStatus,
+    method: zPaymentMethod,
+    amount_minor: z.int().gte(1),
+    currency_code: z.string(),
+    reason: z.string(),
+    requested_by_name: z.string().nullable(),
+    requested_at: z.iso.datetime({ offset: true }),
+    decided_by_name: z.string().nullable(),
+    decided_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zOrderRefundLedgerEnvelope = z.object({
+    data: z.object({
+        received_minor: z.int(),
+        refunded_minor: z.int(),
+        corrected_minor: z.int(),
+        pending_minor: z.int(),
+        refundable_minor: z.int(),
+        window_closes_at: z.iso.datetime({ offset: true }).nullable(),
+        entries: z.array(zOrderRefund)
     }),
     meta: zMeta
 });
@@ -5694,6 +6195,31 @@ export const zOrderPaymentReceiptEnvelope = z.object({
     meta: zMeta
 });
 
+export const zKitchenOrderAllergyItem = z.object({
+    allergen_code: z.string(),
+    severity: z.enum([
+        'avoidance',
+        'intolerance',
+        'allergy',
+        'anaphylaxis'
+    ]),
+    notes: z.string().nullable(),
+    conflicts_with_line: z.array(zUuid)
+});
+
+/**
+ * What the kitchen must know about who is eating. Health data: reading it
+ * is recorded with a purpose of use. Served to whoever may open the order,
+ * and never on a customer or guest shape.
+ *
+ */
+export const zKitchenOrderAllergy = z.object({
+    severe: z.boolean(),
+    items: z.array(zKitchenOrderAllergyItem),
+    note: z.string().nullable(),
+    acknowledged_at: z.iso.datetime({ offset: true }).nullable()
+});
+
 /**
  * Which slice of the open book the desk is looking at — four questions
  * somebody at a desk actually asks, rather than a date range that could
@@ -5760,7 +6286,9 @@ export const zOrderDeskBasketLine = z.object({
     quantity: z.union([
         z.number(),
         z.string()
-    ])
+    ]),
+    option_ids: z.array(zUuid).max(40).nullish(),
+    note: z.string().max(300).nullish()
 });
 
 /**
@@ -5785,7 +6313,25 @@ export const zOrderDeskSaleBase = z.object({
     delivery_window_code: z.string().max(40).nullish()
 });
 
-export const zQuoteOrderDeskRequest = zOrderDeskSaleBase.and(z.object({}));
+/**
+ * The whole basket, plus whatever else changed. Absent fields keep what is
+ * stored. No customer, no fulfilment type, no branch — fixed for the life
+ * of the order — and no amount: every line is repriced.
+ *
+ */
+export const zAmendOrderDeskOrderRequest = z.object({
+    lines: z.array(zOrderDeskBasketLine).min(1),
+    customer_address_id: zUuid.nullish(),
+    requested_delivery_date: z.iso.date().nullish(),
+    delivery_window_code: z.string().max(40).nullish(),
+    payment_method: zPaymentMethod.nullish(),
+    allergy_note: z.string().max(500).nullish(),
+    acknowledge_allergen_conflicts: z.boolean().optional()
+});
+
+export const zQuoteOrderDeskRequest = zOrderDeskSaleBase.and(z.object({
+    amending_order_id: zUuid.nullish()
+}));
 
 /**
  * Money handed over at the counter, recorded as it happens.
@@ -5821,7 +6367,9 @@ export const zOrderDeskCounterPayment = z.object({
 export const zPlaceOrderDeskRequest = zOrderDeskSaleBase.and(z.object({
     payment_method: zPaymentMethod,
     payment: zOrderDeskCounterPayment.optional(),
-    driver_user_id: zUuid.nullish()
+    driver_user_id: zUuid.nullish(),
+    allergy_note: z.string().max(500).nullish(),
+    acknowledge_allergen_conflicts: z.boolean().optional()
 }));
 
 /**
@@ -5862,8 +6410,11 @@ export const zOrderDeskQuoteLine = z.object({
     unit_price_minor: z.int().nullable(),
     line_total_minor: z.int().nullable(),
     currency_code: z.string().length(3),
+    option_ids: z.array(zUuid).optional(),
+    note: z.string().nullish(),
     refusals: z.array(zOrderDeskQuoteRefusal),
-    held_stock: z.array(z.string()).optional()
+    held_stock: z.array(z.string()).optional(),
+    warnings: z.array(zOrderDeskQuoteRefusal).optional()
 });
 
 /**
@@ -5883,7 +6434,9 @@ export const zOrderDeskQuote = z.object({
     currency_code: z.string().length(3),
     refusals: z.array(zOrderDeskQuoteRefusal),
     quotable: z.boolean(),
-    offered_window_codes: z.array(z.string()).nullable()
+    offered_window_codes: z.array(z.string()).nullable(),
+    allergen_conflicts: z.array(zAllergenConflict),
+    service_warnings: z.array(zOrderDeskQuoteRefusal)
 });
 
 export const zOrderDeskQuoteEnvelope = z.object({
@@ -5992,6 +6545,77 @@ export const zKitchenCustomerDetail = zKitchenCustomer.and(z.object({
     company: zKitchenCustomerCompany.nullable()
 }));
 
+export const zStaffNotificationType = z.enum([
+    'unaccepted_manager',
+    'unaccepted_owner',
+    'allergy_order',
+    'late_cancel',
+    'delivery_failed',
+    'no_cash_collected',
+    'refund_approval',
+    'stock_expiring',
+    'temperature_out_of_range',
+    'refund_approved',
+    'refund_rejected',
+    'short_hand_in',
+    'short_close',
+    'price_approval',
+    'dish_below_target',
+    'delivery_moved_closed',
+    'delivery_closed_unmoved',
+    'batch_stuck',
+    'customer_cancelled'
+]);
+
+export const zStaffNotification = z.object({
+    id: zUuid,
+    type: zStaffNotificationType,
+    order_id: zUuid,
+    order_number: z.string(),
+    severe: z.boolean(),
+    read_at: z.iso.datetime({ offset: true }).nullable(),
+    created_at: z.iso.datetime({ offset: true })
+});
+
+export const zStaffNotificationsEnvelope = z.object({
+    data: z.array(zStaffNotification),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0),
+        unread_count: z.int().gte(0)
+    }))
+});
+
+export const zKitchenServiceSettings = z.object({
+    order_lead_minutes: z.int().gte(0).lte(10080),
+    alarm_after_minutes: z.int().gte(1).lte(10080),
+    manager_alert_after_minutes: z.int().gte(1).lte(10080),
+    owner_alert_after_minutes: z.int().gte(1).lte(10080),
+    refund_approval_above_minor: z.int().gte(0),
+    price_approval_above_percent: z.int().gte(0).lte(1000).nullish(),
+    dish_margin_target_percent: z.int().gte(1).lte(99).nullish(),
+    orders_per_window: z.int().gte(1).lte(1000).nullish(),
+    paused_until: z.iso.datetime({ offset: true }).readonly().nullish()
+});
+
+export const zKitchenServiceSettingsEnvelope = z.object({
+    data: zKitchenServiceSettings,
+    meta: zMeta
+});
+
+export const zStorefrontProfile = z.object({
+    tagline_en: z.string().max(160).nullable(),
+    tagline_ar: z.string().max(160).nullable(),
+    description_en: z.string().max(2000).nullable(),
+    description_ar: z.string().max(2000).nullable(),
+    cuisines_en: z.array(z.string().max(40)).max(20),
+    cuisines_ar: z.array(z.string().max(40)).max(20)
+});
+
+export const zStorefrontProfileEnvelope = z.object({
+    data: zStorefrontProfile,
+    meta: zMeta
+});
+
 export const zKitchenCustomersEnvelope = z.object({
     data: z.array(zKitchenCustomer),
     meta: zMeta.and(z.object({
@@ -6041,6 +6665,22 @@ export const zOrderDeskCustomer = z.object({
     has_orders_with_org: z.boolean()
 });
 
+export const zOrderDeskCustomerAllergiesEnvelope = z.object({
+    data: z.object({
+        declared: z.boolean(),
+        declares_no_allergens: z.boolean(),
+        allergens: z.array(z.object({
+            allergen_code: z.string(),
+            severity: z.enum([
+                'avoidance',
+                'intolerance',
+                'allergy',
+                'anaphylaxis'
+            ])
+        }))
+    })
+});
+
 export const zOrderDeskCustomersEnvelope = z.object({
     data: z.array(zOrderDeskCustomer),
     meta: zMeta.and(z.object({
@@ -6082,6 +6722,41 @@ export const zOrderDeskCalendarDay = z.object({
     date: z.iso.date(),
     counts: zOrderDeskCalendarCounts,
     windows: z.array(zOrderDeskCalendarWindow)
+});
+
+/**
+ * One subscriber's plan day that is not an order yet.
+ */
+export const zOrderDeskPlanMeal = z.object({
+    subscription_id: zUuid,
+    basis: z.enum(['scheduled', 'projected']),
+    plan: z.object({
+        name_en: z.string().nullable(),
+        name_ar: z.string().nullable()
+    }),
+    meals_per_day: z.int().nullable(),
+    snacks_per_day: z.int().nullable(),
+    meals: z.array(z.object({
+        slot: z.enum([
+            'breakfast',
+            'lunch',
+            'dinner',
+            'snack'
+        ]),
+        sequence: z.int(),
+        catalogue_item_id: zUuid,
+        name_en: z.string().nullable(),
+        name_ar: z.string().nullable()
+    })),
+    customer: zOrderDeskCustomerContact.optional()
+});
+
+export const zOrderDeskPlanMealsEnvelope = z.object({
+    data: z.array(zOrderDeskPlanMeal),
+    meta: zMeta.and(z.object({
+        date: z.iso.date(),
+        count: z.int().gte(0)
+    }))
 });
 
 export const zOrderDeskCalendarEnvelope = z.object({
@@ -6225,6 +6900,319 @@ export const zAddOrderDeskCustomerAddressRequest = z.object({
     postal_code: z.string().max(20).nullish()
 });
 
+export const zCashRun = z.object({
+    job_id: zUuid,
+    order_id: zUuid,
+    order_number: z.string(),
+    delivered_at: z.iso.datetime({ offset: true }).nullable(),
+    amount_minor: z.int()
+});
+
+export const zCourierCashRun = zCashRun.and(z.object({
+    fee_minor: z.int().gte(0),
+    prepaid: z.boolean(),
+    reference: z.string().nullable()
+}));
+
+export const zDishMarginPack = z.object({
+    catalogue_item_variant_id: zUuid,
+    label: z.string().nullable(),
+    fill: z.object({
+        quantity: z.string(),
+        unit: z.string()
+    }).nullable()
+});
+
+/**
+ * What one pack of one dish earns on one place. One row per pack per place it is priced on; a dish with no pack, no published recipe or no price keeps one row with `pack` null and the reason.
+ */
+export const zDishMargin = z.object({
+    id: zUuid,
+    catalogue_item_id: zUuid,
+    name_en: z.string(),
+    name_ar: z.string().nullable(),
+    item_type: z.enum([
+        'meal',
+        'sauce',
+        'dressing',
+        'frozen_meal'
+    ]),
+    place: z.enum(['home', 'business']),
+    pack: zDishMarginPack.nullable(),
+    price_amount: z.string().nullable(),
+    contents_amount: z.string().nullable(),
+    cost_amount: z.string().nullable(),
+    currency_code: z.string().nullable(),
+    margin_percent: z.string().nullable(),
+    withheld_reason: z.enum([
+        'no_recipe',
+        'no_pack',
+        'no_price',
+        'packaging_unknown',
+        'cost_incomplete',
+        'currency_mismatch'
+    ]).nullable(),
+    is_below_target: z.boolean()
+});
+
+export const zDishMarginsEnvelope = z.object({
+    data: z.object({
+        target_percent: z.int().nullable(),
+        computed_at: z.iso.datetime({ offset: true }).nullable(),
+        dishes: z.array(zDishMargin)
+    })
+});
+
+export const zPayablePriceRise = z.object({
+    name_en: z.string().nullable(),
+    last_unit_price_amount: z.string(),
+    unit_price_amount: z.string(),
+    price_variance_percent: z.string()
+});
+
+export const zPayable = z.object({
+    id: zUuid,
+    supplier_name_en: z.string().nullable(),
+    supplier_name_ar: z.string().nullable(),
+    document_ref: z.string().nullable(),
+    supplier_invoice_ref: z.string().nullable(),
+    received_on: z.iso.date().nullable(),
+    due_on: z.iso.date().nullable(),
+    is_overdue: z.boolean(),
+    payment_status: z.enum([
+        'unpaid',
+        'paid',
+        'not_tracked'
+    ]),
+    paid_at: z.iso.datetime({ offset: true }).nullable(),
+    paid_reference: z.string().nullable(),
+    price_approval_status: z.enum(['pending', 'approved']).nullable(),
+    amount: z.string().nullable(),
+    currency_code: z.string().nullable(),
+    price_rises: z.array(zPayablePriceRise)
+});
+
+export const zPayablesEnvelope = z.object({
+    data: z.object({
+        today: z.iso.date(),
+        totals: z.array(z.object({
+            currency_code: z.string(),
+            amount: z.string()
+        })),
+        unpaid: z.array(zPayable),
+        paid: z.array(zPayable)
+    })
+});
+
+/**
+ * The branch whose till this is. Null on a kitchen with no branch, and on rows from before tills were per branch, which count as the kitchen's first branch.
+ */
+export const zNullableTillBranchId = z.uuid().nullable();
+
+export const zDriverCashOwed = z.object({
+    driver_user_id: zUuid,
+    display_name: z.string().nullable(),
+    branch_id: zNullableTillBranchId,
+    branch_name: z.string().nullable(),
+    currency_code: z.string(),
+    collected_minor: z.int(),
+    runs: z.array(zCashRun)
+});
+
+export const zCourierCashOwed = z.object({
+    courier_name: z.string(),
+    branch_id: zNullableTillBranchId,
+    branch_name: z.string().nullable(),
+    currency_code: z.string(),
+    due_minor: z.int(),
+    fee_minor: z.int(),
+    expense_minor: z.int(),
+    runs: z.array(zCourierCashRun)
+});
+
+export const zOpenDailyClose = z.object({
+    branch_id: zNullableTillBranchId,
+    branch_name: z.string().nullable(),
+    currency_code: z.string(),
+    business_date: z.iso.date(),
+    opened_at: z.iso.datetime({ offset: true }),
+    suggested_float_minor: z.int(),
+    counter_cash_minor: z.int(),
+    handed_in_minor: z.int(),
+    cash_refunds_minor: z.int()
+});
+
+export const zDailyClose = z.object({
+    id: zUuid,
+    branch_id: zNullableTillBranchId,
+    branch_name: z.string().nullable(),
+    currency_code: z.string(),
+    business_date: z.iso.date(),
+    opened_at: z.iso.datetime({ offset: true }),
+    closed_at: z.iso.datetime({ offset: true }),
+    opening_float_minor: z.int(),
+    counter_cash_minor: z.int(),
+    handed_in_minor: z.int(),
+    cash_refunds_minor: z.int(),
+    expected_minor: z.int(),
+    counted_minor: z.int(),
+    variance_minor: z.int(),
+    variance_reason: z.string().nullable(),
+    recorded_by_name: z.string().nullable(),
+    signed_off_by_name: z.string().nullable(),
+    signed_off_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zDailyCloseTotal = z.object({
+    business_date: z.iso.date(),
+    currency_code: z.string(),
+    till_count: z.int(),
+    counter_cash_minor: z.int(),
+    handed_in_minor: z.int(),
+    cash_refunds_minor: z.int(),
+    counted_minor: z.int(),
+    variance_minor: z.int()
+});
+
+export const zOrderDeskClosesEnvelope = z.object({
+    data: z.object({
+        timezone: z.string(),
+        branches: z.array(z.object({
+            id: zUuid,
+            name: z.string()
+        })),
+        open: z.array(zOpenDailyClose),
+        totals: z.array(zDailyCloseTotal),
+        closes: z.array(zDailyClose)
+    })
+});
+
+export const zDailyCloseEnvelope = z.object({
+    data: z.object({
+        close: zDailyClose
+    })
+});
+
+export const zStoreOrderDeskCloseRequest = z.object({
+    branch_id: z.uuid().nullish(),
+    currency_code: z.string(),
+    opening_float_minor: z.int().gte(0),
+    counted_minor: z.int().gte(0),
+    variance_reason: z.string().max(300).nullish()
+});
+
+export const zCashSettlement = z.object({
+    id: zUuid,
+    kind: z.enum(['driver', 'courier']),
+    party_name: z.string().nullable(),
+    branch_id: zNullableTillBranchId,
+    branch_name: z.string().nullable(),
+    currency_code: z.string(),
+    expected_minor: z.int(),
+    fee_minor: z.int(),
+    expense_minor: z.int(),
+    handed_in_minor: z.int(),
+    short_minor: z.int(),
+    short_reason: z.string().nullable(),
+    recorded_by_name: z.string().nullable(),
+    recorded_at: z.iso.datetime({ offset: true }),
+    signed_off_by_name: z.string().nullable(),
+    signed_off_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zStoreOrderDeskSettlementRequest = z.object({
+    job_ids: z.array(zUuid).min(1).max(200),
+    handed_in_minor: z.int().gte(0),
+    short_reason: z.string().max(300).nullish()
+});
+
+export const zCashSettlementEnvelope = z.object({
+    data: z.object({
+        settlement: zCashSettlement
+    }),
+    meta: zMeta
+});
+
+export const zOrderDeskSettlementsEnvelope = z.object({
+    data: z.object({
+        drivers: z.array(zDriverCashOwed),
+        couriers: z.array(zCourierCashOwed),
+        settlements: z.array(zCashSettlement)
+    }),
+    meta: zMeta
+});
+
+export const zKitchenActivityEntry = z.object({
+    id: z.string(),
+    at: z.iso.datetime({ offset: true }),
+    action: z.string(),
+    actor_name: z.string().nullable(),
+    subject_type: z.string(),
+    order_id: z.string().nullable(),
+    order_number: z.string().nullable(),
+    metadata: z.record(z.string(), z.unknown())
+});
+
+export const zKitchenActivityEnvelope = z.object({
+    data: z.array(zKitchenActivityEntry),
+    meta: zMeta.and(z.object({
+        truncated: z.boolean()
+    }))
+});
+
+export const zStockActivityMovement = z.object({
+    id: zUuid,
+    at: z.iso.datetime({ offset: true }),
+    item_name: z.string(),
+    unit: z.string(),
+    reason: z.enum([
+        'adjust',
+        'waste',
+        'receipt',
+        'consume',
+        'yield'
+    ]),
+    quantity_delta: z.string(),
+    cost_minor: z.int().nullable(),
+    currency_code: z.string().nullable(),
+    notes: z.string().nullable(),
+    waste_reason: zStockWasteReason.nullable(),
+    order_id: z.string().nullable(),
+    order_number: z.string().nullable(),
+    wasted_order: z.boolean(),
+    attributed: z.boolean(),
+    actor_name: z.string().nullable()
+});
+
+export const zStockActivityEnvelope = z.object({
+    data: z.object({
+        movements: z.array(zStockActivityMovement),
+        waste: z.array(z.object({
+            currency_code: z.string(),
+            amount_minor: z.int()
+        })),
+        unvalued_waste_count: z.int().gte(0)
+    }),
+    meta: zMeta.and(z.object({
+        truncated: z.boolean()
+    }))
+});
+
+export const zOrderDeskCashReportAdjustment = z.object({
+    day: z.iso.date(),
+    kind: z.enum([
+        'refund',
+        'receipt_correction',
+        'courier_fee',
+        'courier_expense',
+        'short'
+    ]),
+    display_name: z.string().nullable(),
+    currency_code: z.string(),
+    entry_count: z.int(),
+    amount_minor_sum: z.int()
+});
+
 /**
  * What one agent took, one way, in one currency, on one day.
  *
@@ -6237,6 +7225,7 @@ export const zAddOrderDeskCustomerAddressRequest = z.object({
  *
  */
 export const zOrderDeskCashReportRow = z.object({
+    day: z.iso.date(),
     confirmed_by: zUuid,
     display_name: z.string().nullable(),
     method: zPaymentMethod,
@@ -6262,15 +7251,47 @@ export const zOrderDeskCashReportTotal = z.object({
     amount_minor_sum: z.int()
 });
 
+export const zOrderDeskTodayAmount = z.object({
+    currency_code: z.string(),
+    amount_minor: z.int()
+});
+
+export const zOrderDeskTodayEnvelope = z.object({
+    data: z.object({
+        day: z.iso.date(),
+        timezone: z.string(),
+        sales: z.array(zOrderDeskTodayAmount),
+        orders: z.int().gte(0),
+        cash_expected: z.array(zOrderDeskTodayAmount),
+        cash_counted: z.array(zOrderDeskTodayAmount),
+        overdue: z.int().gte(0),
+        past_due: z.int().gte(0),
+        cancelled: z.object({
+            returned: z.int().gte(0),
+            wasted: z.int().gte(0),
+            other: z.int().gte(0)
+        })
+    }),
+    meta: zMeta.and(z.object({
+        branch_id: zUuid.nullable()
+    }))
+});
+
 export const zOrderDeskCashReportEnvelope = z.object({
     data: z.object({
+        adjustments: z.array(zOrderDeskCashReportAdjustment),
         rows: z.array(zOrderDeskCashReportRow),
         totals: z.array(zOrderDeskCashReportTotal)
     }),
     meta: zMeta.and(z.object({
-        date: z.iso.date(),
+        from: z.iso.date(),
+        to: z.iso.date(),
         branch_id: z.uuid().nullable(),
         timezone: z.string(),
+        branches: z.array(z.object({
+            id: zUuid,
+            name: z.string()
+        })),
         count: z.int().gte(0)
     }))
 });
@@ -6512,7 +7533,9 @@ export const zGuestOrderLine = z.object({
     line_total_minor: z.int().gte(0),
     currency_code: zCurrencyCode,
     allergens: z.array(zGuestOrderLineAllergen),
-    pack_summary: z.record(z.string(), z.unknown()).nullable()
+    pack_summary: z.record(z.string(), z.unknown()).nullable(),
+    options: z.array(zDishOption).optional(),
+    note: z.string().max(300).nullish()
 });
 
 /**
@@ -6546,7 +7569,8 @@ export const zGuestOrder = z.object({
         'customer_requested',
         'kitchen_unable_to_fulfil',
         'delivery_unavailable',
-        'address_unreachable'
+        'address_unreachable',
+        'delivery_failed'
     ]).nullable(),
     lines: z.array(zGuestOrderLine)
 });
@@ -7044,8 +8068,22 @@ export const zCustomerFoodExclusion = z.object({
         'free_text'
     ]),
     ingredient_id: zUuid.nullish(),
+    ingredient_name: z.string().nullish(),
     diet_classification_id: zUuid.nullish(),
     free_text: z.string().nullish()
+});
+
+export const zDietaryIngredientMatch = z.object({
+    id: zUuid,
+    name: z.string(),
+    category: z.string().nullable()
+});
+
+export const zDietaryIngredientMatchesEnvelope = z.object({
+    data: z.array(zDietaryIngredientMatch),
+    meta: zMeta.and(z.object({
+        count: z.int()
+    }))
 });
 
 export const zCustomerDietaryProfile = z.object({
@@ -7491,58 +8529,6 @@ export const zKycDocumentDownload = z.object({
 });
 
 /**
- * One version of the terms between the platform and a corporate buyer.
- *
- * The signature block is **evidence**: the digest of the bytes shown,
- * the typed name, the stated capacity and the consent wording verbatim.
- * What is absent is anything replayable — the hashed address and user
- * agent stay server-side, and the passcode challenge is reduced to
- * `signature_otp_verified`.
- *
- * **Never a qualified electronic signature.** This is a record that
- * somebody clicked, with good evidence about who and when (INT-007
- * covers real e-sign).
- *
- * Money is integers of minor units beside `currency_code`, never
- * formatted.
- *
- */
-export const zB2bAgreement = z.object({
-    id: zUuid,
-    b2b_application_id: zUuid,
-    organisation_id: zUuid.nullish(),
-    version: z.int().gte(1),
-    supersedes_agreement_id: zUuid.nullish(),
-    status: zB2bAgreementStatus,
-    title: z.string(),
-    currency_code: z.string().length(3).nullish(),
-    price_list_id: zUuid.nullish(),
-    payment_terms: zB2bPaymentTerms.nullish(),
-    credit_limit_minor: z.int().gte(0).nullish(),
-    minimum_order_minor: z.int().gte(0).nullish(),
-    delivery_lead_time_days: z.int().gte(0).nullish(),
-    notice_period_days: z.int().gte(0).nullish(),
-    starts_on: z.iso.date().nullish(),
-    ends_on: z.iso.date().nullish(),
-    auto_renews: z.boolean(),
-    terms_summary: z.string().nullish(),
-    signature_document_sha256: z.string().regex(/^[0-9a-f]{64}$/).nullish(),
-    signatory_name: z.string().nullish(),
-    signatory_title: z.string().nullish(),
-    signatory_user_id: zUuid.nullish(),
-    signature_consent_statement: z.string().nullish(),
-    signature_otp_verified: z.boolean(),
-    signed_at: z.iso.datetime({ offset: true }).nullish(),
-    activated_at: z.iso.datetime({ offset: true }).nullish(),
-    suspended_at: z.iso.datetime({ offset: true }).nullish(),
-    terminated_at: z.iso.datetime({ offset: true }).nullish(),
-    termination_reason: z.string().nullish(),
-    lock_version: z.int(),
-    created_at: z.iso.datetime({ offset: true }).nullish(),
-    updated_at: z.iso.datetime({ offset: true }).nullish()
-});
-
-/**
  * An offer of membership. **There is no `token` field and there never
  * may be** — the plaintext is delivered once, in the email, and only its
  * SHA-256 is stored.
@@ -7617,6 +8603,17 @@ export const zPreviewRecipeRollupLine = z.object({
     cost_currency_code: z.string().length(3).nullish()
 });
 
+export const zPreviewRecipeRollupPack = z.object({
+    key: z.string().max(80),
+    fill_quantity: z.number().gt(0).lte(99999999.9999),
+    fill_unit: z.string().max(20),
+    components: z.array(z.object({
+        ingredient_id: zUuid,
+        quantity: z.number().gt(0).lte(99999999.9999),
+        is_container: z.boolean()
+    })).max(20)
+});
+
 export const zPreviewRecipeRollupPackagingLine = z.object({
     ingredient_id: zUuid,
     basis: zPackagingBasis,
@@ -7632,7 +8629,8 @@ export const zPreviewRecipeRollupRequest = z.object({
     yield_unit_id: zUuid.nullish(),
     yield_piece_count: z.int().gte(1).lte(100000).nullish(),
     packaging_waste_percent: z.number().gte(0).lte(100).nullish(),
-    packaging: z.array(zPreviewRecipeRollupPackagingLine).max(50).optional()
+    packaging: z.array(zPreviewRecipeRollupPackagingLine).max(50).optional(),
+    packs: z.array(zPreviewRecipeRollupPack).max(50).optional()
 });
 
 export const zCatalogueItemAvailabilityDay = z.object({
@@ -7680,71 +8678,6 @@ export const zDeliveryJobTrackingStatus = z.enum([
     'delivered'
 ]);
 
-export const zKitchenOrderDeliveryRun = z.object({
-    status: zDeliveryJobStatus,
-    tracking_status: zDeliveryJobTrackingStatus,
-    driver_name: z.string().nullable(),
-    assigned_at: z.iso.datetime({ offset: true }).nullable(),
-    picked_up_at: z.iso.datetime({ offset: true }).nullable(),
-    delivered_at: z.iso.datetime({ offset: true }).nullable()
-});
-
-/**
- * The seller's view of the same row. Built independently of the customer
- * shape rather than as a superset of it: a wide shape and a narrow one
- * derived from it by subtraction is how a column added next year quietly
- * reaches a receipt.
- *
- * `lock_version` is here because this is the audience that **writes** — a
- * screen that could not read the validator could not send the `If-Match`
- * the three lifecycle actions demand.
- *
- * **`customer_account_id` is nullable and `fulfilment_type` says when.**
- * A counter sale may be a stranger buying a sandwich, and there is nobody
- * to name; a delivery and a pickup always have somebody. The pair has to
- * be read together — a null customer is a fact about a walk-in, never a
- * row that failed to load.
- *
- */
-export const zKitchenOrder = z.object({
-    id: zUuid,
-    order_number: z.string(),
-    organisation_id: zUuid,
-    customer_account_id: z.uuid().nullable(),
-    sales_channel_id: zUuid,
-    branch_id: z.uuid().nullable(),
-    status: zOrderStatus,
-    currency_code: z.string().length(3),
-    subtotal_minor: z.int(),
-    delivery_fee_minor: z.int().nullable(),
-    total_minor: z.int(),
-    payment_method: zPaymentMethod,
-    fulfilment_type: zFulfilmentType,
-    delivery: zKitchenOrderDelivery,
-    placed_at: z.iso.datetime({ offset: true }),
-    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
-    preparing_at: z.iso.datetime({ offset: true }).nullish(),
-    ready_at: z.iso.datetime({ offset: true }).nullish(),
-    fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
-    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
-    cancellation_reason: zCancellationReason.nullable(),
-    delivery_run: zKitchenOrderDeliveryRun.nullish(),
-    created_by: z.uuid().nullable(),
-    placed_on_behalf_by: z.uuid().nullable(),
-    lock_version: z.int().gte(0),
-    line_count: z.int().gte(0),
-    lines: z.array(zKitchenOrderLine),
-    created_at: z.iso.datetime({ offset: true }).nullable(),
-    updated_at: z.iso.datetime({ offset: true }).nullable()
-});
-
-export const zKitchenOrderEnvelope = z.object({
-    data: z.object({
-        order: zKitchenOrder
-    }),
-    meta: zMeta
-});
-
 /**
  * The run this order became: which driver has it, what state it is in, and
  * when it was assigned.
@@ -7774,27 +8707,6 @@ export const zOrderDeskDeliveryJob = z.object({
     driver_user_id: zUuid.nullable(),
     assigned_at: z.iso.datetime({ offset: true }).nullable(),
     lock_version: z.int()
-});
-
-export const zOrderDeskRow = zKitchenOrder.and(z.object({
-    due_at: z.iso.datetime({ offset: true }),
-    payment: zOrderPaymentSummary,
-    delivery_job: zOrderDeskDeliveryJob.nullable(),
-    customer: zOrderDeskCustomerContact.optional()
-}));
-
-export const zOrderDeskQueueEnvelope = z.object({
-    data: z.array(zOrderDeskRow),
-    meta: zMeta.and(z.object({
-        count: z.int().gte(0),
-        limit: z.int(),
-        truncated: z.boolean(),
-        window: zOrderDeskWindow,
-        from: z.iso.date().nullish(),
-        to: z.iso.date().nullish(),
-        today: z.iso.date(),
-        timezone: z.string()
-    }))
 });
 
 /**
@@ -7844,10 +8756,7 @@ export const zDriverJobDelivery = z.object({
  *
  * `driver_user_id` is absent because it would say the same thing on every
  * row — the caller's own id, which they already have — and the dispatch
- * board is the surface where whose job it is is worth answering. Money is
- * absent for a related reason: a driver collecting cash on delivery is a
- * real flow and it belongs to the receipts ledger, not bolted onto a run
- * sheet.
+ * board is the surface where whose job it is is worth answering.
  *
  */
 export const zDriverJob = z.object({
@@ -7859,7 +8768,56 @@ export const zDriverJob = z.object({
     assigned_at: z.iso.datetime({ offset: true }).nullable(),
     picked_up_at: z.iso.datetime({ offset: true }).nullable(),
     ready_at: z.iso.datetime({ offset: true }).nullable(),
+    allergy_allergen_codes: z.array(z.string()),
+    allergy_note: z.string().nullable(),
+    amount_due_minor: z.int().gte(0),
+    currency_code: z.string().nullable(),
+    payment_method: z.string().nullable(),
     delivery: zDriverJobDelivery
+});
+
+/**
+ * Why a run came back.
+ */
+export const zDeliveryFailureReason = z.enum([
+    'no_answer',
+    'wrong_address',
+    'refused',
+    'unreachable',
+    'other'
+]);
+
+export const zKitchenOrderDeliveryRun = z.object({
+    status: zDeliveryJobStatus,
+    tracking_status: zDeliveryJobTrackingStatus,
+    driver_name: z.string().nullable(),
+    assigned_at: z.iso.datetime({ offset: true }).nullable(),
+    picked_up_at: z.iso.datetime({ offset: true }).nullable(),
+    delivered_at: z.iso.datetime({ offset: true }).nullable(),
+    failed_at: z.iso.datetime({ offset: true }).nullable(),
+    failure_reason: zDeliveryFailureReason.nullable(),
+    failure_note: z.string().nullable(),
+    courier_name: z.string().nullable()
+});
+
+export const zFailDeliveryRequest = z.object({
+    reason: zDeliveryFailureReason,
+    note: z.string().max(1000).nullish()
+});
+
+export const zRedeliverOrderRequest = z.object({
+    date: z.iso.date().nullish(),
+    window: z.string().max(64).nullish()
+});
+
+export const zCloseFailedDeliveryRequest = z.object({
+    disposition: zCancellationDisposition
+});
+
+export const zHandToCourierRequest = z.object({
+    name: z.string().max(120),
+    reference: z.string().max(120).nullish(),
+    fee_minor: z.int().gte(0).nullish()
 });
 
 export const zAssignDeliveryJobRequest = z.object({
@@ -7883,7 +8841,8 @@ export const zAssignedDeliveryJob = z.object({
 });
 
 export const zDeliverDriverJobRequest = z.object({
-    proof_of_delivery_notes: z.string().max(1000).nullish()
+    collected_minor: z.int().gte(0).nullish(),
+    note: z.string().max(1000).nullish()
 });
 
 /**
@@ -8319,7 +9278,10 @@ export const zB2bApplicationDetailEnvelope = z.object({
     data: z.object({
         application: zB2bApplication,
         contacts: z.array(zB2bApplicationContact),
-        locations: z.array(zB2bApplicationLocation)
+        locations: z.array(zB2bApplicationLocation),
+        missing_fields: z.array(z.string()),
+        missing_documents: z.array(zB2bDocumentKind),
+        required_documents: z.array(zB2bDocumentKind)
     }),
     meta: zMeta
 });
@@ -8362,6 +9324,133 @@ export const zKycDocumentDownloadEnvelope = z.object({
     data: z.object({
         download: zKycDocumentDownload
     }),
+    meta: zMeta
+});
+
+export const zB2bAgreementSeller = z.object({
+    organisation_id: zUuid,
+    organisation_name: z.string(),
+    price_list_name_en: z.string(),
+    price_list_name_ar: z.string().nullable()
+});
+
+/**
+ * One version of the terms between the platform and a corporate buyer.
+ *
+ * The signature block is **evidence**: the digest of the bytes shown,
+ * the typed name, the stated capacity and the consent wording verbatim.
+ * What is absent is anything replayable — the hashed address and user
+ * agent stay server-side, and the passcode challenge is reduced to
+ * `signature_otp_verified`.
+ *
+ * **Never a qualified electronic signature.** This is a record that
+ * somebody clicked, with good evidence about who and when (INT-007
+ * covers real e-sign).
+ *
+ * Money is integers of minor units beside `currency_code`, never
+ * formatted.
+ *
+ */
+export const zB2bAgreement = z.object({
+    id: zUuid,
+    b2b_application_id: zUuid,
+    organisation_id: zUuid.nullish(),
+    version: z.int().gte(1),
+    supersedes_agreement_id: zUuid.nullish(),
+    status: zB2bAgreementStatus,
+    title: z.string(),
+    currency_code: z.string().length(3).nullish(),
+    price_list_id: zUuid.nullish(),
+    seller: zB2bAgreementSeller.nullish(),
+    payment_terms: zB2bPaymentTerms.nullish(),
+    credit_limit_minor: z.int().gte(0).nullish(),
+    minimum_order_minor: z.int().gte(0).nullish(),
+    delivery_lead_time_days: z.int().gte(0).nullish(),
+    notice_period_days: z.int().gte(0).nullish(),
+    starts_on: z.iso.date().nullish(),
+    ends_on: z.iso.date().nullish(),
+    auto_renews: z.boolean(),
+    terms_summary: z.string().nullish(),
+    signature_document_sha256: z.string().regex(/^[0-9a-f]{64}$/).nullish(),
+    document_sha256: z.string().regex(/^[0-9a-f]{64}$/),
+    signatory_name: z.string().nullish(),
+    signatory_title: z.string().nullish(),
+    signatory_user_id: zUuid.nullish(),
+    signature_consent_statement: z.string().nullish(),
+    signature_otp_verified: z.boolean(),
+    signed_at: z.iso.datetime({ offset: true }).nullish(),
+    activated_at: z.iso.datetime({ offset: true }).nullish(),
+    suspended_at: z.iso.datetime({ offset: true }).nullish(),
+    terminated_at: z.iso.datetime({ offset: true }).nullish(),
+    termination_reason: z.string().nullish(),
+    lock_version: z.int(),
+    created_at: z.iso.datetime({ offset: true }).nullish(),
+    updated_at: z.iso.datetime({ offset: true }).nullish()
+});
+
+/**
+ * A draft's title and any terms known so far. Absent terms stay empty.
+ */
+export const zCreateB2bAgreementRequest = z.object({
+    title: z.string().max(160),
+    currency_code: z.string().length(3).nullish(),
+    price_list_id: zUuid.nullish(),
+    payment_terms: zB2bPaymentTerms.nullish(),
+    credit_limit_minor: z.int().gte(0).nullish(),
+    minimum_order_minor: z.int().gte(0).nullish(),
+    delivery_lead_time_days: z.int().gte(0).lte(365).nullish(),
+    notice_period_days: z.int().gte(0).lte(3650).nullish(),
+    starts_on: z.iso.date().nullish(),
+    ends_on: z.iso.date().nullish(),
+    auto_renews: z.boolean().optional(),
+    terms_summary: z.string().max(4000).nullish()
+});
+
+/**
+ * Only the keys sent change. Only a draft can be edited.
+ */
+export const zUpdateB2bAgreementRequest = z.object({
+    title: z.string().max(160).optional(),
+    currency_code: z.string().length(3).nullish(),
+    price_list_id: zUuid.nullish(),
+    payment_terms: zB2bPaymentTerms.nullish(),
+    credit_limit_minor: z.int().gte(0).nullish(),
+    minimum_order_minor: z.int().gte(0).nullish(),
+    delivery_lead_time_days: z.int().gte(0).lte(365).nullish(),
+    notice_period_days: z.int().gte(0).lte(3650).nullish(),
+    starts_on: z.iso.date().nullish(),
+    ends_on: z.iso.date().nullish(),
+    auto_renews: z.boolean().optional(),
+    terms_summary: z.string().max(4000).nullish()
+});
+
+export const zB2bAgreementListEnvelope = z.object({
+    data: z.array(zB2bAgreement),
+    meta: zMeta
+});
+
+/**
+ * A kitchen's negotiated list, as the agreement editor's seller picker shows it.
+ */
+export const zSellerPriceList = z.object({
+    id: zUuid,
+    organisation_id: zUuid,
+    organisation_name: z.string(),
+    code: z.string(),
+    name_en: z.string(),
+    name_ar: z.string().nullable(),
+    currency_code: z.string(),
+    status: z.enum(['draft', 'active']),
+    bound_to_application_id: zUuid.nullable()
+});
+
+export const zSellerPriceListListEnvelope = z.object({
+    data: z.array(zSellerPriceList),
+    meta: zMeta
+});
+
+export const zOrganisationInvitationListEnvelope = z.object({
+    data: z.array(zOrganisationInvitation),
     meta: zMeta
 });
 
@@ -8553,7 +9642,8 @@ export const zPublicInvitation = z.object({
     expires_at: z.iso.datetime({ offset: true }),
     organisation: z.object({
         name: z.string(),
-        language_code: z.string()
+        language_code: z.string(),
+        type: z.string().nullable()
     })
 });
 
@@ -8584,9 +9674,10 @@ export const zAcceptedInvitationEnvelope = z.object({
 });
 
 /**
- * What now exists. `agreement` is null when no version is in force —
- * provisioning does not require a signed agreement, because approval is
- * the gate and the terms may still be under negotiation.
+ * What now exists. Provisioning is refused with
+ * `b2b.application_state_invalid` until the agreement is signed
+ * (active), so `agreement` is null only on a replay of an application
+ * provisioned before that rule.
  *
  */
 export const zB2bProvisioningEnvelope = z.object({
@@ -8595,7 +9686,8 @@ export const zB2bProvisioningEnvelope = z.object({
         organisation: zOrganisation,
         customer_account: zB2bCustomerAccount,
         agreement: zB2bAgreement.nullable(),
-        invitations_issued: z.int().gte(0)
+        invitations_issued: z.int().gte(0),
+        owner_membership_created: z.boolean()
     }),
     meta: zMeta
 });
@@ -8633,8 +9725,10 @@ export const zSubscriptionDeliveryStatus = z.enum([
 ]);
 
 /**
- * Who chose the meal on a Free Selection day. `customer` picked it before
- * the cut-off; `kitchen_default` filled the slot because they did not; and
+ * Who chose the meal. `customer` picked it; `repeated` means nobody chose
+ * for that date (a skip or a pause pushed the balance onto it) and
+ * generation repeated the customer's own latest choices for that weekday;
+ * `kitchen_default` is a slot the retired plan menu filled; and
  * `substituted` means something chosen was unavailable or unsafe and
  * generation replaced it. Collapsing these into one value would make the
  * substitution audit unreadable, which is the one audit an allergy
@@ -8644,17 +9738,192 @@ export const zSubscriptionDeliveryStatus = z.enum([
 export const zMealChoiceSource = z.enum([
     'customer',
     'kitchen_default',
-    'substituted'
+    'substituted',
+    'repeated'
 ]);
 
+export const zKitchenOrderPlanDay = z.object({
+    plan_line_id: zUuid.nullable(),
+    meals: z.array(z.object({
+        slot: z.enum([
+            'breakfast',
+            'lunch',
+            'dinner',
+            'snack'
+        ]),
+        sequence: z.int().gte(1),
+        catalogue_item_id: zUuid,
+        line_id: zUuid.nullable(),
+        source: zMealChoiceSource
+    }))
+});
+
 /**
- * `recorded` means the platform has computed what is owed; `settled`
- * means a human has told it the money changed hands. There is deliberately
- * no `paid` or `refunded` — the platform has no payment rail, and a status
- * implying it had one would be the first thing a report believed.
+ * The seller's view of the same row. Built independently of the customer
+ * shape rather than as a superset of it: a wide shape and a narrow one
+ * derived from it by subtraction is how a column added next year quietly
+ * reaches a receipt.
+ *
+ * `lock_version` is here because this is the audience that **writes** — a
+ * screen that could not read the validator could not send the `If-Match`
+ * the three lifecycle actions demand.
+ *
+ * **`customer_account_id` is nullable and `fulfilment_type` says when.**
+ * A counter sale may be a stranger buying a sandwich, and there is nobody
+ * to name; a delivery and a pickup always have somebody. The pair has to
+ * be read together — a null customer is a fact about a walk-in, never a
+ * row that failed to load.
  *
  */
-export const zCreditMemoStatus = z.enum(['recorded', 'settled']);
+export const zKitchenOrder = z.object({
+    id: zUuid,
+    order_number: z.string(),
+    organisation_id: zUuid,
+    customer_account_id: z.uuid().nullable(),
+    sales_channel_id: zUuid,
+    branch_id: z.uuid().nullable(),
+    status: zOrderStatus,
+    currency_code: z.string().length(3),
+    subtotal_minor: z.int(),
+    delivery_fee_minor: z.int().nullable(),
+    total_minor: z.int(),
+    payment_method: zPaymentMethod,
+    fulfilment_type: zFulfilmentType,
+    delivery: zKitchenOrderDelivery,
+    placed_at: z.iso.datetime({ offset: true }),
+    confirmed_at: z.iso.datetime({ offset: true }).nullable(),
+    preparing_at: z.iso.datetime({ offset: true }).nullish(),
+    ready_at: z.iso.datetime({ offset: true }).nullish(),
+    due_at: z.iso.datetime({ offset: true }).optional(),
+    fulfilled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancelled_at: z.iso.datetime({ offset: true }).nullable(),
+    cancellation_reason: zCancellationReason.nullable(),
+    cancellation_disposition: zCancellationDisposition.nullish(),
+    cancelled_by_name: z.string().nullish(),
+    remake_of: zKitchenOrderRemakeOf.nullish(),
+    delivery_run: zKitchenOrderDeliveryRun.nullish(),
+    created_by: z.uuid().nullable(),
+    placed_on_behalf_by: z.uuid().nullable(),
+    lock_version: z.int().gte(0),
+    allergy: zKitchenOrderAllergy.nullable(),
+    amendable: z.boolean(),
+    line_count: z.int().gte(0),
+    lines: z.array(zKitchenOrderLine),
+    plan_day: zKitchenOrderPlanDay.nullable(),
+    created_at: z.iso.datetime({ offset: true }).nullable(),
+    updated_at: z.iso.datetime({ offset: true }).nullable()
+});
+
+export const zKitchenOrderEnvelope = z.object({
+    data: z.object({
+        order: zKitchenOrder
+    }),
+    meta: zMeta
+});
+
+export const zKitchenOrderBookRow = zKitchenOrder.and(z.object({
+    payment: zOrderPaymentSummary,
+    delivery_job: zOrderDeskDeliveryJob.nullable(),
+    customer: zOrderDeskCustomerContact.optional()
+}));
+
+export const zOrderDeskRow = zKitchenOrder.and(z.object({
+    due_at: z.iso.datetime({ offset: true }),
+    payment: zOrderPaymentSummary,
+    delivery_job: zOrderDeskDeliveryJob.nullable(),
+    customer: zOrderDeskCustomerContact.optional()
+}));
+
+export const zOrderDeskQueueEnvelope = z.object({
+    data: z.array(zOrderDeskRow),
+    meta: zMeta.and(z.object({
+        count: z.int().gte(0),
+        past_due_count: z.int().gte(0),
+        overdue_count: z.int().gte(0),
+        overdue_grace_minutes: z.int().gte(0),
+        limit: z.int(),
+        truncated: z.boolean(),
+        window: zOrderDeskWindow,
+        from: z.iso.date().nullish(),
+        to: z.iso.date().nullish(),
+        today: z.iso.date(),
+        timezone: z.string()
+    }))
+});
+
+export const zKitchenDisplayEnvelope = z.object({
+    data: z.object({
+        orders: z.array(zKitchenOrder),
+        truncated: z.boolean(),
+        alarm_after_minutes: z.int().gte(1),
+        unaccepted_open_minutes: z.record(z.string(), z.int().gte(0))
+    }),
+    meta: zMeta
+});
+
+/**
+ * One place a dish goes on a plan day — a second lunch is `lunch` / `2`.
+ */
+export const zPlanSitting = z.object({
+    slot: z.enum([
+        'breakfast',
+        'lunch',
+        'dinner',
+        'snack'
+    ]),
+    sequence: z.int().gte(1)
+});
+
+export const zMarketplacePlanVariant = z.object({
+    id: zUuid,
+    plan_id: zUuid,
+    name: z.string(),
+    energy_range: zMarketplaceEnergyBand.nullable(),
+    protein_range: z.null(),
+    carbohydrate_range: z.null(),
+    fat_range: z.null(),
+    meals_per_day: z.int().gte(1),
+    snacks_per_day: z.int().gte(0),
+    sittings: z.array(zPlanSitting),
+    price_per_week: zMarketplaceMoney.nullable()
+});
+
+export const zMarketplacePlan = z.object({
+    id: zUuid,
+    kitchen_id: zUuid,
+    name: z.string(),
+    slug: z.string(),
+    summary: z.string(),
+    description: z.string(),
+    category_slugs: z.array(z.string()),
+    diet_classifications: z.array(z.string()),
+    variants: z.array(zMarketplacePlanVariant),
+    durations: z.array(zMarketplacePlanDuration),
+    image_placeholder_id: z.string(),
+    rating: z.number().nullable(),
+    rating_count: z.int().gte(0)
+});
+
+export const zMarketplacePlansEnvelope = z.object({
+    data: z.array(zMarketplacePlan),
+    meta: zMarketplaceListMeta
+});
+
+export const zChosenMeal = z.object({
+    slot: z.enum([
+        'breakfast',
+        'lunch',
+        'dinner',
+        'snack'
+    ]),
+    sequence: z.int().gte(1).lte(20).nullish(),
+    catalogue_item_id: zUuid
+});
+
+export const zChosenDay = z.object({
+    date: z.iso.date(),
+    meals: z.array(zChosenMeal).min(1).max(12)
+});
 
 /**
  * What is left, what was used, and what is coming. **`skipped_days` is
@@ -8842,29 +10111,6 @@ export const zSubscriptionsEnvelope = z.object({
 });
 
 /**
- * What a kitchen owes a customer whose subscription was cancelled early —
- * a record of an **obligation**, never of a payment.
- *
- * `settlement` is stated on the wire rather than left to be inferred from
- * the status vocabulary. It is the one sentence a customer cancelling most
- * needs: no money has moved, and somebody will be in touch. A client left
- * to infer it would eventually render `recorded` as "refunded".
- *
- */
-export const zCreditMemo = z.object({
-    id: zUuid,
-    reason: z.string(),
-    unused_days: z.int(),
-    per_day_minor: z.int(),
-    amount_minor: z.int(),
-    currency_code: zCurrencyCode,
-    status: zCreditMemoStatus,
-    settlement: z.enum(['manual']),
-    recorded_at: z.iso.datetime({ offset: true }),
-    settled_at: z.iso.datetime({ offset: true }).nullish()
-});
-
-/**
  * What fills one slot of one day. `replaced_catalogue_item_id` is what the
  * choice stands in for when generation substituted it — the customer is
  * owed the difference between "you chose this" and "we sent this instead".
@@ -8892,6 +10138,23 @@ export const zSubscriptionMealChoice = z.object({
     source: zMealChoiceSource,
     replaced_catalogue_item_id: zUuid.nullish(),
     replaced_name: z.string().nullish()
+});
+
+export const zSubscriptionDay = z.object({
+    delivery_date: z.iso.date(),
+    basis: z.enum(['actual', 'projected']),
+    status: z.string(),
+    editable: z.boolean(),
+    change_deadline: z.iso.datetime({ offset: true }),
+    meals: z.array(zSubscriptionMealChoice)
+});
+
+export const zSubscriptionDaysEnvelope = z.object({
+    data: z.object({
+        sittings: z.array(zPlanSitting),
+        days: z.array(zSubscriptionDay)
+    }),
+    meta: zMeta
 });
 
 /**
@@ -8934,8 +10197,7 @@ export const zSubscriptionSkipEnvelope = z.object({
 
 export const zSubscriptionCancellationEnvelope = z.object({
     data: z.object({
-        subscription: zSubscription,
-        credit_memo: zCreditMemo.nullable()
+        subscription: zSubscription
     }),
     meta: zMeta
 });
@@ -9033,7 +10295,8 @@ export const zCreateSubscriptionRequest = z.object({
     weekdays: z.array(z.int().gte(1).lte(7)).min(1).max(7),
     delivery_window_code: z.string().max(40).nullish(),
     no_substitutions: z.boolean().optional(),
-    start_from: z.iso.date().nullish()
+    start_from: z.iso.date().nullish(),
+    days: z.array(zChosenDay).min(1).max(366)
 });
 
 export const zSkipSubscriptionDayRequest = z.object({
@@ -9053,9 +10316,9 @@ export const zUpdateSubscriptionWeekdaysRequest = z.object({
 });
 
 /**
- * One day's chosen meals, replaced whole. An **empty `meals` array is a
- * real payload**: it is a customer saying "I have not chosen; send me the
- * kitchen's default", and a merge-shaped write could not express it.
+ * One day's chosen meals, replaced whole. The day must fill every sitting
+ * the subscriber bought; otherwise it is refused as `meals_incomplete`,
+ * naming the `missing` and `unexpected` sittings.
  *
  */
 export const zReplaceSubscriptionChoicesRequest = z.object({
@@ -9065,7 +10328,7 @@ export const zReplaceSubscriptionChoicesRequest = z.object({
         sequence: z.int().gte(1).lte(20).nullish(),
         catalogue_item_id: zUuid,
         catalogue_item_variant_id: zUuid.nullish()
-    })).max(12)
+    })).min(1).max(12)
 });
 
 export const zSubscriptionChoicesEnvelope = z.object({
@@ -9704,6 +10967,22 @@ export const zPlatformKitchenOwnerRevocationEnvelope = z.object({
     meta: zMeta
 });
 
+export const zKitchenServiceSettingsWritable = z.object({
+    order_lead_minutes: z.int().gte(0).lte(10080),
+    alarm_after_minutes: z.int().gte(1).lte(10080),
+    manager_alert_after_minutes: z.int().gte(1).lte(10080),
+    owner_alert_after_minutes: z.int().gte(1).lte(10080),
+    refund_approval_above_minor: z.int().gte(0),
+    price_approval_above_percent: z.int().gte(0).lte(1000).nullish(),
+    dish_margin_target_percent: z.int().gte(1).lte(99).nullish(),
+    orders_per_window: z.int().gte(1).lte(1000).nullish()
+});
+
+export const zKitchenServiceSettingsEnvelopeWritable = z.object({
+    data: zKitchenServiceSettingsWritable,
+    meta: zMeta
+});
+
 /**
  * The active organisation. Never trusted without server-side validation
  * against an active membership.
@@ -10102,9 +11381,7 @@ export const zB2bCatalogueLanguage = z.enum(['en', 'ar']).default('en');
 export const zOrganisationPath = zUuid;
 
 /**
- * A role of this organisation, or a platform template. Reads accept
- * either; writes answer **404** for a template, because from the writing
- * side there is no role at that identifier belonging to you.
+ * A role of this organisation. A platform template answers **404**.
  *
  */
 export const zRolePath = zUuid;
@@ -10726,6 +12003,53 @@ export const zCreateIngredientHeaders = z.object({
  */
 export const zCreateIngredientResponse = zIngredientEnvelope;
 
+export const zImportIngredientsBody = zSpreadsheetImportRequest;
+
+export const zImportIngredientsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The import ran. The report is the whole outcome, row by row.
+ */
+export const zImportIngredientsResponse = zSpreadsheetImportEnvelope;
+
+export const zExportIngredientsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zExportIngredientsQuery = z.object({
+    query: z.string().max(160).optional(),
+    status: zIngredientStatus.optional(),
+    category: zUuid.optional(),
+    exclude_category: zUuid.optional(),
+    reference_series: z.enum(['ING-', 'PKG-']).optional()
+});
+
+/**
+ * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+ * every file download.
+ *
+ */
+export const zExportIngredientsResponse = z.string();
+
+export const zDownloadIngredientImportTemplateHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+ * every file download.
+ *
+ */
+export const zDownloadIngredientImportTemplateResponse = z.string();
+
 export const zSearchAllergenReferencesHeaders = z.object({
     'X-Organisation-Id': zUuid
 });
@@ -11134,6 +12458,77 @@ export const zCreateRecipeResponse = z.object({
     meta: zMeta
 });
 
+export const zImportRecipesBody = zSpreadsheetImportRequest;
+
+export const zImportRecipesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The import ran. The report is the whole outcome, row by row.
+ */
+export const zImportRecipesResponse = zSpreadsheetImportEnvelope;
+
+export const zExportRecipesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zExportRecipesQuery = z.object({
+    query: z.string().max(160).optional(),
+    status: z.enum([
+        'active',
+        'archived',
+        'draft',
+        'review_required',
+        'published',
+        'retired'
+    ]).optional(),
+    stale_only: z.boolean().optional().default(false),
+    kind: zRecipeKind.optional(),
+    selling_status: zCatalogueItemStatus.optional(),
+    category: z.string().max(40).optional(),
+    allergen: z.string().max(20).optional()
+});
+
+/**
+ * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+ * every file download.
+ *
+ */
+export const zExportRecipesResponse = z.string();
+
+export const zDownloadRecipeImportTemplateHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+ * every file download.
+ *
+ */
+export const zDownloadRecipeImportTemplateResponse = z.string();
+
+export const zListRecipeTechnicalSheetsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListRecipeTechnicalSheetsQuery = z.object({
+    'ids[]': z.array(zUuid).min(1).max(20)
+});
+
+/**
+ * One entry per requested recipe, in request order.
+ */
+export const zListRecipeTechnicalSheetsResponse = zRecipeTechnicalSheetBatchEnvelope;
+
 export const zPreviewRecipeRollupBody = zPreviewRecipeRollupRequest;
 
 export const zPreviewRecipeRollupHeaders = z.object({
@@ -11251,13 +12646,7 @@ export const zShowRecipeVersionPath = z.object({
  * The whole version.
  */
 export const zShowRecipeVersionResponse = z.object({
-    data: z.object({
-        version: zAdminRecipeVersion,
-        lines: z.array(zRecipeLine),
-        outputs: z.array(zRecipeOutput),
-        steps: z.array(zRecipeStep),
-        allergens: z.array(zRecipeVersionAllergen)
-    }),
+    data: zRecipeVersionDetail,
     meta: zMeta
 });
 
@@ -11479,6 +12868,29 @@ export const zRetireRecipeVersionPath = z.object({
  * The retired version.
  */
 export const zRetireRecipeVersionResponse = zRecipeVersionEnvelope;
+
+export const zReleaseRecipeVersionBody = z.object({
+    confirmed: z.literal(true)
+});
+
+export const zReleaseRecipeVersionHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zReleaseRecipeVersionPath = z.object({
+    recipe: zUuid,
+    version: z.union([
+        zUuid,
+        z.string().regex(/^\d+$/)
+    ])
+});
+
+/**
+ * The released version.
+ */
+export const zReleaseRecipeVersionResponse = zRecipeVersionEnvelope;
 
 export const zShowRecipeTechnicalSheetHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -11713,14 +13125,16 @@ export const zListCatalogueItemsQuery = z.object({
     item_type: zCatalogueItemType.optional(),
     has_recipe: z.enum(['true', 'false']).optional(),
     product_category_id: zUuid.optional(),
-    allergen: z.string().max(20).optional()
+    allergen: z.string().max(20).optional(),
+    ids: z.string().optional(),
+    include: z.string().regex(/^(channels|variants)(,(channels|variants))?$/).optional()
 });
 
 /**
  * A page of catalogue items.
  */
 export const zListCatalogueItemsResponse = z.object({
-    data: z.array(zAdminCatalogueItem),
+    data: z.array(zAdminCatalogueItemIndexRow),
     meta: zPaginatedOrNumberedMeta
 });
 
@@ -11826,6 +13240,263 @@ export const zRetireCatalogueItemPath = z.object({
  */
 export const zRetireCatalogueItemResponse = zCatalogueItemEnvelope;
 
+export const zMarkCatalogueItemAllergensAssessedHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zMarkCatalogueItemAllergensAssessedPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The assessed item.
+ */
+export const zMarkCatalogueItemAllergensAssessedResponse = zCatalogueItemEnvelope;
+
+export const zGetTemperatureLogHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid
+});
+
+export const zGetTemperatureLogQuery = z.object({
+    month: z.string().regex(/^[0-9]{4}-[0-9]{2}$/).optional()
+});
+
+/**
+ * Its units, and the month's readings and cooking temperatures.
+ */
+export const zGetTemperatureLogResponse = z.object({
+    data: zTemperatureLog
+});
+
+export const zRecordTemperatureReadingBody = z.object({
+    temperature_unit_id: zUuid,
+    slot: z.enum(['am', 'pm']),
+    celsius: z.union([
+        z.number(),
+        z.string()
+    ]),
+    note: z.string().max(200).nullish()
+});
+
+export const zRecordTemperatureReadingHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid
+});
+
+/**
+ * The reading.
+ */
+export const zRecordTemperatureReadingResponse = z.object({
+    data: z.object({
+        reading: z.object({
+            id: zUuid,
+            out_of_range: z.boolean()
+        })
+    })
+});
+
+export const zRecordCookingTemperatureBody = z.object({
+    production_order_id: zUuid,
+    celsius: z.union([
+        z.number(),
+        z.string()
+    ]),
+    note: z.string().max(200).nullish()
+});
+
+export const zRecordCookingTemperatureHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid
+});
+
+/**
+ * The reading.
+ */
+export const zRecordCookingTemperatureResponse = z.object({
+    data: z.object({
+        cooking: z.object({
+            id: zUuid
+        })
+    })
+});
+
+export const zCreateTemperatureUnitBody = zTemperatureUnitRequest;
+
+export const zCreateTemperatureUnitHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid
+});
+
+/**
+ * The unit.
+ */
+export const zCreateTemperatureUnitResponse = z.object({
+    data: z.object({
+        unit: zTemperatureUnit
+    })
+});
+
+export const zUpdateTemperatureUnitBody = zTemperatureUnitRequest;
+
+export const zUpdateTemperatureUnitHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid
+});
+
+export const zUpdateTemperatureUnitPath = z.object({
+    unit: zUuid
+});
+
+/**
+ * The unit.
+ */
+export const zUpdateTemperatureUnitResponse = z.object({
+    data: z.object({
+        unit: zTemperatureUnit
+    })
+});
+
+export const zListOrderComplaintsHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+/**
+ * Newest first, capped at 200.
+ */
+export const zListOrderComplaintsResponse = z.object({
+    data: z.object({
+        complaints: z.array(zOrderComplaint)
+    })
+});
+
+export const zRecordOrderComplaintBody = z.object({
+    cause: zOrderComplaintCause,
+    description: z.string().max(500).nullish(),
+    cost_minor: z.int().gte(0).nullish()
+});
+
+export const zRecordOrderComplaintHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zRecordOrderComplaintPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The complaint.
+ */
+export const zRecordOrderComplaintResponse = z.object({
+    data: z.object({
+        complaint: zOrderComplaint
+    })
+});
+
+export const zUpdateOrderComplaintBody = z.object({
+    cause: zOrderComplaintCause.optional(),
+    description: z.string().max(500).nullish(),
+    cost_minor: z.int().gte(0).optional(),
+    outcome: z.enum([
+        'refunded',
+        'apologised',
+        'no_action'
+    ]).nullish(),
+    order_refund_id: z.uuid().nullish()
+});
+
+export const zUpdateOrderComplaintHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zUpdateOrderComplaintPath = z.object({
+    complaint: zUuid
+});
+
+/**
+ * The complaint.
+ */
+export const zUpdateOrderComplaintResponse = z.object({
+    data: z.object({
+        complaint: zOrderComplaint
+    })
+});
+
+export const zRemakeOrderComplaintHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zRemakeOrderComplaintPath = z.object({
+    complaint: zUuid
+});
+
+/**
+ * The complaint, closed as remade.
+ */
+export const zRemakeOrderComplaintResponse = z.object({
+    data: z.object({
+        complaint: zOrderComplaint
+    })
+});
+
+export const zListDishOptionsHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zListDishOptionsPath = z.object({
+    item: zUuid
+});
+
+/**
+ * The options, in menu order.
+ */
+export const zListDishOptionsResponse = z.object({
+    data: z.object({
+        options: z.array(zKitchenDishOption)
+    })
+});
+
+export const zReplaceDishOptionsBody = zReplaceDishOptionsRequest;
+
+export const zReplaceDishOptionsHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zReplaceDishOptionsPath = z.object({
+    item: zUuid
+});
+
+/**
+ * The options as they now stand.
+ */
+export const zReplaceDishOptionsResponse = z.object({
+    data: z.object({
+        options: z.array(zKitchenDishOption)
+    })
+});
+
+export const zGetOrderDeskDishChoicesHeaders = z.object({
+    'X-Organisation-Id': zUuid
+});
+
+export const zGetOrderDeskDishChoicesPath = z.object({
+    item: zUuid
+});
+
+/**
+ * Its free options, and its portions at the counter's prices.
+ */
+export const zGetOrderDeskDishChoicesResponse = z.object({
+    data: z.object({
+        options: z.array(zDishOption),
+        portions: z.array(zDishPortion)
+    })
+});
+
 export const zReplaceCatalogueItemVariantsBody = zReplaceCatalogueItemVariantsRequest;
 
 export const zReplaceCatalogueItemVariantsHeaders = z.object({
@@ -11854,6 +13525,43 @@ export const zReplaceCatalogueItemVariantsResponse = z.object({
     }),
     meta: zMeta
 });
+
+export const zGetCatalogueItemPacksHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetCatalogueItemPacksPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item's packs and places.
+ */
+export const zGetCatalogueItemPacksResponse = zItemPacksEnvelope;
+
+export const zSetCatalogueItemPacksBody = zSetItemPacksRequest;
+
+export const zSetCatalogueItemPacksHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSetCatalogueItemPacksPath = z.object({
+    item: z.union([
+        zUuid,
+        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
+    ])
+});
+
+/**
+ * The item's packs and places as they now stand.
+ */
+export const zSetCatalogueItemPacksResponse = zItemPacksEnvelope;
 
 export const zGetCatalogueItemChannelPricesHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -11992,6 +13700,44 @@ export const zShowCatalogueItemAllergensResponse = z.object({
     meta: zDerivedAllergenMeta
 });
 
+export const zPutCatalogueItemBackOnTodayHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPutCatalogueItemBackOnTodayPath = z.object({
+    item: zUuid
+});
+
+/**
+ * The day it applied to, and where the item now stands.
+ */
+export const zPutCatalogueItemBackOnTodayResponse = z.object({
+    data: z.object({
+        date: z.iso.date(),
+        off_today: z.boolean()
+    })
+});
+
+export const zTakeCatalogueItemOffTodayHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zTakeCatalogueItemOffTodayPath = z.object({
+    item: zUuid
+});
+
+/**
+ * The day it applied to, and where the item now stands.
+ */
+export const zTakeCatalogueItemOffTodayResponse = z.object({
+    data: z.object({
+        date: z.iso.date(),
+        off_today: z.boolean()
+    })
+});
+
 export const zReplaceCatalogueItemAvailabilityBody = zReplaceCatalogueItemAvailabilityRequest;
 
 export const zReplaceCatalogueItemAvailabilityHeaders = z.object({
@@ -12066,15 +13812,24 @@ export const zListPriceListsQuery = z.object({
     per_page: z.int().gte(1).lte(100).optional().default(25),
     query: z.string().max(160).optional(),
     status: zPriceListStatus.optional(),
-    customer_scope: zPriceListCustomerScope.optional()
+    customer_scope: zPriceListCustomerScope.optional(),
+    include: z.string().optional()
 });
 
 /**
  * A page of price lists.
  */
 export const zListPriceListsResponse = z.object({
-    data: z.array(zAdminPriceList),
-    meta: zPaginatedOrNumberedMeta
+    data: z.array(zAdminPriceListIndexRow),
+    meta: zPaginatedOrNumberedMeta.and(z.object({
+        status_counts: z.object({
+            draft: z.int().gte(0),
+            active: z.int().gte(0),
+            archived: z.int().gte(0)
+        }),
+        unpriced_count: z.int().gte(0),
+        agreement_count: z.int().gte(0)
+    }))
 });
 
 export const zCreatePriceListBody = zCreatePriceListRequest;
@@ -12454,43 +14209,6 @@ export const zReplacePlanVariantsPath = z.object({
  */
 export const zReplacePlanVariantsResponse = zPlanVariantsEnvelope;
 
-export const zGetPlanMenuHeaders = z.object({
-    'X-Organisation-Id': zUuid,
-    'X-Client-Request-Id': z.string().max(128).optional()
-});
-
-export const zGetPlanMenuPath = z.object({
-    item: z.union([
-        zUuid,
-        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-    ])
-});
-
-/**
- * The plan, its cycle configuration and every entry on its menu.
- */
-export const zGetPlanMenuResponse = zPlanMenuEnvelope;
-
-export const zReplacePlanMenuBody = zReplacePlanMenuRequest;
-
-export const zReplacePlanMenuHeaders = z.object({
-    'X-Organisation-Id': zUuid,
-    'If-Match': z.string(),
-    'X-Client-Request-Id': z.string().max(128).optional()
-});
-
-export const zReplacePlanMenuPath = z.object({
-    item: z.union([
-        zUuid,
-        z.string().max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
-    ])
-});
-
-/**
- * The plan, the cycle it now runs on, and every entry it now has.
- */
-export const zReplacePlanMenuResponse = zPlanMenuEnvelope;
-
 export const zListPlanVariantDurationsHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -12749,6 +14467,100 @@ export const zArchiveDeliveryWindowPath = z.object({
  * The archived window, in no zone.
  */
 export const zArchiveDeliveryWindowResponse = zDeliveryWindowEnvelope;
+
+export const zListBranchClosuresHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The closures.
+ */
+export const zListBranchClosuresResponse = z.object({
+    data: z.array(zBranchClosure),
+    meta: z.record(z.string(), z.unknown())
+});
+
+export const zAddBranchClosureBody = z.object({
+    closed_from: z.iso.date(),
+    closed_to: z.iso.date(),
+    note: z.string().max(160).nullish()
+});
+
+export const zAddBranchClosureHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The closure.
+ */
+export const zAddBranchClosureResponse = z.object({
+    data: zBranchClosure,
+    meta: z.record(z.string(), z.unknown())
+});
+
+export const zRemoveBranchClosureHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRemoveBranchClosurePath = z.object({
+    closure: z.uuid()
+});
+
+/**
+ * Removed.
+ */
+export const zRemoveBranchClosureResponse = z.void();
+
+export const zGetKitchenSetupHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The checklist.
+ */
+export const zGetKitchenSetupResponse = zKitchenSetupEnvelope;
+
+export const zGoLiveKitchenHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The checklist, now live.
+ */
+export const zGoLiveKitchenResponse = zKitchenSetupEnvelope;
+
+export const zCreateKitchenBranchBody = z.object({
+    name: z.string().max(160),
+    city: z.string().max(120).nullish(),
+    address: z.string().max(255).nullish(),
+    timezone: z.string().nullish()
+});
+
+export const zCreateKitchenBranchHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The branch.
+ */
+export const zCreateKitchenBranchResponse = z.object({
+    data: z.object({
+        id: z.uuid(),
+        name: z.string(),
+        city: z.string().nullable(),
+        timezone: z.string()
+    }),
+    meta: z.record(z.string(), z.unknown())
+});
 
 export const zGetBranchOperatingHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -13025,6 +14837,20 @@ export const zShowMyOrderPath = z.object({
  */
 export const zShowMyOrderResponse = zCustomerOrderEnvelope;
 
+export const zCancelMyOrderHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCancelMyOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The cancelled order, as the customer sees it.
+ */
+export const zCancelMyOrderResponse = zCustomerOrderEnvelope;
+
 export const zListStockItemsHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -13045,6 +14871,20 @@ export const zListStockLevelsHeaders = z.object({
  * Stock levels, newest stock item first.
  */
 export const zListStockLevelsResponse = zStockLevelCollection;
+
+export const zExportStockLevelsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid.optional(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+ * every file download.
+ *
+ */
+export const zExportStockLevelsResponse = z.string();
 
 export const zCountLowStockLevelsHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -13116,6 +14956,33 @@ export const zRecordStockCountHeaders = z.object({
  * The count was recorded and the level set to it.
  */
 export const zRecordStockCountResponse = zStockMovementEnvelope;
+
+export const zImportStockCountsBody = zSpreadsheetImportRequest;
+
+export const zImportStockCountsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Branch-Id': zUuid.optional(),
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The import ran. The report is the whole outcome, row by row.
+ */
+export const zImportStockCountsResponse = zSpreadsheetImportEnvelope;
+
+export const zDownloadStockCountImportTemplateHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * An `.xlsx` workbook, as an attachment. Outside the JSON envelope, like
+ * every file download.
+ *
+ */
+export const zDownloadStockCountImportTemplateResponse = z.string();
 
 export const zListSuppliersHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -13391,7 +15258,9 @@ export const zListGoodsReceiptsHeaders = z.object({
 });
 
 export const zListGoodsReceiptsQuery = z.object({
-    supplier_lot: z.string().max(20).optional()
+    supplier_lot: z.string().max(20).optional(),
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional()
 });
 
 /**
@@ -13455,6 +15324,76 @@ export const zListReceivableOrdersQuery = z.object({
  * Orders open for receiving at this branch, oldest first.
  */
 export const zListReceivableOrdersResponse = zReceivableOrderCollection;
+
+export const zGetDishMarginsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The dishes.
+ */
+export const zGetDishMarginsResponse = zDishMarginsEnvelope;
+
+export const zGetProcurementPayablesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The list.
+ */
+export const zGetProcurementPayablesResponse = zPayablesEnvelope;
+
+export const zApproveProcurementPayablePriceHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zApproveProcurementPayablePricePath = z.object({
+    goodsReceipt: zUuid
+});
+
+/**
+ * The list after the change.
+ */
+export const zApproveProcurementPayablePriceResponse = zPayablesEnvelope;
+
+export const zPayProcurementPayableBody = z.object({
+    reference: z.string().max(120).nullish()
+});
+
+export const zPayProcurementPayableHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zPayProcurementPayablePath = z.object({
+    goodsReceipt: zUuid
+});
+
+/**
+ * The list after the change.
+ */
+export const zPayProcurementPayableResponse = zPayablesEnvelope;
+
+export const zSetProcurementPayableDueDateBody = z.object({
+    due_on: z.iso.date().nullable()
+});
+
+export const zSetProcurementPayableDueDateHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSetProcurementPayableDueDatePath = z.object({
+    goodsReceipt: zUuid
+});
+
+/**
+ * The list after the change.
+ */
+export const zSetProcurementPayableDueDateResponse = zPayablesEnvelope;
 
 export const zListUnpricedReceiptsHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -13531,6 +15470,21 @@ export const zGetMonthlyCostReportQuery = z.object({
  */
 export const zGetMonthlyCostReportResponse = zMonthlyCostReportCollection;
 
+export const zGetKitchenAnalyticsReportHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetKitchenAnalyticsReportQuery = z.object({
+    from: z.iso.date(),
+    to: z.iso.date()
+});
+
+/**
+ * The report for the range and the range before it.
+ */
+export const zGetKitchenAnalyticsReportResponse = zKitchenAnalyticsReportResponse;
+
 export const zListWeeklyPricesHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -13591,6 +15545,40 @@ export const zListConsumptionExceptionsQuery = z.object({
  * A page of consumption exceptions, newest first. With `page`, numbered — `meta` then carries `total_count` and `total_pages`.
  */
 export const zListConsumptionExceptionsResponse = zConsumptionExceptionCollection;
+
+export const zListDuplicateStockHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The groups of shelves waiting for a person.
+ */
+export const zListDuplicateStockResponse = zDuplicateStockEnvelope;
+
+export const zMergeDuplicateStockBody = zDuplicateStockMergeRequest;
+
+export const zMergeDuplicateStockHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Merged.
+ */
+export const zMergeDuplicateStockResponse = z.void();
+
+export const zDismissDuplicateStockBody = zDuplicateStockDismissRequest;
+
+export const zDismissDuplicateStockHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Kept both.
+ */
+export const zDismissDuplicateStockResponse = z.void();
 
 export const zCountUnresolvedConsumptionExceptionsHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -13858,18 +15846,29 @@ export const zListKitchenOrdersHeaders = z.object({
 export const zListKitchenOrdersQuery = z.object({
     limit: z.int().gte(1).lte(100).optional().default(25),
     cursor: z.string().max(200).optional(),
+    page: z.int().gte(1).optional(),
+    per_page: z.int().gte(1).lte(100).optional().default(25),
     status: zOrderStatus.optional(),
+    customer_account_id: zUuid.optional(),
     requested_delivery_date: z.iso.date().optional(),
     branch_id: zUuid.optional(),
-    query: z.string().max(60).optional()
+    query: z.string().max(60).optional(),
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+    'delivery_window_code[]': z.array(z.string().max(40)).optional(),
+    fulfilment_type: z.enum([
+        'delivery',
+        'pickup',
+        'counter'
+    ]).optional()
 });
 
 /**
- * A page of the organisation's orders, newest first.
+ * A page of the organisation's orders, newest first. With `page`, numbered — `meta` then carries `total_count` and `total_pages`.
  */
 export const zListKitchenOrdersResponse = z.object({
-    data: z.array(zKitchenOrder),
-    meta: zPaginationMeta
+    data: z.array(zKitchenOrderBookRow),
+    meta: zPaginatedOrNumberedMeta
 });
 
 export const zShowKitchenOrderHeaders = z.object({
@@ -13963,6 +15962,133 @@ export const zCancelKitchenOrderPath = z.object({
  */
 export const zCancelKitchenOrderResponse = zKitchenOrderEnvelope;
 
+export const zHandKitchenOrderToCourierBody = zHandToCourierRequest;
+
+export const zHandKitchenOrderToCourierHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zHandKitchenOrderToCourierPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order, as the kitchen reads it.
+ */
+export const zHandKitchenOrderToCourierResponse = zKitchenOrderEnvelope;
+
+export const zFailKitchenOrderDeliveryBody = zFailDeliveryRequest;
+
+export const zFailKitchenOrderDeliveryHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zFailKitchenOrderDeliveryPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order, as the kitchen reads it.
+ */
+export const zFailKitchenOrderDeliveryResponse = zKitchenOrderEnvelope;
+
+export const zGetOrderRefundsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderRefundsPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order's refund ledger.
+ */
+export const zGetOrderRefundsResponse = zOrderRefundLedgerEnvelope;
+
+export const zStoreOrderRefundBody = zStoreOrderRefundRequest;
+
+export const zStoreOrderRefundHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255).optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zStoreOrderRefundPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order's refund ledger, with the new entry in it.
+ */
+export const zStoreOrderRefundResponse = zOrderRefundLedgerEnvelope;
+
+export const zApproveOrderRefundHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zApproveOrderRefundPath = z.object({
+    order: zUuid,
+    refund: zUuid
+});
+
+/**
+ * The order's refund ledger.
+ */
+export const zApproveOrderRefundResponse = zOrderRefundLedgerEnvelope;
+
+export const zRejectOrderRefundHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRejectOrderRefundPath = z.object({
+    order: zUuid,
+    refund: zUuid
+});
+
+/**
+ * The order's refund ledger.
+ */
+export const zRejectOrderRefundResponse = zOrderRefundLedgerEnvelope;
+
+export const zRedeliverKitchenOrderBody = zRedeliverOrderRequest;
+
+export const zRedeliverKitchenOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRedeliverKitchenOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order, as the kitchen reads it.
+ */
+export const zRedeliverKitchenOrderResponse = zKitchenOrderEnvelope;
+
+export const zCloseFailedKitchenOrderDeliveryBody = zCloseFailedDeliveryRequest;
+
+export const zCloseFailedKitchenOrderDeliveryHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCloseFailedKitchenOrderDeliveryPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The order, as the kitchen reads it.
+ */
+export const zCloseFailedKitchenOrderDeliveryResponse = zKitchenOrderEnvelope;
+
 export const zRecordOrderPaymentBody = zStorePaymentReceiptRequest;
 
 export const zRecordOrderPaymentHeaders = z.object({
@@ -14000,7 +16126,8 @@ export const zListOrderDeskQueueQuery = z.object({
     'status[]': z.array(z.enum(['placed', 'confirmed'])).optional(),
     delivery_window_code: z.string().max(40).optional(),
     fulfilment_type: zFulfilmentType.optional(),
-    query: z.string().max(60).optional()
+    query: z.string().max(60).optional(),
+    lens: z.enum(['past_due']).optional()
 });
 
 /**
@@ -14038,6 +16165,139 @@ export const zPlaceOrderDeskOrderHeaders = z.object({
  *
  */
 export const zPlaceOrderDeskOrderResponse = zKitchenOrderEnvelope;
+
+export const zAmendOrderDeskOrderBody = zAmendOrderDeskOrderRequest;
+
+export const zAmendOrderDeskOrderHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zAmendOrderDeskOrderPath = z.object({
+    order: zUuid
+});
+
+/**
+ * The edited order, in the kitchen shape, with its new validator.
+ */
+export const zAmendOrderDeskOrderResponse = zKitchenOrderEnvelope;
+
+export const zListStaffNotificationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The caller's recent alerts, newest first.
+ */
+export const zListStaffNotificationsResponse = zStaffNotificationsEnvelope;
+
+export const zMarkAllStaffNotificationsReadHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * Nothing of the caller's is left unread.
+ */
+export const zMarkAllStaffNotificationsReadResponse = z.void();
+
+export const zMarkStaffNotificationReadHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zMarkStaffNotificationReadPath = z.object({
+    notification: zUuid
+});
+
+/**
+ * The alert is read.
+ */
+export const zMarkStaffNotificationReadResponse = z.void();
+
+export const zGetKitchenDisplayHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The board.
+ */
+export const zGetKitchenDisplayResponse = zKitchenDisplayEnvelope;
+
+export const zResumeKitchenHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The kitchen's service settings, with the pause cleared.
+ */
+export const zResumeKitchenResponse = z.object({
+    data: zKitchenServiceSettings
+});
+
+export const zPauseKitchenBody = z.object({
+    minutes: z.int().gte(1).lte(720)
+});
+
+export const zPauseKitchenHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The kitchen's service settings, with the pause set.
+ */
+export const zPauseKitchenResponse = z.object({
+    data: zKitchenServiceSettings
+});
+
+export const zGetKitchenServiceSettingsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The kitchen's timings.
+ */
+export const zGetKitchenServiceSettingsResponse = zKitchenServiceSettingsEnvelope;
+
+export const zUpdateKitchenServiceSettingsBody = zKitchenServiceSettingsWritable;
+
+export const zUpdateKitchenServiceSettingsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The timings as stored.
+ */
+export const zUpdateKitchenServiceSettingsResponse = zKitchenServiceSettingsEnvelope;
+
+export const zGetStorefrontProfileHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The kitchen's storefront copy.
+ */
+export const zGetStorefrontProfileResponse = zStorefrontProfileEnvelope;
+
+export const zUpdateStorefrontProfileBody = zStorefrontProfile;
+
+export const zUpdateStorefrontProfileHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The copy as stored.
+ */
+export const zUpdateStorefrontProfileResponse = zStorefrontProfileEnvelope;
 
 export const zListKitchenCustomersHeaders = z.object({
     'X-Organisation-Id': zUuid,
@@ -14117,6 +16377,20 @@ export const zUpdateOrderDeskCustomerPath = z.object({
  * The customer as the desk now sees them, and anybody else on the new number.
  */
 export const zUpdateOrderDeskCustomerResponse = zOrderDeskCustomerEnvelope;
+
+export const zGetOrderDeskCustomerAllergiesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskCustomerAllergiesPath = z.object({
+    account: zUuid
+});
+
+/**
+ * The declaration.
+ */
+export const zGetOrderDeskCustomerAllergiesResponse = zOrderDeskCustomerAllergiesEnvelope;
 
 export const zAddOrderDeskCustomerAddressBody = zAddOrderDeskCustomerAddressRequest;
 
@@ -14259,6 +16533,21 @@ export const zGetOrderDeskCalendarQuery = z.object({
  */
 export const zGetOrderDeskCalendarResponse = zOrderDeskCalendarEnvelope;
 
+export const zGetOrderDeskPlanMealsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskPlanMealsQuery = z.object({
+    date: z.iso.date(),
+    branch_id: zUuid.optional()
+});
+
+/**
+ * The day's plan meals, one row per subscriber.
+ */
+export const zGetOrderDeskPlanMealsResponse = zOrderDeskPlanMealsEnvelope;
+
 export const zGetOrderDeskRequirementsHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -14323,20 +16612,139 @@ export const zListOrderDeskDriversHeaders = z.object({
  */
 export const zListOrderDeskDriversResponse = zOrderDeskDriversEnvelope;
 
+export const zGetKitchenActivityHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetKitchenActivityQuery = z.object({
+    from: z.iso.date(),
+    to: z.iso.date()
+});
+
+/**
+ * The trail.
+ */
+export const zGetKitchenActivityResponse = zKitchenActivityEnvelope;
+
+export const zGetStockActivityHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetStockActivityQuery = z.object({
+    from: z.iso.date(),
+    to: z.iso.date()
+});
+
+/**
+ * The movements.
+ */
+export const zGetStockActivityResponse = zStockActivityEnvelope;
+
+export const zGetOrderDeskSettlementsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * What is owed, and what came back.
+ */
+export const zGetOrderDeskSettlementsResponse = zOrderDeskSettlementsEnvelope;
+
+export const zStoreOrderDeskSettlementBody = zStoreOrderDeskSettlementRequest;
+
+export const zStoreOrderDeskSettlementHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255).optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The settlement.
+ */
+export const zStoreOrderDeskSettlementResponse = zCashSettlementEnvelope;
+
+export const zSignOffOrderDeskSettlementHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSignOffOrderDeskSettlementPath = z.object({
+    settlement: zUuid
+});
+
+/**
+ * The settlement.
+ */
+export const zSignOffOrderDeskSettlementResponse = zCashSettlementEnvelope;
+
+export const zGetOrderDeskClosesHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The open shifts and the recent closes.
+ */
+export const zGetOrderDeskClosesResponse = zOrderDeskClosesEnvelope;
+
+export const zStoreOrderDeskCloseBody = zStoreOrderDeskCloseRequest;
+
+export const zStoreOrderDeskCloseHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'Idempotency-Key': z.string().max(255).optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+/**
+ * The close.
+ */
+export const zStoreOrderDeskCloseResponse = zDailyCloseEnvelope;
+
+export const zSignOffOrderDeskCloseHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSignOffOrderDeskClosePath = z.object({
+    close: zUuid
+});
+
+/**
+ * The close.
+ */
+export const zSignOffOrderDeskCloseResponse = zDailyCloseEnvelope;
+
 export const zGetOrderDeskCashReportHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
 });
 
 export const zGetOrderDeskCashReportQuery = z.object({
-    date: z.iso.date(),
+    from: z.iso.date(),
+    to: z.iso.date(),
     branch_id: zUuid.optional()
 });
 
 /**
- * One day's takings by agent, method and currency, with the per-method totals.
+ * The window's takings by day, agent, method and currency, with the per-method totals.
  */
 export const zGetOrderDeskCashReportResponse = zOrderDeskCashReportEnvelope;
+
+export const zGetOrderDeskTodayHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zGetOrderDeskTodayQuery = z.object({
+    branch_id: zUuid.optional()
+});
+
+/**
+ * Today's figures.
+ */
+export const zGetOrderDeskTodayResponse = zOrderDeskTodayEnvelope;
 
 export const zStartGuestSessionBody = zStartGuestSessionRequest;
 
@@ -14699,6 +17107,21 @@ export const zReplaceMyDietaryProfileHeaders = z.object({
  */
 export const zReplaceMyDietaryProfileResponse = zCustomerDietaryProfileEnvelope;
 
+export const zSearchMyDietaryIngredientsHeaders = z.object({
+    'X-Client-Request-Id': z.string().max(128).optional(),
+    'Accept-Language': z.string().optional()
+});
+
+export const zSearchMyDietaryIngredientsQuery = z.object({
+    q: z.string().min(2).max(60),
+    limit: z.int().gte(1).lte(20).optional().default(8)
+});
+
+/**
+ * The matching ingredients, at most `limit`.
+ */
+export const zSearchMyDietaryIngredientsResponse = zDietaryIngredientMatchesEnvelope;
+
 export const zListMyConsentsHeaders = z.object({
     'X-Client-Request-Id': z.string().max(128).optional()
 });
@@ -14822,6 +17245,30 @@ export const zDeliverDriverJobPath = z.object({
  * The job, delivered.
  */
 export const zDeliverDriverJobResponse = z.object({
+    data: z.object({
+        job: z.object({
+            id: zUuid,
+            status: zDeliveryJobStatus
+        })
+    }),
+    meta: zMeta
+});
+
+export const zFailDriverJobBody = zFailDeliveryRequest;
+
+export const zFailDriverJobHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zFailDriverJobPath = z.object({
+    job: zUuid
+});
+
+/**
+ * The job, failed.
+ */
+export const zFailDriverJobResponse = z.object({
     data: z.object({
         job: z.object({
             id: zUuid,
@@ -15539,6 +17986,138 @@ export const zProvisionB2bApplicationPath = z.object({
  */
 export const zProvisionB2bApplicationResponse = zB2bProvisioningEnvelope;
 
+export const zListPlatformB2bAgreementsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPlatformB2bAgreementsPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * Every version, newest first.
+ */
+export const zListPlatformB2bAgreementsResponse = zB2bAgreementListEnvelope;
+
+export const zCreatePlatformB2bAgreementBody = zCreateB2bAgreementRequest;
+
+export const zCreatePlatformB2bAgreementHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zCreatePlatformB2bAgreementPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The new draft.
+ */
+export const zCreatePlatformB2bAgreementResponse = zB2bAgreementEnvelope;
+
+export const zUpdatePlatformB2bAgreementBody = zUpdateB2bAgreementRequest;
+
+export const zUpdatePlatformB2bAgreementHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zUpdatePlatformB2bAgreementPath = z.object({
+    agreement: zUuid
+});
+
+/**
+ * The updated draft.
+ */
+export const zUpdatePlatformB2bAgreementResponse = zB2bAgreementEnvelope;
+
+export const zSendPlatformB2bAgreementHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zSendPlatformB2bAgreementPath = z.object({
+    agreement: zUuid
+});
+
+/**
+ * The agreement, waiting for signature.
+ */
+export const zSendPlatformB2bAgreementResponse = zB2bAgreementEnvelope;
+
+export const zRevisePlatformB2bAgreementHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'If-Match': z.string(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zRevisePlatformB2bAgreementPath = z.object({
+    agreement: zUuid
+});
+
+/**
+ * The new draft version.
+ */
+export const zRevisePlatformB2bAgreementResponse = zB2bAgreementEnvelope;
+
+export const zListSellerPriceListsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListSellerPriceListsQuery = z.object({
+    query: z.string().optional()
+});
+
+/**
+ * The lists, grouped by kitchen.
+ */
+export const zListSellerPriceListsResponse = zSellerPriceListListEnvelope;
+
+export const zListPlatformB2bInvitationsHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListPlatformB2bInvitationsPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ])
+});
+
+/**
+ * The invitations.
+ */
+export const zListPlatformB2bInvitationsResponse = zOrganisationInvitationListEnvelope;
+
+export const zResendPlatformB2bInvitationHeaders = z.object({
+    'X-Organisation-Id': zUuid,
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zResendPlatformB2bInvitationPath = z.object({
+    application: z.union([
+        zUuid,
+        z.string().regex(/^[A-Za-z0-9-]{6,40}$/)
+    ]),
+    invitation: zUuid
+});
+
+/**
+ * The new invitation.
+ */
+export const zResendPlatformB2bInvitationResponse = zOrganisationInvitationEnvelope;
+
 export const zDownloadPlatformKycDocumentHeaders = z.object({
     'X-Organisation-Id': zUuid,
     'X-Client-Request-Id': z.string().max(128).optional()
@@ -16240,6 +18819,20 @@ export const zListSubscriptionDeliveriesPath = z.object({
  * Every delivery day this subscription has, newest first, with the balance in `meta`.
  */
 export const zListSubscriptionDeliveriesResponse = zSubscriptionDeliveriesEnvelope;
+
+export const zListSubscriptionDaysHeaders = z.object({
+    'Accept-Language': z.string().optional(),
+    'X-Client-Request-Id': z.string().max(128).optional()
+});
+
+export const zListSubscriptionDaysPath = z.object({
+    subscription: zUuid
+});
+
+/**
+ * The run, day by day, with the sittings every day fills.
+ */
+export const zListSubscriptionDaysResponse = zSubscriptionDaysEnvelope;
 
 export const zListSubscriptionScheduleHeaders = z.object({
     'X-Organisation-Id': zUuid,

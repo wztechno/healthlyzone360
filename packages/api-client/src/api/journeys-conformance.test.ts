@@ -869,4 +869,22 @@ describe('the fifteen journey wire codes', () => {
             currentLockVersion: 7,
         });
     });
+
+    /** What tells a stale allergen release apart from a lost race: both carry a lock version. */
+    it('keeps the named reason on a conflict, and leaves it out when none was sent', () => {
+        expect(
+            failureFor(
+                'resource.conflict',
+                { reason: 'derivation_stale', current_lock_version: 5 },
+                409,
+            ),
+        ).toMatchObject({
+            code: 'resource.conflict',
+            reason: 'derivation_stale',
+            currentLockVersion: 5,
+        });
+        expect(
+            failureFor('resource.conflict', { current_lock_version: 5 }, 409),
+        ).not.toHaveProperty('reason');
+    });
 });

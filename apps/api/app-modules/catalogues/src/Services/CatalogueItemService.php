@@ -24,6 +24,7 @@ use Healthy360\Inventory\Services\StockItemDerivationService;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
+use Healthy360\Recipes\Services\RecipeTwinOutputs;
 use Healthy360\ReferenceData\Models\DietClassification;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Support\Api\ErrorCode;
@@ -84,11 +85,70 @@ final readonly class CatalogueItemService
         'dressing' => 'DRS-',
     ];
 
+    /**
+     * The free-from tags and the allergen classes that contradict each one.
+     *
+     * Any containment contradicts: `may_contain` as much as `contains`, because a
+     * customer filtering for "nut free" is avoiding the risk, not the recipe line.
+     * The marketplace reads this map too (`MarketplaceMeals`), and the kitchen
+     * editor's warning keeps a copy (`kitchen-admin/meal-listing.tsx`).
+     *
+     * @var array<string, list<string>>
+     */
+    public const array FREE_FROM = [
+        'gluten_free' => ['gluten'],
+        'dairy_free' => ['milk'],
+        'nut_free' => ['tree_nut', 'peanut'],
+    ];
+
     public function __construct(
         private TenantContext $context,
         private AuditRecorder $audit,
         private IngredientCatalogueService $ingredients,
+        private DerivedAllergenService $allergens,
+        private DishOptions $options,
     ) {}
+
+    /**
+     * Each free-from tag among `$tagCodes` that the label's `$allergenCodes` contradict,
+     * with the classes that do.
+     *
+     * @param  list<string>  $tagCodes
+     * @param  list<string>  $allergenCodes
+     * @return list<array{tag: string, allergen_codes: list<string>}>
+     */
+    public static function freeFromClashes(array $tagCodes, array $allergenCodes): array
+    {
+        $clashes = [];
+
+        foreach ($tagCodes as $tag) {
+            $codes = array_values(array_intersect(self::FREE_FROM[$tag] ?? [], $allergenCodes));
+
+            if ($codes !== []) {
+                $clashes[] = ['tag' => $tag, 'allergen_codes' => $codes];
+            }
+        }
+
+        return $clashes;
+    }
+
+    /**
+     * The allergen classes a free-from tag must not contradict: the item's current
+     * label — the same derivation the marketplace shows
+     * (`MarketplaceMeals::allergenCodesOf()`), both containments — and the published
+     * label of every choice it offers, as the marketplace's free-from filter reads them.
+     *
+     * @return list<string>
+     */
+    public function labelAllergenCodes(CatalogueItem $item): array
+    {
+        $choices = array_map(static fn (array $option): array => $option['allergens'] ?? [], $this->options->forItem((string) $item->getKey()));
+
+        return array_values(array_unique(array_map(
+            static fn (array $row): string => $row['allergen_code'],
+            [...$this->allergens->forItem($item)['allergens'], ...array_merge([], ...$choices)],
+        )));
+    }
 
     /**
      * @param  array{
@@ -180,6 +240,8 @@ final readonly class CatalogueItemService
             $item->created_by = $this->context->userId();
             $item->updated_by = $this->context->userId();
             $item->save();
+
+            $this->followRecipeYield($item);
 
             $this->audit->record(
                 'catalogue.item_created',
@@ -350,7 +412,34 @@ final readonly class CatalogueItemService
             ],
         );
 
+        if (array_key_exists('recipe_id', $changes) || array_key_exists('ingredient_id', $changes)) {
+            $this->followRecipeYield($item);
+        }
+
         return $item;
+    }
+
+    /**
+     * A sauce or dressing linked to a recipe is what that recipe makes: each draft of it states its
+     * yield as an output of the item's twin, so a yield saved before the item existed — the
+     * new-sauce flow creates the recipe first — is stated now (plan slice F).
+     *
+     * `RecipeTwinOutputs` is resolved here rather than injected: it asks `RecipeUsageRegistry`,
+     * whose catalogue answer reaches pricing's `ItemPacksService` through `SellingReadiness`, and
+     * `ItemPacksService` holds this class. A constructor edge would close that loop.
+     */
+    private function followRecipeYield(CatalogueItem $item): void
+    {
+        if ($item->recipe_id === null || $item->ingredient_id === null
+            || ! in_array($item->item_type, [CatalogueItemType::Sauce, CatalogueItemType::Dressing], true)) {
+            return;
+        }
+
+        $recipe = Recipe::withoutTenancy()->whereKey($item->recipe_id)->first();
+
+        if ($recipe instanceof Recipe) {
+            app(RecipeTwinOutputs::class)->followYieldOf($recipe);
+        }
     }
 
     /**
@@ -458,6 +547,20 @@ final readonly class CatalogueItemService
                 ErrorCode::ValidationFailed,
                 'These are not active diet classifications the platform recognises.',
                 ['fields' => ['diet_classifications' => ['These are not active diet classifications the platform recognises.']], 'unknown' => $unknown],
+            );
+        }
+
+        // A free-from tag the label contradicts is refused, not stored: the
+        // marketplace would hide it anyway, and a kitchen should learn why now.
+        $clashes = self::freeFromClashes($wanted, $this->labelAllergenCodes($item));
+
+        if ($clashes !== []) {
+            $message = 'A free-from tag cannot contradict the allergen label.';
+
+            throw new ApiException(
+                ErrorCode::ValidationFailed,
+                $message,
+                ['fields' => ['diet_classifications' => [$message]], 'reason' => 'diet_tag_contradicts_allergens', 'clashes' => $clashes],
             );
         }
 

@@ -17,10 +17,12 @@ import type {
     ProductAdmin,
     ProductPackVariant,
 } from '@healthy360/api-client/contracts';
+import { IssueTrayFrame } from '@healthy360/design-system';
 import { IngredientId, KitchenId, MealId, PriceListId, ProductId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { TEST_ORGANISATION_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -300,8 +302,12 @@ function costRow(overrides: Partial<MonthlyCostReportRow> = {}): MonthlyCostRepo
         wasteAmount: null,
         wasteQuantity: null,
         revenueAmount: '2000.00',
+        refundsAmount: '0.00',
+        courierExpenseAmount: '0.00',
         grossMarginAmount: '1200.00',
         grossMarginPercent: '60.0',
+        isMarginWithheld: false,
+        uncostedLineCount: 0,
         mealRevenueAmount: '1500.00',
         productRevenueAmount: '500.00',
         otherRevenueAmount: '0.00',
@@ -332,7 +338,39 @@ function costRow(overrides: Partial<MonthlyCostReportRow> = {}): MonthlyCostRepo
  * ---------------------------------------------------------------------------------------------- */
 
 describe('the record opening', () => {
-    it('stacks the error and warning strips, each on a line of its own', async () => {
+    it('puts its problems in the page’s issue tray, and draws no strip', async () => {
+        const fix = jest.fn();
+        await renderStubScreen(
+            <IssueTrayFrame tray={{ title: 'To fix', testID: 'tray', groups: [] }}>
+                <RecordFormOpening
+                    testID="opening"
+                    title="Supplier"
+                    dirty={false}
+                    errors={{
+                        summary: '1 required',
+                        items: [{ key: 'name', label: 'Name', onPress: fix }],
+                    }}
+                    warnings={{
+                        summary: '1 warning',
+                        items: [{ key: 'email', label: 'Email', onPress: jest.fn() }],
+                    }}
+                />
+            </IssueTrayFrame>,
+            { session: kitchenManagerSession() },
+        );
+
+        await withDeskWidth(async () => {
+            await untilVisible('opening-issues-errors-name');
+            expect(screen.getByTestId('opening-issues-errors')).toHaveTextContent(/Blocks save/);
+            expect(screen.getByTestId('opening-issues-warnings-email')).toBeTruthy();
+            expect(screen.queryByTestId('opening-issues')).toBeNull();
+
+            await press('opening-issues-errors-name-fix');
+            expect(fix).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    it('stacks the error and warning strips on a page with no tray', async () => {
         await renderStubScreen(
             <RecordFormOpening
                 testID="opening"
@@ -428,7 +466,7 @@ describe('the ingredient editor', () => {
         expect(routerMock.__push).not.toHaveBeenCalled();
     });
 
-    it('takes Save over a blank to the field, which says so itself', async () => {
+    it('answers Save over a blank with a notice whose Show me takes the reader to the field', async () => {
         const record = ingredient();
         const { repositories } = await renderStubScreen(
             <IngredientEditScreen ingredient={String(record.id)} />,
@@ -444,12 +482,18 @@ describe('the ingredient editor', () => {
         });
         await press('kitchen-ingredient-editor-screen-save');
 
-        expect(focusMock.focusField).toHaveBeenCalledWith('kitchen-ingredient-name-en');
-        await untilVisible('kitchen-ingredient-issues');
-        expect(screen.getByTestId('kitchen-ingredient-issues').props.className).toContain(
-            'flex-col',
+        // The field says so under itself, and the notice names it.
+        await untilVisible('kitchen-ingredient-tray-blocked');
+        expect(screen.getByTestId('kitchen-ingredient-tray-blocked-title')).toHaveTextContent(
+            '1 thing before saving',
         );
         expect(screen.getByTestId('kitchen-ingredient-name-en-error')).toBeTruthy();
+        expect(focusMock.focusField).not.toHaveBeenCalledWith('kitchen-ingredient-name-en');
+
+        await press('kitchen-ingredient-tray-blocked-show-me');
+        await waitFor(() => {
+            expect(focusMock.focusField).toHaveBeenCalledWith('kitchen-ingredient-name-en');
+        });
         expect(repositories.kitchenAdmin.updateIngredient).not.toHaveBeenCalled();
     });
 
@@ -588,8 +632,11 @@ describe('the resale item editor', () => {
                 'kitchen-product-pack-editor-row-seed-1-TRAY-quantity',
             );
         });
-        await untilVisible('kitchen-product-issues');
-        expect(screen.getByTestId('kitchen-product-issues').props.className).toContain('flex-col');
+        // The refusal is a card in the tray; the cell itself says which column.
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-product-issues-errors');
+            expect(screen.queryByTestId('kitchen-product-issues')).toBeNull();
+        });
     });
 
     it('says a refused publish on the page once its dialog has closed', async () => {
@@ -612,10 +659,12 @@ describe('the resale item editor', () => {
         await untilVisible('kitchen-product-publish-confirm');
         await press('kitchen-product-publish-confirm');
 
-        await untilVisible('kitchen-product-publish-error');
-        expect(screen.getByTestId('kitchen-product-publish-error')).toHaveTextContent(
-            /not ready yet/,
-        );
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-product-publish-error');
+            expect(screen.getByTestId('kitchen-product-publish-error')).toHaveTextContent(
+                /not ready yet/,
+            );
+        });
     });
 });
 
@@ -687,20 +736,22 @@ describe('the price list editor', () => {
         });
     });
 
-    it('opens on one band of notice titles', async () => {
+    it('says what the list is in the tray’s notes, by title alone', async () => {
         await renderStubScreen(<PriceListEditScreen priceList={String(PRICE_LIST.id)} />, {
             session: kitchenManagerSession(),
             repositories: { kitchenAdmin: priceListReads() },
         });
-        await untilVisible('kitchen-price-list-notices');
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-price-list-draft-note');
 
-        expect(screen.getByTestId('kitchen-price-list-draft-note')).not.toHaveTextContent(
-            /Nobody is charged/,
-        );
-        expect(screen.getByTestId('kitchen-price-list-confidential')).not.toHaveTextContent(
-            /buyer relationship/,
-        );
-        expect(screen.queryByTestId('kitchen-price-list-offline')).toBeNull();
+            expect(screen.getByTestId('kitchen-price-list-draft-note')).not.toHaveTextContent(
+                /Nobody is charged/,
+            );
+            expect(screen.getByTestId('kitchen-price-list-confidential')).not.toHaveTextContent(
+                /buyer relationship/,
+            );
+            expect(screen.queryByTestId('kitchen-price-list-offline')).toBeNull();
+        });
     });
 });
 
@@ -782,6 +833,29 @@ describe('the cost report', () => {
         });
     });
 
+    it('puts the month’s figures on the Lens bar, and its Period picks whole months', async () => {
+        routerMock.__set({ params: { from: '2026-03-01', to: '2026-08-31' } });
+        await renderStubScreen(<CostReportScreen />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenOps: { listCostReport: async () => [costRow()] } },
+        });
+        await untilVisible('kitchen-cost-report-table');
+
+        // No cards: the four figures are the bar's, with Show columns at its end.
+        expect(screen.queryByTestId('kitchen-cost-report-tile')).toBeNull();
+        expect(screen.getByTestId('kitchen-cost-report-toolbar-figure-margin')).toHaveTextContent(
+            /1,200\.00 USD/,
+        );
+        expect(screen.getByTestId('kitchen-cost-report-table-columns-trigger')).toBeTruthy();
+
+        await press('kitchen-cost-report-filter-period-trigger');
+        expect(screen.queryByTestId('kitchen-cost-report-filter-period-today')).toBeNull();
+        await press('kitchen-cost-report-filter-period-quarter');
+        expect(routerMock.__router.setParams).toHaveBeenCalledWith(
+            expect.objectContaining({ month: '' }),
+        );
+    });
+
     it('opens a month by writing it to the address, and shows the month the address names', async () => {
         await renderStubScreen(<CostReportScreen />, {
             session: kitchenManagerSession(),
@@ -798,7 +872,7 @@ describe('the cost report', () => {
         await untilVisible('kitchen-cost-report-window');
     });
 
-    it('states both shortfalls as titles in one band, the spend with its months', async () => {
+    it('has no issue tray; an understated month keeps its badge in the table', async () => {
         await renderStubScreen(<CostReportScreen />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -814,17 +888,11 @@ describe('the cost report', () => {
                 },
             },
         });
-        await untilVisible('kitchen-cost-report-notices');
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-cost-report-2026-08-flag');
 
-        expect(screen.getByTestId('kitchen-cost-report-data-quality')).not.toHaveTextContent(
-            /unresolved consumption exceptions/,
-        );
-        expect(screen.getByTestId('kitchen-cost-report-open-exceptions')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-cost-report-spend-quality')).toHaveTextContent(
-            /2026-08/,
-        );
-        expect(screen.getByTestId('kitchen-cost-report-spend-quality')).not.toHaveTextContent(
-            /purchases ledger/,
-        );
+            expect(screen.queryByTestId('kitchen-cost-report-tray')).toBeNull();
+            expect(screen.queryByTestId('kitchen-cost-report-notices')).toBeNull();
+        });
     });
 });

@@ -408,6 +408,24 @@ describe('createIngredient', () => {
         });
     });
 
+    it('sends the composition typed on create', async () => {
+        const { writes, calls } = harness(lookups());
+
+        await writes
+            .createIngredient({
+                name: { en: 'Harissa', ar: '' },
+                categoryCode: 'oils',
+                measurementUnit: 'kg',
+                composition: 'Chilli, garlic, oil',
+            })
+            .catch(() => undefined);
+
+        expect(calls[2]).toMatchObject({
+            method: 'POST',
+            body: { composition: 'Chilli, garlic, oil' },
+        });
+    });
+
     it('sends packaging pack price, waste and capacity (HA-30)', async () => {
         const { writes, calls } = harness(lookups());
 

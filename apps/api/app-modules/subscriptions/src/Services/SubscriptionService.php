@@ -14,6 +14,7 @@ use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\PlanVariantProfile;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
+use Healthy360\Catalogues\Services\PlanSittings;
 use Healthy360\Customers\Contracts\AreaServiceLookup;
 use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Enums\CustomerAddressType;
@@ -27,7 +28,6 @@ use Healthy360\Subscriptions\Enums\SubscriptionDeliveryStatus;
 use Healthy360\Subscriptions\Enums\SubscriptionStatus;
 use Healthy360\Subscriptions\Exceptions\SubscriptionChangeRefused;
 use Healthy360\Subscriptions\Exceptions\SubscriptionRefused;
-use Healthy360\Subscriptions\Models\CreditMemo;
 use Healthy360\Subscriptions\Models\Subscription;
 use Healthy360\Subscriptions\Models\SubscriptionDelivery;
 use Healthy360\Support\Api\ErrorCode;
@@ -73,12 +73,10 @@ use Illuminate\Support\Facades\DB;
  *
  * ## Cancelling one
  *
- * `cancelled` is terminal and the refund is a `credit_memo` for manual
- * settlement — unused days × the effective per-day price actually paid, after
- * the duration discount, so the discount already enjoyed on delivered days is
- * not clawed back (§3). No money moves. The memo's unique index makes a second
- * one impossible, which matters because a double refund is much harder to
- * notice than a missing one.
+ * `cancelled` is terminal and nothing is owed. A subscription is paid per
+ * delivery (owner ruling, 2 November 2026), so no money is held and there is no
+ * credit to work out. `credit_memos` keeps any row already recorded, for the
+ * account-closure check, and gains none.
  */
 final readonly class SubscriptionService
 {
@@ -94,6 +92,7 @@ final readonly class SubscriptionService
         private SellerContext $seller,
         private TenantContext $context,
         private OrderSchedulingLookup $scheduling,
+        private MealChoiceService $choices,
     ) {}
 
     /**
@@ -164,6 +163,8 @@ final readonly class SubscriptionService
                 '1',
                 $now,
                 $quote->currencyCode,
+                // Buying a plan sells no one day; generation never asks the calendar either.
+                enforceCalendar: false,
             );
 
             foreach ($probe->refusals as $refusal) {
@@ -199,7 +200,10 @@ final readonly class SubscriptionService
 
         $firstDay = $this->firstDay($request, $now);
 
-        $subscription = DB::transaction(function () use ($request, $channel, $quote, $now, $firstDay): Subscription {
+        $configuration = PlanVariantProfile::withoutTenancy()->whereKey($request->catalogueItemVariantId)->first();
+        $chosenDays = $this->chosenDays($request, $channel->organisation_id, $configuration, $firstDay, $quote->days);
+
+        $subscription = DB::transaction(function () use ($request, $channel, $quote, $now, $firstDay, $configuration, $chosenDays): Subscription {
             $subscription = new Subscription;
             $subscription->organisation_id = $channel->organisation_id;
             $subscription->customer_account_id = (string) $request->account->getKey();
@@ -219,7 +223,6 @@ final readonly class SubscriptionService
 
             // The day's food as sold, kept like the price: a kitchen that later
             // edits the option changes it for new subscribers only.
-            $configuration = PlanVariantProfile::withoutTenancy()->whereKey($request->catalogueItemVariantId)->first();
             $subscription->captured_meals_per_day = $configuration?->meals_per_day;
             $subscription->captured_snacks_per_day = $configuration?->snacks_per_day;
 
@@ -235,6 +238,10 @@ final readonly class SubscriptionService
             $subscription->created_by = $this->context->userId();
             $subscription->lock_version = 0;
             $subscription->save();
+
+            foreach ($chosenDays as $date => $meals) {
+                $this->choices->writeDay($subscription, CarbonImmutable::parse($date), $meals);
+            }
 
             return $subscription;
         });
@@ -300,6 +307,82 @@ final readonly class SubscriptionService
         }
 
         return $firstDay;
+    }
+
+    /**
+     * The customer's meals for every delivery day the balance covers, keyed by
+     * date — refused unless every one of those days is filled.
+     *
+     * The days are the ones generation will walk: from the first delivery, on
+     * the chosen weekdays, one per balance day. Closed weekdays need no
+     * skipping here because a subscription may not choose one
+     * (`kitchen_closed`). A day pushed later by a skip or a pause is one nobody
+     * chose for, and generation repeats the customer's own choices onto it.
+     *
+     * @return array<string, list<array{slot: string, sequence?: int|null, catalogue_item_id: string}>>
+     *
+     * @throws SubscriptionRefused
+     */
+    private function chosenDays(
+        NewSubscription $request,
+        string $organisationId,
+        ?PlanVariantProfile $configuration,
+        CarbonImmutable $firstDay,
+        int $balanceDays,
+    ): array {
+        if ($request->days === null) {
+            return [];
+        }
+
+        $sent = [];
+
+        foreach ($request->days as $day) {
+            $sent[CarbonImmutable::parse($day['date'])->toDateString()] = $day['meals'];
+        }
+
+        $weekdays = $this->normalisedWeekdays($request->weekdays);
+        $sittings = PlanSittings::for($configuration?->meals_per_day, $configuration?->snacks_per_day);
+
+        $expected = [];
+
+        for ($day = $firstDay->startOfDay(); count($expected) < $balanceDays; $day = $day->addDay()) {
+            if (in_array($day->dayOfWeekIso, $weekdays, true)) {
+                $expected[] = $day;
+            }
+        }
+
+        $reasons = [];
+        $missing = [];
+        $chosen = [];
+
+        foreach ($expected as $day) {
+            $meals = $sent[$day->toDateString()] ?? null;
+
+            if ($meals === null) {
+                $missing[] = $day->toDateString();
+
+                continue;
+            }
+
+            $reasons = [...$reasons, ...$this->choices->dayReasons($day, $sittings, $meals)];
+            $chosen[$day->toDateString()] = $meals;
+        }
+
+        if ($missing !== []) {
+            $reasons[] = ['reason' => 'meals_missing', 'delivery_dates' => $missing];
+        }
+
+        foreach (array_diff(array_keys($sent), array_keys($chosen), $missing) as $date) {
+            $reasons[] = ['reason' => 'not_a_delivery_day', 'delivery_date' => $date, 'weekdays' => $weekdays];
+        }
+
+        $reasons = [...$reasons, ...$this->choices->mealReasons($organisationId, array_merge(...array_values($chosen)))];
+
+        if ($reasons !== []) {
+            throw new SubscriptionRefused($reasons);
+        }
+
+        return $chosen;
     }
 
     /**
@@ -465,13 +548,11 @@ final readonly class SubscriptionService
     }
 
     /**
-     * Stop the subscription for good and record what is owed.
-     *
-     * @return array{subscription: Subscription, credit_memo: CreditMemo|null}
+     * Stop the subscription for good.
      *
      * @throws SubscriptionChangeRefused
      */
-    public function cancel(Subscription $subscription, string $reason = 'customer_request', ?int $expectedLockVersion = null): array
+    public function cancel(Subscription $subscription, string $reason = 'customer_request', ?int $expectedLockVersion = null): Subscription
     {
         $now = CarbonImmutable::now();
         $reasons = $this->versionReasons($subscription, $expectedLockVersion);
@@ -483,7 +564,7 @@ final readonly class SubscriptionService
 
         $unused = $subscription->remainingDays();
 
-        $result = DB::transaction(function () use ($subscription, $reason, $now, $unused): array {
+        DB::transaction(function () use ($subscription, $reason, $now): void {
             $subscription->status = SubscriptionStatus::Cancelled;
             $subscription->cancelled_at = $now;
             $subscription->cancellation_reason = $reason;
@@ -492,51 +573,16 @@ final readonly class SubscriptionService
             $subscription->lock_version = $subscription->lock_version + 1;
             $subscription->updated_by = $this->context->userId();
             $subscription->save();
-
-            if ($unused < 1) {
-                // Nothing is owed, so nothing is recorded. A zero memo would be
-                // an obligation somebody eventually tries to settle.
-                return ['subscription' => $subscription, 'credit_memo' => null];
-            }
-
-            $memo = new CreditMemo;
-            $memo->organisation_id = $subscription->organisation_id;
-            $memo->customer_account_id = $subscription->customer_account_id;
-            $memo->subscription_id = (string) $subscription->getKey();
-            $memo->reason = 'subscription_cancelled';
-            $memo->unused_days = $unused;
-            $memo->per_day_minor = $subscription->effective_day_price_minor;
-            $memo->amount_minor = $unused * $subscription->effective_day_price_minor;
-            $memo->currency_code = $subscription->currency_code;
-            $memo->recorded_at = $now;
-            $memo->save();
-
-            return ['subscription' => $subscription, 'credit_memo' => $memo];
         });
-
-        $memo = $result['credit_memo'];
-        $refundMinor = $memo === null ? 0 : $memo->amount_minor;
 
         $this->journal->record(
             $subscription,
             'cancelled',
-            detail: [
-                'cancellation_reason' => $reason,
-                'unused_days' => $unused,
-                'refund_minor' => $refundMinor,
-                'currency' => $subscription->currency_code,
-                // The one sentence the customer most needs: no money has moved.
-                'settlement' => 'manual',
-            ],
-            auditMetadata: [
-                'cancellation_reason' => $reason,
-                'unused_days' => $unused,
-                'refund_minor' => $refundMinor,
-                'credit_memo_id' => $memo === null ? null : (string) $memo->getKey(),
-            ],
+            detail: ['cancellation_reason' => $reason, 'unused_days' => $unused],
+            auditMetadata: ['cancellation_reason' => $reason, 'unused_days' => $unused],
         );
 
-        return $result;
+        return $subscription;
     }
 
     /**

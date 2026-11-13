@@ -1,20 +1,12 @@
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import {
-    Button,
-    Cascade,
-    Dialog,
-    Icon,
-    Inline,
-    Stack,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -23,12 +15,10 @@ import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
-import { statusSegments } from '../catalogue/use-catalogue-filters.ts';
-import type { StatusSegmentValue } from '../catalogue/use-catalogue-filters.ts';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
+import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
@@ -46,13 +36,14 @@ import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entit
 import { displayName, humaniseCode, unitShortKey } from '../format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/packaging` — bags, boxes, lids, cutlery and labels, and what each costs.
  *
  * ```
  * Kitchen workspace › Packaging                   <- drawn by the shell, not here
- * ┌ SHOWN ┐ ┌ UNPRICED ┐ ┌ INACTIVE ┐ ┌ MISSING ARABIC ┐
- *         [ ⌕ 240px ]  [ All | Published | Draft | Review ]
+ * (All packaging 33) │ ● Active ● Inactive ● Review │ ● Unpriced ● Missing Arabic   [+ New]
+ * [ ⌕ Search ] [Status: Inactive ×]                              18 of 33  Clear │ ▤
  * ID  ITEM  CATEGORY  PACK  PER PACK  PACK PRICE  HOLDS  WASTE  STATUS  ⋯
  * Showing 1–25 of 33                                            [ ‹ 1 2 › ]
  * ```
@@ -79,7 +70,7 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  *
  * One question: what does this cost, and how many does a batch need. That is why the pack price and
  * the capacity are tracks on the row rather than fields in a panel, and why **Unpriced** is the
- * second stat card. A recipe's technical sheet withholds its total entirely while any one packaging
+ * first figure after the statuses. A recipe's technical sheet withholds its total entirely while any one packaging
  * line is unpriced, so an unpriced box silently takes the bottom line off every recipe that ships
  * in it — which makes that figure the one number on this page somebody is expected to clear.
  *
@@ -94,7 +85,7 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
  * the *allergen quarantine* — a record whose determination contradicts a published recipe — and a
  * box declares no allergens, so nothing could put one there. That describes how a row *enters* the
  * state, not whether the field can hold it: it is a column on the same ingredient table, and an
- * import or a hand edit can set it. The segments are All · Published · Draft · Review; Archived is
+ * import or a hand edit can set it. The figures are All · Active · Inactive · Review; Archived is
  * on the Status column's own filter.
  *
  * ## The row controls are View, Edit and Archive
@@ -126,6 +117,8 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
 
     const list = usePackagingList(view);
+    // The table closes the toolbar's card only when it is drawn.
+    const joined = !list.isPending && list.failure === null && list.rows.length > 0;
 
     /**
      * Code → the taxonomy's own name for it.
@@ -162,17 +155,17 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
         },
     );
 
-    const segments = statusSegments(list.statuses, list.setStatuses, t, packagingStatusKey);
-
     /*
      * View takes the whole page (`IngredientView.dc.html`), in place of the list rather than on a
      * route of its own — Back is a state change, so the list's page, sort and filters survive it.
      */
     const viewing = list.viewing;
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-packaging-view"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowPackaging')}
                 media={
                     <RecordPhoto
                         assetId={`ingredient-${viewing.slug}`}
@@ -203,136 +196,143 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                 }}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-packaging-screen">
-            <Stack space="xs">
-                <CatalogueStatCards
-                    testID="kitchen-packaging-stats"
-                    cards={statCards(list, t)}
-                    pending={list.isPending}
-                    countsPending={list.countsPending}
+            {/*
+             * The Lens bar — figures, mix, query row and actions as one object directly over the
+             * list it narrows (`lens-bar.tsx`), as on the product list.
+             */}
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-packaging-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures(list, t)}
+                    {...statusLensMix(list, t)}
+                    search={list.query}
+                    onSearchChange={list.setQuery}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:packaging.searchPlaceholder')}
+                    tokens={statusLensTokens(list, t)}
+                    result={
+                        list.total === null
+                            ? null
+                            : t('kitchen:lens.result', { shown: list.shown, total: list.total })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(list.isUnfiltered ? {} : { onClear: list.clearFilters })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canManage ? (
+                            <Inline space="xs" align="center">
+                                <CatalogueTransferActions testID="kitchen-packaging-toolbar" />
+                                {/*
+                                 * `/kitchen/packaging/new` — the same form a row's Edit opens,
+                                 * handed the packaging series and the packaging category. A new
+                                 * record therefore arrives already filed where this list looks,
+                                 * which is what stops a successful save from producing a row the
+                                 * page that created it cannot show.
+                                 */}
+                                <DeskButton
+                                    testID="kitchen-packaging-toolbar-create"
+                                    label={t('kitchen:packaging.create')}
+                                    iconStart={<Icon name="plus" size="sm" />}
+                                    onPress={() => {
+                                        list.openEditor('new');
+                                    }}
+                                />
+                            </Inline>
+                        ) : undefined
+                    }
                 />
-            </Stack>
 
-            <CatalogueToolbar<StatusSegmentValue>
-                testID="kitchen-packaging-toolbar"
-                search={list.query}
-                onSearchChange={list.setQuery}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:packaging.searchPlaceholder')}
-                statusLabel={t('kitchen:toolbar.statusLabel')}
-                statusSegments={segments.segments}
-                status={segments.value}
-                onStatusChange={segments.onChange}
-            >
-                <ColumnPicker {...controls.picker} />
-                {canManage ? (
-                    <Inline space="xs" align="center">
-                        <CatalogueTransferActions testID="kitchen-packaging-toolbar" />
-                        {/*
-                         * `/kitchen/packaging/new` — the same form a row's Edit opens,
-                         * handed the packaging series and the packaging category. A new
-                         * record therefore arrives already filed where this list looks,
-                         * which is what stops a successful save from producing a row the
-                         * page that created it cannot show.
-                         */}
-                        <Button
-                            testID="kitchen-packaging-toolbar-create"
-                            label={t('kitchen:packaging.create')}
-                            iconStart={<Icon name="plus" size="sm" />}
-                            onPress={() => {
-                                list.openEditor('new');
-                            }}
-                        />
-                    </Inline>
-                ) : undefined}
-            </CatalogueToolbar>
-
-            <CatalogueListBody
-                testID="kitchen-packaging"
-                list={list}
-                empty={{
-                    title: t('kitchen:packaging.emptyTitle'),
-                    body: t('kitchen:packaging.emptyBody'),
-                }}
-                filteredEmpty={{
-                    title: t('kitchen:list.filteredEmptyTitle'),
-                    body: t('kitchen:list.filteredEmptyBody'),
-                }}
-            >
-                <CatalogueList
-                    testID="kitchen-packaging-table"
-                    label={t('kitchen:packaging.caption')}
-                    columns={controls.columns}
-                    rows={list.rows}
-                    rowKey={(row) => String(row.id)}
-                    density="sm"
-                    highlightedId={list.lastOpenedId}
-                    // The row body opens the panel, not the editor. Reading is what this page
-                    // is for — what a box costs and how many a batch needs — so the cheap
-                    // answer is the one a click lands on, and Edit is one control away.
-                    onRowPress={(row) => {
-                        list.openView(row);
+                <CatalogueListBody
+                    testID="kitchen-packaging"
+                    list={list}
+                    empty={{
+                        title: t('kitchen:packaging.emptyTitle'),
+                        body: t('kitchen:packaging.emptyBody'),
                     }}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                    // View, Edit, Archive, the order every other Catalogue list draws them in.
-                    // Above `md` they are flat icon buttons on the row; below it the same array
-                    // becomes the overflow menu, because a narrow row fits one control.
-                    rowActions={(row): readonly MenuItem[] => [
-                        {
-                            key: 'view',
-                            label: t('kitchen:list.view'),
-                            icon: CATALOGUE_ROW_ICONS.view,
-                            testID: `${packagingRowTestId(row.id)}-view`,
-                            onSelect: () => {
-                                list.openView(row);
+                    filteredEmpty={{
+                        title: t('kitchen:list.filteredEmptyTitle'),
+                        body: t('kitchen:list.filteredEmptyBody'),
+                    }}
+                >
+                    <CatalogueList
+                        testID="kitchen-packaging-table"
+                        joined
+                        label={t('kitchen:packaging.caption')}
+                        columns={controls.columns}
+                        rows={list.rows}
+                        rowKey={(row) => String(row.id)}
+                        density="sm"
+                        highlightedId={list.lastOpenedId}
+                        // The row body opens the panel, not the editor. Reading is what this page
+                        // is for — what a box costs and how many a batch needs — so the cheap
+                        // answer is the one a click lands on, and Edit is one control away.
+                        onRowPress={(row) => {
+                            list.openView(row);
+                        }}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        // View, Edit, Archive, in the design's order, behind the row's ⋯.
+                        rowActions={(row): readonly MenuItem[] => [
+                            {
+                                key: 'view',
+                                label: t('kitchen:list.view'),
+                                icon: CATALOGUE_ROW_ICONS.view,
+                                testID: `${packagingRowTestId(row.id)}-view`,
+                                onSelect: () => {
+                                    list.openView(row);
+                                },
                             },
-                        },
-                        // Edit opens `/kitchen/packaging/{item}` — the ingredient form, which
-                        // can edit these rows because they are ingredients, wearing this
-                        // family's series, category and back-link.
-                        {
-                            key: 'edit',
-                            label: t('kitchen:catalogue.edit'),
-                            icon: CATALOGUE_ROW_ICONS.edit,
-                            testID: `${packagingRowTestId(row.id)}-open`,
-                            onSelect: () => {
-                                list.openEditor(String(row.id));
+                            // Edit opens `/kitchen/packaging/{item}` — the ingredient form, which
+                            // can edit these rows because they are ingredients, wearing this
+                            // family's series, category and back-link.
+                            {
+                                key: 'edit',
+                                label: t('kitchen:catalogue.edit'),
+                                icon: CATALOGUE_ROW_ICONS.edit,
+                                testID: `${packagingRowTestId(row.id)}-open`,
+                                onSelect: () => {
+                                    list.openEditor(String(row.id));
+                                },
                             },
-                        },
-                        /*
-                         * Archive is *drawn* for anyone who may manage the catalogue and
-                         * *enabled* only where the server would accept it — the ingredient
-                         * list's rule, and for the same reason.
-                         *
-                         * It used to be omitted on any row the server would refuse, and every
-                         * seeded packaging row is a platform-library row, so a kitchen saw no
-                         * Archive anywhere on the page and could not tell "this row cannot be
-                         * archived" from "this list has no archive". Disabled answers that and
-                         * still never fires the request that would 403. The permission stays a
-                         * hard gate: an action a role cannot perform at all is not a disabled
-                         * control, it is somebody else's button.
-                         */
-                        ...(canManage
-                            ? [
-                                  {
-                                      key: 'archive',
-                                      label: t('kitchen:list.archive'),
-                                      icon: CATALOGUE_ROW_ICONS.archive,
-                                      tone: 'danger' as const,
-                                      disabled: !row.isEditable || row.meta.status === 'retired',
-                                      testID: `${packagingRowTestId(row.id)}-archive`,
-                                      onSelect: () => {
-                                          list.askToArchive(row);
+                            /*
+                             * Archive is *drawn* for anyone who may manage the catalogue and
+                             * *enabled* only where the server would accept it — the ingredient
+                             * list's rule, and for the same reason.
+                             *
+                             * It used to be omitted on any row the server would refuse, and every
+                             * seeded packaging row is a platform-library row, so a kitchen saw no
+                             * Archive anywhere on the page and could not tell "this row cannot be
+                             * archived" from "this list has no archive". Disabled answers that and
+                             * still never fires the request that would 403. The permission stays a
+                             * hard gate: an action a role cannot perform at all is not a disabled
+                             * control, it is somebody else's button.
+                             */
+                            ...(canManage
+                                ? [
+                                      {
+                                          key: 'archive',
+                                          label: t('kitchen:list.archive'),
+                                          icon: CATALOGUE_ROW_ICONS.archive,
+                                          tone: 'danger' as const,
+                                          disabled:
+                                              !row.isEditable || row.meta.status === 'retired',
+                                          testID: `${packagingRowTestId(row.id)}-archive`,
+                                          onSelect: () => {
+                                              list.askToArchive(row);
+                                          },
                                       },
-                                  },
-                              ]
-                            : []),
-                    ]}
-                />
-            </CatalogueListBody>
+                                  ]
+                                : []),
+                        ]}
+                    />
+                </CatalogueListBody>
+            </View>
 
             {/*
              * Archiving takes the item out of use. The dialog says what that costs — a recipe that
@@ -340,6 +340,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
              * "archive" on its own reads like a delete and is not one.
              */}
             <Dialog
+                look="card"
                 testID="kitchen-packaging-archive-dialog"
                 open={list.archiving !== null}
                 onClose={list.cancelArchive}
@@ -347,13 +348,13 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                 description={t('kitchen:packaging.archiveBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-packaging-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={list.cancelArchive}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-packaging-archive-confirm"
                             variant="danger"
                             label={t('kitchen:packaging.archiveConfirm')}
@@ -377,63 +378,36 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                     </Text>
                 )}
             </Dialog>
+
+            {viewPopup}
         </Cascade>
     );
 }
 
 /**
- * The four figures, as cards.
- *
- * Unpriced is second because it is what this page exists to chase: a recipe's technical sheet
- * withholds its total while any packaging line has no price, so an unpriced box takes the bottom
- * line off every recipe that ships in it. `total` is the server's count for the filtered set; the
- * three beside it are counted over the loaded page, which is the only set this screen has.
+ * The Lens bar's figures, named and ordered as every catalogue page's: All · Published · Draft ·
+ * Awaiting review, then Missing Arabic and Unpriced — what this page exists to chase, since a
+ * recipe's technical sheet withholds its total while any packaging line has no price. Those two
+ * count the rows the list shows, the status included.
  */
-function statCards(list: PackagingListState, t: TFunction): readonly CatalogueStatCard[] {
+function lensFigures(list: PackagingListState, t: TFunction): readonly LensFigure[] {
+    const counted = (count: number) => (list.countsPending ? null : count);
     return [
-        {
-            key: 'shown',
-            label: t('kitchen:list.statShown'),
-            value: String(list.shown),
-            unit: t('kitchen:list.statShownUnit', { total: list.total ?? list.shown }),
-            caption: list.isUnfiltered
-                ? t('kitchen:list.statShownUnfiltered')
-                : t('kitchen:list.statShownFiltered'),
-            mark: 'list',
-            tone: 'brand',
-            onPress: list.clearFilters,
-            accessibilityLabel: t('kitchen:list.statShownAction'),
-        },
-        {
-            key: 'unpriced',
-            label: t('kitchen:packaging.statUnpriced'),
-            value: String(list.unpricedCount),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:packaging.statUnpricedCaption'),
-            mark: 'coins',
-            // Amber only while there is something to act on — see the note in the component.
-            tone: list.unpricedCount === 0 ? 'default' : 'warning',
-        },
-        {
-            key: 'inactive',
-            label: t('kitchen:packaging.statInactive'),
-            value: String(list.inactiveCount),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:packaging.statInactiveCaption'),
-            mark: 'hidden',
-            onPress: () => {
-                list.setStatuses(['draft']);
-            },
-            accessibilityLabel: t('kitchen:packaging.statInactiveAction'),
-        },
+        // Published, Draft and Awaiting review, as every catalogue page names them.
+        ...statusLensFigures(list, t, { allLabel: t('kitchen:lens.allPackaging') }),
         {
             key: 'missingArabic',
             label: t('kitchen:list.statMissingArabic'),
-            value: String(list.missingArabicCount),
-            unit: t('kitchen:list.statRecords'),
-            caption: t('kitchen:packaging.statMissingArabicCaption'),
-            mark: 'languages',
-            tone: list.missingArabicCount === 0 ? 'default' : 'danger',
+            value: counted(list.missingArabicCount),
+            tone: 'danger',
+            alarm: true,
+            separated: true,
+        },
+        {
+            key: 'unpriced',
+            label: t('kitchen:list.statUnpriced'),
+            value: counted(list.unpricedCount),
+            tone: 'warning',
         },
     ];
 }

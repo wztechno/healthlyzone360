@@ -1,10 +1,11 @@
 import type { BarcodeScan } from '@healthy360/api-client/contracts';
-import { Button, Spinner, Stack, Text } from '@healthy360/design-system';
+import { Spinner, Stack, Text } from '@healthy360/design-system';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import type { BarcodeType } from 'expo-camera';
 import { useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * The camera itself — loaded lazily by `CameraScanButton`, so `expo-camera` stays out of the bundle
  * until somebody asks for it.
@@ -47,7 +48,7 @@ export default function CameraScanner({ onScan }: CameraScannerProps) {
                     )}
                 </Text>
                 {permission.canAskAgain ? (
-                    <Button
+                    <DeskButton
                         testID="kitchen-camera-allow"
                         size="sm"
                         label={t('kitchen:barcodes.cameraAllow')}

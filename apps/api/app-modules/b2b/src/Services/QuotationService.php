@@ -423,6 +423,10 @@ final readonly class QuotationService
                 throw $this->invalid("lines.{$index}.catalogue_item_id", "This article does not exist, or is not one this programme's kitchen sells.");
             }
 
+            if (! CatalogueItem::withoutTenancy()->whereKey($item->getKey())->allergensAssessed()->exists()) {
+                throw $this->invalid("lines.{$index}.catalogue_item_id", 'This article cannot be quoted because the kitchen has not checked its allergens yet.');
+            }
+
             $variantId = is_string($line['catalogue_item_variant_id'] ?? null) ? trim($line['catalogue_item_variant_id']) : null;
 
             if ($variantId !== null && $variantId !== '') {

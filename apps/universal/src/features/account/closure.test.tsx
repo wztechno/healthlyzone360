@@ -170,7 +170,6 @@ function drawnBlockers(): readonly string[] {
  * control, which fires nothing and fails a hundred milliseconds later somewhere else.
  */
 async function walkToChecks(reason = 'privacy_concerns'): Promise<void> {
-    await fireEvent.press(await screen.findByTestId('closure-reason-select-trigger'));
     await fireEvent.press(await screen.findByTestId(`closure-reason-select-option-${reason}`));
     await fireEvent.press(screen.getByTestId('closure-reason-next'));
 
@@ -426,7 +425,6 @@ describe('the marketing short-circuit', () => {
             },
         });
 
-        await fireEvent.press(await screen.findByTestId('closure-reason-select-trigger'));
         await fireEvent.press(
             await screen.findByTestId('closure-reason-select-option-no_longer_needed'),
         );
@@ -476,7 +474,6 @@ describe('the marketing short-circuit', () => {
             },
         });
 
-        await fireEvent.press(await screen.findByTestId('closure-reason-select-trigger'));
         await fireEvent.press(
             await screen.findByTestId('closure-reason-select-option-moving_away'),
         );
@@ -545,7 +542,6 @@ describe('the way out', () => {
             },
         });
 
-        await fireEvent.press(await screen.findByTestId('closure-reason-select-trigger'));
         await fireEvent.press(await screen.findByTestId('closure-reason-select-option-other'));
         await fireEvent.press(screen.getByTestId('closure-reason-next'));
 
@@ -628,7 +624,6 @@ describe('the marketing short-circuit, in words', () => {
             },
         });
 
-        await fireEvent.press(await screen.findByTestId('closure-reason-select-trigger'));
         await fireEvent.press(await screen.findByTestId('closure-reason-select-option-other'));
         // Only `other` invites free text — the backend's own rule, mirrored.
         await fireEvent.changeText(

@@ -8,6 +8,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { IngredientId, KitchenId, RecipeId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { ingredientRowTestId, recipeRowTestId } from './format.ts';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 
@@ -243,7 +244,10 @@ describe('coming back to the ingredient list', () => {
         await untilVisible(openedRow);
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId(openedRow));
+            fireEvent.press(screen.getByTestId(`${openedRow}-actions-trigger`));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${ingredientRowTestId(String(opened.id))}-open`));
         });
         expect(routerMock.__push).toHaveBeenCalledWith(`/kitchen/ingredients/${String(opened.id)}`);
 
@@ -324,7 +328,10 @@ describe('coming back to the recipe book', () => {
         expect(screen.queryByTestId(`kitchen-recipes-table-row-${String(fattoush.id)}`)).toBeNull();
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId(openedRow));
+            fireEvent.press(screen.getByTestId(`${openedRow}-actions-trigger`));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${recipeRowTestId(String(tabbouleh.id))}-open`));
         });
         expect(routerMock.__push).toHaveBeenCalledWith(`/kitchen/recipes/${String(tabbouleh.id)}`);
 

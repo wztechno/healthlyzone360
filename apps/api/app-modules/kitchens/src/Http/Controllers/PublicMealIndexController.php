@@ -136,6 +136,9 @@ final class PublicMealIndexController
 
                 return $projected;
             },
+            // A batch's prices and diet tags in a few queries per kitchen,
+            // rather than about eight per meal as each is projected.
+            fn (array $batch) => $this->projector->primeMeals($batch),
         );
 
         return ApiResponse::data($page['items'], $page['meta'] + [

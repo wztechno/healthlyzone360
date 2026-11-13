@@ -10,6 +10,7 @@ use Healthy360\Catalogues\Models\EnergyBand;
 use Healthy360\Catalogues\Models\PlanDuration;
 use Healthy360\Catalogues\Models\PlanVariantProfile;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
+use Healthy360\Catalogues\Services\PlanSittings;
 use Healthy360\Pricing\Services\ResolvedPrice;
 
 /**
@@ -42,23 +43,12 @@ use Healthy360\Pricing\Services\ResolvedPrice;
  *
  * `category_slugs` is `[]` — nothing groups plans into marketing categories.
  *
- * ## `sample_meal_ids` is the kitchen's menu, and only ever the kitchen's menu
+ * ## `sittings` is the day a customer fills
  *
- * This field used to be `[]` with an argument attached: no table linked a plan
- * to the meals a representative week would contain, and assembling one from the
- * kitchen's catalogue would have been the system writing a menu. The table now
- * exists — `plan_menu_entries`, written through
- * `PUT /catalogue/plans/{item}/menu` — so the field carries the first dishes of
- * the plan's own cycle, in the order the kitchen serves them, and the argument
- * is untouched rather than overturned: the ids are still never assembled, only
- * read.
- *
- * A plan that publishes no menu therefore still carries `[]`, and that is not a
- * degraded case. A free-selection plan has no fixed week to sample, and a plan
- * whose kitchen has not written its menu down has not said what it serves —
- * `[]` is the honest answer to both, and the client already renders it as one.
- * The cap and the published-only filter live in
- * `MarketplacePlans::sampleMealIdsOf()`, where the query is.
+ * Every plan is choose-your-own: the customer picks a dish for each sitting of
+ * each delivery day. `sittings` names those places — `PlanSittings`, the one
+ * rule creation and `PUT …/choices` also enforce — so the storefront draws a
+ * picker per sitting without re-deriving the rule from the counts.
  */
 final class MarketplacePlanPresenter
 {
@@ -72,7 +62,6 @@ final class MarketplacePlanPresenter
      *     daily: ResolvedPrice|null
      * }>  $configurations
      * @param  list<array{duration: PlanDuration, discount_percent: string|null, total_price: ResolvedPrice|null}>  $durations
-     * @param  list<string>  $sampleMealIds
      * @return array<string, mixed>
      */
     public function plan(
@@ -82,7 +71,6 @@ final class MarketplacePlanPresenter
         array $dietClassifications,
         array $configurations,
         array $durations,
-        array $sampleMealIds = [],
     ): array {
         return [
             'id' => (string) $plan->getKey(),
@@ -106,7 +94,6 @@ final class MarketplacePlanPresenter
                 fn (array $duration): array => $this->duration($duration, $locale),
                 $durations,
             ),
-            'sample_meal_ids' => $sampleMealIds,
             'image_placeholder_id' => 'plan-'.$plan->slug,
             'rating' => null,
             'rating_count' => 0,
@@ -150,6 +137,7 @@ final class MarketplacePlanPresenter
             'fat_range' => null,
             'meals_per_day' => $configuration['profile']->meals_per_day,
             'snacks_per_day' => $configuration['profile']->snacks_per_day,
+            'sittings' => PlanSittings::for($configuration['profile']->meals_per_day, $configuration['profile']->snacks_per_day),
             'price_per_week' => $price === null
                 ? null
                 : ['amount' => $price->amountMinor, 'currency' => $price->currencyCode],

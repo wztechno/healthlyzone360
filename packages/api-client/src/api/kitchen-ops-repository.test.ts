@@ -80,3 +80,139 @@ describe('listItemLatestPurchases', () => {
         expect(requestedIds).toHaveLength(0);
     });
 });
+
+describe('getKitchenAnalytics', () => {
+    it('asks for the range and maps the report to camelCase', async () => {
+        const urls: string[] = [];
+        const totals = {
+            orders: 4,
+            units: 7,
+            cancelled: 1,
+            fulfilled: 3,
+            open: 1,
+            fulfilled_with_due: 2,
+            on_time: 1,
+            avg_lead_minutes: 190,
+        };
+        const transport = createTransport({
+            baseUrl: 'https://api.example',
+            tokenStore: createMemoryTokenStore('token'),
+            fetch: async (input) => {
+                urls.push(input instanceof Request ? input.url : String(input));
+                return new Response(
+                    JSON.stringify({
+                        data: {
+                            from: '2026-05-10',
+                            to: '2026-05-11',
+                            current: totals,
+                            previous: { ...totals, avg_lead_minutes: null },
+                            days: [{ date: '2026-05-10', orders: 4, units: 7 }],
+                            channels: [{ key: 'pos', orders: 1, units: 3 }],
+                            items: [
+                                {
+                                    catalogue_item_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9001',
+                                    name_en: 'Freekeh bowl',
+                                    name_ar: null,
+                                    item_type: 'meal',
+                                    orders: 3,
+                                    units: 4,
+                                    last_ordered_at: '2026-05-11T20:30:00Z',
+                                },
+                            ],
+                        },
+                        meta: {},
+                    }),
+                    { status: 200 },
+                );
+            },
+        });
+
+        const report = await createApiKitchenOpsRepository(transport).getKitchenAnalytics({
+            from: '2026-05-10',
+            to: '2026-05-11',
+        });
+
+        const url = new URL(urls[0] ?? '');
+        expect(url.pathname).toMatch(/\/catalogue\/reports\/kitchen-analytics$/);
+        expect(url.searchParams.get('from')).toBe('2026-05-10');
+        expect(url.searchParams.get('to')).toBe('2026-05-11');
+        expect(report.current).toEqual({
+            orders: 4,
+            units: 7,
+            cancelled: 1,
+            fulfilled: 3,
+            open: 1,
+            fulfilledWithDue: 2,
+            onTime: 1,
+            avgLeadMinutes: 190,
+        });
+        expect(report.previous.avgLeadMinutes).toBeNull();
+        expect(report.items[0]).toEqual({
+            catalogueItemId: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9001',
+            nameEn: 'Freekeh bowl',
+            nameAr: null,
+            itemType: 'meal',
+            orders: 3,
+            units: 4,
+            lastOrderedAt: '2026-05-11T20:30:00Z',
+        });
+    });
+});
+
+describe('getDishMargins', () => {
+    it('carries the kind each dish is sold as, so its row opens the right recipe', async () => {
+        const transport = createTransport({
+            baseUrl: 'https://api.example',
+            tokenStore: createMemoryTokenStore('token'),
+            fetch: async () =>
+                new Response(
+                    JSON.stringify({
+                        data: {
+                            target_percent: 30,
+                            computed_at: '2026-11-03T02:00:00Z',
+                            dishes: [
+                                {
+                                    id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9002',
+                                    catalogue_item_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9001',
+                                    name_en: 'Tahini sauce',
+                                    name_ar: null,
+                                    item_type: 'sauce',
+                                    place: 'business',
+                                    pack: {
+                                        catalogue_item_variant_id:
+                                            '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9003',
+                                        label: 'Bottle 0.5 L',
+                                        fill: { quantity: '0.460', unit: 'kg' },
+                                    },
+                                    price_amount: '10.000000',
+                                    contents_amount: '7.000000',
+                                    cost_amount: '8.000000',
+                                    currency_code: 'USD',
+                                    margin_percent: '20.00',
+                                    withheld_reason: null,
+                                    is_below_target: true,
+                                },
+                            ],
+                        },
+                        meta: {},
+                    }),
+                    { status: 200 },
+                ),
+        });
+
+        const report = await createApiKitchenOpsRepository(transport).getDishMargins();
+
+        expect(report.dishes[0]).toMatchObject({
+            catalogueItemId: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9001',
+            name: { en: 'Tahini sauce', ar: '' },
+            itemType: 'sauce',
+            place: 'business',
+            pack: {
+                variantId: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e9003',
+                label: 'Bottle 0.5 L',
+                fill: { quantity: '0.460', unit: 'kg' },
+            },
+            contentsAmount: '7.000000',
+        });
+    });
+});

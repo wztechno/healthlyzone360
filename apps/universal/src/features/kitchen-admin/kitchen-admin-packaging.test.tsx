@@ -26,6 +26,7 @@ import { withReturnTo } from '../../navigation/return-to.ts';
 import { PackagingEditScreen } from './screens/packaging-edit-screen.tsx';
 import { PackagingScreen } from './screens/packaging-screen.tsx';
 import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
+import { getRecordAction } from '../../testing/record-actions.ts';
 
 afterEach(() => {
     forgetColumnChoice('kitchen-packaging');
@@ -347,7 +348,7 @@ describe('the packaging list', () => {
         expect(screen.getByTestId(`${base}-status`)).toHaveTextContent(/Published/);
     });
 
-    it('opens with the figures a kitchen has to clear, and Inactive narrows the list', async () => {
+    it('opens with the figures a kitchen has to clear, and Draft narrows the list', async () => {
         await renderStubScreen(<PackagingScreen />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -369,17 +370,28 @@ describe('the packaging list', () => {
 
         // Unpriced is the figure this page exists to chase: a recipe's technical sheet withholds
         // its total while any one packaging line has no price.
-        expect(screen.getByTestId('kitchen-packaging-stats-shown-value')).toHaveTextContent('3');
-        expect(screen.getByTestId('kitchen-packaging-stats-unpriced-value')).toHaveTextContent('1');
-        expect(screen.getByTestId('kitchen-packaging-stats-inactive-value')).toHaveTextContent('1');
+        await untilVisible('kitchen-packaging-toolbar-figure-draft-value');
+        expect(screen.getByTestId('kitchen-packaging-toolbar-figure-all-value')).toHaveTextContent(
+            '3',
+        );
+        expect(
+            screen.getByTestId('kitchen-packaging-toolbar-figure-unpriced-value'),
+        ).toHaveTextContent('1');
+        // Draft, named as on every catalogue page.
+        expect(screen.getByTestId('kitchen-packaging-toolbar-figure-draft')).toHaveTextContent(
+            /Draft/,
+        );
+        expect(
+            screen.getByTestId('kitchen-packaging-toolbar-figure-draft-value'),
+        ).toHaveTextContent('1');
 
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-packaging-stats-inactive'));
+            fireEvent.press(screen.getByTestId('kitchen-packaging-toolbar-figure-draft'));
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-packaging-stats-shown-value')).toHaveTextContent(
-                '1',
+            expect(screen.getByTestId('kitchen-packaging-toolbar-result')).toHaveTextContent(
+                '1 of 1',
             );
         });
     });
@@ -436,7 +448,7 @@ describe('the packaging list', () => {
         // sorted column earns — and, until something is applied, it points up like every other
         // untouched head.
         expect(screen.queryByTestId('kitchen-packaging-column-status-sorted', hidden)).toBeNull();
-        expect(glyph('kitchen-packaging-column-status-affordance')).toBe('↑');
+        expect(glyph('kitchen-packaging-column-status-affordance')).toBe('⌄');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-packaging-column-status-trigger'));
@@ -449,7 +461,7 @@ describe('the packaging list', () => {
         // The arrow turns over, which is what the list had no way of saying before. A shape, not a
         // shade — a filtered column a reader cannot see is a filter they cannot clear.
         await waitFor(() => {
-            expect(glyph('kitchen-packaging-column-status-affordance')).toBe('↓');
+            expect(glyph('kitchen-packaging-column-status-affordance')).not.toBe('⌄');
         });
 
         // And the way out is inside the menu the mark points at, rather than somewhere the reader
@@ -464,7 +476,7 @@ describe('the packaging list', () => {
         });
 
         await waitFor(() => {
-            expect(glyph('kitchen-packaging-column-status-affordance')).toBe('↑');
+            expect(glyph('kitchen-packaging-column-status-affordance')).toBe('⌄');
         });
     });
 
@@ -525,8 +537,8 @@ describe('the packaging list', () => {
         await untilVisible('kitchen-packaging-table');
 
         /*
-         * Packaging shares the ingredient status vocabulary, and the segments now name three of its
-         * four states; Archived stays out and is reachable from the Status column's own filter,
+         * Packaging shares the ingredient status vocabulary, and the Lens figures name three of its
+         * four states in the words every catalogue page uses; Archived stays out and is reachable from the Status column's own filter,
          * which is the call the ingredient list makes about `retired` too.
          *
          * Review used to be out as well, on the argument that the state is the *allergen
@@ -536,11 +548,11 @@ describe('the packaging list', () => {
          * ingredient table, and an import or a hand edit can set it. Offered by request. It costs
          * nothing when no row is in it, because the value simply matches none.
          */
-        const segments = screen.getByTestId('kitchen-packaging-toolbar-status-segments');
-        expect(segments).toHaveTextContent(/Published/);
-        expect(segments).toHaveTextContent(/Draft/);
-        expect(segments).toHaveTextContent(/Review/);
-        expect(segments).not.toHaveTextContent(/Archived/);
+        const figures = screen.getByTestId('kitchen-packaging-toolbar-figures');
+        expect(figures).toHaveTextContent(/Published/);
+        expect(figures).toHaveTextContent(/Draft/);
+        expect(figures).toHaveTextContent(/Awaiting review/);
+        expect(figures).not.toHaveTextContent(/Archived/);
     });
 
     it('archives a row at the version the list was showing, and says so', async () => {
@@ -636,8 +648,12 @@ describe('the packaging list', () => {
         // Edit routes to `/kitchen/packaging/{item}`, which exists now: the ingredient form
         // wearing this family's `PKG-` series, its category and its back-link.
         expect(routerMock.__push).not.toHaveBeenCalled();
+        const action = await getRecordAction(
+            'kitchen-packaging-view',
+            'kitchen-packaging-view-edit',
+        );
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-packaging-view-edit'));
+            fireEvent.press(action);
         });
         // Carrying the way back to this record's page, which Cancel, Save and the trail take.
         expect(routerMock.__push).toHaveBeenCalledWith(
@@ -662,7 +678,8 @@ describe('the packaging list', () => {
         });
 
         await untilVisible('kitchen-packaging-view-field-composition');
-        expect(screen.queryByTestId('kitchen-packaging-table')).toBeNull();
+        // A pop-up over the list: the list stays mounted behind it.
+        expect(screen.getByTestId('kitchen-packaging-table')).toBeTruthy();
     });
 
     it('waits for the rows before deciding the record the address names is gone', async () => {

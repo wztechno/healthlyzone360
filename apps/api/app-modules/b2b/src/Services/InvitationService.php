@@ -6,13 +6,16 @@ namespace Healthy360\B2b\Services;
 
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Healthy360\AccessControl\Models\Role;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\B2b\Contracts\InvitationMembershipGranter;
 use Healthy360\B2b\Models\OrganisationInvitation;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
+use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -55,6 +58,7 @@ final readonly class InvitationService
     public function __construct(
         private AuditRecorder $audit,
         private InvitationMembershipGranter $memberships,
+        private TenantContext $tenant,
     ) {}
 
     /**
@@ -91,6 +95,17 @@ final readonly class InvitationService
         if ($branch instanceof OrganisationBranch && (string) $branch->organisation_id !== (string) $organisation->getKey()) {
             throw $this->invalid('branch_id', 'That branch belongs to a different organisation.');
         }
+
+        $roleExists = Role::withoutTenancy()
+            ->where('organisation_id', $organisation->getKey())
+            ->where('code', $code)
+            ->exists();
+
+        if (! $roleExists) {
+            throw $this->invalid('role_code', 'This organisation has no role with that code.');
+        }
+
+        $branch = $this->confineToActorBranch($organisation, $normalised, $branch);
 
         $token = Str::random($this->tokenLength());
         $hash = $this->hash($token);
@@ -334,6 +349,68 @@ final readonly class InvitationService
         // `Str::random` returns that many base64-ish characters, so the
         // configured byte count is the entropy floor rather than the length.
         return max(32, (int) config('b2b.invitations.token_bytes', 32));
+    }
+
+    /**
+     * The branch an invitation from a branch-bound administrator may name:
+     * their own, defaulted when none is given.
+     *
+     * Two more refusals keep a branch manager inside their branch. Inviting
+     * somebody who already belongs to the organisation elsewhere would hand
+     * that person a role reaching past the branch (acceptance refuses to move
+     * them as well — `MembershipGranter`). Issuing also supersedes any
+     * outstanding offer to the same address, so an offer another branch — or
+     * the whole kitchen — made is not theirs to replace.
+     *
+     * The rule applies only when the caller is acting inside this
+     * organisation: the platform console invites kitchen owners from outside.
+     *
+     * @throws ApiException
+     */
+    private function confineToActorBranch(Organisation $organisation, string $normalisedEmail, ?OrganisationBranch $branch): ?OrganisationBranch
+    {
+        if ($this->tenant->organisationId() !== (string) $organisation->getKey()) {
+            return $branch;
+        }
+
+        $actorBranch = $this->tenant->membership()?->branch_id;
+
+        if ($actorBranch === null) {
+            return $branch;
+        }
+
+        $actorBranch = (string) $actorBranch;
+
+        if ($branch instanceof OrganisationBranch && (string) $branch->getKey() !== $actorBranch) {
+            throw $this->invalid('branch_id', 'You can only invite people to your own branch.');
+        }
+
+        $elsewhere = OrganisationMembership::withoutTenancy()
+            ->where('organisation_id', $organisation->getKey())
+            ->whereIn('user_id', User::query()->select('id')->whereRaw('lower(email) = ?', [$normalisedEmail]))
+            ->where(static fn ($query) => $query->whereNull('branch_id')->orWhere('branch_id', '!=', $actorBranch))
+            ->exists();
+
+        if ($elsewhere) {
+            throw $this->invalid('email', 'This person already belongs to this organisation outside your branch.');
+        }
+
+        $othersOffer = OrganisationInvitation::query()
+            ->where('organisation_id', $organisation->getKey())
+            ->where('email_normalised', $normalisedEmail)
+            ->whereNull('accepted_at')
+            ->whereNull('revoked_at')
+            ->where(static fn ($query) => $query->whereNull('branch_id')->orWhere('branch_id', '!=', $actorBranch))
+            ->exists();
+
+        if ($othersOffer) {
+            throw new ApiException(
+                ErrorCode::ResourceConflict,
+                'Another branch has already invited this person.',
+            );
+        }
+
+        return $branch ?? OrganisationBranch::withoutTenancy()->whereKey($actorBranch)->first();
     }
 
     private function invalid(string $field, string $message): ApiException

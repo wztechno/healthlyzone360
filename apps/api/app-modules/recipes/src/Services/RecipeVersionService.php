@@ -6,6 +6,7 @@ namespace Healthy360\Recipes\Services;
 
 use Closure;
 use Healthy360\Audit\Services\AuditRecorder;
+use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Enums\IngredientStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
@@ -19,6 +20,7 @@ use Healthy360\Recipes\Exceptions\AllergenUnmapped;
 use Healthy360\Recipes\Exceptions\PublishBlocked;
 use Healthy360\Recipes\Exceptions\RecipeVersionInUse;
 use Healthy360\Recipes\Exceptions\VersionImmutable;
+use Healthy360\Recipes\Jobs\RecomputeRecipeDerivations;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionAllergen;
@@ -28,12 +30,12 @@ use Healthy360\Recipes\Models\RecipeVersionPackaging;
 use Healthy360\Recipes\Models\RecipeVersionStep;
 use Healthy360\ReferenceData\Models\Currency;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
-use Healthy360\ReferenceData\Services\UnitConversionService;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Api\Exceptions\StaleLockVersion;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 /**
  * Everything that happens to the *content* of a recipe version: drafting,
@@ -71,7 +73,9 @@ final readonly class RecipeVersionService
         private RecipeLabelWriter $labels,
         private RecipeNutritionService $nutrition,
         private RecipeOutputNutritionWriter $outputNutrition,
-        private UnitConversionService $conversion,
+        private RecipeOutputAllergenWriter $outputAllergens,
+        private WeeklyRecipeCostingService $paidPrices,
+        private RecipeTwinOutputs $twins,
     ) {}
 
     /**
@@ -221,6 +225,12 @@ final readonly class RecipeVersionService
             ],
         );
 
+        // The yield is what a batch makes, so a recipe used as an ingredient states it as its
+        // output — see {@see RecipeTwinOutputs::followYield()}.
+        if (array_key_exists('yield_quantity', $changes) || array_key_exists('yield_unit_id', $changes)) {
+            $this->twins->followYield($version);
+        }
+
         return $version;
     }
 
@@ -317,8 +327,13 @@ final readonly class RecipeVersionService
      * archived ingredient is told, on the step where the line is, rather than
      * being costed as though the ingredient were fine and refused later.
      *
+     * Each row also says where its cost came from (S6): `cost_source` is `quoted` for a cost the
+     * request stated, the {@see WeeklyLineCost} source for one resolved live, and null for a line
+     * left uncosted; `source_recipe_version_id` names the version a `component_recipe` cost came
+     * out of. Neither is stored — a saved line keeps only its figures.
+     *
      * @param  list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null, unit_cost_amount?: float|string|null, cost_currency_code?: string|null, source_designation?: string|null, comment?: string|null}>  $lines
-     * @return list<array{line_number: int, ingredient_id: string, quantity: numeric-string|null, unit_id: string|null, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null, cost_currency_code: string|null, source_designation: string|null, comment: string|null}>
+     * @return list<array{line_number: int, ingredient_id: string, quantity: numeric-string|null, unit_id: string|null, unit_cost_amount: numeric-string|null, line_cost_amount: numeric-string|null, cost_currency_code: string|null, source_designation: string|null, comment: string|null, cost_source: string|null, source_recipe_version_id: string|null}>
      *
      * @throws ApiException
      */
@@ -326,6 +341,7 @@ final readonly class RecipeVersionService
     {
         $prepared = [];
         $currencies = [];
+        $unpriced = [];
 
         foreach ($lines as $index => $line) {
             $ingredient = $this->usableIngredient((string) $line['ingredient_id'], "lines.{$index}.ingredient_id");
@@ -338,16 +354,16 @@ final readonly class RecipeVersionService
 
             [$unitCost, $currency] = $this->costOf($line, $index);
 
-            // Nothing quoted on the request? Take what the catalogue says.
-            if ($unitCost === null && $currency === null) {
-                [$unitCost, $currency] = $this->ingredientCostFor($ingredient, $unitId);
+            // Nothing quoted on the request? Resolved below, in one batch, from the live source.
+            if ($unitCost === null && $currency === null && $unitId !== null) {
+                $unpriced[$index] = [(string) $ingredient->getKey(), $unitId];
             }
 
             if ($currency !== null) {
                 $currencies[$currency] = true;
             }
 
-            $prepared[] = [
+            $prepared[$index] = [
                 'line_number' => $index + 1,
                 'ingredient_id' => (string) $ingredient->getKey(),
                 'quantity' => $quantity,
@@ -364,7 +380,41 @@ final readonly class RecipeVersionService
                 'cost_currency_code' => $currency,
                 'source_designation' => $this->trimmedOrNull(isset($line['source_designation']) ? (string) $line['source_designation'] : null),
                 'comment' => $this->trimmedOrNull(isset($line['comment']) ? (string) $line['comment'] : null),
+                'cost_source' => $unitCost === null ? null : WeeklyLineCost::SOURCE_QUOTED,
+                'source_recipe_version_id' => null,
             ];
+        }
+
+        $live = $this->liveCostsFor($unpriced);
+
+        /*
+         * Two passes, so the one-currency rule reads exactly as it did when the typed price was
+         * taken inline: a typed price is the catalogue's own statement and a second currency among
+         * them is refused below, while a paid or derived price in a second currency stays uncosted
+         * rather than refusing the whole formulation — the line was never quoted in it, so there
+         * is nothing for the cook to fix.
+         */
+        foreach ([true, false] as $typedPass) {
+            foreach ($live as $index => [$unitCost, $currency, $source, $sourceVersionId]) {
+                $typed = $source === WeeklyLineCost::SOURCE_FALLBACK;
+
+                if ($typed !== $typedPass || ! isset($prepared[$index])) {
+                    continue;
+                }
+
+                if (! $typed && $currencies !== [] && ! isset($currencies[$currency])) {
+                    continue;
+                }
+
+                $currencies[$currency] = true;
+                $row = $prepared[$index];
+                $row['unit_cost_amount'] = $unitCost;
+                $row['line_cost_amount'] = $row['quantity'] === null ? null : $this->costing->lineCost($row['quantity'], $unitCost);
+                $row['cost_currency_code'] = $currency;
+                $row['cost_source'] = $source;
+                $row['source_recipe_version_id'] = $sourceVersionId;
+                $prepared[$index] = $row;
+            }
         }
 
         if (count($currencies) > 1) {
@@ -375,7 +425,7 @@ final readonly class RecipeVersionService
             );
         }
 
-        return $prepared;
+        return array_values($prepared);
     }
 
     /**
@@ -811,16 +861,29 @@ final readonly class RecipeVersionService
      * the reference its own create skipped (`ingredient_nutrition_pending`):
      * that gap is the kitchen's, and the readiness reason holds it here.
      *
+     * **The selling rule** (S3, owner ruling 7). A recipe a non-retired meal,
+     * sauce, dressing or frozen meal sells publishes only once each seller has
+     * a pack, a place, and a price on every place it is offered; the sellers'
+     * `no_pack` / `no_selling_place` / `place_unpriced` join the structural
+     * reasons in the one `catalogue.publish_blocked`, each naming its item. A
+     * preparation has no seller and is never asked. `$applySellingRule` is
+     * false only for the console paths — importers, seeders, repair commands —
+     * whose behaviour must not move with a commercial rule; the API applies it.
+     *
      * @throws ApiException
      */
-    public function publish(RecipeVersion $version, int $expectedLockVersion): RecipeVersion
+    public function publish(RecipeVersion $version, int $expectedLockVersion, bool $applySellingRule = true): RecipeVersion
     {
         $lines = $this->readiness->linesOf($version);
 
-        $structural = $this->readiness->structuralReasons($version, $lines);
+        $blockers = $this->readiness->structuralReasons($version, $lines);
 
-        if ($structural !== []) {
-            throw PublishBlocked::fromReadiness($structural);
+        if ($applySellingRule) {
+            $blockers = [...$blockers, ...$this->readiness->sellingReasons($version)];
+        }
+
+        if ($blockers !== []) {
+            throw PublishBlocked::fromReadiness($blockers);
         }
 
         /** @var list<string> $orderedIngredientIds */
@@ -942,9 +1005,43 @@ final readonly class RecipeVersionService
         // it. Neither belongs inside the transaction that demotes the
         // incumbent, and a job dispatched from inside one can be picked up by a
         // worker before the commit it depends on has landed.
+        //
+        // The allergens first (T3): a dish built on this output whose label
+        // now moves goes to review. Then each output a superseded version
+        // made is re-derived from the producers left — an output this
+        // formulation no longer makes loses what only the old one stated.
+        $this->outputAllergens->write($version);
+
+        foreach (RecipeVersion::withoutTenancy()->whereKey($demoted)->get() as $retired) {
+            $this->outputAllergens->clear($retired);
+        }
+
         $this->outputNutrition->write($version, $nutrition);
 
+        $this->refreshSellers($version);
+
         return $version;
+    }
+
+    /**
+     * What each seller of the recipe earns, recomputed now that a new formulation is live (S7).
+     *
+     * After the publication's own transaction, and fenced off from it: the refresh runs in a
+     * transaction of its own — a savepoint inside any caller's — and a failure is reported and
+     * swallowed. A figure on the margins page must never refuse or undo a publication; the nightly
+     * run puts it right if this one could not.
+     */
+    private function refreshSellers(RecipeVersion $version): void
+    {
+        try {
+            $recipe = Recipe::withoutTenancy()->whereKey($version->recipe_id)->first();
+
+            if ($recipe instanceof Recipe) {
+                DB::transaction(fn () => $this->usage->recipePublished($recipe));
+            }
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**
@@ -1003,10 +1100,166 @@ final readonly class RecipeVersionService
         // A withdrawn child withholds the parent. Whatever this version derived
         // onto the ingredients it produces was true of a formulation that is no
         // longer published, and a parent recipe must not go on totalling
-        // against it — see {@see RecipeOutputNutritionWriter::clear()}.
+        // against it — see {@see RecipeOutputNutritionWriter::clear()}. The
+        // same for the allergens it carried onto them (T3).
+        $this->outputAllergens->clear($version);
         $this->outputNutrition->clear($version);
 
         return $version;
+    }
+
+    /**
+     * Release a quarantined version: a manager has compared the label it was
+     * published with (`previous_label`) against the recomputed one, and accepts
+     * the new one. The new label goes live on the same version, and the
+     * listings the quarantine took off sale go back on.
+     *
+     * - **Only `review_required` releases**, `409 resource.conflict` otherwise.
+     * - **Never a stale label** (`reason: derivation_stale`). A mapping edit
+     *   since the quarantine has marked the version stale and queued its
+     *   recompute; releasing before that lands would publish a label nobody
+     *   compared. Checked on the row locked for the write, so a stale marking
+     *   cannot slip in between the check and the update.
+     * - **Superseded becomes retired.** When another version is published, or
+     *   a newer one is also in review, the released one is history rather than
+     *   live — the partial unique index allows one published version a recipe.
+     *
+     * The listings are released only when no version of the recipe is left in
+     * review, the rule `CatalogueItemReadiness` applies to publishing them.
+     *
+     * @throws ApiException
+     */
+    public function release(RecipeVersion $version, int $expectedLockVersion): RecipeVersion
+    {
+        $previousLabel = $version->previous_label;
+        $reviewReason = $version->review_reason;
+
+        /** @var array<string, string> $released */
+        $released = DB::transaction(function () use ($version, $expectedLockVersion): array {
+            $locked = RecipeVersion::withoutTenancy()->whereKey($version->getKey())->lockForUpdate()->sole();
+
+            if ($locked->status !== RecipeVersionStatus::ReviewRequired) {
+                throw new ApiException(
+                    ErrorCode::ResourceConflict,
+                    'Only a quarantined version can be released.',
+                    ['status' => $locked->status->value, 'current_lock_version' => $locked->lock_version],
+                );
+            }
+
+            // `Current` only: a stale label is still being recomputed, and a
+            // failed recompute left one nobody derived.
+            if ($locked->derivation_state !== DerivationState::Current) {
+                throw new ApiException(
+                    ErrorCode::ResourceConflict,
+                    'The allergen label is being recomputed after an ingredient change. Reload and compare it again.',
+                    ['reason' => 'derivation_stale', 'current_lock_version' => $locked->lock_version],
+                );
+            }
+
+            // Publish's determination gate, which release must not skip: a
+            // sub-recipe retired under this dish leaves its output unassessed,
+            // and the recomputed label then reads "none" where it means
+            // "nobody knows".
+            $ingredientIds = array_values($this->readiness->linesOf($locked)->pluck('ingredient_id')->map(static fn (mixed $id): string => (string) $id)->all());
+            $undetermined = $this->readiness->undeterminedIngredientIds(
+                $ingredientIds,
+                $this->rollup->effectiveFor(array_values(array_unique($ingredientIds)), $locked->organisation_id),
+            );
+
+            if ($undetermined !== []) {
+                throw new ApiException(
+                    ErrorCode::ResourceConflict,
+                    'At least one ingredient carries no allergen determination. Assess it before releasing this label.',
+                    ['reason' => 'allergen_unmapped', 'ingredient_ids' => $undetermined, 'current_lock_version' => $locked->lock_version],
+                );
+            }
+
+            $superseded = RecipeVersion::withoutTenancy()
+                ->where('recipe_id', $locked->recipe_id)
+                ->whereKeyNot($locked->getKey())
+                ->where(static function ($query) use ($locked): void {
+                    $query->where('status', RecipeVersionStatus::Published->value)
+                        ->orWhere(static function ($newer) use ($locked): void {
+                            $newer->where('status', RecipeVersionStatus::ReviewRequired->value)
+                                ->where('version_number', '>', $locked->version_number);
+                        });
+                })
+                ->exists();
+
+            $this->compareAndSwap($version, [
+                'status' => ($superseded ? RecipeVersionStatus::Retired : RecipeVersionStatus::Published)->value,
+                'review_reason' => null,
+                'previous_label' => null,
+                'updated_by' => $this->context->userId(),
+            ], $expectedLockVersion);
+
+            // Read under the row lock, so the audit names the label released
+            // rather than whatever a recompute wrote after the commit.
+            return array_map(
+                static fn (AllergenContainment $containment): string => $containment->value,
+                $this->labels->snapshot($version),
+            );
+        });
+
+        $recipe = Recipe::withoutTenancy()->whereKey($version->recipe_id)->first();
+
+        $stillInReview = RecipeVersion::withoutTenancy()
+            ->where('recipe_id', $version->recipe_id)
+            ->where('status', RecipeVersionStatus::ReviewRequired->value)
+            ->exists();
+
+        $releasedItems = $recipe instanceof Recipe && ! $stillInReview
+            ? $this->usage->releaseQuarantinedItems($recipe)
+            : [];
+
+        $this->audit->record(
+            'catalogue.allergen_release',
+            actorUserId: $this->context->userId(),
+            subjectType: 'recipe_version',
+            subjectId: (string) $version->getKey(),
+            metadata: [
+                'recipe_id' => $version->recipe_id,
+                'version_number' => $version->version_number,
+                'outcome' => $version->status->value,
+
+                // Each label as two class lists, by containment: audit metadata
+                // is scalars and lists. Never a key containing `code`: the
+                // redactor matches it as a substring (OQ-036). The previous
+                // label is null on a quarantine older than the column, which
+                // recorded only its reason.
+                'previous_contains_classes' => $previousLabel === null ? null : self::classesWith($previousLabel, AllergenContainment::Contains),
+                'previous_may_contain_classes' => $previousLabel === null ? null : self::classesWith($previousLabel, AllergenContainment::MayContain),
+                'released_contains_classes' => self::classesWith($released, AllergenContainment::Contains),
+                'released_may_contain_classes' => self::classesWith($released, AllergenContainment::MayContain),
+                'review_reason' => $reviewReason,
+                'released_item_ids' => $releasedItems,
+                'lock_version' => $version->lock_version,
+            ],
+        );
+
+        // Live again, so what it produces carries its figures again, as after a
+        // publication: a recompute while it sat in review skipped the outputs.
+        // The allergens too (T3): the label released is what the outputs
+        // carry. Released as history instead, it gives back what it claimed.
+        if ($version->status === RecipeVersionStatus::Published) {
+            $this->outputAllergens->write($version);
+            $this->outputNutrition->write($version, $this->nutrition->forVersion($version, $this->readiness->linesOf($version)));
+        } else {
+            $this->outputAllergens->clear($version);
+        }
+
+        return $version;
+    }
+
+    /**
+     * The classes a `{class: containment}` label holds at one containment.
+     *
+     * @param  array<string, string>  $label
+     * @return list<string>
+     */
+    private static function classesWith(array $label, AllergenContainment $containment): array
+    {
+        return array_keys(array_filter($label, static fn (string $value): bool => $value === $containment->value));
     }
 
     /**
@@ -1089,6 +1342,10 @@ final readonly class RecipeVersionService
      * the caller held the current validator and the whole set changed, or
      * nothing did.
      *
+     * A quarantined version is editable, and an edit leaves its label stale;
+     * `release()` refuses a stale label, so the recompute is queued here or the
+     * version could never be released. A draft's label is derived at publish.
+     *
      * @param  Closure(): void  $work
      *
      * @throws ApiException
@@ -1103,6 +1360,15 @@ final readonly class RecipeVersionService
 
             $work();
         });
+
+        if ($version->status === RecipeVersionStatus::ReviewRequired) {
+            $versionId = (string) $version->getKey();
+            $organisationId = $version->organisation_id;
+
+            DB::afterCommit(static function () use ($versionId, $organisationId): void {
+                RecomputeRecipeDerivations::dispatch($versionId, $organisationId);
+            });
+        }
     }
 
     /**
@@ -1166,123 +1432,81 @@ final readonly class RecipeVersionService
     }
 
     /**
-     * The catalogue's own price for one line's ingredient, as `[amount, currency]`.
+     * The live price of every line the request did not quote, as `[amount, currency, typed]` by
+     * line index.
      *
      * ## Why this exists
      *
      * The recipe editor writes lines with no cost on them — it sends the ingredient, the quantity
-     * and the unit, which is everything a *formulation* is — and nothing else in the product ever
-     * filled the gap. So every line this system has written has been uncosted, and the technical
-     * sheet has been correctly reporting that it cannot total a version whose every line is
-     * missing a price. A kitchen could price its whole ingredient catalogue and still see no
-     * recipe cost anywhere, with nothing on screen to say why.
+     * and the unit, which is everything a *formulation* is — and a line nobody priced reads "No
+     * price yet" even when the kitchen has bought the thing a dozen times.
      *
-     * The packaging path has never had this problem because `setPackaging()` reads the item's
-     * price off the catalogue at write time. This is that same rule for the formulation, and the
-     * two now behave alike.
+     * ## One source order, the same one Dish margins reads
      *
-     * ## Only when the caller quoted nothing
+     * Asked of {@see WeeklyRecipeCostingService::unitCostsFor()}: what was actually paid, then the
+     * recipe that makes it, then the typed purchase price. This used to rank the typed price first,
+     * so the draft preview and Dish margins costed one recipe from two different inputs, and a pack
+     * cost shared on top of them would still have given two margins (plan S4). A request that
+     * states a cost still wins — the importer records what a source sheet said, errors included
+     * (`as_recorded`), and a fallback that overrode it would replace a transcription with a guess.
      *
-     * A request that states a cost still wins. The importer records what a source sheet said,
-     * errors included (`as_recorded`), and a fallback that overrode it would replace a
-     * transcription with a guess at what it should have been.
+     * The source travels with the amount (S6), and the version a component cost came out of: a
+     * `ingredient_fallback` answer is the typed purchase price, which `prepareLines()` holds to the
+     * one-currency rule exactly as it always did.
      *
-     * ## Converted within a dimension, and never across one
+     * Batched by ingredient, because the costing service answers one unit per ingredient; a
+     * second line naming the same ingredient in another unit goes in the next batch.
      *
-     * An ingredient's price is per its purchase pack where it records one, and per its issue unit
-     * otherwise. A line may be written in any unit of the same dimension — grams against an
-     * ingredient bought by the kilo, which is how most recipes are actually written.
-     *
-     * This first refused to convert at all, on the reasoning that a silent conversion could produce
-     * a figure a thousandfold wrong. The caution was right and the conclusion was not: `kg` and `g`
-     * are the *same dimension* and `measurement_units.base_ratio` states the exact relationship
-     * between them, so the conversion is arithmetic rather than a guess. Refusing it meant the most
-     * natural way to write a formulation never costed, which sent people to the workaround of
-     * restating every quantity in the purchase unit.
-     *
-     * What is still refused is a conversion **across** dimensions — a price per `piece` against a
-     * line in `kg`. Nothing in the reference data relates those two, and the factor that would is a
-     * property of the specific ingredient (a piece of what, weighing how much?) that this system
-     * does not record. Such a line stays uncosted: the sheet lists it in `uncosted_line_numbers`,
-     * withholds the total, and says which line to go and look at.
-     *
-     * @return array{0: numeric-string|null, 1: string|null}
+     * @param  array<int, array{0: string, 1: string}>  $unpriced  line index => [ingredient id, line unit id]
+     * @return array<int, array{0: numeric-string, 1: string, 2: string, 3: string|null}> [amount, currency, source, source version id]
      */
-    private function ingredientCostFor(Ingredient $ingredient, ?string $lineUnitId): array
+    private function liveCostsFor(array $unpriced): array
     {
-        $price = $ingredient->purchase_price_amount;
-        $currency = $ingredient->purchase_price_currency;
+        $organisationId = $this->context->organisationId();
+        $costs = [];
 
-        if ($price === null || $currency === null || $lineUnitId === null) {
-            return [null, null];
+        if ($organisationId === null) {
+            return $costs;
         }
 
-        $pricedIn = $ingredient->purchase_unit_id ?? $ingredient->default_unit_id;
+        while ($unpriced !== []) {
+            $batch = [];
 
-        if ($pricedIn === $lineUnitId) {
-            return [(string) $price, mb_strtoupper($currency)];
+            foreach ($unpriced as $index => [$ingredientId, $unitId]) {
+                if (! isset($batch[$ingredientId])) {
+                    $batch[$ingredientId] = ['unit' => $unitId, 'indexes' => []];
+                }
+
+                if ($batch[$ingredientId]['unit'] === $unitId) {
+                    $batch[$ingredientId]['indexes'][] = $index;
+                    unset($unpriced[$index]);
+                }
+            }
+
+            $answers = $this->paidPrices->unitCostsFor(
+                $organisationId,
+                array_map(static fn (array $entry): string => $entry['unit'], $batch),
+            );
+
+            foreach ($batch as $ingredientId => $entry) {
+                $answer = $answers[(string) $ingredientId] ?? null;
+
+                if ($answer === null || $answer->unitCostAmount === null || $answer->currencyCode === null) {
+                    continue;
+                }
+
+                foreach ($entry['indexes'] as $index) {
+                    $costs[$index] = [
+                        $answer->unitCostAmount,
+                        mb_strtoupper($answer->currencyCode),
+                        $answer->source,
+                        $answer->sourceRecipeVersionId,
+                    ];
+                }
+            }
         }
 
-        $converted = $this->pricePerUnit((string) $price, $pricedIn, $lineUnitId);
-
-        return $converted === null ? [null, null] : [$converted, mb_strtoupper($currency)];
-    }
-
-    /**
-     * A price stated per one unit, restated per another of the same dimension.
-     *
-     * `base_ratio` is how many base units one of this unit is — 1000 for `kg` against a base of
-     * `g`. So a price per kilogram becomes a price per gram by dividing by the ratio between them,
-     * and 7.88 per kg is 0.00788 per g exactly.
-     *
-     * Null when the two units are not comparable: an unknown unit, a ratio of zero, or a pair
-     * {@see UnitConversionService::canConvert()} refuses — a different dimension, or the same
-     * non-convertible one (two `package` units, two `count` units). Every one of those is "this
-     * system cannot know", and the caller turns it into an uncosted line rather than a figure.
-     *
-     * Six decimal places, the scale every cost column stores. A price per gram of a cheap bulk
-     * ingredient can round to zero at that scale, and that is the honest floor of what these
-     * columns can hold rather than something to work around here.
-     *
-     * @param  numeric-string  $price
-     * @return numeric-string|null
-     */
-    private function pricePerUnit(string $price, string $fromUnitId, string $toUnitId): ?string
-    {
-        /** @var MeasurementUnit|null $from */
-        $from = MeasurementUnit::query()->whereKey($fromUnitId)->first();
-        /** @var MeasurementUnit|null $to */
-        $to = MeasurementUnit::query()->whereKey($toUnitId)->first();
-
-        if (! $from instanceof MeasurementUnit || ! $to instanceof MeasurementUnit) {
-            return null;
-        }
-
-        /*
-         * The same predicate {@see UnitConversionService::convert()} applies, asked rather than
-         * re-implemented.
-         *
-         * Comparing dimensions alone was not enough, and the gap was silent. `bunch`, `can`, `bag`,
-         * `bottle` and `pack` all share the `package` dimension and all carry `base_ratio` 1, so a
-         * price quoted per pack against a line measured in bags passed the old check and converted
-         * one-for-one — a plausible number, wrong by whatever a pack and a bag actually differ by,
-         * landing in a cost column with nothing to mark it. `CONVERTIBLE_DIMENSIONS` is exactly the
-         * set where a ratio means something (`mass`, `volume`), and `canConvert()` is the public,
-         * non-throwing form of that question.
-         */
-        if (! $this->conversion->canConvert($from, $to)) {
-            return null;
-        }
-
-        $fromRatio = (string) $from->base_ratio;
-        $toRatio = (string) $to->base_ratio;
-
-        if (bccomp($fromRatio, '0', 9) !== 1) {
-            return null;
-        }
-
-        // price_per_to = price_per_from × (to_ratio ÷ from_ratio).
-        return bcmul($price, bcdiv($toRatio, $fromRatio, 12), 6);
+        return $costs;
     }
 
     /**
@@ -1403,7 +1627,7 @@ final readonly class RecipeVersionService
      *
      * @return array{0: numeric-string|null, 1: string|null}
      */
-    private function packagingCostOf(Ingredient $item): array
+    public function packagingCostOf(Ingredient $item): array
     {
         $price = $item->purchase_price_amount;
         $currency = $item->purchase_price_currency;

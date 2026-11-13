@@ -76,6 +76,31 @@
   --h360-color-nutrition-high-on: 255 255 255;
   --h360-color-nutrition-excessive: 138 32 26;
   --h360-color-nutrition-excessive-on: 255 255 255;
+  --h360-color-tint-green: 220 252 231;
+  --h360-color-tint-green-on: 20 83 45;
+  --h360-color-tint-green-fill: 22 163 74;
+  --h360-color-tint-blue: 219 234 254;
+  --h360-color-tint-blue-on: 30 58 138;
+  --h360-color-tint-blue-fill: 59 130 246;
+  --h360-color-tint-orange: 255 237 213;
+  --h360-color-tint-orange-on: 124 45 18;
+  --h360-color-tint-orange-fill: 249 115 22;
+  --h360-color-tint-yellow: 254 249 195;
+  --h360-color-tint-yellow-on: 113 63 18;
+  --h360-color-tint-yellow-fill: 234 179 8;
+  --h360-color-tint-pink: 252 231 243;
+  --h360-color-tint-pink-on: 131 24 67;
+  --h360-color-tint-pink-fill: 236 72 153;
+  --h360-color-tint-violet: 237 233 254;
+  --h360-color-tint-violet-on: 76 29 149;
+  --h360-color-tint-violet-fill: 139 92 246;
+  --h360-color-tint-teal: 204 251 241;
+  --h360-color-tint-teal-on: 19 78 74;
+  --h360-color-tint-teal-fill: 20 184 166;
+  --h360-color-stage-orange: 251 146 60;
+  --h360-color-stage-green: 74 222 128;
+  --h360-color-stage-blue: 96 165 250;
+  --h360-color-stage-yellow: 250 204 21;
 
   --h360-space-0: 0px;
   --h360-space-1: 4px;
@@ -218,6 +243,10 @@
   --h360-elevation-5: 0 16px 32px -8px rgb(23 21 20 / 0.16), 0 8px 16px -8px rgb(23 21 20 / 0.08);
   --h360-elevation-card: 0 1px 2px rgb(23 21 20 / 0.05), 0 14px 30px -18px rgb(11 59 38 / 0.35);
   --h360-elevation-card-hover: 0 1px 2px rgb(23 21 20 / 0.05), 0 24px 46px -20px rgb(11 59 38 / 0.5);
+  --h360-elevation-bar: 0 22px 44px -18px rgb(11 59 38 / 0.35), 0 2px 8px rgb(11 59 38 / 0.06);
+  --h360-elevation-brand-glow: 0 6px 14px -4px rgb(var(--h360-color-brand-surface) / 0.6);
+  --h360-elevation-search: 0 6px 20px rgb(11 59 38 / 0.12);
+  --h360-elevation-focus-ring: 0 0 0 4px rgb(var(--h360-color-brand-surface-subtle)), 0 6px 20px rgb(11 59 38 / 0.12);
   --h360-duration-instant: 0ms;
   --h360-duration-fast: 120ms;
   --h360-duration-normal: 200ms;
@@ -306,6 +335,31 @@
   --h360-color-nutrition-high-on: 46 22 17;
   --h360-color-nutrition-excessive: 238 154 146;
   --h360-color-nutrition-excessive-on: 46 16 13;
+  --h360-color-tint-green: 21 58 38;
+  --h360-color-tint-green-on: 187 247 208;
+  --h360-color-tint-green-fill: 74 222 128;
+  --h360-color-tint-blue: 23 37 84;
+  --h360-color-tint-blue-on: 191 219 254;
+  --h360-color-tint-blue-fill: 96 165 250;
+  --h360-color-tint-orange: 67 20 7;
+  --h360-color-tint-orange-on: 254 215 170;
+  --h360-color-tint-orange-fill: 251 146 60;
+  --h360-color-tint-yellow: 63 42 6;
+  --h360-color-tint-yellow-on: 254 240 138;
+  --h360-color-tint-yellow-fill: 250 204 21;
+  --h360-color-tint-pink: 74 13 43;
+  --h360-color-tint-pink-on: 251 207 232;
+  --h360-color-tint-pink-fill: 244 114 182;
+  --h360-color-tint-violet: 46 16 101;
+  --h360-color-tint-violet-on: 221 214 254;
+  --h360-color-tint-violet-fill: 167 139 250;
+  --h360-color-tint-teal: 4 47 46;
+  --h360-color-tint-teal-on: 153 246 228;
+  --h360-color-tint-teal-fill: 45 212 191;
+  --h360-color-stage-orange: 251 146 60;
+  --h360-color-stage-green: 74 222 128;
+  --h360-color-stage-blue: 96 165 250;
+  --h360-color-stage-yellow: 250 204 21;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -379,6 +433,31 @@
     --h360-color-nutrition-high-on: 46 22 17;
     --h360-color-nutrition-excessive: 238 154 146;
     --h360-color-nutrition-excessive-on: 46 16 13;
+    --h360-color-tint-green: 21 58 38;
+    --h360-color-tint-green-on: 187 247 208;
+    --h360-color-tint-green-fill: 74 222 128;
+    --h360-color-tint-blue: 23 37 84;
+    --h360-color-tint-blue-on: 191 219 254;
+    --h360-color-tint-blue-fill: 96 165 250;
+    --h360-color-tint-orange: 67 20 7;
+    --h360-color-tint-orange-on: 254 215 170;
+    --h360-color-tint-orange-fill: 251 146 60;
+    --h360-color-tint-yellow: 63 42 6;
+    --h360-color-tint-yellow-on: 254 240 138;
+    --h360-color-tint-yellow-fill: 250 204 21;
+    --h360-color-tint-pink: 74 13 43;
+    --h360-color-tint-pink-on: 251 207 232;
+    --h360-color-tint-pink-fill: 244 114 182;
+    --h360-color-tint-violet: 46 16 101;
+    --h360-color-tint-violet-on: 221 214 254;
+    --h360-color-tint-violet-fill: 167 139 250;
+    --h360-color-tint-teal: 4 47 46;
+    --h360-color-tint-teal-on: 153 246 228;
+    --h360-color-tint-teal-fill: 45 212 191;
+    --h360-color-stage-orange: 251 146 60;
+    --h360-color-stage-green: 74 222 128;
+    --h360-color-stage-blue: 96 165 250;
+    --h360-color-stage-yellow: 250 204 21;
   }
 }
 

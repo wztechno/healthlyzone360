@@ -6,6 +6,9 @@ namespace Healthy360\B2b\Services;
 
 use App\Models\User;
 use Carbon\CarbonImmutable;
+use Healthy360\AccessControl\Models\MembershipRole;
+use Healthy360\AccessControl\Models\Role;
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\B2b\Enums\AgreementStatus;
 use Healthy360\B2b\Enums\ApplicationContactRole;
@@ -13,15 +16,19 @@ use Healthy360\B2b\Enums\ApplicationStatus;
 use Healthy360\B2b\Models\B2bAgreement;
 use Healthy360\B2b\Models\B2bApplication;
 use Healthy360\B2b\Models\B2bApplicationContact;
+use Healthy360\B2b\Models\CorporateProgramme;
 use Healthy360\Customers\Enums\CustomerAccountOrigin;
 use Healthy360\Customers\Enums\CustomerAccountStatus;
 use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Customers\Services\CustomerAccountNumbers;
 use Healthy360\Identity\Models\UserProfile;
+use Healthy360\Organisations\Enums\MembershipStatus;
 use Healthy360\Organisations\Enums\OrganisationStatus;
 use Healthy360\Organisations\Models\Organisation;
+use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Organisations\Models\OrganisationType;
+use Healthy360\Pricing\Models\PriceList;
 use Healthy360\ReferenceData\Models\Country;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -83,6 +90,10 @@ use Random\RandomException;
  *    draft is no less that company's than the active one, and the
  *    `(organisation_id, status)` index exists to list them together.
  * 4. **Invitations**, one per named contact that has an email.
+ * 5. **A corporate programme** with the seller kitchen behind the agreement's
+ *    price list. A buyer browses its negotiated catalogue and raises
+ *    quotations through a programme, and nothing else creates one, so a
+ *    company provisioned without it could sign in and buy nothing.
  *
  * ## Seller-side wholesale setup (checkout phase 1)
  *
@@ -95,17 +106,33 @@ use Random\RandomException;
  * provisioned. `B2bCheckoutWorld` in the test fixtures is the minimal worked
  * example.
  *
- * **No memberships are created.** `InvitationService::accept()` says so on its
- * own result object, and this service does not quietly disagree: a membership
- * is granted when a named person signs in and accepts, not when a reviewer
- * clicks provision. Creating memberships here would mean minting access for
- * addresses nobody has proved control of — the exact failure the invitation
- * token exists to prevent.
+ * ## Signed first
+ *
+ * Provisioning refuses until the application's agreement is **active** —
+ * signed by the applicant against a passcode. The owner's ruling (2026-10-26):
+ * an account opens on terms the company has accepted, never ahead of them, so
+ * a buyer is never trading with no price list behind it.
+ *
+ * ## One membership, for the applicant
+ *
+ * The applicant is made `organisation_owner` here. They are not an address on a
+ * form: they are the signed-in account that filed the application and spent
+ * the signing passcode, so control of the identity is already proved — which is
+ * the only thing an invitation token would have established. Everybody else
+ * named on the application still gets an invitation and a membership only when
+ * they accept it, because nobody has proved control of *their* addresses.
+ *
+ * Invitation links are emailed (`ApplicationNotices::invited()`) after the
+ * transaction commits. A contact whose email is the applicant's own is not
+ * invited — they are already the owner.
  *
  * ## The role a contact is invited into
  *
- * The `primary` contact — or the `signatory` where no primary was named —
- * becomes `organisation_owner`; everybody else becomes `member`. Somebody has
+ * A `primary` contact who is not the applicant is invited as
+ * `organisation_owner`; everybody else becomes `member`. Only when the
+ * applicant could not be made owner does the older precedence apply — the
+ * primary, else the signatory, else billing, else operations — so the company
+ * is never left without an administrator. Somebody has
  * to be able to invite colleagues and manage the new organisation on day one,
  * and the primary contact is the company's own nomination for who that is.
  * Everybody else gets the narrowest template role there is, because a billing
@@ -150,10 +177,12 @@ final readonly class ProvisionApplication
         private CustomerAccountNumbers $accountNumbers,
         private DatabaseTenantContext $database,
         private AuditRecorder $audit,
+        private OrganisationRoles $roles,
+        private ApplicationNotices $notices,
     ) {}
 
     /**
-     * @return array{organisation: Organisation, customerAccount: CustomerAccount, agreement: B2bAgreement|null, invitations: int}
+     * @return array{organisation: Organisation, customerAccount: CustomerAccount, agreement: B2bAgreement|null, invitations: int, ownerMembership: bool}
      *
      * @throws ApiException
      * @throws RandomException
@@ -185,8 +214,21 @@ final readonly class ProvisionApplication
                 );
             }
 
+            if (! $this->activeAgreement($locked) instanceof B2bAgreement) {
+                throw new ApiException(
+                    ErrorCode::B2bApplicationStateInvalid,
+                    'The agreement has to be signed before the account is opened.',
+                    [
+                        'status' => $locked->status->value,
+                        'required_agreement_status' => AgreementStatus::Active->value,
+                        'current_lock_version' => $locked->lock_version,
+                    ],
+                );
+            }
+
             $organisation = $this->createOrganisation($locked, $actor);
             $account = $this->openCustomerAccount($organisation, $actor);
+            $ownerMembership = $this->makeApplicantOwner($locked, $organisation, $actor);
 
             $locked->forceFill([
                 'provisioned_organisation_id' => (string) $organisation->getKey(),
@@ -196,7 +238,19 @@ final readonly class ProvisionApplication
             ])->save();
 
             $agreement = $this->anchorAgreements($locked, $organisation);
-            $invited = $this->inviteContacts($locked, $organisation, $actor);
+
+            if ($agreement instanceof B2bAgreement) {
+                $this->openProgramme($agreement, $organisation, $actor);
+            }
+            // As the new organisation: `roles` carries row-level security, and the
+            // invitation checks the role it names exists there. The reviewer's
+            // session belongs to the platform operator and would see none of them.
+            $invited = $this->database->during(
+                (string) $actor->getKey(),
+                (string) $organisation->getKey(),
+                null,
+                fn (): array => $this->inviteContacts($locked, $organisation, $actor, $ownerMembership),
+            );
 
             $this->audit->record(
                 'b2b.application_provisioned',
@@ -215,6 +269,7 @@ final readonly class ProvisionApplication
                     // `code` as a substring and would blank the value
                     // (OQ-036, R-019).
                     'invitations_skipped' => $invited['skipped'],
+                    'owner_membership_created' => $ownerMembership,
                 ],
             );
 
@@ -223,6 +278,7 @@ final readonly class ProvisionApplication
                 'customerAccount' => $account,
                 'agreement' => $agreement,
                 'invitations' => $invited['issued'],
+                'ownerMembership' => $ownerMembership,
             ];
         });
     }
@@ -235,7 +291,7 @@ final readonly class ProvisionApplication
      * missing record here is corruption rather than a state to tolerate, and
      * it fails loudly.
      *
-     * @return array{organisation: Organisation, customerAccount: CustomerAccount, agreement: B2bAgreement|null, invitations: int}|null
+     * @return array{organisation: Organisation, customerAccount: CustomerAccount, agreement: B2bAgreement|null, invitations: int, ownerMembership: bool}|null
      *
      * @throws ApiException
      */
@@ -267,6 +323,7 @@ final readonly class ProvisionApplication
             // Nothing was issued *by this call*, and reporting the historical
             // count would let a caller mistake a replay for fresh work.
             'invitations' => 0,
+            'ownerMembership' => false,
         ];
     }
 
@@ -305,6 +362,8 @@ final readonly class ProvisionApplication
         $organisation->status = OrganisationStatus::Active;
         $organisation->created_by = (string) $actor->getKey();
         $organisation->save();
+
+        $this->roles->provision((string) $organisation->getKey());
 
         return $organisation;
     }
@@ -347,6 +406,83 @@ final readonly class ProvisionApplication
     }
 
     /**
+     * The applicant's own membership, as the new organisation's owner.
+     *
+     * The same three writes `MembershipGranter` makes when an invitation is
+     * accepted, so a provisioned owner is indistinguishable from an invited
+     * one. Run as the new organisation, because `roles` and
+     * `organisation_memberships` carry row-level security and the reviewer's
+     * session belongs to the platform operator.
+     */
+    private function makeApplicantOwner(B2bApplication $application, Organisation $organisation, User $actor): bool
+    {
+        $organisationId = (string) $organisation->getKey();
+        $applicantId = (string) $application->applicant_user_id;
+
+        return $this->database->during($applicantId, $organisationId, null, static function () use ($organisationId, $applicantId, $actor): bool {
+            $role = Role::withoutTenancy()
+                ->where('organisation_id', $organisationId)
+                ->where('code', self::OWNER_ROLE)
+                ->first();
+
+            if (! $role instanceof Role) {
+                return false;
+            }
+
+            $membership = OrganisationMembership::withoutTenancy()->updateOrCreate(
+                ['organisation_id' => $organisationId, 'user_id' => $applicantId],
+                [
+                    'branch_id' => null,
+                    'status' => MembershipStatus::Active,
+                    'joined_at' => now(),
+                    'created_by' => (string) $actor->getKey(),
+                ],
+            );
+
+            MembershipRole::withoutTenancy()->updateOrCreate(
+                ['membership_id' => $membership->getKey(), 'role_id' => $role->getKey()],
+                ['organisation_id' => $organisationId, 'created_by' => (string) $actor->getKey()],
+            );
+
+            return true;
+        });
+    }
+
+    /**
+     * The programme the company buys through, with the kitchen that sells.
+     *
+     * The kitchen is the owner of the agreement's price list — the same
+     * denormalisation the table's comment names. An agreement with no list
+     * prices nothing, so no programme is opened for it.
+     */
+    private function openProgramme(B2bAgreement $agreement, Organisation $organisation, User $actor): void
+    {
+        $kitchenId = $agreement->price_list_id === null
+            ? null
+            : PriceList::withoutTenancy()->whereKey($agreement->price_list_id)->value('organisation_id');
+
+        if (! is_string($kitchenId)) {
+            return;
+        }
+
+        $kitchen = (string) (Organisation::query()->whereKey($kitchenId)->value('name') ?? '');
+
+        CorporateProgramme::withoutTenancy()->firstOrCreate(
+            ['organisation_id' => (string) $organisation->getKey(), 'b2b_agreement_id' => (string) $agreement->getKey()],
+            [
+                'kitchen_organisation_id' => $kitchenId,
+                'code' => 'supply-'.$agreement->version,
+                'name_en' => trim($kitchen.' supply'),
+                'name_ar' => trim('توريد '.$kitchen),
+                'description' => $agreement->title,
+                'status' => 'active',
+                'lock_version' => 0,
+                'created_by' => (string) $actor->getKey(),
+            ],
+        );
+    }
+
+    /**
      * Stamp the organisation onto every version of the company's agreement,
      * and hand back the one in force.
      */
@@ -376,7 +512,7 @@ final readonly class ProvisionApplication
      *
      * @throws ApiException
      */
-    private function inviteContacts(B2bApplication $application, Organisation $organisation, User $actor): array
+    private function inviteContacts(B2bApplication $application, Organisation $organisation, User $actor, bool $applicantIsOwner): array
     {
         $contacts = B2bApplicationContact::query()
             ->where('b2b_application_id', $application->getKey())
@@ -385,6 +521,8 @@ final readonly class ProvisionApplication
         /** @var array<string, string> $reachable role value => email */
         $reachable = [];
         $skipped = 0;
+
+        $applicantEmail = mb_strtolower(trim((string) User::query()->whereKey($application->applicant_user_id)->value('email')));
 
         foreach ($contacts as $contact) {
             $email = $contact->email === null ? '' : trim($contact->email);
@@ -395,14 +533,26 @@ final readonly class ProvisionApplication
                 continue;
             }
 
+            // Already the owner: inviting them again would only hand them a
+            // second, narrower role to accept.
+            if (mb_strtolower($email) === $applicantEmail) {
+                continue;
+            }
+
             $reachable[$contact->role->value] = $email;
         }
 
-        $owner = $this->ownerRoleAmong($reachable);
+        // With the applicant already owning the company, only a primary contact
+        // named separately is offered ownership too; the precedence below exists
+        // so a company is never left without an administrator, and it no longer
+        // can be. Without it a billing clerk became a second owner by default.
+        $owner = $applicantIsOwner
+            ? (array_key_exists(ApplicationContactRole::Primary->value, $reachable) ? ApplicationContactRole::Primary->value : null)
+            : $this->ownerRoleAmong($reachable);
         $issued = 0;
 
         foreach ($reachable as $role => $email) {
-            $this->invitations->issue(
+            $invitation = $this->invitations->issue(
                 $organisation,
                 $email,
                 $role === $owner ? self::OWNER_ROLE : self::MEMBER_ROLE,
@@ -410,6 +560,8 @@ final readonly class ProvisionApplication
                 null,
                 'Your company has been approved to buy on Healthy360. Accept this invitation to take up your place.',
             );
+
+            $this->notices->invited($organisation, $email, $invitation->token);
 
             $issued++;
         }

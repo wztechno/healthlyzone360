@@ -104,4 +104,19 @@ interface IngredientUsageRegistry
      * @return list<string> organisation identifiers, ordered, without duplicates
      */
     public function dependentOrganisationIds(Ingredient $ingredient): array;
+
+    /**
+     * The recipe that makes each of these ingredients, keyed by ingredient id — the one whose
+     * published version has an output row for it, else whose live draft does (plan slice F).
+     * An ingredient nothing makes is absent.
+     *
+     * Asked for a whole page of the ingredient list at once, in one query, so a row can say
+     * "made here, by this recipe" and a preparation can be told apart from something bought in.
+     * `is_published` is whether that recipe's statement is live: an unpublished one does not cost
+     * the ingredient yet, and the typed price stands in.
+     *
+     * @param  list<string>  $ingredientIds
+     * @return array<string, array{id: string, name_en: string, name_ar: string, is_published: bool}>
+     */
+    public function producedByRecipes(array $ingredientIds): array;
 }

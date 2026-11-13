@@ -219,7 +219,6 @@ export function RolePagesTab({ codes, onChange, disabled = false, testID }: Role
                                 key={code}
                                 variant="label"
                                 tone="neutral"
-                                icon={null}
                                 testID={`${testID}-unmapped-${code}`}
                                 label={t(`accessAdmin:codes.${code}.name` as never, {
                                     defaultValue: code,

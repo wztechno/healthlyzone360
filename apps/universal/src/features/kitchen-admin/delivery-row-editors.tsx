@@ -1,7 +1,5 @@
 import type { ServiceArea } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Callout,
     Checkbox,
     cx,
@@ -43,6 +41,8 @@ import type {
 import { ISO_WEEKDAYS, displayName } from './format.ts';
 import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * The three repeated editors of the delivery slice (K1.7).
  *
@@ -404,7 +404,7 @@ export function DeliveryWindowRows({
                               if (onArchive === undefined) return null;
                               const label = displayName(row.label, locale).value;
                               return (
-                                  <Button
+                                  <DeskButton
                                       testID={`${rowTestId}-archive`}
                                       size="sm"
                                       variant="quiet"
@@ -461,7 +461,7 @@ export function DeliveryWindowRows({
 
             <Inline space="sm" wrap align="center">
                 {canManage ? (
-                    <Button
+                    <DeskButton
                         testID={`${testID}-add`}
                         size="sm"
                         variant="secondary"
@@ -544,7 +544,7 @@ export function DayToggle({
 
 /** The time tracks: wide enough for a 12-hour value with its clock glyph. */
 const TIME_TRACK = 120;
-const CUT_OFF_TRACK = 148;
+const CUT_OFF_TRACK = 172;
 
 export interface OperatingWeekRowsProps {
     readonly rows: readonly OperatingDayDraft[];
@@ -633,6 +633,7 @@ export function OperatingWeekRows({
         label,
         width,
         priority,
+        grow: false,
         render: (day) => {
             const issue = issues.get(day.weekday);
             return (
@@ -669,6 +670,7 @@ export function OperatingWeekRows({
             label: t('kitchen:branchHours.columnDay'),
             width: 128,
             priority: 100,
+            grow: false,
             render: (day) => {
                 const dayID = `${testID}-day-${String(day.weekday)}`;
                 return (
@@ -677,7 +679,7 @@ export function OperatingWeekRows({
                             {t(weekdayKey(day.weekday))}
                         </Text>
                         {day.isClosed ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${dayID}-closed-badge`}
                                 tone="neutral"
                                 label={t('kitchen:branchHours.closedBadge')}
@@ -692,6 +694,7 @@ export function OperatingWeekRows({
             label: t('kitchen:branchHours.columnTrading'),
             width: 112,
             priority: 95,
+            grow: false,
             render: (day) => {
                 const dayID = `${testID}-day-${String(day.weekday)}`;
                 return (
@@ -757,14 +760,12 @@ export function OperatingWeekRows({
                       label: t('kitchen:list.actionHeader'),
                       width: 168,
                       priority: 80,
-                      grow: false,
-                      align: 'end',
                       sortable: false,
                       filterable: false,
                       // Only on an open day: a closed day has no times to copy.
                       render: (day) =>
                           day.isClosed ? null : (
-                              <Button
+                              <DeskButton
                                   testID={`${testID}-day-${String(day.weekday)}-copy`}
                                   size="sm"
                                   variant="ghost"

@@ -1,7 +1,8 @@
 import type { ProductAdmin } from '@healthy360/api-client/contracts';
-import { Badge, Inline, Text } from '@healthy360/design-system';
+import { Inline, Text } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
+import { View } from 'react-native';
 
 import {
     availableChannels,
@@ -13,9 +14,11 @@ import {
     statusTone,
     unitShortKey,
 } from '../format.ts';
+import { AssessmentBadges } from './allergen-assessment.tsx';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * Products — and, unchanged, sauces and dressings — as an array.
  *
@@ -165,13 +168,17 @@ export function productColumns({
                          * publish. The Missing Arabic stat card counts them.
                          */}
                         {name.isFallback ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${productRowTestId(String(row.id))}-missing-arabic`}
                                 tone="warning"
-                                icon="warning"
                                 label={t('kitchen:list.missingArabic')}
                             />
                         ) : null}
+                        <AssessmentBadges
+                            testID={productRowTestId(String(row.id))}
+                            allergensAssessed={row.allergensAssessed}
+                            onSaleWithoutRecipe={row.onSaleWithoutRecipe}
+                        />
                     </Inline>
                 );
             },
@@ -221,8 +228,8 @@ export function productColumns({
                 }
 
                 return (
-                    <Inline space="xs" align="center" testID={`${testID}-packs`}>
-                        <Text variant="mono">{packLabel(row)}</Text>
+                    <View testID={`${testID}-packs`} className="min-w-0 flex-col">
+                        <Text>{packLabel(row)}</Text>
                         {/*
                          * The count is its own element rather than part of the sentence above: it
                          * is the half a reader is counting down the column, and it is what a price
@@ -230,13 +237,17 @@ export function productColumns({
                          * because "1 pack in all" beside the pack itself says nothing.
                          */}
                         {row.packVariants.length > 1 ? (
-                            <Text variant="caption" testID={`${testID}-packs-count`}>
+                            <Text
+                                variant="caption"
+                                tone="secondary"
+                                testID={`${testID}-packs-count`}
+                            >
                                 {t('kitchen:products.packCount', {
                                     count: row.packVariants.length,
                                 })}
                             </Text>
                         ) : null}
-                    </Inline>
+                    </View>
                 );
             },
         },
@@ -293,24 +304,23 @@ export function productColumns({
                 return (
                     <Inline space="xs" align="center">
                         {row.isMarketPriced ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${testID}-market-priced`}
                                 tone="warning"
                                 label={t('kitchen:products.marketPricedShort')}
                             />
                         ) : null}
                         {row.isAssorted ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${testID}-assorted`}
                                 tone="neutral"
                                 label={t('kitchen:products.assortedShort')}
                             />
                         ) : null}
                         {row.dataQualityFlags.length === 0 ? null : (
-                            <Badge
+                            <DeskChip
                                 testID={`${testID}-data-quality`}
                                 tone="warning"
-                                icon="warning"
                                 label={String(row.dataQualityFlags.length)}
                             />
                         )}
@@ -330,14 +340,10 @@ export function productColumns({
             sortType: 'text',
             value: (row) => t(statusShortKey(row.meta.status)),
             render: (row) => (
-                <Badge
+                <DeskChip
                     testID={`${productRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
-                    // No mark on Published. The tone's default `✓` is `Badge`'s way of keeping
-                    // meaning off colour alone, and "Published" is a word that needs no help —
-                    // §prop docs allow `null` for exactly that case. Draft and Review keep theirs,
-                    // because those two are the states a reader is scanning *for*.
-                    icon={row.meta.status === 'published' ? null : undefined}
+                    // A pill and its word, as the Resale board draws it.
                     label={t(statusShortKey(row.meta.status))}
                 />
             ),

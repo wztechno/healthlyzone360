@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Healthy360\Orders\OrderDesk\Http\Controllers;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Orders\OrderDesk\Services\LocalDay;
+use Healthy360\Orders\OrderDesk\Services\TillBranches;
 use Healthy360\Orders\Services\OrderLocator;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -12,9 +14,19 @@ use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
- * GET /api/v1/catalogue/order-desk/cash-report — who took what, on one day.
+ * GET /api/v1/catalogue/order-desk/cash-report — who took what, day by day.
+ *
+ * ## A range of days, still read one day at a time
+ *
+ * `from` and `to` name a window of whole local days, both inclusive, at most
+ * {@see self::MAX_DAYS} long. The day is part of every row's key, so a week is
+ * seven days of rows rather than one row summing Monday and Tuesday — each day
+ * can still be stood next to that day's cash box. `totals` sum the whole window
+ * per method and currency, which is legal for the same reason they always were:
+ * it never crosses a currency.
  *
  * ## This is the till-shift mitigation, and it says so
  *
@@ -26,31 +38,27 @@ use Illuminate\Support\Facades\DB;
  * a manager must be able to ask "what did each agent take yesterday?" and get an
  * answer they can stand a cash box next to.
  *
- * This is that answer and it is deliberately not more. A real drawer
- * reconciliation is a later table — a shift with an opening float, a closing
- * count, a named variance and its own lifecycle — and when it lands this
- * operation stays useful as the ledger it reads from rather than being replaced
- * by it. What this cannot tell anybody is whether the cash box balances, because
- * nothing on this platform has ever been told what was in it.
+ * This is that answer and it is deliberately not more. The drawer reconciliation
+ * is `DailyCloses`: an opening float, a closing count and a named variance, read
+ * from these same receipts. This report stays what it was, and cannot tell anybody
+ * whether the cash box balanced.
  *
- * ## The day boundary is UTC, and that is stated rather than assumed
+ * ## The day is the kitchen's local day
  *
- * `confirmed_at` is an instant. A "day" is not, and turning one into the other
- * needs a clock this endpoint does not have: the receipt carries no branch, and
- * the order behind it may carry none either — an organisation-wide delivery zone
- * leaves `orders.branch_id` null, as the live book's real orders do. So there is
- * no branch timezone that is true of every receipt in the answer, and inventing
- * one for the rows that have it would produce a report whose two halves were
- * measured on two different clocks.
+ * `confirmed_at` is an instant and a day is not. The whole report is read on one
+ * clock, chosen per request by {@see LocalDay}: the named branch's timezone, or
+ * with no branch the organisation's, the clock `DailyCloses` uses (owner, 3 Nov).
+ * A receipt at 23:30 in Beirut is that Beirut date's money, not the next UTC
+ * day's. `meta.timezone` echoes the zone, so a client can say which midnight it
+ * is showing rather than implying the reader's own. With All branches the days are
+ * the organisation's, so where a branch keeps a different clock its own report and
+ * All split the same money at different midnights (owner ruling: the branch's day
+ * with a branch, the organisation's without).
  *
- * UTC it is, matching the queue's own organisation-wide convention exactly —
- * *"unnamed, the day boundary is UTC, which is the only zone that is not a
- * guess"* — and `meta.timezone` echoes it so a screen can say which midnight it
- * is showing rather than implying the reader's own. A kitchen whose evening
- * shift runs past UTC midnight will see that evening split across two reports,
- * which is a visible, explicable fact rather than a silent misattribution; when
- * the shift table lands, a shift is the honest unit and this boundary retires
- * with it.
+ * The zone goes into SQL as a literal, which is safe only because `LocalDay`
+ * returns a `DateTimeZone::listIdentifiers()` entry. A bound parameter would not
+ * do: PostgreSQL reads `at time zone $1` in the select list and `$5` in the
+ * group by as two different expressions.
  *
  * ## Grouped by three things, summed within groups only
  *
@@ -79,65 +87,100 @@ use Illuminate\Support\Facades\DB;
  * held without the authority to move an order is not a seat anybody occupies,
  * and the permission registry is not improved by codes nobody grants.
  *
- * ## `branch_id` narrows through the **order**, not the receipt
+ * ## `branch_id` names a till
  *
- * A receipt has no branch and should not: money is taken by a person at a till,
- * and which kitchen site cooked the food is a fact about the order. So the
- * narrowing joins `orders` — and it is the only reason that join exists, which
- * is why it is conditional. One consequence, stated because the queue screen
- * documents the same trap at length: an order with a null `branch_id` is
- * **excluded** by a branch filter. That is right for "what did the Marina site
- * take?" and wrong as a default, which is why the default is no narrowing at
- * all.
+ * One till per branch, resolved by {@see TillBranches} exactly as the daily close
+ * resolves it, so a branch's report and its close read the same money. Receipts
+ * and refunds belong to their order's till: the order's branch, else its delivery
+ * zone's, else the kitchen's first branch. A hand-in carries its own branch, and
+ * one from before tills were per branch counts as the first branch's.
+ * `meta.branches` lists the tills, first branch first. A branch that is not one
+ * of this kitchen's is refused rather than answered empty.
  */
 final class OrderDeskCashReportController
 {
     /**
-     * The clock the day is measured on. See the class note — a constant rather
-     * than a literal because it is echoed in `meta` and used in the boundary
-     * arithmetic, and two copies that drifted would produce a report whose
-     * stated timezone was not the one it was computed in.
+     * The longest window one request may name, in days, both ends counted.
+     * Long enough for any calendar month, short enough that the answer stays a
+     * table somebody reads rather than an export.
      */
-    private const string TIMEZONE = 'UTC';
+    private const int MAX_DAYS = 31;
 
-    public function __construct(private readonly OrderLocator $locator) {}
+    public function __construct(
+        private readonly OrderLocator $locator,
+        private readonly LocalDay $localDay,
+        private readonly TillBranches $tills,
+    ) {}
 
     /**
      * @throws ApiException
+     * @throws ValidationException
      */
     public function __invoke(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            // Required, and one day rather than a range. A range would be a
-            // different document: reconciling a till is a daily act, and a
-            // report summing Monday and Tuesday would be one nobody could stand
-            // a cash box next to.
-            'date' => ['required', 'date_format:Y-m-d'],
+            'from' => ['required', 'date_format:Y-m-d'],
+            'to' => ['required', 'date_format:Y-m-d', 'after_or_equal:from'],
             'branch_id' => ['nullable', 'uuid'],
         ]);
 
-        $date = CarbonImmutable::createFromFormat('Y-m-d', (string) $validated['date'], self::TIMEZONE)
-            ->startOfDay();
-        $branchId = isset($validated['branch_id']) ? (string) $validated['branch_id'] : null;
+        $organisationId = $this->locator->sellerId();
+        $branchId = isset($validated['branch_id']) ? strtolower((string) $validated['branch_id']) : null;
+        $branches = $this->tills->all($organisationId);
 
-        $rows = $this->takings($this->locator->sellerId(), $date, $branchId);
+        if ($branchId !== null && ! in_array($branchId, array_column($branches, 'id'), true)) {
+            throw ValidationException::withMessages([
+                'branch_id' => 'This is not a branch of this kitchen.',
+            ]);
+        }
+
+        $zone = $this->localDay->zone($organisationId, $branchId);
+
+        $from = CarbonImmutable::createFromFormat('Y-m-d', (string) $validated['from'], $zone)
+            ->startOfDay();
+        $to = CarbonImmutable::createFromFormat('Y-m-d', (string) $validated['to'], $zone)
+            ->startOfDay();
+
+        // A `ValidationException`, as the calendar refuses its own oversized
+        // window, so a client reads `details.fields.to` for every kind of bad `to`.
+        if ($to->greaterThan($from->addDays(self::MAX_DAYS - 1))) {
+            throw ValidationException::withMessages([
+                'to' => 'The cash report window may not exceed '.self::MAX_DAYS.' days.',
+            ]);
+        }
+
+        // Converted to UTC before binding: a bound Carbon is formatted without its
+        // offset, so a Beirut midnight would be read as a UTC one. The end is the
+        // local midnight after `to`, which is 23 or 25 hours away on a DST day.
+        $window = [
+            'zone' => $zone,
+            'start' => $from->utc(),
+            'end' => $to->addDay()->utc(),
+            'first' => $branches[0]['id'] ?? null,
+            'branch' => $branchId,
+        ];
+
+        $rows = $this->takings($organisationId, $window);
 
         return ApiResponse::data([
             'rows' => $rows,
             'totals' => $this->totals($rows),
+            'adjustments' => $this->adjustments($organisationId, $window),
         ], [
-            'date' => $date->toDateString(),
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
             'branch_id' => $branchId,
             // Echoed because the client did not choose it and cannot derive it
-            // — and because a screen that did not say which midnight it was
-            // showing would be implying the reader's own.
-            'timezone' => self::TIMEZONE,
+            // — so a client can say which midnight it was cut on rather than
+            // imply the reader's own.
+            'timezone' => $zone,
+            'branches' => $branches,
             'count' => count($rows),
         ]);
     }
 
     /**
-     * One day's receipts, grouped by who took them, how, and in what.
+     * The window's receipts, grouped by day, who took them, how, and in what.
      *
      * **One statement, grouped in SQL.** The alternative — read the day's
      * receipts and group them in PHP — would pull every row of a busy counter's
@@ -151,8 +194,8 @@ final class OrderDeskCashReportController
      * isolation: there is no second organisation column in the answer to catch a
      * mistake with.
      *
-     * The window is **half-open** — `>= midnight` and `< next midnight` — rather
-     * than a `whereBetween` on two instants. A closed upper bound at
+     * The window is **half-open** — `>= midnight of from` and `< midnight after
+     * to` — rather than a `whereBetween` on two instants. A closed upper bound at
      * `23:59:59.999999` is a boundary somebody eventually has to reason about
      * with microseconds, and a receipt confirmed in the last tick of the day
      * would sit in a report on neither side of it.
@@ -165,7 +208,12 @@ final class OrderDeskCashReportController
      * join cannot fan out (`user_profiles.user_id` is unique), which is what
      * makes it safe to group across it.
      *
+     * The day is read in SQL on the zone the window was cut on, so a receipt
+     * lands on the same local day that let it into the window.
+     *
+     * @param  array{zone: string, start: CarbonImmutable, end: CarbonImmutable, first: string|null, branch: string|null}  $window
      * @return list<array{
+     *     day: string,
      *     confirmed_by: string,
      *     display_name: string|null,
      *     method: string,
@@ -174,16 +222,18 @@ final class OrderDeskCashReportController
      *     amount_minor_sum: int
      * }>
      */
-    private function takings(string $organisationId, CarbonImmutable $date, ?string $branchId): array
+    private function takings(string $organisationId, array $window): array
     {
         // Assembled in SQL so the value and the sort agree, exactly as
         // `OrderDeskDriverIndexController` assembles it. `NULLIF` turns both
         // "no profile at all" and the empty string a blank pair of names would
         // produce into one null the wire can carry honestly.
         $name = "nullif(trim(coalesce(user_profiles.given_name, '') || ' ' || coalesce(user_profiles.family_name, '')), '')";
-
+        // The zone is a binding, so the day is grouped and sorted by its alias:
+        // the same expression twice would be two parameters PostgreSQL cannot match.
         $query = DB::table('order_payment_receipts')
-            ->select([
+            ->selectRaw('(order_payment_receipts.confirmed_at at time zone ?)::date as day', [$window['zone']])
+            ->addSelect([
                 'order_payment_receipts.confirmed_by',
                 'order_payment_receipts.method',
                 'order_payment_receipts.currency_code',
@@ -193,8 +243,9 @@ final class OrderDeskCashReportController
             ->selectRaw('sum(order_payment_receipts.amount_minor) as amount_minor_sum')
             ->leftJoin('user_profiles', 'user_profiles.user_id', '=', 'order_payment_receipts.confirmed_by')
             ->where('order_payment_receipts.organisation_id', $organisationId)
-            ->where('order_payment_receipts.confirmed_at', '>=', $date)
-            ->where('order_payment_receipts.confirmed_at', '<', $date->addDay())
+            ->where('order_payment_receipts.confirmed_at', '>=', $window['start'])
+            ->where('order_payment_receipts.confirmed_at', '<', $window['end'])
+            ->groupBy('day')
             ->groupBy([
                 'order_payment_receipts.confirmed_by',
                 'order_payment_receipts.method',
@@ -204,15 +255,16 @@ final class OrderDeskCashReportController
             // by too. It is functionally dependent on `confirmed_by` and adds no
             // rows; PostgreSQL cannot prove that across a join, so it is stated.
             ->groupByRaw($name)
-            // Named agents first, nameless last, then a total order over the two
-            // remaining key columns so that two identical requests cannot return
-            // the same figures in two orders.
+            // Day by day, then named agents first, nameless last, then a total
+            // order over the two remaining key columns so that two identical
+            // requests cannot return the same figures in two orders.
+            ->orderBy('day')
             ->orderByRaw('lower('.$name.') asc nulls last')
             ->orderBy('order_payment_receipts.confirmed_by')
             ->orderBy('order_payment_receipts.method')
             ->orderBy('order_payment_receipts.currency_code');
 
-        $this->applyBranch($query, $branchId);
+        $this->applyTill($query, TillBranches::orderIn('order_payment_receipts.order_id'), $window);
 
         $rows = [];
 
@@ -220,6 +272,7 @@ final class OrderDeskCashReportController
             $displayName = $row->display_name;
 
             $rows[] = [
+                'day' => (string) $row->day,
                 'confirmed_by' => (string) $row->confirmed_by,
                 'display_name' => is_string($displayName) && $displayName !== '' ? $displayName : null,
                 'method' => (string) $row->method,
@@ -233,34 +286,90 @@ final class OrderDeskCashReportController
     }
 
     /**
-     * Narrow to the site that cooked it.
+     * What came off those takings in the window: refunds and corrections that
+     * completed, couriers' fees, prepaid runs' courier fees the kitchen paid, and
+     * hand-ins that came up short.
      *
-     * A join rather than a column, because a receipt has no branch — see the
-     * class note — and **conditional**, because an unconditional join would make
-     * every unnarrowed request pay for a table it does not read. `whereIn` over a
-     * subquery rather than a `join` on `orders`: `order_payment_receipts.order_id`
-     * is not unique, so a join is safe here in principle, but a subquery cannot
-     * be made to fan out by a later edit and this method's whole job is to add a
-     * predicate rather than a source of rows.
+     * Beside the rows rather than netted into them, so a row stays what somebody
+     * was handed and the reader can see each deduction. A hand-in is narrowed by
+     * its own branch, the till it went into.
      *
-     * The subquery carries **no organisation predicate of its own**, and does not
-     * need one: it can only ever narrow. The outer query is already scoped to
-     * this organisation's receipts, and a receipt points at an order of the same
-     * organisation by construction, so a caller naming another kitchen's branch
-     * identifier gets an empty intersection rather than a leak — the filter can
-     * remove rows from the answer and can never add one.
+     * @param  array{zone: string, start: CarbonImmutable, end: CarbonImmutable, first: string|null, branch: string|null}  $window
+     * @return list<array{day: string, kind: string, display_name: string|null, currency_code: string, entry_count: int, amount_minor_sum: int}>
      */
-    private function applyBranch(QueryBuilder $query, ?string $branchId): void
+    private function adjustments(string $organisationId, array $window): array
     {
-        if ($branchId === null || $branchId === '') {
-            return;
+        $name = "nullif(trim(coalesce(user_profiles.given_name, '') || ' ' || coalesce(user_profiles.family_name, '')), '')";
+        $refunds = DB::table('order_refunds')
+            ->selectRaw('(order_refunds.decided_at at time zone ?)::date as day', [$window['zone']])
+            ->addSelect(['order_refunds.kind', 'order_refunds.currency_code'])
+            ->selectRaw($name.' as display_name')
+            ->selectRaw('count(*) as entry_count')
+            ->selectRaw('sum(order_refunds.amount_minor) as amount_minor_sum')
+            ->leftJoin('user_profiles', 'user_profiles.user_id', '=', 'order_refunds.requested_by')
+            ->where('order_refunds.organisation_id', $organisationId)
+            ->where('order_refunds.status', 'completed')
+            ->where('order_refunds.decided_at', '>=', $window['start'])
+            ->where('order_refunds.decided_at', '<', $window['end'])
+            ->groupBy('day')
+            ->groupBy(['order_refunds.kind', 'order_refunds.currency_code'])
+            ->groupByRaw($name);
+
+        $this->applyTill($refunds, TillBranches::orderIn('order_refunds.order_id'), $window);
+
+        $rows = [...$refunds->get()];
+
+        $settlements = DB::table('cash_settlements')
+            ->leftJoin('user_profiles', 'user_profiles.user_id', '=', 'cash_settlements.driver_user_id')
+            ->where('cash_settlements.organisation_id', $organisationId)
+            ->where('cash_settlements.recorded_at', '>=', $window['start'])
+            ->where('cash_settlements.recorded_at', '<', $window['end']);
+
+        $this->applyTill($settlements, TillBranches::rowIn('cash_settlements.branch_id'), $window);
+
+        // `courier_expense` is a prepaid run's fee: the kitchen paid it, and it was
+        // never part of a hand-in, so it is listed beside the fees that were.
+        foreach (['courier_fee' => 'fee_minor', 'courier_expense' => 'expense_minor', 'short' => 'short_minor'] as $kind => $column) {
+            $rows = [...$rows, ...(clone $settlements)
+                ->selectRaw('(cash_settlements.recorded_at at time zone ?)::date as day', [$window['zone']])
+                ->selectRaw('? as kind', [$kind])
+                ->addSelect('cash_settlements.currency_code')
+                ->selectRaw('coalesce(cash_settlements.courier_name, '.$name.') as display_name')
+                ->selectRaw('count(*) as entry_count')
+                ->selectRaw('sum(cash_settlements.'.$column.') as amount_minor_sum')
+                ->where('cash_settlements.'.$column, '>', 0)
+                ->groupBy('day')
+                ->groupBy('cash_settlements.currency_code', 'cash_settlements.courier_name')
+                ->groupByRaw($name)
+                ->get()];
         }
 
-        $query->whereIn('order_payment_receipts.order_id', function (QueryBuilder $orders) use ($branchId): void {
-            $orders->select('orders.id')
-                ->from('orders')
-                ->where('orders.branch_id', $branchId);
-        });
+        $adjustments = array_map(static fn (object $row): array => [
+            'day' => (string) $row->day,
+            'kind' => (string) $row->kind,
+            'display_name' => is_string($row->display_name) && $row->display_name !== '' ? $row->display_name : null,
+            'currency_code' => (string) $row->currency_code,
+            'entry_count' => (int) $row->entry_count,
+            'amount_minor_sum' => (int) $row->amount_minor_sum,
+        ], $rows);
+
+        usort($adjustments, static fn (array $left, array $right): int => [$left['day'], $left['kind'], (string) $left['display_name']] <=> [$right['day'], $right['kind'], (string) $right['display_name']]);
+
+        return $adjustments;
+    }
+
+    /**
+     * Narrow to one till, when one is named. `$predicate` is a {@see TillBranches}
+     * clause, which binds the first branch and then the till's branch.
+     *
+     * @param  literal-string  $predicate
+     * @param  array{zone: string, start: CarbonImmutable, end: CarbonImmutable, first: string|null, branch: string|null}  $window
+     */
+    private function applyTill(QueryBuilder $query, string $predicate, array $window): void
+    {
+        if ($window['branch'] !== null) {
+            $query->whereRaw($predicate, [$window['first'], $window['branch']]);
+        }
     }
 
     /**
@@ -279,6 +388,7 @@ final class OrderDeskCashReportController
      * therefore as deterministic as they are.
      *
      * @param  list<array{
+     *     day: string,
      *     confirmed_by: string,
      *     display_name: string|null,
      *     method: string,

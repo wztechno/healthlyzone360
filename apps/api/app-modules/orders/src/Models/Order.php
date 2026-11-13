@@ -7,11 +7,15 @@ namespace Healthy360\Orders\Models;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Customers\Enums\AllergenSeverity;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Orders\Database\Factories\OrderFactory;
+use Healthy360\Orders\Enums\CancellationDisposition;
 use Healthy360\Orders\Enums\CancellationReason;
 use Healthy360\Orders\Enums\FulfilmentType;
+use Healthy360\Orders\Enums\OrderRefundKind;
+use Healthy360\Orders\Enums\OrderRefundStatus;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Enums\PaymentMethod;
 use Healthy360\Organisations\Models\Organisation;
@@ -23,6 +27,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 /**
  * What one customer bought from one kitchen.
@@ -43,6 +48,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * The amounts are `Internal`, not `Confidential`. What a customer was charged
  * is printed on their own receipt; what the food cost the kitchen is the
  * confidential figure, and no column here carries it.
+ *
+ * The allergy columns are `SpecialCategory`: health data, so a staff read records
+ * a purpose of use (`OrderPresenter::kitchen()`) and closing an account clears
+ * them (`OrderSnapshotRedaction`).
  *
  * @property string $id
  * @property string $order_number
@@ -81,8 +90,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property CarbonImmutable|null $fulfilled_at
  * @property CarbonImmutable|null $cancelled_at
  * @property CancellationReason|null $cancellation_reason
+ * @property CancellationDisposition|null $cancellation_disposition returned or wasted, on a cancellation after cooking started; null restored the stock
+ * @property string|null $cancelled_by the user who cancelled it; null for a system cancel
  * @property string|null $created_by
  * @property string|null $placed_on_behalf_by
+ * @property list<array{allergen_code: string, severity: string, notes: string|null, conflicts_with_line: list<string>}>|null $allergy_snapshot every allergy declared at placement; null when none was
+ * @property string|null $allergy_note free text taken at the desk
+ * @property CarbonImmutable|null $allergy_acknowledged_at
+ * @property string|null $allergy_acknowledged_by the cashier; null when the customer acknowledged it
+ * @property bool $portions_counted placing this took portions off the calendar, so cancelling gives them back
  * @property int $lock_version
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
@@ -91,8 +107,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property-read CustomerAccount|null $customerAccount
  */
 #[Classified(DataClassification::Confidential, 'delivery_label', 'delivery_line_one', 'delivery_line_two', 'delivery_city', 'delivery_building', 'delivery_floor', 'delivery_apartment', 'delivery_directions')]
-#[Classified(DataClassification::Internal, 'order_number', 'subtotal_minor', 'delivery_fee_minor', 'total_minor', 'status', 'fulfilment_type', 'delivery_window_code', 'requested_delivery_date')]
+#[Classified(DataClassification::Internal, 'order_number', 'subtotal_minor', 'delivery_fee_minor', 'total_minor', 'status', 'fulfilment_type', 'delivery_window_code', 'requested_delivery_date', 'portions_counted')]
 #[Classified(DataClassification::Public, 'delivery_area_name_en', 'delivery_area_name_ar')]
+#[Classified(DataClassification::SpecialCategory, 'allergy_snapshot', 'allergy_note', 'allergy_acknowledged_at', 'allergy_acknowledged_by')]
 class Order extends BaseModel
 {
     /** @use HasFactory<OrderFactory> */
@@ -128,6 +145,7 @@ class Order extends BaseModel
             'fulfilment_type' => FulfilmentType::class,
             'payment_method' => PaymentMethod::class,
             'cancellation_reason' => CancellationReason::class,
+            'cancellation_disposition' => CancellationDisposition::class,
             'subtotal_minor' => 'integer',
             'delivery_fee_minor' => 'integer',
             'total_minor' => 'integer',
@@ -138,6 +156,8 @@ class Order extends BaseModel
             'ready_at' => 'immutable_datetime',
             'fulfilled_at' => 'immutable_datetime',
             'cancelled_at' => 'immutable_datetime',
+            'allergy_snapshot' => 'array',
+            'allergy_acknowledged_at' => 'immutable_datetime',
             'lock_version' => 'integer',
         ];
     }
@@ -159,6 +179,21 @@ class Order extends BaseModel
     public function paymentReceipts(): HasMany
     {
         return $this->hasMany(OrderPaymentReceipt::class);
+    }
+
+    /**
+     * What this order has really received: its receipts, less any corrected as a
+     * mistake. A refund does not come off, because that money did arrive and the
+     * order stays settled. `order_refunds` is read as a table for the reason
+     * `OrderPaymentReceipt` gives for having no ambient scope.
+     */
+    public function receivedMinor(): int
+    {
+        return (int) $this->paymentReceipts()->sum('amount_minor') - (int) DB::table('order_refunds')
+            ->where('order_id', $this->getKey())
+            ->where('kind', OrderRefundKind::ReceiptCorrection->value)
+            ->where('status', OrderRefundStatus::Completed->value)
+            ->sum('amount_minor');
     }
 
     /**
@@ -231,5 +266,19 @@ class Order extends BaseModel
     public function isOpen(): bool
     {
         return $this->status->isOpen();
+    }
+
+    /**
+     * Whether anybody on this order described a reaction as life-threatening.
+     */
+    public function hasSevereAllergy(): bool
+    {
+        foreach ($this->allergy_snapshot ?? [] as $allergy) {
+            if ($allergy['severity'] === AllergenSeverity::Anaphylaxis->value) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

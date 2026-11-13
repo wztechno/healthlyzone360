@@ -5,6 +5,8 @@ export {
     RAMPS,
     SEMANTIC_ROLES,
     THEMES,
+    STAGE_INK_NAMES,
+    TINT_NAMES,
     brand,
     chartColours,
     gradients,
@@ -20,6 +22,9 @@ export {
     themeDark,
     themeLight,
     themes,
+    tintDark,
+    tintLight,
+    stageInks,
 } from './colour.ts';
 export type {
     ChartColours,
@@ -36,6 +41,9 @@ export type {
     ThemeColours,
     ThemeName,
     ThemeTokens,
+    TintName,
+    TintPair,
+    StageInkName,
 } from './colour.ts';
 
 export {
@@ -44,6 +52,7 @@ export {
     cardWidth,
     controlGap,
     controlHeight,
+    deskHeight,
     controlPaddingX,
     fieldWidth,
     iconSize,

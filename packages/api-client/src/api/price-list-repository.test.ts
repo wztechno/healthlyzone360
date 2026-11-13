@@ -143,3 +143,94 @@ describe('getPriceList', () => {
         expect(paths.some((path) => path.startsWith('/catalogue/items/'))).toBe(false);
     });
 });
+
+describe('listPriceLists', () => {
+    it('draws every list whole from one index request', async () => {
+        const paths: string[] = [];
+        const transport = createTransport({
+            baseUrl: 'https://api.example',
+            tokenStore: createMemoryTokenStore('token'),
+            fetch: async (input) => {
+                const url = input instanceof Request ? input.url : String(input);
+                const path = decodeURIComponent(url.replace('https://api.example/api/v1', ''));
+                paths.push(path);
+                const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
+
+                if (path === '/catalogue/sales-channels') return json({ data: [] });
+                if (path.startsWith('/catalogue/price-lists?')) {
+                    return json({
+                        data: [
+                            {
+                                ...PRICE_LIST,
+                                entries: [entry('e1', MEAL_UUID, 'meal', null)],
+                                channels: [],
+                            },
+                        ],
+                        meta: { has_more: false, next_cursor: null },
+                    });
+                }
+                return new Response(JSON.stringify({ error: { code: 'request.invalid' } }), {
+                    status: 500,
+                });
+            },
+        });
+
+        const page = await createApiKitchenAdminReads(transport).listPriceLists();
+
+        expect(page.items[0]?.entries.map((row) => row.item)).toEqual([
+            { kind: 'meal', mealId: MEAL_UUID },
+        ]);
+        // The index carries entries and channels; no per-list detail or entries read follows.
+        expect(paths.filter((path) => path.startsWith('/catalogue/price-lists'))).toEqual([
+            '/catalogue/price-lists?include=entries,channels',
+        ]);
+    });
+
+    it('narrows by one status on the server, and answers no rows for a state a list never has', async () => {
+        const paths: string[] = [];
+        const transport = createTransport({
+            baseUrl: 'https://api.example',
+            tokenStore: createMemoryTokenStore('token'),
+            fetch: async (input) => {
+                const url = input instanceof Request ? input.url : String(input);
+                const path = decodeURIComponent(url.replace('https://api.example/api/v1', ''));
+                paths.push(path);
+                return new Response(
+                    JSON.stringify({
+                        data: [{ ...PRICE_LIST, confirmed_entries_count: 0 }],
+                        meta: {
+                            has_more: false,
+                            next_cursor: null,
+                            status_counts: { draft: 1, active: 2, archived: 3 },
+                            unpriced_count: 1,
+                            agreement_count: 0,
+                        },
+                    }),
+                    { status: 200 },
+                );
+            },
+        });
+        const reads = createApiKitchenAdminReads(transport);
+
+        const published = await reads.listPriceLists({
+            statuses: ['published'],
+            withoutEntries: true,
+        });
+        const review = await reads.listPriceLists({
+            statuses: ['review_required'],
+            withoutEntries: true,
+        });
+
+        expect(paths).toEqual(['/catalogue/price-lists?status=active', '/catalogue/price-lists']);
+        expect(published.items).toHaveLength(1);
+        expect(review.items).toEqual([]);
+        expect(review.totalCount).toBe(0);
+        // The figures still come back, and the mix carries the archived lists as retired.
+        expect(review.figures?.statusCounts).toEqual({
+            draft: 1,
+            review_required: 0,
+            published: 2,
+            retired: 3,
+        });
+    });
+});

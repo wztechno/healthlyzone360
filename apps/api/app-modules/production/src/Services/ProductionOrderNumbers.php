@@ -19,7 +19,8 @@ use RuntimeException;
  * order** — what the kitchen plans and cooks against — and is minted at confirm.
  * The **lot** (`2609250077`, shown `260925-007-7`) names what the batch *made*:
  * it is the number on the label and inside its barcode, and it is minted at
- * settlement, once usable units reach a shelf.
+ * start, dated the branch's day (owner decision, 2026-11-03; D-145 minted it at
+ * settlement). A later reported production date does not re-date it.
  *
  * ## The reference
  *
@@ -44,7 +45,7 @@ use RuntimeException;
  *
  * ## The lot is the number on the label
  *
- * `YYMMDD` of the production date, a three-digit sequence for that organisation
+ * `YYMMDD` of the day the batch started, a three-digit sequence for that organisation
  * and day, and a GS1 mod-10 check digit. **Sequential, unlike the reference**,
  * because a lot is read by people holding a tray: the date is legible in it, and
  * a mistyped digit fails the check instead of opening somebody else's batch. All
@@ -100,13 +101,14 @@ class ProductionOrderNumbers
     }
 
     /**
-     * The next lot for this organisation and production day.
+     * The next lot for this organisation and day.
      *
-     * **Call it inside the settlement transaction, and last.** The advisory lock
-     * is transaction-scoped: it serialises every settlement minting on the same
-     * (organisation, day) until commit, so two cooks completing at the same
-     * instant cannot both read `…006` and both write `…007`. It is taken after the
-     * stock locks, so it cannot close a cycle with them. One statement, rather
+     * **Call it inside a transaction, after the batch's own row lock** — start's,
+     * or a legacy settlement's, last. The advisory lock is transaction-scoped: it
+     * serialises every minting on the same (organisation, day) until commit, so
+     * two cooks starting at the same instant cannot both read `…006` and both
+     * write `…007`. A settlement takes it after the stock locks, and start takes
+     * no stock lock, so it cannot close a cycle with them. One statement, rather
      * than the purchase order's savepoint-and-retry loop, is what lets the lot
      * ride in the same `save()` as the rest of the outcome.
      * `production_orders_lot_number_unique` is the backstop, not the mechanism.
@@ -114,6 +116,9 @@ class ProductionOrderNumbers
      * `hashtext` folds the key to 32 bits, so two unrelated (organisation, day)
      * pairs can share a lock. That costs a moment's wait, never a wrong number:
      * the read below is still scoped to its own organisation and day.
+     *
+     * The day is read off the lot's own `YYMMDD`, not `production_date`: a lot is
+     * minted at start, before a batch has a production date.
      *
      * @throws RuntimeException when the day's sequence is exhausted
      */
@@ -126,7 +131,7 @@ class ProductionOrderNumbers
         $highest = ProductionOrder::query()
             ->withoutGlobalScopes()
             ->where('organisation_id', $organisationId)
-            ->where('production_date', $day)
+            ->where('lot_number', 'like', $productionDate->format('ymd').'%')
             ->max('lot_number');
 
         $sequence = is_string($highest) ? (int) substr($highest, 6, 3) + 1 : 1;
@@ -152,6 +157,14 @@ class ProductionOrderNumbers
     }
 
     /**
+     * The lot as people read it, `260925-007-7`: the app's `formatLot()`.
+     */
+    public static function displayLot(string $lot): string
+    {
+        return substr($lot, 0, 6).'-'.substr($lot, 6, 3).'-'.substr($lot, 9);
+    }
+
+    /**
      * The GS1 mod-10 check digit — the one a GTIN carries.
      *
      * Weights 3, 1, 3, … from the **right**, so the same function serves any
@@ -165,18 +178,22 @@ class ProductionOrderNumbers
     }
 
     /**
-     * The GS1-128 element string, human-readable: `(11)YYMMDD[(17)YYMMDD](10)<lot>`.
+     * The GS1-128 element string, human-readable: `(11)YYMMDD(17)YYMMDD(10)<lot>`.
      *
      * Fixed-length AIs first and the variable-length (10) **last**, so no FNC1
      * separator is ever needed inside the symbol — separators are what
-     * keyboard-wedge scanners mangle. `(11)` repeats the lot's own date because
-     * that is the AI a reader looks for; drop it here if a label printer's head
-     * turns out narrower than the 50 mm of bars it costs (D-146).
+     * keyboard-wedge scanners mangle. `(11)` is the production date, the day the
+     * label prints as "Made on", which is not always the lot's own day: a lot is
+     * dated the day the batch started. The lot's day stands in only for a batch
+     * with no production date. Drop `(11)` here if a label printer's head turns
+     * out narrower than the 50 mm of bars it costs (D-146).
+     *
+     * The use-by is required: there is no label without one.
      */
-    public static function barcode(string $lot, ?CarbonImmutable $expiry): string
+    public static function barcode(string $lot, ?CarbonImmutable $madeOn, CarbonImmutable $expiry): string
     {
-        return '(11)'.substr($lot, 0, 6)
-            .($expiry === null ? '' : '(17)'.$expiry->format('ymd'))
+        return '(11)'.($madeOn === null ? substr($lot, 0, 6) : $madeOn->format('ymd'))
+            .'(17)'.$expiry->format('ymd')
             .'(10)'.$lot;
     }
 

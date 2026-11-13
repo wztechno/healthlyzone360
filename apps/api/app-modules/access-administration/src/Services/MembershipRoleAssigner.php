@@ -8,6 +8,7 @@ use App\Models\User;
 use Healthy360\AccessControl\Models\MembershipRole;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Services\PermissionCache;
+use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -28,7 +29,7 @@ use Illuminate\Support\Facades\DB;
  * authority nobody granted them.
  *
  * Replace-whole-set is also the house idiom already (`setRecipeLines`,
- * `replacePlanMenu`, `replaceSupplierContacts`), and it is the only shape that
+ * `replaceSupplierContacts`), and it is the only shape that
  * can carry `starts_at`/`expires_at` without a second endpoint for the bounds.
  *
  * ## The time bounds are honoured, and the lock-out guard ignores them
@@ -59,6 +60,7 @@ final readonly class MembershipRoleAssigner
         private AccessAdministrationQuery $query,
         private GrantBoundary $boundary,
         private PermissionCache $cache,
+        private AuditRecorder $audit,
     ) {}
 
     /**
@@ -88,6 +90,12 @@ final readonly class MembershipRoleAssigner
             // live in a child table with no version of their own to compare.
             $this->bumpMembership($membership, $expectedLockVersion);
 
+            $previousRoleIds = MembershipRole::withoutTenancy()
+                ->where('membership_id', $membership->getKey())
+                ->pluck('role_id')
+                ->map(strval(...))
+                ->all();
+
             foreach ($assignments as $assignment) {
                 MembershipRole::withoutTenancy()->updateOrCreate(
                     ['membership_id' => $membership->getKey(), 'role_id' => $assignment['role_id']],
@@ -107,12 +115,35 @@ final readonly class MembershipRoleAssigner
             $withdrawn->delete();
 
             $this->cache->bumpVersion((string) $membership->organisation_id);
+
+            // Role codes rather than names, under keys that avoid `code`, which
+            // the recorder redacts wherever it appears in a key.
+            $this->audit->record(
+                'membership.roles_replaced',
+                actorUserId: (string) $actor->getKey(),
+                subjectType: 'organisation_membership',
+                subjectId: (string) $membership->getKey(),
+                metadata: [
+                    'member_user_id' => (string) $membership->user_id,
+                    'previous_roles' => $this->codesOf($previousRoleIds),
+                    'roles' => $this->codesOf($roleIds),
+                ],
+            );
         });
     }
 
     /**
-     * Every named role must be one this organisation may assign — its own, or a
-     * platform template.
+     * @param  array<int, string>  $roleIds
+     * @return list<string>
+     */
+    private function codesOf(array $roleIds): array
+    {
+        return array_values(Role::withoutTenancy()->whereIn('id', $roleIds)->orderBy('code')->pluck('code')->map(strval(...))->all());
+    }
+
+    /**
+     * Every named role must be one this organisation owns. Platform templates
+     * are blueprints, never assigned (`OrganisationRoles::provision()`).
      *
      * Resolved through `Role::query()` rather than `withoutTenancy()`, so the
      * global scope is what refuses another tenant's role and a cross-tenant
@@ -130,7 +161,7 @@ final readonly class MembershipRoleAssigner
             return;
         }
 
-        $assignable = Role::query()->whereIn('id', $roleIds)->pluck('id')->map(strval(...))->all();
+        $assignable = Role::query()->whereIn('id', $roleIds)->whereNotNull('organisation_id')->pluck('id')->map(strval(...))->all();
         $refused = array_values(array_diff($roleIds, $assignable));
 
         if ($refused !== []) {

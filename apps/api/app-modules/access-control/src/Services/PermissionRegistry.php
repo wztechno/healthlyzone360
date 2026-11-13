@@ -28,6 +28,12 @@ final class PermissionRegistry
     public const string CODE_FORMAT = '/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/';
 
     /**
+     * Template roles no job on the owner's list maps to (roles for real jobs,
+     * 2 November 2026). {@see self::isHiddenRole()} says what happens to them.
+     */
+    public const array RETIRED_TEMPLATE_CODES = ['organisation_admin', 'branch_manager', 'member', 'commercial_manager'];
+
+    /**
      * The registered permission set — organisation codes then platform codes,
      * keyed by code. This is what the seeder writes and what a Gate ability is
      * matched against.
@@ -278,6 +284,33 @@ final class PermissionRegistry
             // kitchen may reasonably want the first without the second.
             'customer.create_on_behalf_organisation' => ['domain' => 'customer', 'description' => 'Open a customer account at the order desk and record its contact details and delivery addresses'],
 
+            // P0 Stage 3. Counting what a driver or courier hands in is the
+            // cashier's job as much as a manager's, and a code of its own
+            // because the cash report's manage code is about moving orders.
+            'order.settle_cash_organisation' => ['domain' => 'order', 'description' => 'Record cash handed in by drivers and couriers'],
+
+            // P0 Stage 3. A manager refunds; above the kitchen's limit the owner
+            // decides, and the owner alone, so this code stops short of the
+            // administrator too.
+            'order.approve_refund_organisation' => ['domain' => 'order', 'description' => "Approve or reject a refund above the kitchen's limit"],
+
+            // P0 Stage 1. A fifth order code, and the one that sits above the
+            // others. `order.manage_organisation` is the desk's: it moves an
+            // order nobody has started on. Once food is being cooked, cancelling
+            // spends real ingredients and asks whether they came back or were
+            // wasted, which is a manager's call. The same people are who an
+            // ignored or failed order reaches, so holding this code is also what
+            // makes someone a recipient of staff alerts.
+            'order.supervise_organisation' => ['domain' => 'order', 'description' => 'Cancel orders once cooking has started and receive order alerts'],
+
+            // P1 Wave A. A sixth order code, and the one the cook's job needed.
+            // The display used to sit on the order book's read code and its
+            // Start and Ready buttons on `order.manage_organisation`, so a chef
+            // or a cook could either not see the wall, or also take cash and
+            // cancel dinners. This is the wall alone: read the open tickets with
+            // the money and the address taken off, press Start, press Ready.
+            'order.prepare_organisation' => ['domain' => 'order', 'description' => 'Read the kitchen display, start cooking and mark orders ready'],
+
             // B1 (quotations). The buyer side of a quotation — drafting
             // lines, submitting, accepting, declining — needs no permission
             // beyond organisation membership (B7: org-shared server drafts).
@@ -310,6 +343,10 @@ final class PermissionRegistry
             // count stock without ever seeing its value; the purchase cost,
             // valuation and COGS that INV1.1 and INV1.2 add all sit behind this.
             'inventory.view_costs_organisation' => ['domain' => 'inventory', 'description' => 'View inventory costs: purchase prices, stock valuation and cost of goods sold'],
+
+            // P1 Wave C. Receiving and pricing a delivery stay where they were; agreeing
+            // to a price rise and saying an invoice was paid are the money side's.
+            'inventory.approve_payables_organisation' => ['domain' => 'inventory', 'description' => 'Approve a delivery price above the limit and mark supplier invoices paid'],
 
             // SUP3. A fourth inventory code, and the split is between recording
             // what arrived and deciding what to spend. `manage` is the receiving
@@ -490,7 +527,7 @@ final class PermissionRegistry
      * an organisation holds every permission an organisation has, which is not
      * the same thing as every permission that exists.
      *
-     * @return array<string, array{name_en: string, name_ar: string, permissions: list<string>}>
+     * @return array<string, array{name_en: string, name_ar: string, description_en: string, description_ar: string, permissions: list<string>}>
      */
     public static function templateRoles(): array
     {
@@ -507,8 +544,10 @@ final class PermissionRegistry
 
         return [
             'organisation_owner' => [
-                'name_en' => 'Organisation owner',
-                'name_ar' => 'مالك المنشأة',
+                'name_en' => 'Owner',
+                'name_ar' => 'المالك',
+                'description_en' => 'Owns the business. Sees and decides everything, including who works here.',
+                'description_ar' => 'يملك النشاط التجاري. يرى كل شيء ويقرّر كل شيء، بما في ذلك من يعمل هنا.',
                 'permissions' => $all,
             ],
             /**
@@ -544,20 +583,45 @@ final class PermissionRegistry
             'organisation_admin' => [
                 'name_en' => 'Organisation administrator',
                 'name_ar' => 'مدير المنشأة',
-                'permissions' => array_values(array_diff($all, ['organisation.update_current'])),
+                'description_en' => 'Runs everything for the owner, except the legal details of the business.',
+                'description_ar' => 'يدير كل شيء نيابة عن المالك، باستثناء البيانات القانونية للنشاط التجاري.',
+                'permissions' => array_values(array_diff($all, ['organisation.update_current', 'order.approve_refund_organisation'])),
             ],
             'branch_manager' => [
                 'name_en' => 'Branch manager',
                 'name_ar' => 'مدير الفرع',
+                'description_en' => 'Runs one branch day to day: its orders, the kitchen display and the counter.',
+                'description_ar' => 'يدير فرعاً واحداً يوماً بيوم: طلباته وشاشة المطبخ والكاونتر.',
                 'permissions' => [
                     'branch.view_current',
                     'branch.manage_current',
                     'membership.view_organisation',
+
+                    // P1 Wave A. A manager who could not open the kitchen display
+                    // was the audit's finding. A branch manager runs the service,
+                    // so the wall, the order book, the counter and the decisions
+                    // about an order already being cooked are theirs, as are the
+                    // reads those screens stand on. The kitchen's range, prices and
+                    // recipes stay with `kitchen_manager`.
+                    'organisation.view_current',
+                    'order.view_organisation',
+                    'order.manage_organisation',
+                    'order.prepare_organisation',
+                    'order.supervise_organisation',
+                    'order.settle_cash_organisation',
+                    'order.view_customer_contact_organisation',
+                    'order.create_on_behalf_organisation',
+                    'customer.create_on_behalf_organisation',
+                    'catalogue.view_organisation',
+                    'inventory.view_organisation',
+                    'production.view_organisation',
                 ],
             ],
             'member' => [
                 'name_en' => 'Member',
                 'name_ar' => 'عضو',
+                'description_en' => 'Can sign in and see this organisation. Nothing else.',
+                'description_ar' => 'يمكنه تسجيل الدخول ورؤية هذه المنشأة فقط.',
                 'permissions' => array_merge([
                     'organisation.view_current',
                 ], $ownScope),
@@ -577,8 +641,10 @@ final class PermissionRegistry
             // through a bespoke organisation-scoped role instead
             // (PlatformOperatorSeeder writes it).
             'kitchen_manager' => [
-                'name_en' => 'Kitchen manager',
-                'name_ar' => 'مدير المطبخ',
+                'name_en' => 'Manager',
+                'name_ar' => 'المدير',
+                'description_en' => 'Runs the kitchen: orders, recipes, prices, stock, production and delivery. Decides about orders already being cooked.',
+                'description_ar' => 'يدير المطبخ: الطلبات والوصفات والأسعار والمخزون والإنتاج والتوصيل. ويقرّر بشأن الطلبات التي بدأ طهيها.',
                 'permissions' => [
                     'catalogue.view_organisation',
                     'catalogue.manage_organisation',
@@ -627,6 +693,18 @@ final class PermissionRegistry
                     'order.create_on_behalf_organisation',
                     'customer.create_on_behalf_organisation',
                     'order.view_customer_contact_organisation',
+
+                    // P0 Stage 1. The person the desk escalates to is the person
+                    // who decides about an order already being cooked, and who
+                    // hears about one nobody accepted.
+                    'order.supervise_organisation',
+
+                    // P0 Stage 3. The cash the cashier counts, for when no cashier is on.
+                    'order.settle_cash_organisation',
+
+                    // P1 Wave A. The wall's own code, beside the manage code that
+                    // already passes it, so a manager's role reads what it does.
+                    'order.prepare_organisation',
 
                     // B1 (quotations). The kitchen manager reads and prices
                     // what corporate buyers submit against this kitchen's
@@ -691,6 +769,8 @@ final class PermissionRegistry
             'kitchen_chef' => [
                 'name_en' => 'Chef',
                 'name_ar' => 'رئيس الطهاة',
+                'description_en' => 'Writes recipes and their costs, runs production and stock, and works the kitchen display.',
+                'description_ar' => 'يكتب الوصفات وتكاليفها، ويدير الإنتاج والمخزون، ويعمل على شاشة المطبخ.',
                 'permissions' => [
                     'catalogue.view_organisation',
                     'catalogue.manage_organisation',
@@ -716,6 +796,10 @@ final class PermissionRegistry
                     // a batch was worth.
                     'production.view_organisation',
                     'production.manage_organisation',
+
+                    // P1 Wave A. The wall, not the order book: the chef starts and
+                    // finishes tickets and still reads no customer and no total.
+                    'order.prepare_organisation',
                 ],
             ],
 
@@ -724,8 +808,10 @@ final class PermissionRegistry
             // dish — and no money at all: neither costs (K1.3) nor prices
             // (K1.5) reach this role.
             'kitchen_staff' => [
-                'name_en' => 'Kitchen staff',
-                'name_ar' => 'طاقم المطبخ',
+                'name_en' => 'Cook',
+                'name_ar' => 'الطاهي',
+                'description_en' => 'Reads recipes, stock and production batches, and starts and finishes orders on the kitchen display. Sees no money.',
+                'description_ar' => 'يقرأ الوصفات والمخزون ودفعات الإنتاج، ويبدأ الطلبات وينهيها على شاشة المطبخ. لا يرى أي مبالغ.',
                 'permissions' => [
                     'catalogue.view_organisation',
                     'recipe.view_organisation',
@@ -736,6 +822,16 @@ final class PermissionRegistry
                     // view code and neither `inventory.manage_organisation` nor
                     // `inventory.view_costs_organisation`.
                     'inventory.view_organisation',
+
+                    // P1 Wave A. A cook works the wall. `order.prepare_organisation`
+                    // serves it with the money taken off, so this role still reads
+                    // no price, which is what the comment above promises.
+                    'order.prepare_organisation',
+
+                    // Owner, 8 Nov 2026. A cook opens the batch they are
+                    // cooking and records its core temperature. The view code
+                    // only: money on a batch needs `production.view_costs_organisation`.
+                    'production.view_organisation',
                 ],
             ],
 
@@ -768,6 +864,8 @@ final class PermissionRegistry
             'commercial_manager' => [
                 'name_en' => 'Commercial manager',
                 'name_ar' => 'المدير التجاري',
+                'description_en' => 'Decides what is sold and at what price, and reads what it costs.',
+                'description_ar' => 'يقرّر ما يُباع وبأي سعر، ويطّلع على التكلفة.',
                 'permissions' => [
                     'catalogue.view_organisation',
                     'catalogue.publish_organisation',
@@ -898,8 +996,10 @@ final class PermissionRegistry
              * behind it, and has no business reading the staff list.
              */
             'procurement_manager' => [
-                'name_en' => 'Purchasing manager',
-                'name_ar' => 'مدير المشتريات',
+                'name_en' => 'Storekeeper or buyer',
+                'name_ar' => 'أمين المخزن أو المشتري',
+                'description_en' => 'Keeps the stock, receives deliveries and orders from suppliers.',
+                'description_ar' => 'يحفظ المخزون ويستلم البضائع ويطلب من الموردين.',
                 'permissions' => [
                     'organisation.view_current',
 
@@ -944,12 +1044,8 @@ final class PermissionRegistry
              * publish code stay absent.
              *
              * `audit.view_organisation` is the one code no other operating role
-             * holds, and it opens nothing today: no route is gated on it. That
-             * is how this registry has always treated a proposal —
-             * `subscription.view_organisation` "had no endpoint until the
-             * schedule projection" and was granted before it did — and a
-             * finance function that cannot read who changed what is not a
-             * finance function.
+             * holds, and it opens the Activity page: a finance function that
+             * cannot read who changed what is not a finance function.
              *
              * **`order.manage_organisation` stops here, and it costs something
              * real.** Granting it would let finance cancel somebody's dinner,
@@ -966,8 +1062,10 @@ final class PermissionRegistry
              * Money is not access.
              */
             'finance_manager' => [
-                'name_en' => 'Finance manager',
-                'name_ar' => 'المدير المالي',
+                'name_en' => 'Finance',
+                'name_ar' => 'المالية',
+                'description_en' => 'Reads every number: costs, prices, orders and stock. Changes none of them except recipe unit costs.',
+                'description_ar' => 'يطّلع على كل الأرقام: التكاليف والأسعار والطلبات والمخزون. ولا يغيّر منها إلا تكاليف وحدات الوصفات.',
                 'permissions' => [
                     'organisation.view_current',
                     'branch.view_current',
@@ -983,6 +1081,7 @@ final class PermissionRegistry
 
                     'inventory.view_organisation',
                     'inventory.view_costs_organisation',
+                    'inventory.approve_payables_organisation',
 
                     'audit.view_organisation',
                 ],
@@ -1038,8 +1137,10 @@ final class PermissionRegistry
             // arrives is the commonest call a desk takes, and an agent who
             // cannot see the forward schedule can only say they will find out.
             'order_desk_agent' => [
-                'name_en' => 'Order desk agent',
-                'name_ar' => 'موظف مكتب الطلبات',
+                'name_en' => 'Cashier',
+                'name_ar' => 'أمين الصندوق',
+                'description_en' => 'Works the counter and the phone: takes orders and cash, opens customer accounts.',
+                'description_ar' => 'يعمل على الكاونتر والهاتف: يأخذ الطلبات والنقد ويفتح حسابات الزبائن.',
                 'permissions' => [
                     'catalogue.view_organisation',
                     'order.view_organisation',
@@ -1049,8 +1150,38 @@ final class PermissionRegistry
                     'order.view_customer_contact_organisation',
                     'subscription.view_organisation',
                     'inventory.view_organisation',
+                    'order.settle_cash_organisation',
                 ],
             ],
+
+            // ── Own drivers (P1 Wave A) ──────────────────────────────────
+            //
+            // A name on the rota and nothing more. The driver's run sheet narrows
+            // by `driver_user_id`, so holding a run is what opens it and this role
+            // grants no order code at all. Anybody active can still be handed a
+            // delivery: the role says what the job is, not who may take a run.
+            'kitchen_driver' => [
+                'name_en' => 'Driver',
+                'name_ar' => 'السائق',
+                'description_en' => 'Delivers the orders given to them and records the outcome. Sees nothing else.',
+                'description_ar' => 'يوصل الطلبات المسندة إليه ويسجّل النتيجة. ولا يرى شيئاً آخر.',
+                'permissions' => array_merge([
+                    'organisation.view_current',
+                ], $ownScope),
+            ],
         ];
+    }
+
+    /**
+     * Whether an organisation's role row is a retired template's copy that
+     * nobody uses, and so drops out of the role list. Hidden, never deleted: a
+     * copy somebody holds, or one an administrator made or changed, stays.
+     */
+    public static function isHiddenRole(string $code, ?string $createdBy, ?string $updatedBy, int $holders): bool
+    {
+        return $holders === 0
+            && $createdBy === null
+            && $updatedBy === null
+            && in_array($code, self::RETIRED_TEMPLATE_CODES, true);
     }
 }

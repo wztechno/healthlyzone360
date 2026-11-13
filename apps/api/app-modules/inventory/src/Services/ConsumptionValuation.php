@@ -102,6 +102,17 @@ final readonly class ConsumptionValuation
     }
 
     /**
+     * Raise the basis quantity by stock a count found, under a row lock. Found stock came in at
+     * no new price, so it joins at the current average, which is untouched.
+     *
+     * @param  numeric-string  $quantityInCostUnit
+     */
+    public function raiseBasis(string $costId, string $quantityInCostUnit): void
+    {
+        $this->lowerBasis($costId, bcmul($quantityInCostUnit, '-1', self::SCALE));
+    }
+
+    /**
      * @return numeric-string
      */
     private function numeric(string $value): string

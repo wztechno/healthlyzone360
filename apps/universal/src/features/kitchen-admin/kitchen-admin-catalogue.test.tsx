@@ -39,6 +39,7 @@ import {
     testMembership,
     testOrganisation,
 } from '../../testing/session-fixtures.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { availabilityErrors, firstPackErrorColumn, packErrors } from './catalogue-row-editors.tsx';
@@ -84,6 +85,9 @@ jest.mock('expo-router', () => {
     const replace = jest.fn();
     return {
         __esModule: true,
+        useSegments: () => [],
+        useGlobalSearchParams: () => ({}),
+        useNavigation: () => ({}),
         useRouter: () => ({
             push,
             replace,
@@ -516,7 +520,7 @@ describe('the product list', () => {
         expect(screen.queryByTestId(`${base}-publish`)).toBeNull();
     });
 
-    it('opens the four figures with two of them wired to a filter', async () => {
+    it('opens the Lens bar with its status figures wired to a filter', async () => {
         await renderStubScreen(<ProductsScreen />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -537,17 +541,26 @@ describe('the product list', () => {
 
         // Three rows, one of them still draft — and one with no pack at all, which is the figure
         // this family gets in the slot the ingredient list spends on Uncosted.
-        expect(screen.getByTestId('kitchen-products-stats-shown-value')).toHaveTextContent('3');
-        expect(screen.getByTestId('kitchen-products-stats-draft-value')).toHaveTextContent('2');
-        expect(screen.getByTestId('kitchen-products-stats-noPack-value')).toHaveTextContent('1');
+        await untilVisible('kitchen-products-toolbar-figure-draft-value');
+        expect(screen.getByTestId('kitchen-products-toolbar-figure-all-value')).toHaveTextContent(
+            '3',
+        );
+        expect(screen.getByTestId('kitchen-products-toolbar-figure-draft-value')).toHaveTextContent(
+            '2',
+        );
+        expect(
+            screen.getByTestId('kitchen-products-toolbar-figure-noPack-value'),
+        ).toHaveTextContent('1');
 
-        // Draft is a filter, not a read-out: pressing it narrows the list the card counts.
+        // Draft is a filter, not a read-out: pressing it narrows the list the figure counts.
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-products-stats-draft'));
+            fireEvent.press(screen.getByTestId('kitchen-products-toolbar-figure-draft'));
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('kitchen-products-stats-shown-value')).toHaveTextContent('2');
+            expect(screen.getByTestId('kitchen-products-toolbar-result')).toHaveTextContent(
+                '2 of 2',
+            );
         });
     });
 
@@ -907,11 +920,13 @@ describe('creating and editing a product', () => {
         await act(async () => {
             fireEvent.changeText(screen.getByTestId(`${secondRow}-code-input`), first.code);
         });
-        await untilVisible('kitchen-product-issues-errors');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-product-issues-errors-packs');
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+            });
+            expect(screen.getByTestId('kitchen-product-issues-errors-packs')).toBeTruthy();
         });
-        expect(screen.getByTestId('kitchen-product-issues-errors')).toBeTruthy();
         expect(repositories.kitchenAdmin.updateProduct).not.toHaveBeenCalled();
 
         await act(async () => {
@@ -1267,20 +1282,25 @@ describe('creating and editing a product', () => {
         });
         await untilVisible('kitchen-product-name-en-input');
 
-        // Nothing is flagged before anyone has typed — a page of red on arrival is not help.
-        expect(screen.queryByTestId('kitchen-product-issues-errors')).toBeNull();
+        await withDeskWidth(async () => {
+            // Nothing is flagged before anyone has typed — a page of red on arrival is not help.
+            expect(screen.queryByTestId('kitchen-product-issues-errors')).toBeNull();
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
+            });
+
+            // One card per required field, in the tray.
+            await untilVisible('kitchen-product-issues-errors');
+            for (const key of ['name', 'category', 'packs']) {
+                expect(screen.getByTestId(`kitchen-product-issues-errors-${key}`)).toBeTruthy();
+            }
         });
-
-        await untilVisible('kitchen-product-issues-errors');
-        expect(screen.getByTestId('kitchen-product-issues-errors')).toHaveTextContent(/3 required/);
         expect(screen.getByTestId('kitchen-product-packs-required')).toBeTruthy();
         expect(repositories.kitchenAdmin.createProduct).not.toHaveBeenCalled();
     });
 
-    it('puts a refusal on the fields the server named and names them in the banner (BUG-06)', async () => {
+    it('puts a refusal on the fields the server named and names them in the tray (BUG-06)', async () => {
         const stored = product({ ordinal: 1, name: 'Pomegranate molasses' });
 
         await renderStubScreen(<ProductEditScreen product={String(stored.id)} />, {
@@ -1324,12 +1344,13 @@ describe('creating and editing a product', () => {
         expect(
             screen.getAllByTestId(/^kitchen-product-pack-editor-row-.*-quantity-error$/)[0],
         ).toHaveTextContent('The pack quantity must be greater than 0.');
-        const banner = screen.getByTestId('kitchen-product-issues-errors');
-        expect(banner).toHaveTextContent(/2 to fix/);
-        expect(banner).toHaveTextContent(/Item \(AR\)/);
-        expect(banner).toHaveTextContent(/Net quantity/);
-        // Every refusal was placed, so the generic callout has nothing left to say.
-        expect(screen.queryByTestId('kitchen-product-save-error')).toBeNull();
+        await withDeskWidth(async () => {
+            const group = screen.getByTestId('kitchen-product-issues-errors');
+            expect(group).toHaveTextContent(/Item \(AR\)/);
+            expect(group).toHaveTextContent(/Net quantity/);
+            // Every refusal was placed, so the generic card has nothing left to say.
+            expect(screen.queryByTestId('kitchen-product-save-error')).toBeNull();
+        });
     });
 
     it('publishes through the generic item endpoint, and the button waits for the gate', async () => {
@@ -1637,7 +1658,7 @@ describe('the last purchase on a resale item', () => {
         expect(screen.getByTestId('kitchen-product-unit-price-input').props.editable).toBe(false);
         expect(
             screen.getByTestId('kitchen-product-unit-price-unit', { includeHiddenElements: true }),
-        ).toHaveTextContent('USD / pc');
+        ).toHaveTextContent('USD / Pc');
     });
 
     it('says "Never bought" when nothing has been received for it', async () => {
@@ -1765,6 +1786,41 @@ describe('editing a meal', () => {
         expect(stored.portionFactor).toBe(1.5);
     });
 
+    it('warns about a free-from tag a choice the dish offers contradicts', async () => {
+        const stored = meal({ ordinal: 1, overrides: { dietClassifications: ['nut_free'] } });
+
+        await renderStubScreen(<MealListing meal={stored.id} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    getMeal: async () => stored,
+                    listRecipes: async () => page(NO_RECIPES),
+                },
+                orderDesk: {
+                    listDishOptions: async () => [
+                        {
+                            id: 'option-1',
+                            kind: 'choice',
+                            groupEn: 'Sauce',
+                            groupAr: 'صلصة',
+                            nameEn: 'Satay',
+                            nameAr: 'ساتاي',
+                            recipeId: 'recipe-satay',
+                            allergens: [{ code: 'peanut', containment: 'contains' }],
+                        },
+                    ],
+                },
+            },
+        });
+
+        await untilVisible('kitchen-meal-name-en-input');
+
+        // The dish's own label is clean; the server would refuse the tag, so the card says so.
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-meal-diet-clash-nut_free');
+        });
+    });
+
     it('refuses a portion of nothing rather than dividing by it', async () => {
         const stored = meal({ ordinal: 1 });
 
@@ -1862,7 +1918,12 @@ describe('editing a meal', () => {
         await untilVisible('kitchen-meal-availability-editor-row-seed-0-2026-09-01');
     });
 
-    it('renders the confidential margin here, labelled, and never a fabricated zero', async () => {
+    it('leaves prices and margins to the recipe’s Packs & prices tab', async () => {
+        /*
+         * The margin rail and the B2B/B2C block used to sit on this listing. A margin is per pack
+         * and per place now, read off the recipe's Packs & prices tab and its Costing table, so the
+         * listing draws neither — and never a single item-wide figure that could disagree with them.
+         */
         const stored = meal({ ordinal: 1, name: 'Freekeh bowl' });
 
         await renderStubScreen(<MealListing meal={stored.id} />, {
@@ -1874,39 +1935,12 @@ describe('editing a meal', () => {
                 },
             },
         });
-        await untilVisible('kitchen-meal-confidential');
+        await untilVisible('kitchen-meal-summary');
 
-        // Labelled, because an unlabelled purchase-derived figure is one copy-paste from a
-        // customer. `CostAmount` and everything computed from it live on this contract and on no
-        // other, which is what makes a leak a compile error rather than a review finding.
-        expect(screen.getByTestId('kitchen-meal-confidential-badge')).toBeTruthy();
-        // The authored margin, stated exactly — not rounded away and not invented.
-        expect(screen.getByTestId('kitchen-meal-margin')).toHaveTextContent(/42/);
-        expect(screen.queryByTestId('kitchen-meal-margin-unknown')).toBeNull();
-    });
-
-    it('refuses to state a margin it cannot compute, rather than showing nought per cent', async () => {
-        // `null` is the contract's answer when either side of the sum is missing: a margin over a
-        // placeholder price is a fiction (plan §2.4), and a zero would be one with a number on it.
-        const stored = meal({
-            ordinal: 2,
-            name: 'Market-priced bowl',
-            overrides: { marginPercent: null },
-        });
-
-        await renderStubScreen(<MealListing meal={stored.id} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    getMeal: async () => stored,
-                    listRecipes: async () => page(NO_RECIPES),
-                },
-            },
-        });
-
-        await untilVisible('kitchen-meal-margin-unknown');
-        expect(screen.getByTestId('kitchen-meal-confidential-badge')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-meal-confidential')).toBeNull();
         expect(screen.queryByTestId('kitchen-meal-margin')).toBeNull();
+        expect(screen.queryByTestId('kitchen-meal-margin-unknown')).toBeNull();
+        expect(screen.queryByTestId('kitchen-channel-prices')).toBeNull();
     });
 });
 
@@ -1989,7 +2023,9 @@ describe('publishing a meal', () => {
         expect(repositories.kitchenAdmin.updateMeal).not.toHaveBeenCalled();
 
         // …and only now does the editor say it is public, and offer the way to go and look at it.
-        await untilVisible('kitchen-meal-published');
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-meal-published');
+        });
         await untilVisible('kitchen-meal-view-public');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-meal-view-public'));
@@ -2052,7 +2088,9 @@ describe('publishing a meal', () => {
                 lockVersion: 1,
             });
         });
-        await untilVisible('kitchen-meal-published');
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-meal-published');
+        });
     });
 
     it('gives a new meal no allergen label it did not earn', async () => {

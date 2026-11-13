@@ -55,6 +55,13 @@ interface OrderSchedulingLookup
     public function explain(string $branchId, CarbonImmutable $requestedDate, CarbonImmutable $at): array;
 
     /**
+     * The timezone the branch's clock faces are read in, which is what makes
+     * "today" and "that window has ended" mean the same thing here and in the
+     * kitchen.
+     */
+    public function timezoneOf(string $branchId): string;
+
+    /**
      * The ISO weekdays (1 = Monday … 7 = Sunday) on which nothing is made — for
      * a standing arrangement that repeats by weekday, where no single date can
      * be asked about.
@@ -67,4 +74,29 @@ interface OrderSchedulingLookup
      * @return list<int> ascending; empty when nothing is closed
      */
     public function closedWeekdays(string $organisationId, ?string $branchId): array;
+
+    /**
+     * How many whole minutes between `$from` and `$at` any of these branches was
+     * open, each read on its own clock. This is the clock an unaccepted order runs
+     * on, so one placed at 02:00 starts counting at opening time.
+     *
+     * A day a branch has stated it is shut counts for nothing. A day nobody has
+     * configured counts whole, and so does every minute for a kitchen with no
+     * opening hours at all or no branch to read them from: a missing setting
+     * cannot silence an alarm.
+     *
+     * @param  list<string>  $branchIds
+     */
+    public function openMinutesSince(array $branchIds, CarbonImmutable $from, CarbonImmutable $at): int;
+
+    /**
+     * {@see openMinutesSince()} for many orders at once, reading each branch's hours
+     * once. The kitchen display polls this for every ticket on the wall.
+     *
+     * @template TKey of array-key
+     *
+     * @param  array<TKey, array{branch_ids: list<string>, from: CarbonImmutable}>  $spans
+     * @return array<TKey, int> the same keys
+     */
+    public function openMinutesForEach(array $spans, CarbonImmutable $at): array;
 }

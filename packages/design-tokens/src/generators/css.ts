@@ -96,7 +96,10 @@ export function renderTokensCss(): string {
         }
     }
     for (const size of CONTROL_SIZES) {
-        staticTokens.push([`${CSS_VARIABLE_PREFIX}-control-height-${size}`, `${controlHeight[size]}px`]);
+        staticTokens.push([
+            `${CSS_VARIABLE_PREFIX}-control-height-${size}`,
+            `${controlHeight[size]}px`,
+        ]);
         staticTokens.push([
             `${CSS_VARIABLE_PREFIX}-control-padding-x-${size}`,
             `${controlPaddingX[size]}px`,

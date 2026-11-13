@@ -230,6 +230,16 @@ final readonly class BranchOperatingService
     /**
      * @throws ApiException
      */
+    /**
+     * The branch the request is about, proven to belong to this organisation.
+     *
+     * @throws ApiException
+     */
+    public function currentBranchId(): string
+    {
+        return $this->requireBranch();
+    }
+
     private function requireBranch(): string
     {
         $branchId = $this->context->branchId();

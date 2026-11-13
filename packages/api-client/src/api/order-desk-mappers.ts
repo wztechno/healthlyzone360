@@ -1,11 +1,16 @@
-import type { CurrencyCode } from '@healthy360/domain-types';
+import { mapAllergenConflict } from './cart-repository.ts';
+import type { CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
 import type {
     AssignedDeliveryJob,
+    CashRun,
+    CashSettlementRecord,
+    DailyCloseRecord,
     OrderDeskCalendarCounts,
     OrderDeskCalendarDay,
     OrderDeskCalendarMeta,
     OrderDeskCalendarWindow,
+    OrderDeskCashReportAdjustment,
     OrderDeskCashReportMeta,
     OrderDeskCashReportRow,
     OrderDeskCashReportTotal,
@@ -24,6 +29,8 @@ import type {
     OrderDeskRefusal,
     OrderDeskRequirement,
     OrderDeskRequirementsMeta,
+    OrderDeskCloses,
+    OrderDeskSettlements,
     OrderDeskShortfallCount,
     WeeklyStockCheck,
 } from '../contracts/order-desk.ts';
@@ -35,7 +42,13 @@ import type {
     OrderDeskCalendarEnvelope,
     OrderDeskCalendarWindow as WireCalendarWindow,
     OrderDeskCashReportEnvelope,
+    CashRun as WireCashRun,
+    CashSettlement as WireCashSettlement,
+    DailyClose as WireDailyClose,
+    OrderDeskClosesEnvelope,
+    OrderDeskCashReportAdjustment as WireCashReportAdjustment,
     OrderDeskCashReportRow as WireCashReportRow,
+    OrderDeskSettlementsEnvelope,
     OrderDeskCashReportTotal as WireCashReportTotal,
     OrderDeskCustomer as WireOrderDeskCustomer,
     OrderDeskCustomerContact as WireOrderDeskCustomerContact,
@@ -176,6 +189,9 @@ export function mapOrderDeskQueueMeta(wire: OrderDeskQueueEnvelope['meta']): Ord
         to: wire.to ?? null,
         today: wire.today,
         timezone: wire.timezone,
+        pastDueCount: wire.past_due_count,
+        overdueCount: wire.overdue_count,
+        overdueGraceMinutes: wire.overdue_grace_minutes,
     };
 }
 
@@ -363,8 +379,137 @@ export function mapOrderDeskDriver(wire: WireOrderDeskDriver): OrderDeskDriver {
  * malformed field would be a confident "this agent took nothing", which is the one sentence a cash
  * report must never say by accident.
  */
+export function mapCashReportAdjustment(
+    wire: WireCashReportAdjustment,
+): OrderDeskCashReportAdjustment {
+    return {
+        day: wire.day,
+        kind: wire.kind,
+        displayName: wire.display_name,
+        currencyCode: wire.currency_code as CurrencyCode,
+        entryCount: wire.entry_count,
+        amountMinorSum: wire.amount_minor_sum,
+    };
+}
+
+function mapCashRun(wire: WireCashRun): CashRun {
+    return {
+        jobId: wire.job_id,
+        orderId: wire.order_id,
+        orderNumber: wire.order_number,
+        deliveredAt: wire.delivered_at as IsoDateTime | null,
+        amountMinor: wire.amount_minor,
+    };
+}
+
+export function mapDailyClose(wire: WireDailyClose): DailyCloseRecord {
+    return {
+        id: wire.id,
+        branchId: wire.branch_id,
+        branchName: wire.branch_name,
+        currencyCode: wire.currency_code as CurrencyCode,
+        businessDate: wire.business_date,
+        openedAt: wire.opened_at as IsoDateTime,
+        closedAt: wire.closed_at as IsoDateTime,
+        openingFloatMinor: wire.opening_float_minor,
+        counterCashMinor: wire.counter_cash_minor,
+        handedInMinor: wire.handed_in_minor,
+        cashRefundsMinor: wire.cash_refunds_minor,
+        expectedMinor: wire.expected_minor,
+        countedMinor: wire.counted_minor,
+        varianceMinor: wire.variance_minor,
+        varianceReason: wire.variance_reason,
+        recordedByName: wire.recorded_by_name,
+        signedOffByName: wire.signed_off_by_name,
+        signedOffAt: wire.signed_off_at as IsoDateTime | null,
+    };
+}
+
+export function mapOrderDeskCloses(wire: OrderDeskClosesEnvelope['data']): OrderDeskCloses {
+    return {
+        timezone: wire.timezone,
+        branches: wire.branches.map((branch) => ({ id: branch.id, name: branch.name })),
+        open: wire.open.map((row) => ({
+            branchId: row.branch_id,
+            branchName: row.branch_name,
+            currencyCode: row.currency_code as CurrencyCode,
+            businessDate: row.business_date,
+            openedAt: row.opened_at as IsoDateTime,
+            suggestedFloatMinor: row.suggested_float_minor,
+            counterCashMinor: row.counter_cash_minor,
+            handedInMinor: row.handed_in_minor,
+            cashRefundsMinor: row.cash_refunds_minor,
+        })),
+        totals: wire.totals.map((row) => ({
+            businessDate: row.business_date,
+            currencyCode: row.currency_code as CurrencyCode,
+            tillCount: row.till_count,
+            counterCashMinor: row.counter_cash_minor,
+            handedInMinor: row.handed_in_minor,
+            cashRefundsMinor: row.cash_refunds_minor,
+            countedMinor: row.counted_minor,
+            varianceMinor: row.variance_minor,
+        })),
+        closes: wire.closes.map(mapDailyClose),
+    };
+}
+
+export function mapCashSettlement(wire: WireCashSettlement): CashSettlementRecord {
+    return {
+        id: wire.id,
+        kind: wire.kind,
+        partyName: wire.party_name,
+        branchId: wire.branch_id,
+        branchName: wire.branch_name,
+        currencyCode: wire.currency_code as CurrencyCode,
+        expectedMinor: wire.expected_minor,
+        feeMinor: wire.fee_minor,
+        expenseMinor: wire.expense_minor,
+        handedInMinor: wire.handed_in_minor,
+        shortMinor: wire.short_minor,
+        shortReason: wire.short_reason,
+        recordedByName: wire.recorded_by_name,
+        recordedAt: wire.recorded_at as IsoDateTime,
+        signedOffByName: wire.signed_off_by_name,
+        signedOffAt: wire.signed_off_at as IsoDateTime | null,
+    };
+}
+
+export function mapOrderDeskSettlements(
+    wire: OrderDeskSettlementsEnvelope['data'],
+): OrderDeskSettlements {
+    return {
+        drivers: wire.drivers.map((driver) => ({
+            driverUserId: driver.driver_user_id,
+            displayName: driver.display_name,
+            branchId: driver.branch_id,
+            branchName: driver.branch_name,
+            currencyCode: driver.currency_code as CurrencyCode,
+            collectedMinor: driver.collected_minor,
+            runs: driver.runs.map(mapCashRun),
+        })),
+        couriers: wire.couriers.map((courier) => ({
+            courierName: courier.courier_name,
+            branchId: courier.branch_id,
+            branchName: courier.branch_name,
+            currencyCode: courier.currency_code as CurrencyCode,
+            dueMinor: courier.due_minor,
+            feeMinor: courier.fee_minor,
+            expenseMinor: courier.expense_minor,
+            runs: courier.runs.map((run) => ({
+                ...mapCashRun(run),
+                feeMinor: run.fee_minor,
+                prepaid: run.prepaid,
+                reference: run.reference,
+            })),
+        })),
+        settlements: wire.settlements.map(mapCashSettlement),
+    };
+}
+
 export function mapOrderDeskCashReportRow(wire: WireCashReportRow): OrderDeskCashReportRow {
     return {
+        day: wire.day,
         confirmedBy: wire.confirmed_by,
         displayName: wire.display_name,
         method: wire.method,
@@ -394,18 +539,18 @@ export function mapOrderDeskCashReportTotal(wire: WireCashReportTotal): OrderDes
 /**
  * What the report was measured against.
  *
- * `timezone` is carried rather than dropped even though it is always `UTC` today: a screen that
- * printed a hard-coded word would go on printing it the day a shift table gives the boundary a real
- * clock, and the whole point of echoing it is that the reader is not left assuming their own
- * midnight.
+ * `timezone` is the branch's or the organisation's clock, which the client cannot derive, and
+ * `branches` are the tills a screen offers to narrow by.
  */
 export function mapOrderDeskCashReportMeta(
     wire: OrderDeskCashReportEnvelope['meta'],
 ): OrderDeskCashReportMeta {
     return {
-        date: wire.date,
+        from: wire.from,
+        to: wire.to,
         branchId: wire.branch_id,
         timezone: wire.timezone,
+        branches: wire.branches.map((branch) => ({ id: branch.id, name: branch.name })),
         count: wire.count,
     };
 }
@@ -449,7 +594,10 @@ export function mapOrderDeskQuoteLine(wire: WireOrderDeskQuoteLine): OrderDeskQu
         lineTotalMinor: wire.line_total_minor,
         currencyCode: wire.currency_code as CurrencyCode,
         refusals: wire.refusals.map(mapOrderDeskRefusal),
+        optionIds: wire.option_ids ?? [],
+        note: wire.note ?? null,
         heldStock: wire.held_stock ?? [],
+        warnings: (wire.warnings ?? []).map(mapOrderDeskRefusal),
     };
 }
 
@@ -470,6 +618,8 @@ export function mapOrderDeskQuote(wire: WireOrderDeskQuote): OrderDeskQuote {
         refusals: wire.refusals.map(mapOrderDeskRefusal),
         quotable: wire.quotable,
         offeredWindowCodes: wire.offered_window_codes ?? null,
+        allergenConflicts: (wire.allergen_conflicts ?? []).map(mapAllergenConflict),
+        serviceWarnings: (wire.service_warnings ?? []).map(mapOrderDeskRefusal),
     };
 }
 

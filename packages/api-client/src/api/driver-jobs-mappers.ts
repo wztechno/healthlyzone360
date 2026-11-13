@@ -1,4 +1,4 @@
-import { OrderId } from '@healthy360/domain-types';
+import { OrderId, isCurrencyCode } from '@healthy360/domain-types';
 
 import type { DriverJob, DriverJobDelivery } from '../contracts/driver-jobs.ts';
 import type {
@@ -52,6 +52,14 @@ export function mapDriverJob(wire: WireDriverJob): DriverJob {
         assignedAt: wire.assigned_at,
         pickedUpAt: wire.picked_up_at,
         readyAt: wire.ready_at,
+        allergyAllergenCodes: wire.allergy_allergen_codes ?? [],
+        allergyNote: wire.allergy_note ?? null,
+        amountDueMinor: wire.amount_due_minor,
+        currencyCode:
+            wire.currency_code !== null && isCurrencyCode(wire.currency_code)
+                ? wire.currency_code
+                : 'USD',
+        paymentMethod: wire.payment_method,
         delivery: mapDelivery(wire.delivery),
     };
 }

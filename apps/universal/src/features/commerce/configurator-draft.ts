@@ -80,7 +80,7 @@ export function configuratorHref(location: ConfiguratorLocation): string {
 export type ConfiguratorEdits = Partial<
     Pick<
         ConfiguratorState,
-        'duration' | 'startDate' | 'deliveryWeekdays' | 'slotCode' | 'selectedMealIds'
+        'duration' | 'startDate' | 'deliveryWeekdays' | 'slotCode' | 'mealPicks'
     >
 >;
 
@@ -89,7 +89,7 @@ const EDIT_KEYS = [
     'startDate',
     'deliveryWeekdays',
     'slotCode',
-    'selectedMealIds',
+    'mealPicks',
 ] as const satisfies readonly (keyof ConfiguratorEdits)[];
 
 /** The part of a step's change that belongs in the draft; the band, address and terms go elsewhere. */
@@ -101,9 +101,11 @@ export function editsOf(patch: Partial<ConfiguratorState>): ConfiguratorEdits {
     return edits as ConfiguratorEdits;
 }
 
-function stringList(value: unknown): string[] | null {
-    return Array.isArray(value) && value.every((entry) => typeof entry === 'string')
-        ? [...(value as string[])]
+function stringRecord(value: unknown): Record<string, string> | null {
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
+    const entries = Object.entries(value as Record<string, unknown>);
+    return entries.every(([, entry]) => typeof entry === 'string')
+        ? Object.fromEntries(entries as [string, string][])
         : null;
 }
 
@@ -130,8 +132,8 @@ export function parseConfiguratorEdits(raw: unknown): ConfiguratorEdits | null {
         edits.deliveryWeekdays = [...(weekdays as number[])];
     }
     if (typeof value['slotCode'] === 'string') edits.slotCode = value['slotCode'];
-    const meals = stringList(value['selectedMealIds']);
-    if (meals !== null) edits.selectedMealIds = meals as MealId[];
+    const picks = stringRecord(value['mealPicks']);
+    if (picks !== null) edits.mealPicks = picks as Record<string, MealId>;
     return edits;
 }
 

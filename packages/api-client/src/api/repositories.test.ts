@@ -1,4 +1,4 @@
-import { MealId, ProductId } from '@healthy360/domain-types';
+import { IngredientId, MealId, ProductId } from '@healthy360/domain-types';
 import { describe, expect, it } from 'vitest';
 
 import { ApiError, isRateLimitFailure, isValidationFailure } from '../contracts/failure.ts';
@@ -1046,7 +1046,7 @@ describe('dietary profile', () => {
         const saved = await repositories.account.saveDietaryProfile({
             dietCategoryCode: 'vegetarian',
             allergens: [],
-            excludedIngredientIds: [],
+            exclusions: [],
         });
 
         expect(calls[0]!.method).toBe('PUT');
@@ -1061,11 +1061,109 @@ describe('dietary profile', () => {
         const saved = await repositories.account.saveDietaryProfile({
             dietCategoryCode: null,
             allergens: [],
-            excludedIngredientIds: [],
+            exclusions: [],
         });
 
         expect(calls[0]!.body).toMatchObject({ diet_classification_code: null });
         expect(saved.dietCategoryCode).toBeNull();
+    });
+
+    /*
+     * "Ingredients to leave out": each food goes with its kind and exactly one subject column, and
+     * comes back with the ingredient's name — the write used to send every one as a `forbidden`
+     * ingredient and the read dropped free text altogether.
+     */
+    it('carries each exclusion with its kind, by ingredient or as written', async () => {
+        const garlic = '0b9c6e9e-0000-7000-8000-0000000000aa';
+        const answer = PROFILE(null);
+        answer.body.data.dietary_profile.exclusions = [
+            {
+                id: 'x-1',
+                kind: 'dislike',
+                subject_kind: 'ingredient',
+                ingredient_id: garlic,
+                ingredient_name: 'Garlic',
+                diet_classification_id: null,
+                free_text: null,
+            },
+            {
+                id: 'x-2',
+                kind: 'forbidden',
+                subject_kind: 'free_text',
+                ingredient_id: null,
+                ingredient_name: null,
+                diet_classification_id: null,
+                free_text: 'Alcohol',
+            },
+        ] as never;
+        const { repositories, calls } = harness([answer], createMemoryTokenStore('token'));
+
+        const saved = await repositories.account.saveDietaryProfile({
+            dietCategoryCode: null,
+            allergens: [],
+            exclusions: [
+                {
+                    subject: 'ingredient',
+                    kind: 'dislike',
+                    ingredientId: IngredientId.unsafe(garlic),
+                    name: 'Garlic',
+                },
+                { subject: 'freeText', kind: 'forbidden', text: 'Alcohol' },
+            ],
+        });
+
+        expect(calls[0]!.body).toMatchObject({
+            exclusions: [
+                { kind: 'dislike', ingredient_id: garlic },
+                { kind: 'forbidden', free_text: 'Alcohol' },
+            ],
+        });
+        expect(saved.exclusions).toEqual([
+            { subject: 'ingredient', kind: 'dislike', ingredientId: garlic, name: 'Garlic' },
+            { subject: 'freeText', kind: 'forbidden', text: 'Alcohol' },
+        ]);
+    });
+
+    it('searches the ingredients by name, with the term trimmed', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: [
+                            {
+                                id: '0b9c6e9e-0000-7000-8000-0000000000bb',
+                                name: 'Balsamic Vinegar',
+                                category: 'Condiment',
+                            },
+                            {
+                                id: '0b9c6e9e-0000-7000-8000-0000000000cc',
+                                name: 'Vinegar',
+                                category: null,
+                            },
+                        ],
+                        meta: { correlation_id: 'c-search', count: 2 },
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const found = await repositories.account.searchDietaryIngredients({
+            query: ' vine ',
+            limit: 8,
+        });
+
+        expect(calls[0]!.method).toBe('GET');
+        expect(calls[0]!.url).toContain('/me/dietary-profile/ingredients?q=vine&limit=8');
+        expect(found).toEqual([
+            {
+                id: '0b9c6e9e-0000-7000-8000-0000000000bb',
+                name: 'Balsamic Vinegar',
+                category: 'Condiment',
+            },
+            { id: '0b9c6e9e-0000-7000-8000-0000000000cc', name: 'Vinegar', category: null },
+        ]);
     });
 });
 
@@ -1956,7 +2054,7 @@ describe('subscriptions (S1)', () => {
         expect(quote.availableWeekdays).toEqual([]);
     });
 
-    it('cancels and answers with the credit memo in the same breath', async () => {
+    it('cancels and answers with the subscription alone', async () => {
         const { repositories, calls } = harness(
             [
                 {
@@ -1964,17 +2062,6 @@ describe('subscriptions (S1)', () => {
                     body: {
                         data: {
                             subscription: { ...WIRE_SUBSCRIPTION, status: 'cancelled' },
-                            credit_memo: {
-                                id: 'memo-1',
-                                reason: 'subscription_cancelled',
-                                unused_days: 14,
-                                per_day_minor: 1800,
-                                amount_minor: 25200,
-                                currency_code: 'USD',
-                                status: 'recorded',
-                                settlement: 'manual',
-                                recorded_at: '2026-08-03T10:00:00+00:00',
-                            },
                         },
                         meta: {},
                     },
@@ -1997,17 +2084,7 @@ describe('subscriptions (S1)', () => {
         expect(calls[0]?.headers['If-Match']).toBeUndefined();
 
         expect(result.subscription.state).toBe('cancelled');
-        expect(result.creditMemo).toEqual({
-            id: 'memo-1',
-            subscriptionId: 'subscription-1',
-            reason: 'subscription_cancelled',
-            unusedDays: 14,
-            perDayPrice: { amount: 1800, currency: 'USD' },
-            amount: { amount: 25200, currency: 'USD' },
-            status: 'recorded',
-            settlement: 'manual',
-            recordedAt: '2026-08-03T10:00:00+00:00',
-        });
+        expect(Object.keys(result)).toEqual(['subscription']);
     });
 
     it('maps the named facts the projection now carries', async () => {
@@ -2031,7 +2108,9 @@ describe('subscriptions (S1)', () => {
         expect(subscription.configuration.duration).toBe('28d');
         expect(subscription.configuration.startDate).toBe('2026-08-05');
         expect(subscription.configuration.address.label).toBe('Home');
-        expect(subscription.configuration.selectedMealIds).toEqual(['meal-7']);
+        // The run's meals are their own read (`listSubscriptionDays`); the projection's flat list
+        // of chosen dishes is no longer what a configuration carries.
+        expect(subscription.configuration.days).toEqual([]);
         expect(subscription.skippedDates).toEqual(['2026-08-08']);
     });
 
@@ -2130,7 +2209,13 @@ describe('subscriptions (S1)', () => {
 
         const choices = await repositories.commerce.setSubscriptionMealChoices(
             'subscription-1' as never,
-            { date: '2026-08-11', choices: [{ slot: 'lunch', mealId: 'meal-7' as never }] },
+            {
+                date: '2026-08-11',
+                choices: [
+                    { slot: 'lunch', sequence: 1, mealId: 'meal-7' as never },
+                    { slot: 'dinner', sequence: 1, mealId: 'meal-9' as never },
+                ],
+            },
         );
 
         expect(calls[0]?.method).toBe('PUT');
@@ -2138,18 +2223,23 @@ describe('subscriptions (S1)', () => {
             'https://api.example/api/v1/me/subscriptions/subscription-1/choices',
         );
         // No name on the way out. A caller-supplied label on a surface this close to safety could
-        // disagree with the dish actually recorded.
+        // disagree with the dish actually recorded. Every sitting of the day goes, each with its
+        // sequence — a second lunch is a sitting of its own.
         expect(calls[0]?.body).toEqual({
             date: '2026-08-11',
-            meals: [{ slot: 'lunch', catalogue_item_id: 'meal-7' }],
+            meals: [
+                { slot: 'lunch', sequence: 1, catalogue_item_id: 'meal-7' },
+                { slot: 'dinner', sequence: 1, catalogue_item_id: 'meal-9' },
+            ],
         });
 
-        // The whole day comes back, including the default nobody overrode, each dish named by the
-        // server — so the editor redraws from one answer.
+        // The whole day comes back, each dish named by the server — so the editor redraws from one
+        // answer.
         expect(choices).toEqual([
             {
                 date: '2026-08-11',
                 slot: 'lunch',
+                sequence: 1,
                 mealId: 'meal-7',
                 mealName: 'Grilled Chicken & Quinoa',
                 source: 'customer',
@@ -2157,11 +2247,113 @@ describe('subscriptions (S1)', () => {
             {
                 date: '2026-08-11',
                 slot: 'dinner',
+                sequence: 1,
                 mealId: 'meal-9',
                 mealName: 'Lentil Soup',
                 source: 'kitchen_default',
             },
         ]);
+    });
+
+    it('reads the run day by day, with the sittings every day fills', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            sittings: [
+                                { slot: 'lunch', sequence: 1 },
+                                { slot: 'dinner', sequence: 1 },
+                            ],
+                            days: [
+                                {
+                                    delivery_date: '2026-08-11',
+                                    basis: 'actual',
+                                    status: 'scheduled',
+                                    editable: true,
+                                    change_deadline: '2026-08-10T12:00:00+00:00',
+                                    meals: [
+                                        {
+                                            slot: 'lunch',
+                                            sequence: 1,
+                                            catalogue_item_id: 'meal-7',
+                                            name: 'Grilled Chicken & Quinoa',
+                                            source: 'customer',
+                                        },
+                                        {
+                                            slot: 'dinner',
+                                            sequence: 1,
+                                            catalogue_item_id: 'meal-9',
+                                            name: 'Lentil Soup',
+                                            source: 'repeated',
+                                        },
+                                    ],
+                                },
+                                {
+                                    delivery_date: '2026-08-13',
+                                    basis: 'projected',
+                                    status: 'projected',
+                                    editable: false,
+                                    change_deadline: '2026-08-12T12:00:00+00:00',
+                                    meals: [],
+                                },
+                            ],
+                        },
+                        meta: {},
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const run = await repositories.commerce.listSubscriptionDays('subscription-1' as never);
+
+        expect(calls[0]?.method).toBe('GET');
+        expect(calls[0]?.url).toBe(
+            'https://api.example/api/v1/me/subscriptions/subscription-1/days',
+        );
+        expect(run).toEqual({
+            sittings: [
+                { slot: 'lunch', sequence: 1 },
+                { slot: 'dinner', sequence: 1 },
+            ],
+            days: [
+                {
+                    date: '2026-08-11',
+                    basis: 'actual',
+                    status: 'scheduled',
+                    editable: true,
+                    changeDeadline: '2026-08-10T12:00:00+00:00',
+                    meals: [
+                        {
+                            date: '2026-08-11',
+                            slot: 'lunch',
+                            sequence: 1,
+                            mealId: 'meal-7',
+                            mealName: 'Grilled Chicken & Quinoa',
+                            source: 'customer',
+                        },
+                        {
+                            date: '2026-08-11',
+                            slot: 'dinner',
+                            sequence: 1,
+                            mealId: 'meal-9',
+                            mealName: 'Lentil Soup',
+                            source: 'repeated',
+                        },
+                    ],
+                },
+                {
+                    date: '2026-08-13',
+                    basis: 'projected',
+                    status: 'projected',
+                    editable: false,
+                    changeDeadline: '2026-08-12T12:00:00+00:00',
+                    meals: [],
+                },
+            ],
+        });
     });
 
     it('opens a cart, hydrates lines from marketplace meals, and previews without inventing delivery', async () => {
@@ -2653,7 +2845,22 @@ describe('subscriptions (S1)', () => {
                     countryCode: 'AE',
                     instructions: null,
                 },
-                selectedMealIds: [],
+                days: [
+                    {
+                        date: '2026-08-05',
+                        meals: [
+                            { slot: 'lunch', sequence: 1, mealId: 'meal-7' as never },
+                            { slot: 'dinner', sequence: 1, mealId: 'meal-9' as never },
+                        ],
+                    },
+                    {
+                        date: '2026-08-07',
+                        meals: [
+                            { slot: 'lunch', sequence: 1, mealId: 'meal-9' as never },
+                            { slot: 'dinner', sequence: 1, mealId: 'meal-7' as never },
+                        ],
+                    },
+                ],
             },
         });
 
@@ -2670,6 +2877,24 @@ describe('subscriptions (S1)', () => {
             delivery_window_code: 'morning',
             start_from: '2026-08-05',
         });
+        // Every day's meals ride on the one create call — identifiers only, each sitting named by
+        // slot and sequence.
+        expect(calls[0]?.body).toHaveProperty('days', [
+            {
+                date: '2026-08-05',
+                meals: [
+                    { slot: 'lunch', sequence: 1, catalogue_item_id: 'meal-7' },
+                    { slot: 'dinner', sequence: 1, catalogue_item_id: 'meal-9' },
+                ],
+            },
+            {
+                date: '2026-08-07',
+                meals: [
+                    { slot: 'lunch', sequence: 1, catalogue_item_id: 'meal-9' },
+                    { slot: 'dinner', sequence: 1, catalogue_item_id: 'meal-7' },
+                ],
+            },
+        ]);
         expect(calls[0]?.body).not.toHaveProperty('sales_channel_id');
         expect(calls[0]?.body).not.toHaveProperty('plan_duration_id');
         expect(created.id).toBe('subscription-1');
@@ -2697,7 +2922,7 @@ describe('subscriptions (S1)', () => {
                         countryCode: 'AE',
                         instructions: null,
                     },
-                    selectedMealIds: [],
+                    days: [],
                 },
             }),
         ).rejects.toMatchObject({ code: 'validation.failed' });
@@ -3684,5 +3909,70 @@ describe('mapDuration', () => {
         expect(mapDuration({ ...wire, kind: 'one_off', days: null })).toBeNull();
         // A fixed-days run with no days is a malformed one, not a zero-day balance.
         expect(mapDuration({ ...wire, days: 0 })).toBeNull();
+    });
+});
+
+describe('the desk’s dish choices', () => {
+    it('keeps each option’s containment, and never turns an unassessed choice into none', async () => {
+        const { repositories, calls } = harness(
+            [
+                {
+                    status: 200,
+                    body: {
+                        data: {
+                            options: [
+                                {
+                                    id: 'aioli',
+                                    kind: 'choice',
+                                    group_en: 'Sauce',
+                                    group_ar: 'صلصة',
+                                    name_en: 'Aioli',
+                                    name_ar: 'أيولي',
+                                    allergens: [
+                                        { allergen_code: 'egg', containment: 'contains' },
+                                        { allergen_code: 'sesame', containment: 'may_contain' },
+                                    ],
+                                },
+                                {
+                                    id: 'pesto',
+                                    kind: 'choice',
+                                    group_en: 'Sauce',
+                                    group_ar: 'صلصة',
+                                    name_en: 'Pesto',
+                                    name_ar: 'بيستو',
+                                    allergens: null,
+                                },
+                                {
+                                    id: 'onion',
+                                    kind: 'remove',
+                                    group_en: null,
+                                    group_ar: null,
+                                    name_en: 'onions',
+                                    name_ar: 'بصل',
+                                    allergens: [],
+                                },
+                            ],
+                            portions: [],
+                        },
+                        meta: {},
+                    },
+                },
+            ],
+            createMemoryTokenStore('token'),
+        );
+
+        const choices = await repositories.orderDesk.getDishChoices('item-1');
+
+        expect(calls[0]?.url).toBe(
+            'https://api.example/api/v1/catalogue/order-desk/items/item-1/choices',
+        );
+        expect(choices.options.map((option) => option.allergens)).toEqual([
+            [
+                { code: 'egg', containment: 'contains' },
+                { code: 'sesame', containment: 'may_contain' },
+            ],
+            null,
+            [],
+        ]);
     });
 });

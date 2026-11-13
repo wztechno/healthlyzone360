@@ -3,7 +3,7 @@
     "common": {
         "listSeparator": "، ",
         "cancel": "إلغاء",
-        "noPayment": "لا يُطلب أي دفع في أي مكان من هذا النموذج الأولي.",
+        "noPayment": "لا يُخصم أي مبلغ عبر الإنترنت. تدفع للمطبخ مباشرة.",
         "close": "إغلاق"
     },
     "validation": {
@@ -40,7 +40,22 @@
         "subscription_no_delivery_days": "لم يتم اختيار أي أيام توصيل، لذا لن يصل هذا الاشتراك أبدًا.",
         "subscription_delivery_day_unavailable": "هذه الخطة لا توصّل في أحد الأيام التي اخترتها.",
         "subscription_unknown_slot": "هذه الفترة الزمنية غير متاحة لدى هذا المطبخ.",
-        "checkout_window_not_offered": "منطقة التوصيل لهذا العنوان لا تعرض هذه الفترة. اختر فترة أخرى."
+        "checkout_window_not_offered": "منطقة التوصيل لهذا العنوان لا تعرض هذه الفترة. اختر فترة أخرى.",
+        "checkout_closed": "المطبخ مغلق في ذلك اليوم. اختر تاريخاً آخر.",
+        "checkout_date_in_the_past": "تاريخ التوصيل هذا قد مضى. اختر تاريخاً لاحقاً.",
+        "checkout_cut_off_passed": "انتهى موعد استقبال الطلبات لدى المطبخ لذلك اليوم. اختر تاريخاً لاحقاً.",
+        "checkout_kitchen_closed": "هذا المطبخ لا يستقبل الطلبات حالياً.",
+        "checkout_window_ended": "انتهت فترة التوصيل هذه اليوم. اختر فترة لاحقة أو يوماً آخر.",
+        "checkout_lead_time_not_met": "فترة التوصيل هذه قريبة جداً ولا تكفي المطبخ لتحضير طلبك. اختر فترة لاحقة أو يوماً آخر.",
+        "checkout_below_zone_minimum": "قيمة هذا الطلب أقل من الحد الأدنى للتوصيل إلى هذا العنوان. أضف المزيد إلى سلتك.",
+        "checkout_item_unavailable_on_date": "أحد الأصناف في سلتك غير متاح في ذلك اليوم. اختر تاريخاً آخر أو أزله.",
+        "checkout_item_not_assessed": "أحد الأصناف في سلتك غير معروض للبيع حالياً لأن مسبّبات الحساسية فيه لم تُفحص بعد. أزله للمتابعة.",
+        "checkout_quality_hold": "أحد الأصناف في سلّتك غير متوفر حالياً. أزله للمتابعة.",
+        "checkout_kitchen_not_open": "هذا المطبخ لا يستقبل الطلبات بعد.",
+        "checkout_kitchen_paused": "أوقف هذا المطبخ استقبال الطلبات الجديدة لفترة قصيرة. يُرجى المحاولة بعد قليل.",
+        "checkout_window_full": "موعد التوصيل هذا ممتلئ. اختر موعدًا آخر أو يومًا آخر.",
+        "checkout_stock_short": "بعض ما في سلّتك يوشك أن ينفد. قد يتواصل معك المطبخ إن لم يتمكّن من تحضيره كلّه.",
+        "checkout_phone_required": "أضف رقم هاتف ليتمكّن السائق من الوصول إليك. لا يمكن تقديم هذا الطلب من دونه."
     },
     "address": {
         "label": "اسم هذا العنوان",
@@ -96,7 +111,32 @@
         "discountValue": "−{{amount}}",
         "promoLabel": "رمز الخصم",
         "promoApply": "تطبيق",
-        "finePrint": "ادفع للسائق نقدًا عند الاستلام. لا يُخصم أي مبلغ داخل التطبيق."
+        "finePrint": "ادفع للسائق نقدًا عند الاستلام. لا يُخصم أي مبلغ داخل التطبيق.",
+        "each": "{{price}} للواحدة",
+        "timesUnit": "{{count}} × {{price}}",
+        "itemCount_zero": "لا أصناف",
+        "itemCount_one": "صنف واحد",
+        "itemCount_two": "صنفان",
+        "itemCount_few": "{{formattedCount}} أصناف",
+        "itemCount_many": "{{formattedCount}} صنفًا",
+        "itemCount_other": "{{formattedCount}} صنف",
+        "goesWell": "يليق بها",
+        "addMore": "أضف المزيد",
+        "emptyBasket": "أفرغ السلة",
+        "deliveryTo": "التوصيل · {{area}}",
+        "cashOnDelivery": "الدفع نقدًا عند التوصيل",
+        "keepShopping": "تابع التسوق",
+        "popularNow": "الأكثر طلبًا الآن",
+        "addAnother": "أضف {{meal}} آخر",
+        "addNamed": "أضف {{meal}}",
+        "allergenGate_zero": "لا أصناف تحتوي على مسببات حساسيتك",
+        "allergenGate_one": "صنف واحد يحتوي على مسببات حساسيتك",
+        "allergenGate_two": "صنفان يحتويان على مسببات حساسيتك",
+        "allergenGate_few": "{{count}} أصناف تحتوي على مسببات حساسيتك",
+        "allergenGate_many": "{{count}} صنفًا يحتوي على مسببات حساسيتك",
+        "allergenGate_other": "{{count}} صنف يحتوي على مسببات حساسيتك",
+        "allergenAck": "أعلم ذلك، أضفها على أي حال",
+        "totalWithCount": "الإجمالي · {{count}}"
     },
     "checkout": {
         "title": "إتمام الطلب",
@@ -115,6 +155,7 @@
         "placeOrderHint": "الدفع عند الاستلام. لا تُدخَل بيانات البطاقة هنا أبدًا.",
         "placeFailedTitle": "تعذّر تقديم الطلب",
         "finishSetup": "أكمل إعداد حسابك",
+        "addPhone": "أضف رقم هاتف",
         "progressLabel": "تقدّم إتمام الطلب",
         "steps": {
             "delivery": "التوصيل",
@@ -154,8 +195,8 @@
         "paymentCod": "الدفع عند الاستلام",
         "paymentCodMeta": "ادفع للسائق",
         "back": "رجوع",
-        "confirmedTitle": "تم تأكيد الطلب {{reference}}",
-        "confirmedBody": "طلبك لدى {{kitchen}}. يصل {{arriving}}. ادفع للسائق نقدًا.",
+        "confirmedTitle": "تم تسجيل الطلب {{reference}}، بانتظار المطبخ",
+        "confirmedBody": "طلبك لدى {{kitchen}}. يصل {{arriving}} بعد أن يقبله المطبخ. ادفع للسائق نقدًا.",
         "theKitchen": "المطبخ",
         "setupTitle": "أكمل إعداد حسابك لتتمكن من الطلب",
         "setupBody_zero": "لم تتبقَّ أي خطوة.",
@@ -168,7 +209,18 @@
         "addAddressAction": "إضافة عنوان",
         "addAnotherAddress": "إضافة عنوان آخر",
         "editAddress": "تعديل هذا العنوان",
-        "placeOrderBlockedHint": "أكمل الخطوات أعلاه لتقديم طلبك."
+        "placeOrderBlockedHint": "أكمل الخطوات أعلاه لتقديم طلبك.",
+        "savedAddress": "العنوان المحفوظ",
+        "defaultAddress": "الافتراضي",
+        "addAddressShort": "أضف عنوانًا",
+        "tomorrowShort": "غدًا",
+        "payWith": "الدفع عبر",
+        "deliveringToLabel": "التوصيل إلى",
+        "whenLabel": "الموعد",
+        "change": "غيّر",
+        "basket": "السلة",
+        "noWindowTitle": "لا يوجد موعد توصيل لهذا العنوان",
+        "basketKept": "سلتك محفوظة."
     },
     "configurator": {
         "title": "إعداد اشتراكك",
@@ -187,6 +239,7 @@
         "steps": {
             "plan": "الخطة",
             "delivery": "التوصيل",
+            "meals": "الوجبات",
             "review": "المراجعة"
         },
         "issues": {
@@ -200,12 +253,15 @@
             "slot": "اختر فترة توصيل.",
             "address": "اختر عنوان التوصيل.",
             "areaUnserved": "هذا المطبخ لا يوصّل إلى تلك المنطقة، لذا لا يمكن المضي في هذا الاشتراك.",
+            "mealsMissing": "اختر طبقًا لكل وجبة في كل يوم للمتابعة.",
             "terms": "ضع علامة في المربع أدناه للاشتراك."
         },
         "plan": {
             "variantLabel": "فئة السعرات",
             "band": "من {{min}} إلى {{max}} سعرة حرارية يوميًا",
-            "bandName": "{{min}}–{{max}} سعرة"
+            "bandName": "{{min}}–{{max}} سعرة",
+            "title": "خطتك",
+            "changePlan": "غيّر الخطة"
         },
         "combination": {
             "label": "الوجبات في اليوم",
@@ -225,7 +281,8 @@
         },
         "duration": {
             "label": "المدة",
-            "withDiscount": "{{duration}} · خصم {{percent}}٪"
+            "withDiscount": "{{duration}} · خصم {{percent}}٪",
+            "howLong": "المدة"
         },
         "delivery": {
             "startLabel": "تاريخ البدء",
@@ -242,7 +299,16 @@
             "slotTitle": "فترة التوصيل",
             "addressTitle": "عنوان التوصيل",
             "addressPlaceholder": "اختر عنوانًا",
-            "addAddress": "إضافة عنوان توصيل"
+            "addAddress": "إضافة عنوان توصيل",
+            "title": "التوصيل",
+            "startOn": "ابدأ في",
+            "deliverTo": "التوصيل إلى",
+            "cutoffShort_zero": "أقرب بداية {{date}}",
+            "cutoffShort_one": "أقرب بداية {{date}} · يُقفل كل توصيل قبل ساعة",
+            "cutoffShort_two": "أقرب بداية {{date}} · يُقفل كل توصيل قبل ساعتين",
+            "cutoffShort_few": "أقرب بداية {{date}} · يُقفل كل توصيل قبل {{count}} ساعات",
+            "cutoffShort_many": "أقرب بداية {{date}} · يُقفل كل توصيل قبل {{count}} ساعة",
+            "cutoffShort_other": "أقرب بداية {{date}} · يُقفل كل توصيل قبل {{count}} ساعة"
         },
         "checks": {
             "areaServed": "يوصل إلى {{area}}",
@@ -250,14 +316,46 @@
             "areaUnknown": "يتم تأكيد منطقتك قبل أول توصيل"
         },
         "meals": {
-            "selectLabel": "وجبة يوم {{date}}",
-            "unknown": "يختارها المطبخ",
-            "title": "اختر وجبات أسبوعك الأول"
+            "placeholder": "اختر وجبة",
+            "missing": "اختر وجبة",
+            "progress": "تم اختيار {{done}} من {{total}} وجبة",
+            "repeatWeek": "كرّر الأسبوع الأول",
+            "week": "الأسبوع {{number}}",
+            "daysChosen_zero": "لم يُختر أي يوم",
+            "daysChosen_one": "تم اختيار يوم واحد",
+            "daysChosen_two": "تم اختيار يومين",
+            "daysChosen_few": "تم اختيار {{count}} أيام",
+            "daysChosen_many": "تم اختيار {{count}} يومًا",
+            "daysChosen_other": "تم اختيار {{count}} يوم",
+            "slot": {
+                "breakfast": "الفطور",
+                "lunch": "الغداء",
+                "dinner": "العشاء",
+                "snack": "وجبة خفيفة"
+            },
+            "title": "اختر وجباتك",
+            "weekCount": "اخترت {{done}} من {{total}} هذا الأسبوع",
+            "weeksLabel": "الأسابيع",
+            "noDays": "اختر تاريخ البدء وأيام التوصيل أولًا.",
+            "cellEmpty": "{{slot}}، {{day}}: لم تُختر وجبة بعد",
+            "cellFull": "{{slot}}، {{day}}: {{meal}}",
+            "sameAllWeek": "نفسها طوال الأسبوع",
+            "clear": "امسح",
+            "fillRest": "املأ الباقي",
+            "clearWeek": "امسح الأسبوع {{number}}",
+            "typeLabel": "نوع الوجبة",
+            "filterAll": "الكل",
+            "loading": "جارٍ تحميل القائمة…",
+            "dishFor": "{{meal}} لـ{{slot}}، {{day}}",
+            "kcal": "{{kcal}} سعرة",
+            "clash": "تحتوي على مسببات حساسيتك",
+            "used": "{{count}}×"
         },
         "summary": {
             "plan": "الخطة",
             "duration": "المدة",
             "days": "الأيام",
+            "meals": "الوجبات",
             "address": "العنوان",
             "allergens": "قائمة الحساسية لديك",
             "window": "التوصيلات",
@@ -274,27 +372,42 @@
             "total": "الإجمالي",
             "perDelivery": "لكل يوم توصيل، بعد الخصم",
             "starts": "يبدأ {{date}}",
-            "everyDay": "كل يوم"
+            "everyDay": "كل يوم",
+            "eyebrow": "خطتك",
+            "priceADay": "السعر في اليوم",
+            "daysLabel": "الأيام",
+            "startsLabel": "تبدأ",
+            "deliveryLabel": "التوصيل",
+            "mealsPicked": "الوجبات المختارة",
+            "mealsPickedValue": "{{done}} / {{total}}",
+            "mealsOf": "{{done}} من {{total}}"
         },
         "confirm": {
             "total": "{{total}} لمدة {{duration}}",
-            "acknowledgeLabel": "راجعت التفاصيل وأريد الاشتراك"
+            "acknowledgeLabel": "راجعت التفاصيل وأريد الاشتراك",
+            "agree": "أوافق على شروط الخطة"
         },
         "successTitle": "تم إعداد اشتراكك",
         "successBody": "{{plan}} أصبحت الآن على حسابك.",
-        "mealsUnsavedTitle_zero": "لم يتعذّر حفظ أي وجبة",
-        "mealsUnsavedTitle_one": "تعذّر حفظ وجبة واحدة اخترتها",
-        "mealsUnsavedTitle_two": "تعذّر حفظ وجبتين اخترتهما",
-        "mealsUnsavedTitle_few": "تعذّر حفظ {{count}} وجبات اخترتها",
-        "mealsUnsavedTitle_many": "تعذّر حفظ {{count}} وجبة اخترتها",
-        "mealsUnsavedTitle_other": "تعذّر حفظ {{count}} وجبة اخترتها",
-        "mealsUnsavedBody": "ستصلك قائمة المطبخ في تلك الأيام. يمكنك الاختيار مجددًا أدناه.",
         "titleFor": "إعداد {{plan}}",
         "edit": "تعديل",
         "review": {
             "planTitle": "خطتك",
             "deliveryTitle": "التوصيل",
-            "priceTitle": "السعر"
+            "mealsTitle": "وجباتك",
+            "priceTitle": "السعر",
+            "title": "المراجعة والدفع",
+            "deliveryLine": "{{address}} · يبدأ {{date}}",
+            "deliverySub": "{{window}}، {{days}}",
+            "mealsLine": "اخترت {{done}} من {{total}} وجبة",
+            "mealsSub_zero": "يمكنك تغيير أي وجبة حتى موعد توصيلها",
+            "mealsSub_one": "يمكنك تغيير أي وجبة حتى ساعة واحدة قبل توصيلها",
+            "mealsSub_two": "يمكنك تغيير أي وجبة حتى ساعتين قبل توصيلها",
+            "mealsSub_few": "يمكنك تغيير أي وجبة حتى {{count}} ساعات قبل توصيلها",
+            "mealsSub_many": "يمكنك تغيير أي وجبة حتى {{count}} ساعة قبل توصيلها",
+            "mealsSub_other": "يمكنك تغيير أي وجبة حتى {{count}} ساعة قبل توصيلها",
+            "change": "غيّر",
+            "payWith": "الدفع عبر"
         },
         "startOver": "البدء من جديد",
         "setupTitle": "أكمل إعداد حسابك لتتمكن من الاشتراك",
@@ -304,7 +417,39 @@
         "setupBody_few": "تبقّت {{count}} خطوات قبل أن تتمكن من الاشتراك.",
         "setupBody_many": "تبقّت {{count}} خطوة قبل أن تتمكن من الاشتراك.",
         "setupBody_other": "تبقّت {{count}} خطوة قبل أن تتمكن من الاشتراك.",
-        "subscribeBlockedHint": "أكمل الخطوات أعلاه للاشتراك."
+        "subscribeBlockedHint": "أكمل الخطوات أعلاه للاشتراك.",
+        "aDay": "{{value}} في اليوم",
+        "placeOrder": "أكّد الطلب",
+        "nextTo": {
+            "delivery": "تابع إلى التوصيل",
+            "meals": "تابع إلى الوجبات",
+            "review": "تابع إلى الدفع"
+        },
+        "pay": {
+            "cash": "الدفع عند التوصيل",
+            "cashSub": "نقدًا للسائق",
+            "whish": "Whish",
+            "whishSub": "ادفع من محفظة Whish"
+        },
+        "booked": {
+            "title": "تم حجز خطتك",
+            "body": "{{plan}} · تبدأ {{date}}",
+            "seePlan": "اعرض خطتي",
+            "backToPlans": "العودة إلى الخطط"
+        },
+        "receipt": {
+            "times_zero": "× لا أيام توصيل",
+            "times_one": "× يوم توصيل واحد",
+            "times_two": "× يوما توصيل",
+            "times_few": "× {{count}} أيام توصيل",
+            "times_many": "× {{count}} يوم توصيل",
+            "times_other": "× {{count}} يوم توصيل",
+            "discount": "خصم المدة",
+            "percent": "{{percent}}٪",
+            "perDay": "لكل يوم توصيل",
+            "perDayAfter": "لكل يوم توصيل، بعد الخصم"
+        },
+        "stepOf": "الخطوة {{step}} من {{total}}"
     },
     "subscriptions": {
         "title": "الاشتراكات",
@@ -326,7 +471,25 @@
         "dayPrice": "{{price}} يوميًا",
         "nextDelivery": "التوصيلة القادمة {{date}}",
         "noNextDelivery": "لا توجد توصيلة مجدولة",
-        "rowSummary": "{{price}} يوميًا، تصل أيام {{days}}"
+        "rowSummary": "{{price}} يوميًا، تصل أيام {{days}}",
+        "activeCount_zero": "{{formatted}} نشطة",
+        "activeCount_one": "{{formatted}} نشطة",
+        "activeCount_two": "{{formatted}} نشطتان",
+        "activeCount_few": "{{formatted}} نشطة",
+        "activeCount_many": "{{formatted}} نشطة",
+        "activeCount_other": "{{formatted}} نشطة",
+        "browseShort": "تصفّح الخطط",
+        "bandDay": "{{band}} يوميًا",
+        "aDay": "يوميًا",
+        "dayOf": "اليوم {{day}} من {{total}}",
+        "ends": "تنتهي {{date}}",
+        "facts": {
+            "next": "التوصيل التالي",
+            "deliverTo": "التوصيل إلى",
+            "days": "أيام التوصيل"
+        },
+        "thisWeek": "هذا الأسبوع",
+        "changeMeals": "غيّر الوجبات"
     },
     "subscription": {
         "notFoundTitle": "لم نتمكن من العثور على هذا الاشتراك",
@@ -389,7 +552,66 @@
         "crumbAccount": "الحساب",
         "crumbSubscriptions": "الاشتراكات",
         "addAddress": "إضافة عنوان جديد",
-        "choosePlanAgain": "اختر هذه الخطة مرة أخرى"
+        "choosePlanAgain": "اختر هذه الخطة مرة أخرى",
+        "board": {
+            "back": "الاشتراكات",
+            "created": "تم إعداد خطتك",
+            "daysLeft_zero": "يوم متبقٍّ",
+            "daysLeft_one": "يوم متبقٍّ",
+            "daysLeft_two": "يومان متبقيان",
+            "daysLeft_few": "أيام متبقية",
+            "daysLeft_many": "يومًا متبقيًا",
+            "daysLeft_other": "يوم متبقٍّ",
+            "bought": "المشتراة",
+            "used": "المستخدمة",
+            "skippedFree": "المتخطّاة، مجانًا",
+            "lastsUntil": "تستمر حتى نحو",
+            "nextDelivery": "التوصيل التالي",
+            "noDate": "—",
+            "noMore": "لا مزيد من التوصيلات",
+            "skipDay": "تخطَّ يومًا",
+            "resume": "استئناف الخطة",
+            "again": "أعد إعداد هذه الخطة",
+            "yourPlan": "خطتك",
+            "address": "عنوان التوصيل",
+            "window": "نافذة التوصيل",
+            "days": "أيام التوصيل",
+            "meals": "الوجبات",
+            "mealsValue": "تختار وجبات كل يوم",
+            "pickMeals": "اختر الوجبات",
+            "seeMeals": "عرض الوجبات",
+            "addAddress": "إضافة عنوان",
+            "save": "حفظ",
+            "changesClose_zero": "تُغلق التغييرات قبل التوصيل مباشرة.",
+            "changesClose_one": "تُغلق التغييرات قبل التوصيل بساعة واحدة.",
+            "changesClose_two": "تُغلق التغييرات قبل التوصيل بساعتين.",
+            "changesClose_few": "تُغلق التغييرات قبل التوصيل بـ{{count}} ساعات.",
+            "changesClose_many": "تُغلق التغييرات قبل التوصيل بـ{{count}} ساعة.",
+            "changesClose_other": "تُغلق التغييرات قبل التوصيل بـ{{count}} ساعة.",
+            "cancelPlan": "إلغاء الخطة",
+            "deliveries": "التوصيلات",
+            "tabs": {
+                "all": "الكل",
+                "delivered": "المُسلّمة",
+                "skipped": "المتخطّاة"
+            },
+            "tag": {
+                "used": "يوم واحد",
+                "next": "التالي",
+                "free": "مجاني"
+            },
+            "noDayUsed": "لم يُستخدم أي يوم"
+        },
+        "dialog": {
+            "nextOn": "التالي {{date}}",
+            "daysLeft_zero": "لم يبقَ أي يوم",
+            "daysLeft_one": "يوم واحد متبقٍّ",
+            "daysLeft_two": "يومان متبقيان",
+            "daysLeft_few": "{{count}} أيام متبقية",
+            "daysLeft_many": "{{count}} يومًا متبقيًا",
+            "daysLeft_other": "{{count}} يوم متبقٍّ"
+        },
+        "notSaved": "لم يُحفظ هذا التغيير."
     },
     "balance": {
         "remaining_zero": "لم يتبقَّ أي يوم توصيل",
@@ -443,9 +665,9 @@
     "cancel": {
         "open": "إلغاء الاشتراك",
         "title": "إلغاء هذا الاشتراك؟",
-        "body": "تتوقف التوصيلات بعد مهلة التغيير. لا يمكن التراجع عن ذلك.",
-        "keep": "الاحتفاظ به",
-        "confirm": "إلغاء الاشتراك",
+        "body": "تتوقف التوصيلات بعد موعد إغلاق التغييرات. تدفع عند كل توصيل، لذا لا يُحتجز أي مبلغ.",
+        "keep": "الإبقاء على الخطة",
+        "confirm": "إلغاء الخطة",
         "consequenceTitle": "ما الذي سيتوقف",
         "consequenceBody_zero": "لا يوجد رصيد متبقٍ لتوصيله.",
         "consequenceBody_one": "لن يُوصَّل يوم التوصيل المتبقي الواحد.",
@@ -453,22 +675,9 @@
         "consequenceBody_few": "لن تُوصَّل أيام التوصيل المتبقية وعددها {{count}}.",
         "consequenceBody_many": "لن يُوصَّل {{count}} يوم توصيل متبقٍ.",
         "consequenceBody_other": "لن يُوصَّل {{count}} يوم توصيل متبقٍ.",
-        "estimate_zero": "لن يُسجَّل أي رصيد دائن.",
-        "estimate_one": "سنسجل رصيدًا دائنًا بقيمة {{amount}} — يوم واحد غير مستخدم بسعر {{perDay}}.",
-        "estimate_two": "سنسجل رصيدًا دائنًا بقيمة {{amount}} — يومان غير مستخدمين بسعر {{perDay}}.",
-        "estimate_few": "سنسجل رصيدًا دائنًا بقيمة {{amount}} — {{count}} أيام غير مستخدمة بسعر {{perDay}}.",
-        "estimate_many": "سنسجل رصيدًا دائنًا بقيمة {{amount}} — {{count}} يومًا غير مستخدم بسعر {{perDay}}.",
-        "estimate_other": "سنسجل رصيدًا دائنًا بقيمة {{amount}} — {{count}} يومًا غير مستخدم بسعر {{perDay}}.",
-        "noRefund": "لا يوجد رصيد غير مستخدم، لذا لن يُسجَّل شيء.",
-        "manualSettlement": "يُسجَّل الرصيد الدائن على حسابك وتتم تسويته يدويًا. لا تُحوَّل أي أموال تلقائيًا.",
         "doneTitle": "أُلغي الاشتراك",
-        "doneMemo_zero": "لم يُسجَّل أي رصيد دائن.",
-        "doneMemo_one": "سُجِّل رصيد دائن بقيمة {{amount}} عن يوم واحد غير مستخدم.",
-        "doneMemo_two": "سُجِّل رصيد دائن بقيمة {{amount}} عن يومين غير مستخدمين.",
-        "doneMemo_few": "سُجِّل رصيد دائن بقيمة {{amount}} عن {{count}} أيام غير مستخدمة.",
-        "doneMemo_many": "سُجِّل رصيد دائن بقيمة {{amount}} عن {{count}} يومًا غير مستخدم.",
-        "doneMemo_other": "سُجِّل رصيد دائن بقيمة {{amount}} عن {{count}} يومًا غير مستخدم.",
-        "doneNoMemo": "لم يكن هناك رصيد غير مستخدم، لذا لم يُسجَّل شيء."
+        "doneBody": "لن تتم أي توصيلات أخرى.",
+        "titleNamed": "إلغاء {{plan}}؟"
     },
     "weekdays": {
         "open": "تغيير أيام التوصيل",
@@ -483,28 +692,51 @@
         "cutOffBody_two": "التوصيلات التي تبعد أقل من ساعتين تمضي كما هي، ويبدأ التغيير بعدها.",
         "cutOffBody_few": "التوصيلات التي تبعد أقل من {{count}} ساعات تمضي كما هي، ويبدأ التغيير بعدها.",
         "cutOffBody_many": "التوصيلات التي تبعد أقل من {{count}} ساعة تمضي كما هي، ويبدأ التغيير بعدها.",
-        "cutOffBody_other": "التوصيلات التي تبعد أقل من {{count}} ساعة تمضي كما هي، ويبدأ التغيير بعدها."
+        "cutOffBody_other": "التوصيلات التي تبعد أقل من {{count}} ساعة تمضي كما هي، ويبدأ التغيير بعدها.",
+        "hint_zero": "يوم واحد على الأقل",
+        "hint_one": "يوم واحد على الأقل · تُغلق التغييرات قبل التوصيل بساعة",
+        "hint_two": "يوم واحد على الأقل · تُغلق التغييرات قبل التوصيل بساعتين",
+        "hint_few": "يوم واحد على الأقل · تُغلق التغييرات قبل التوصيل بـ{{count}} ساعات",
+        "hint_many": "يوم واحد على الأقل · تُغلق التغييرات قبل التوصيل بـ{{count}} ساعة",
+        "hint_other": "يوم واحد على الأقل · تُغلق التغييرات قبل التوصيل بـ{{count}} ساعة"
     },
     "choices": {
-        "open": "اختر وجباتك",
-        "title": "اختر وجبة هذا التوصيل",
-        "body": "اختر ما تريده في يوم التوصيل القادم.",
-        "bodyDated": "اختر ما تريد توصيله في {{date}}.",
-        "confirm": "حفظ الاختيار",
-        "selectLabel": "وجبة {{slot}}",
-        "cutOffTitle": "اختر قبل انتهاء المهلة",
-        "cutOffBody": "يُغلق الاختيار قبل تحضير التوصيلة. بعد ذلك يطبخ المطبخ خياره الافتراضي لذلك اليوم.",
-        "sources": {
-            "customer": "اخترت {{meal}}.",
-            "kitchen_default": "سيطبخ المطبخ {{meal}} ما لم تختر غير ذلك.",
-            "substituted": "استُبدلت بـ {{meal}}، ضمن إقراراتك بالحساسية."
-        }
+        "sectionTitle": "وجباتك",
+        "empty": "لا توجد توصيلات قادمة.",
+        "change": "تغيير",
+        "title": "وجبات يوم {{date}}",
+        "confirm": "حفظ",
+        "notChosen": "لم تُختر",
+        "repeated": "مكرّرة",
+        "substituted": "مستبدلة",
+        "cutoffNote_zero": "يمكنك تغيير أي وجبة حتى موعد توصيلها",
+        "cutoffNote_one": "يمكنك تغيير أي وجبة حتى ساعة قبل توصيلها",
+        "cutoffNote_two": "يمكنك تغيير أي وجبة حتى ساعتين قبل توصيلها",
+        "cutoffNote_few": "يمكنك تغيير أي وجبة حتى {{count}} ساعات قبل توصيلها",
+        "cutoffNote_many": "يمكنك تغيير أي وجبة حتى {{count}} ساعة قبل توصيلها",
+        "cutoffNote_other": "يمكنك تغيير أي وجبة حتى {{count}} ساعة قبل توصيلها",
+        "locked": "مُقفل",
+        "stillToChoose_zero": "لا وجبات متبقية للاختيار هذا الأسبوع.",
+        "stillToChoose_one": "بقيت وجبة واحدة لتختارها هذا الأسبوع.",
+        "stillToChoose_two": "بقيت وجبتان لتختارهما هذا الأسبوع.",
+        "stillToChoose_few": "بقيت {{count}} وجبات لتختارها هذا الأسبوع.",
+        "stillToChoose_many": "بقيت {{count}} وجبة لتختارها هذا الأسبوع.",
+        "stillToChoose_other": "بقيت {{count}} وجبة لتختارها هذا الأسبوع.",
+        "saved": "تم حفظ التغييرات.",
+        "chosenCount": "اخترت {{done}} من {{total}} وجبات"
     },
     "basketConflict": {
         "title": "هل تبدأ سلة جديدة؟",
         "body": "في سلتك وجبات من {{kitchen}}. تضم السلة وجبات مطبخ واحد فقط.",
         "keep": "الإبقاء على سلتي",
-        "replace": "بدء سلة جديدة"
+        "replace": "بدء سلة جديدة",
+        "yourBasket": "سلتك",
+        "basketLine_zero": "سلتك · لا أصناف",
+        "basketLine_one": "سلتك · صنف واحد",
+        "basketLine_two": "سلتك · صنفان",
+        "basketLine_few": "سلتك · {{count}} أصناف",
+        "basketLine_many": "سلتك · {{count}} صنفًا",
+        "basketLine_other": "سلتك · {{count}} صنف"
     },
     "myAllergens": {
         "badge": "في قائمة الحساسية لديك: {{allergens}}",
@@ -528,8 +760,28 @@
         "planTitle_many": "{{count}} طبقًا في هذه الخطة يحتوي على مكوّن من قائمة الحساسية لديك",
         "planTitle_other": "{{count}} طبق في هذه الخطة يحتوي على مكوّن من قائمة الحساسية لديك",
         "planBody": "يستبدل المطبخ هذه الأطباق بطبق آمن أو يتخطى تلك الوجبة. حدّث قائمتك ليتمكن من ذلك.",
-        "planNone": "لا شيء في الأسبوع النموذجي لهذه الخطة يتعارض مع قائمة الحساسية لديك.",
-        "planUnchecked": "لم تنشر هذه الخطة أطباقها بعد، لذا لا يمكن مقارنتها بقائمة الحساسية لديك."
+        "planNone": "لا يتعارض أي من هذه الأطباق مع قائمة الحساسية لديك.",
+        "planUnchecked": "نتحقق من كل وجبة تختارها مقابل هذه القائمة.",
+        "containsTitle": "يحتوي على {{allergens}}",
+        "containsShort": "يحتوي على {{allergens}}",
+        "containsLabel": "يحتوي على",
+        "whoFor": "لمن هذا الطبق؟",
+        "forMe": "لي",
+        "forSomeoneElse": "لشخص آخر",
+        "findAnother": "ابحث عن طبق آخر",
+        "listTitle": "قائمة الحساسية لديك",
+        "checkNote": "نتحقق من كل طبق مقابلها",
+        "onMenu": "ضمن قائمة هذه الخطة",
+        "changeMeal": "تغيير الوجبة",
+        "pickedOnMore_zero": "{{date}}",
+        "pickedOnMore_one": "{{date}} ويوم آخر",
+        "pickedOnMore_two": "{{date}} ويومان آخران",
+        "pickedOnMore_few": "{{date}} و{{count}} أيام أخرى",
+        "pickedOnMore_many": "{{date}} و{{count}} يومًا آخر",
+        "pickedOnMore_other": "{{date}} و{{count}} يوم آخر",
+        "savedNote": "محفوظة في حسابك",
+        "lineTag": "يحتوي على {{allergens}} · ضمن قائمة الحساسية لديك",
+        "unassessedTag": "لم يُفحص بعد لمسببات الحساسية"
     },
     "receipt": {
         "printerLabel": "طابعة الإيصالات",

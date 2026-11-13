@@ -141,32 +141,9 @@ final class B2bWorld
             'customer_account_id' => $account->getKey(),
         ]);
 
-        ContactPoint::factory()->verified()->create([
-            'user_id' => $signatory->getKey(),
-            'value_normalised' => $signatory->email,
-            'value_hash' => app(ContactValueHasher::class)->hash($signatory->email),
-            'is_login_identity' => true,
-        ]);
-
-        // An active agreement carries complete click-wrap evidence — four
-        // columns and a spent challenge, all of them enforced by CHECKs. The
-        // fixture satisfies them by hand rather than driving `AgreementService`
-        // through a full signing, because what these tests assert is what
-        // happens at the *other* end of the relationship.
-        $signingChallenge = self::spentSignatoryChallenge($signatory);
-
-        /** @var B2bAgreement $agreement */
-        $agreement = B2bAgreement::factory()->create([
-            'b2b_application_id' => $application->getKey(),
+        $agreement = self::signedAgreement($application, $signatory, [
             'organisation_id' => $organisation->getKey(),
-            'status' => AgreementStatus::Active,
             'notice_period_days' => $noticePeriodDays,
-            'signatory_user_id' => $signatory->getKey(),
-            'signatory_name' => 'A. Signatory',
-            'signatory_title' => 'Managing Director',
-            'signature_document_sha256' => hash('sha256', 'master-supply-agreement-v1'),
-            'signature_consent_statement' => 'I accept these terms on behalf of the company.',
-            'signature_otp_challenge_id' => $signingChallenge->getKey(),
             'signed_at' => now()->subMonths(6),
             'activated_at' => now()->subMonths(6),
         ]);
@@ -222,6 +199,47 @@ final class B2bWorld
      * with a proven challenge, not that the OTP framework works — which the
      * verification suite already pins.
      */
+    /**
+     * An active agreement on the application, signed by `$signatory`.
+     *
+     * An active agreement carries complete click-wrap evidence — four columns
+     * and a spent challenge, all of them enforced by CHECKs. The fixture
+     * satisfies them by hand rather than driving `AgreementService` through a
+     * full signing, because what the tests using it assert is what happens
+     * after the signature: provisioning, or the other end of the relationship.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    public static function signedAgreement(B2bApplication $application, User $signatory, array $attributes = []): B2bAgreement
+    {
+        if (! ContactPoint::query()->where('user_id', $signatory->getKey())->exists()) {
+            ContactPoint::factory()->verified()->create([
+                'user_id' => $signatory->getKey(),
+                'value_normalised' => $signatory->email,
+                'value_hash' => app(ContactValueHasher::class)->hash($signatory->email),
+                'is_login_identity' => true,
+            ]);
+        }
+
+        $signingChallenge = self::spentSignatoryChallenge($signatory);
+
+        /** @var B2bAgreement $agreement */
+        $agreement = B2bAgreement::factory()->create($attributes + [
+            'b2b_application_id' => $application->getKey(),
+            'status' => AgreementStatus::Active,
+            'signatory_user_id' => $signatory->getKey(),
+            'signatory_name' => 'A. Signatory',
+            'signatory_title' => 'Managing Director',
+            'signature_document_sha256' => hash('sha256', 'master-supply-agreement-v1'),
+            'signature_consent_statement' => 'I accept these terms on behalf of the company.',
+            'signature_otp_challenge_id' => $signingChallenge->getKey(),
+            'signed_at' => now(),
+            'activated_at' => now(),
+        ]);
+
+        return $agreement;
+    }
+
     public static function spentSignatoryChallenge(User $signatory): OtpChallenge
     {
         $contact = ContactPoint::query()->where('user_id', $signatory->getKey())->firstOrFail();

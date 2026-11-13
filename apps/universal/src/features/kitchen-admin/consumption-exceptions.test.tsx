@@ -5,9 +5,14 @@ import { Dimensions } from 'react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import { ConsumptionExceptionsScreen } from './screens/consumption-exceptions-screen.tsx';
+import {
+    ConsumptionExceptionsScreen,
+    STOCK_GAPS_POLL_MS,
+} from './screens/consumption-exceptions-screen.tsx';
 import { endProcess, readActiveProcess, startProcess } from '../../navigation/active-process.ts';
 import { withReturnTo } from '../../navigation/return-to.ts';
+import { todayIso } from '../commerce/dates.ts';
+import { getRecordAction } from '../../testing/record-actions.ts';
 
 /** An ingredient id, as a gap reads it out of its detail line. */
 const LENTILS_ID = '0f9a6c1e-2b3d-4e5f-8a9b-0c1d2e3f4a5b';
@@ -173,14 +178,14 @@ describe('consumption exceptions at desk width', () => {
         expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, perPage: 18 }));
         await waitFor(() => {
             expect(
-                screen.getByTestId('kitchen-consumption-exceptions-summary-unresolved'),
+                screen.getByTestId('kitchen-consumption-exceptions-toolbar-figure-unresolved'),
             ).toHaveTextContent(/84/);
         });
         expect(
-            screen.getByTestId('kitchen-consumption-exceptions-summary-resolved'),
+            screen.getByTestId('kitchen-consumption-exceptions-toolbar-figure-resolved'),
         ).toHaveTextContent(/3/);
         expect(
-            screen.getByTestId('kitchen-consumption-exceptions-summary-shown'),
+            screen.getByTestId('kitchen-consumption-exceptions-toolbar-result'),
         ).toHaveTextContent(/18.*84/);
         // One pager: the old cursor buttons are gone.
         expect(screen.queryByTestId('kitchen-consumption-exceptions-next')).toBeNull();
@@ -191,7 +196,7 @@ describe('consumption exceptions at desk width', () => {
      * produced — which opens a row of its own. That is said by name, never as "closed".
      */
     it('names the next problem when a retry clears its own and stops on another', async () => {
-        await renderStubScreen(<ConsumptionExceptionsScreen />, {
+        await renderStubScreen(<ConsumptionExceptionsScreen gap="exception-1" fixed="1" />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenOps: {
@@ -206,10 +211,6 @@ describe('consumption exceptions at desk width', () => {
             },
         });
 
-        await untilVisible('kitchen-exception-exception-1-retry');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-exception-exception-1-retry'));
-        });
         await untilVisible('kitchen-exception-retried-toast');
         expect(screen.getByTestId('kitchen-exception-retried-toast')).toHaveTextContent(
             /0148: that is fixed, but it is now blocked by “Recipe has no pieces produced”/,
@@ -217,41 +218,110 @@ describe('consumption exceptions at desk width', () => {
     });
 
     /*
-     * Retry used to say nothing either way: a 500 left the row as it was, and so did a retry that
+     * A retry used to say nothing either way: a 500 left the row as it was, and so did a retry that
      * ran but still could not deduct. Each now says which it was.
      */
-    it('says when a retry still could not deduct, and when it failed outright', async () => {
-        let attempt = 0;
-        await renderStubScreen(<ConsumptionExceptionsScreen />, {
+    it('says when the retry on arrival still could not deduct', async () => {
+        await renderStubScreen(<ConsumptionExceptionsScreen gap="exception-1" fixed="1" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listConsumptionExceptions: async () => pageOf([exception()]),
+                    retryConsumptionException: async () => ({
+                        exception: exception(),
+                        stillOpen: [],
+                    }),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-exception-retried-toast');
+        expect(screen.getByTestId('kitchen-exception-retried-toast')).toHaveTextContent(
+            /0148 still could not be deducted/,
+        );
+    });
+
+    it('says when the retry on arrival failed outright', async () => {
+        await renderStubScreen(<ConsumptionExceptionsScreen gap="exception-1" fixed="1" />, {
             session: kitchenManagerSession(),
             repositories: {
                 kitchenOps: {
                     listConsumptionExceptions: async () => pageOf([exception()]),
                     retryConsumptionException: async () => {
-                        attempt += 1;
-                        if (attempt === 1) return { exception: exception(), stillOpen: [] };
                         throw apiFailure('server', { message: 'The server could not run it.' });
                     },
                 },
             },
         });
 
-        await untilVisible('kitchen-exception-exception-1-retry');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-exception-exception-1-retry'));
-        });
-        await untilVisible('kitchen-exception-retried-toast');
-        expect(screen.getByTestId('kitchen-exception-retried-toast')).toHaveTextContent(
-            /0148 still could not be deducted/,
-        );
-
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-exception-exception-1-retry'));
-        });
         await untilVisible('kitchen-exception-action-failed-toast');
         expect(screen.getByTestId('kitchen-exception-action-failed-toast')).toHaveTextContent(
             /The server could not run it\./,
         );
+    });
+
+    /*
+     * A gap the API closed while the page was open — stock posted from another page — leaves the
+     * list, and the cards say so, without a reload.
+     */
+    it('re-reads while open, so a gap closed elsewhere leaves without a reload', async () => {
+        jest.useFakeTimers({ advanceTimers: true });
+        try {
+            let open = [exception(), exception({ id: 'exception-2', orderNumber: '0151' })];
+            const { repositories } = await renderStubScreen(<ConsumptionExceptionsScreen />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        listConsumptionExceptions: async () => pageOf(open),
+                        countConsumptionExceptions: async () => ({
+                            unresolved: open.length,
+                            resolved: 2 - open.length,
+                        }),
+                        countUnresolvedConsumptionExceptions: async () => open.length,
+                    },
+                },
+            });
+            await untilVisible('kitchen-exception-exception-1-order');
+            const counts = (
+                repositories.kitchenOps.countUnresolvedConsumptionExceptions as jest.Mock
+            ).mock.calls.length;
+
+            // Stock arrives on another page and the API closes the first gap; nothing is pressed.
+            open = [exception({ id: 'exception-2', orderNumber: '0151' })];
+            await jest.advanceTimersByTimeAsync(STOCK_GAPS_POLL_MS);
+
+            await waitFor(() => {
+                expect(screen.queryByTestId('kitchen-exception-exception-1-order')).toBeNull();
+            });
+            expect(screen.getByTestId('kitchen-exception-exception-2-order')).toBeTruthy();
+            // The sidebar badge's count is re-read with it.
+            expect(
+                (repositories.kitchenOps.countUnresolvedConsumptionExceptions as jest.Mock).mock
+                    .calls.length,
+            ).toBeGreaterThan(counts);
+        } finally {
+            jest.useRealTimers();
+        }
+    });
+
+    /*
+     * The API retries every open gap itself — when stock rises, and on a schedule — so there is
+     * nothing for a person to press on a row or on its record.
+     */
+    it('offers no Retry, only the fix and Accept gap', async () => {
+        await renderStubScreen(<ConsumptionExceptionsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenOps: {
+                    listConsumptionExceptions: async () =>
+                        pageOf([exception({ ingredientId: LENTILS_ID })]),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-exception-exception-1-fix');
+        expect(screen.getByTestId('kitchen-exception-exception-1-resolve')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-exception-exception-1-retry')).toBeNull();
     });
 
     /*
@@ -347,7 +417,7 @@ describe('consumption exceptions at desk width', () => {
                 },
             });
 
-            await untilVisible('kitchen-exception-exception-1-retry');
+            await untilVisible('kitchen-exception-exception-1-resolve');
             expect(screen.queryByTestId('kitchen-exception-exception-1-fix')).toBeNull();
         });
 
@@ -439,7 +509,7 @@ describe('consumption exceptions at desk width', () => {
             expect(screen.getByTestId('kitchen-exception-exception-2-order')).toBeTruthy();
         });
 
-        it('reopens the gap the URL names, with Fix in recipe first and Retry under it', async () => {
+        it('reopens the gap the URL names, with Fix in recipe and nothing to retry', async () => {
             await renderStubScreen(<ConsumptionExceptionsScreen gap="exception-1" />, {
                 session: kitchenManagerSession(),
                 repositories: {
@@ -450,8 +520,13 @@ describe('consumption exceptions at desk width', () => {
             });
 
             await untilVisible('kitchen-consumption-exceptions-window');
-            expect(screen.getByTestId('kitchen-consumption-exceptions-window-fix')).toBeTruthy();
-            expect(screen.getByTestId('kitchen-consumption-exceptions-window-retry')).toBeTruthy();
+            expect(
+                await getRecordAction(
+                    'kitchen-consumption-exceptions-window',
+                    'kitchen-consumption-exceptions-window-fix',
+                ),
+            ).toBeTruthy();
+            expect(screen.queryByTestId('kitchen-consumption-exceptions-window-retry')).toBeNull();
             expect(
                 screen.queryByTestId('kitchen-consumption-exceptions-window-primary'),
             ).toBeNull();
@@ -465,8 +540,12 @@ describe('consumption exceptions at desk width', () => {
             // No always-on explanation above the record.
             expect(screen.queryByTestId('kitchen-consumption-exceptions-window-note')).toBeNull();
 
+            const action = await getRecordAction(
+                'kitchen-consumption-exceptions-window',
+                'kitchen-consumption-exceptions-window-fix',
+            );
             await act(async () => {
-                fireEvent.press(screen.getByTestId('kitchen-consumption-exceptions-window-fix'));
+                fireEvent.press(action);
             });
             const href = String(mockRouter.push.mock.calls[0]?.[0]);
             expect(href.startsWith('/kitchen/recipes/recipe-1?')).toBe(true);
@@ -504,7 +583,7 @@ describe('consumption exceptions at desk width', () => {
                 },
             );
 
-            // Retry was the one step left, so it is taken — once — without being pressed.
+            // Retried on arrival — once — without anything being pressed.
             await untilVisible('kitchen-exception-retried-toast');
             expect(harness.repositories.kitchenOps.retryConsumptionException).toHaveBeenCalledTimes(
                 1,
@@ -517,6 +596,39 @@ describe('consumption exceptions at desk width', () => {
                 expect.objectContaining({ gap: undefined, fixed: undefined }),
             );
             // The gap is closed, so the process that was fixing it is over.
+            expect(readActiveProcess()).toBeNull();
+        });
+
+        /*
+         * Saved a draft, then Back: no fix to retry, but the reader is back where the fix began
+         * with nothing left behind, so its Continue goes. The sidebar lands on the bare list and
+         * keeps it.
+         */
+        it('ends the fix on the way back, and keeps it when the sidebar lands on the list', async () => {
+            const fixing = {
+                kind: 'stockGapFix',
+                subject: 'Grilled chicken bowl',
+                resumeHref: '/kitchen/recipes/recipe-1?fix=no_recipe_version',
+                originPath: '/kitchen/consumption-exceptions',
+                stepPaths: ['/kitchen/recipes/recipe-1'],
+            } as const;
+            const listing = {
+                kitchenOps: { listConsumptionExceptions: async () => pageOf([fixableGap()]) },
+            };
+
+            startProcess(fixing);
+            await renderStubScreen(<ConsumptionExceptionsScreen />, {
+                session: kitchenManagerSession(),
+                repositories: listing,
+            });
+            await untilVisible('kitchen-exception-exception-1-fix');
+            expect(readActiveProcess()).toEqual(expect.objectContaining({ kind: 'stockGapFix' }));
+
+            await renderStubScreen(<ConsumptionExceptionsScreen gap="exception-1" />, {
+                session: kitchenManagerSession(),
+                repositories: listing,
+            });
+            await untilVisible('kitchen-consumption-exceptions-window');
             expect(readActiveProcess()).toBeNull();
         });
 
@@ -539,6 +651,48 @@ describe('consumption exceptions at desk width', () => {
             );
             expect(screen.getByTestId('kitchen-exceptions-filter-from-trigger')).toBeTruthy();
             expect(screen.getByTestId('kitchen-exceptions-filter-to-trigger')).toBeTruthy();
+            // A window that is no shortcut reads back as Custom.
+            expect(
+                screen.getByTestId('kitchen-exceptions-filter-period-trigger'),
+            ).toHaveTextContent(/Custom/);
+        });
+
+        it('fills both days from a Period shortcut, and All clears them', async () => {
+            const harness = await renderStubScreen(<ConsumptionExceptionsScreen />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenOps: {
+                        listConsumptionExceptions: async () => pageOf([exception()]),
+                    },
+                },
+            });
+            const list = harness.repositories.kitchenOps.listConsumptionExceptions;
+            const today = todayIso();
+
+            await untilVisible('kitchen-consumption-exceptions-table');
+            // No window is the default view: All.
+            expect(
+                screen.getByTestId('kitchen-exceptions-filter-period-trigger'),
+            ).toHaveTextContent(/All/);
+
+            fireEvent.press(screen.getByTestId('kitchen-exceptions-filter-period-trigger'));
+            fireEvent.press(await screen.findByTestId('kitchen-exceptions-filter-period-today'));
+            await waitFor(() => {
+                expect(list).toHaveBeenLastCalledWith(
+                    expect.objectContaining({ from: today, to: today }),
+                );
+            });
+
+            // The desk menu closes on a pick: open it again unless it is still on screen.
+            if (screen.queryByTestId('kitchen-exceptions-filter-period-all') === null) {
+                fireEvent.press(screen.getByTestId('kitchen-exceptions-filter-period-trigger'));
+            }
+            fireEvent.press(await screen.findByTestId('kitchen-exceptions-filter-period-all'));
+            await waitFor(() => {
+                const last = jest.mocked(list).mock.calls.at(-1)?.[0];
+                expect(last).not.toHaveProperty('from');
+                expect(last).not.toHaveProperty('to');
+            });
         });
 
         it('starts from the view the URL holds and writes every change back to it', async () => {
@@ -567,7 +721,7 @@ describe('consumption exceptions at desk width', () => {
 
             await act(async () => {
                 fireEvent.press(
-                    screen.getByTestId('kitchen-consumption-exceptions-toolbar-status-unresolved'),
+                    screen.getByTestId('kitchen-consumption-exceptions-toolbar-figure-unresolved'),
                 );
             });
             // Back to the default status, and to page 1 with it: both leave the address.

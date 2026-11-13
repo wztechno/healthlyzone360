@@ -20,6 +20,7 @@ use Healthy360\Allergens\Http\Controllers\AllergenClassDeactivateController;
 use Healthy360\Allergens\Http\Controllers\AllergenClassStoreController;
 use Healthy360\Allergens\Http\Controllers\AllergenClassUpdateController;
 use Healthy360\Allergens\Http\Controllers\PublicAllergenClassIndexController;
+use Healthy360\Audit\Http\Controllers\AuditActivityIndexController;
 use Healthy360\B2b\Http\Controllers\B2bAgreementIndexController;
 use Healthy360\B2b\Http\Controllers\B2bAgreementShowController;
 use Healthy360\B2b\Http\Controllers\B2bAgreementSignatureChallengeController;
@@ -56,6 +57,11 @@ use Healthy360\B2b\Http\Controllers\OffboardingStoreController;
 use Healthy360\B2b\Http\Controllers\OrganisationInvitationIndexController;
 use Healthy360\B2b\Http\Controllers\OrganisationInvitationRevokeController;
 use Healthy360\B2b\Http\Controllers\OrganisationInvitationStoreController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementIndexController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementReviseController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementSendController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementStoreController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bAgreementUpdateController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationApproveController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationClaimController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationDeclineController;
@@ -63,8 +69,11 @@ use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationIndexController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationProvisionController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationRequestInformationController;
 use Healthy360\B2b\Http\Controllers\PlatformB2bApplicationShowController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bInvitationIndexController;
+use Healthy360\B2b\Http\Controllers\PlatformB2bInvitationResendController;
 use Healthy360\B2b\Http\Controllers\PlatformKycDocumentDownloadController;
 use Healthy360\B2b\Http\Controllers\PlatformKycDocumentReviewController;
+use Healthy360\B2b\Http\Controllers\PlatformSellerPriceListIndexController;
 use Healthy360\B2b\Http\Controllers\QuotationAcceptController;
 use Healthy360\B2b\Http\Controllers\QuotationDeclineController;
 use Healthy360\B2b\Http\Controllers\QuotationIndexController;
@@ -79,11 +88,14 @@ use Healthy360\Cart\Http\Controllers\CartItemStoreController;
 use Healthy360\Cart\Http\Controllers\CartItemUpdateController;
 use Healthy360\Cart\Http\Controllers\CartStoreController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemAllergenIndexController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemAllergensAssessedController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemAvailabilityReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemChannelReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemDietClassificationReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemIndexController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemIngredientReplaceController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemOffTodayController;
+use Healthy360\Catalogues\Http\Controllers\CatalogueItemOptionController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemPublishController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemReadinessController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemRetireController;
@@ -92,6 +104,7 @@ use Healthy360\Catalogues\Http\Controllers\CatalogueItemStoreController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemUpdateController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueItemVariantReplaceController;
 use Healthy360\Catalogues\Http\Controllers\CatalogueReferenceNextController;
+use Healthy360\Catalogues\Http\Controllers\DishMarginIndexController;
 use Healthy360\Catalogues\Http\Controllers\PlanCombinationIndexController;
 use Healthy360\Catalogues\Http\Controllers\PlanCombinationStoreController;
 use Healthy360\Catalogues\Http\Controllers\PlanCombinationUpdateController;
@@ -101,8 +114,6 @@ use Healthy360\Catalogues\Http\Controllers\PlanDurationUpdateController;
 use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandIndexController;
 use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandStoreController;
 use Healthy360\Catalogues\Http\Controllers\PlanEnergyBandUpdateController;
-use Healthy360\Catalogues\Http\Controllers\PlanMenuIndexController;
-use Healthy360\Catalogues\Http\Controllers\PlanMenuReplaceController;
 use Healthy360\Catalogues\Http\Controllers\PlanProfileShowController;
 use Healthy360\Catalogues\Http\Controllers\PlanProfileUpdateController;
 use Healthy360\Catalogues\Http\Controllers\PlanVariantDurationIndexController;
@@ -143,6 +154,7 @@ use Healthy360\Customers\Http\Controllers\ContactPrimaryController;
 use Healthy360\Customers\Http\Controllers\ContactStoreController;
 use Healthy360\Customers\Http\Controllers\CustomerAccountShowController;
 use Healthy360\Customers\Http\Controllers\CustomerAccountStoreController;
+use Healthy360\Customers\Http\Controllers\DietaryIngredientSearchController;
 use Healthy360\Customers\Http\Controllers\DietaryProfileReplaceController;
 use Healthy360\Customers\Http\Controllers\DietaryProfileShowController;
 use Healthy360\Delivery\Http\Controllers\DeliveryJobAssignController;
@@ -162,6 +174,7 @@ use Healthy360\Delivery\Http\Controllers\DeliveryZoneWindowIndexController;
 use Healthy360\Delivery\Http\Controllers\DeliveryZoneWindowReplaceController;
 use Healthy360\Delivery\Http\Controllers\DriverJobClaimController;
 use Healthy360\Delivery\Http\Controllers\DriverJobDeliverController;
+use Healthy360\Delivery\Http\Controllers\DriverJobFailController;
 use Healthy360\Delivery\Http\Controllers\DriverJobIndexController;
 use Healthy360\Delivery\Http\Controllers\DriverJobPickUpController;
 use Healthy360\Delivery\Http\Controllers\PublicDeliveryAreaIndexController;
@@ -186,7 +199,9 @@ use Healthy360\Ingredients\Http\Controllers\IngredientBarcodeStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientCategoryIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientCategoryStoreController;
 use Healthy360\Ingredients\Http\Controllers\IngredientCategoryUpdateController;
+use Healthy360\Ingredients\Http\Controllers\IngredientExportController;
 use Healthy360\Ingredients\Http\Controllers\IngredientForkController;
+use Healthy360\Ingredients\Http\Controllers\IngredientImportController;
 use Healthy360\Ingredients\Http\Controllers\IngredientIndexController;
 use Healthy360\Ingredients\Http\Controllers\IngredientShowController;
 use Healthy360\Ingredients\Http\Controllers\IngredientStoreController;
@@ -196,52 +211,77 @@ use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionCountController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionIndexController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionResolveController;
 use Healthy360\Inventory\Http\Controllers\ConsumptionExceptionRetryController;
+use Healthy360\Inventory\Http\Controllers\DuplicateStockIndexController;
+use Healthy360\Inventory\Http\Controllers\DuplicateStockResolveController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskRequirementsController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskShortfallCountController;
 use Healthy360\Inventory\Http\Controllers\OrderDeskWeeklyCheckController;
+use Healthy360\Inventory\Http\Controllers\StockActivityIndexController;
 use Healthy360\Inventory\Http\Controllers\StockAdjustController;
 use Healthy360\Inventory\Http\Controllers\StockCountController;
+use Healthy360\Inventory\Http\Controllers\StockCountImportController;
 use Healthy360\Inventory\Http\Controllers\StockItemIndexController;
+use Healthy360\Inventory\Http\Controllers\StockLevelExportController;
 use Healthy360\Inventory\Http\Controllers\StockLevelIndexController;
 use Healthy360\Inventory\Http\Controllers\StockLowStockCountController;
 use Healthy360\Inventory\Http\Controllers\StockThresholdController;
 use Healthy360\Inventory\Http\Controllers\StockWasteController;
+use Healthy360\Kitchens\Http\Controllers\BranchClosureController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingReplaceController;
 use Healthy360\Kitchens\Http\Controllers\BranchOperatingShowController;
+use Healthy360\Kitchens\Http\Controllers\BranchStoreController;
+use Healthy360\Kitchens\Http\Controllers\KitchenPauseController;
+use Healthy360\Kitchens\Http\Controllers\KitchenServiceSettingsShowController;
+use Healthy360\Kitchens\Http\Controllers\KitchenServiceSettingsUpdateController;
+use Healthy360\Kitchens\Http\Controllers\KitchenSetupController;
 use Healthy360\Kitchens\Http\Controllers\PublicKitchenIndexController;
 use Healthy360\Kitchens\Http\Controllers\PublicKitchenShowController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealIndexController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealPlanIndexController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealPlanShowController;
 use Healthy360\Kitchens\Http\Controllers\PublicMealShowController;
+use Healthy360\Kitchens\Http\Controllers\StorefrontProfileController;
 use Healthy360\Orders\Http\Controllers\CheckoutPreviewController;
 use Healthy360\Orders\Http\Controllers\GuestOrderShowController;
 use Healthy360\Orders\Http\Controllers\GuestOrderStoreController;
+use Healthy360\Orders\Http\Controllers\KitchenAnalyticsReportController;
+use Healthy360\Orders\Http\Controllers\KitchenDisplayController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderCancelController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderConfirmController;
+use Healthy360\Orders\Http\Controllers\KitchenOrderDeliveryController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderFulfilController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderIndexController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderReadyController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderShowController;
 use Healthy360\Orders\Http\Controllers\KitchenOrderStartController;
+use Healthy360\Orders\Http\Controllers\MyOrderCancelController;
 use Healthy360\Orders\Http\Controllers\MyOrderIndexController;
 use Healthy360\Orders\Http\Controllers\MyOrderShowController;
+use Healthy360\Orders\Http\Controllers\OrderComplaintController;
 use Healthy360\Orders\Http\Controllers\OrderPaymentReceiptStoreController;
+use Healthy360\Orders\Http\Controllers\OrderRefundController;
 use Healthy360\Orders\Http\Controllers\OrderStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\KitchenCustomerShowController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskAmendmentController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCalendarController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCashReportController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCloseController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAddressStoreController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerAllergyController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerStoreController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskCustomerUpdateController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDeliveryAreaIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDeliveryWindowIndexController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDishChoicesController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskDriverIndexController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlacementController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskPlanMealsController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQueueController;
 use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskQuoteController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskSettlementController;
+use Healthy360\Orders\OrderDesk\Http\Controllers\OrderDeskTodayController;
 use Healthy360\Organisations\Http\Controllers\CurrentOrganisationController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentCaptureController;
 use Healthy360\Payments\Http\Controllers\PaymentIntentStoreController;
@@ -255,6 +295,8 @@ use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenStoreContr
 use Healthy360\PlatformAdministration\Http\Controllers\PlatformKitchenSuspendController;
 use Healthy360\Pricing\Http\Controllers\ItemChannelPricesSetController;
 use Healthy360\Pricing\Http\Controllers\ItemChannelPricesShowController;
+use Healthy360\Pricing\Http\Controllers\ItemPacksSetController;
+use Healthy360\Pricing\Http\Controllers\ItemPacksShowController;
 use Healthy360\Pricing\Http\Controllers\PriceListArchiveController;
 use Healthy360\Pricing\Http\Controllers\PriceListChannelReplaceController;
 use Healthy360\Pricing\Http\Controllers\PriceListEntryIndexController;
@@ -271,6 +313,7 @@ use Healthy360\Procurement\Http\Controllers\InventoryValueReportController;
 use Healthy360\Procurement\Http\Controllers\ItemLatestPurchaseIndexController;
 use Healthy360\Procurement\Http\Controllers\MonthlyCostReportController;
 use Healthy360\Procurement\Http\Controllers\OrderProposalController;
+use Healthy360\Procurement\Http\Controllers\PayableController;
 use Healthy360\Procurement\Http\Controllers\ProcurementReferenceController;
 use Healthy360\Procurement\Http\Controllers\ProcurementSpendSummaryController;
 use Healthy360\Procurement\Http\Controllers\PurchaseOrderCancelController;
@@ -306,9 +349,12 @@ use Healthy360\QualityControl\Http\Controllers\QualityCheckHoldController;
 use Healthy360\QualityControl\Http\Controllers\QualityCheckIndexController;
 use Healthy360\QualityControl\Http\Controllers\QualityCheckReleaseController;
 use Healthy360\QualityControl\Http\Controllers\QualityCheckStoreController;
+use Healthy360\QualityControl\Http\Controllers\TemperatureLogController;
 use Healthy360\Recipes\Http\Controllers\RecipeArchiveController;
 use Healthy360\Recipes\Http\Controllers\RecipeCostSnapshotIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeCostSnapshotStoreController;
+use Healthy360\Recipes\Http\Controllers\RecipeExportController;
+use Healthy360\Recipes\Http\Controllers\RecipeImportController;
 use Healthy360\Recipes\Http\Controllers\RecipeIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeLineReplaceController;
 use Healthy360\Recipes\Http\Controllers\RecipeOutputReplaceController;
@@ -318,17 +364,20 @@ use Healthy360\Recipes\Http\Controllers\RecipeShowController;
 use Healthy360\Recipes\Http\Controllers\RecipeStepReplaceController;
 use Healthy360\Recipes\Http\Controllers\RecipeStoreController;
 use Healthy360\Recipes\Http\Controllers\RecipeTechnicalSheetController;
+use Healthy360\Recipes\Http\Controllers\RecipeTechnicalSheetsController;
 use Healthy360\Recipes\Http\Controllers\RecipeUpdateController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionAllergenIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionIndexController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionPublishController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionReadinessController;
+use Healthy360\Recipes\Http\Controllers\RecipeVersionReleaseController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionRetireController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionShowController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionStoreController;
 use Healthy360\Recipes\Http\Controllers\RecipeVersionUpdateController;
 use Healthy360\Subscriptions\Http\Controllers\AllergenConflictIndexController;
 use Healthy360\Subscriptions\Http\Controllers\KitchenSubscriptionScheduleController;
+use Healthy360\Subscriptions\Http\Controllers\MySubscriptionDayIndexController;
 use Healthy360\Subscriptions\Http\Controllers\MySubscriptionDeliveryIndexController;
 use Healthy360\Subscriptions\Http\Controllers\MySubscriptionIndexController;
 use Healthy360\Subscriptions\Http\Controllers\MySubscriptionShowController;
@@ -342,6 +391,9 @@ use Healthy360\Subscriptions\Http\Controllers\SubscriptionSkipStoreController;
 use Healthy360\Subscriptions\Http\Controllers\SubscriptionStoreController;
 use Healthy360\Subscriptions\Http\Controllers\SubscriptionWeekdaysUpdateController;
 use Healthy360\Subscriptions\Http\Controllers\SubscriptionWindowUpdateController;
+use Healthy360\Support\Http\Controllers\StaffNotificationIndexController;
+use Healthy360\Support\Http\Controllers\StaffNotificationReadAllController;
+use Healthy360\Support\Http\Controllers\StaffNotificationReadController;
 use Healthy360\Verification\Http\Controllers\ChallengeResendController;
 use Healthy360\Verification\Http\Controllers\ChallengeShowController;
 use Healthy360\Verification\Http\Controllers\ChallengeVerifyController;
@@ -535,6 +587,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::get('/dietary-profile', DietaryProfileShowController::class)->name('me.dietary-profile.show');
             Route::put('/dietary-profile', DietaryProfileReplaceController::class)->name('me.dietary-profile.replace');
 
+            // The foods a person can name as "leave this out": the platform library
+            // and the kitchens' ingredients a meal on sale lists — nothing else a
+            // kitchen keeps. Read-only, by name, a page for a dropdown.
+            Route::get('/dietary-profile/ingredients', DietaryIngredientSearchController::class)
+                ->name('me.dietary-profile.ingredients');
+
             // Consent is keyed by the definition's own code rather than by a grant id.
             // The person is withdrawing "marketing", not row 4f3a…; and the grant they
             // are withdrawing is whichever version they hold, which only the ledger
@@ -659,6 +717,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         */
         Route::get('/me/orders', MyOrderIndexController::class)->name('me.orders.index');
         Route::get('/me/orders/{order}', MyOrderShowController::class)->name('me.orders.show');
+        Route::post('/me/orders/{order}/cancel', MyOrderCancelController::class)->name('me.orders.cancel');
 
         /*
         |------------------------------------------------------------------
@@ -685,7 +744,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         */
         Route::post('/payments/intents', PaymentIntentStoreController::class)->name('payments.intents.store');
 
-        Route::middleware('org.context')->group(function (): void {
+        // Any membership reached these until the permission was added: taking
+        // and returning money is the same decision as confirming the order.
+        Route::middleware(['org.context', 'permission:order.manage_organisation'])->group(function (): void {
             Route::post('/payments/intents/{paymentIntent}/capture', PaymentIntentCaptureController::class)->name('payments.intents.capture');
             Route::post('/payments/intents/{paymentIntent}/refunds', PaymentRefundStoreController::class)->name('payments.intents.refunds.store');
         });
@@ -733,6 +794,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::get('/driver/jobs', DriverJobIndexController::class)->name('driver.jobs.index');
             Route::post('/driver/jobs/{job}/pick-up', DriverJobPickUpController::class)->name('driver.jobs.pick-up');
             Route::post('/driver/jobs/{job}/deliver', DriverJobDeliverController::class)->name('driver.jobs.deliver');
+            Route::post('/driver/jobs/{job}/fail', DriverJobFailController::class)->name('driver.jobs.fail');
             Route::post('/driver/jobs/{job}/claim', DriverJobClaimController::class)->name('driver.jobs.claim');
 
             Route::get('/delivery/jobs', DeliveryJobIndexController::class)->name('delivery.jobs.index');
@@ -907,6 +969,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         // days there that nothing has committed to.
         Route::get('/me/subscriptions/{subscription}/deliveries', MySubscriptionDeliveryIndexController::class)->name('me.subscriptions.deliveries.index');
 
+        // The customer's own meals, day by day, to the end of the balance —
+        // the projection, labelled as one, because these are the days they
+        // chose for and can still change.
+        Route::get('/me/subscriptions/{subscription}/days', MySubscriptionDayIndexController::class)->name('me.subscriptions.days.index');
+
         /*
         |------------------------------------------------------------------
         | Account closure — the customer's own (J2)
@@ -987,6 +1054,45 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         |
         */
         Route::middleware('org.context')->prefix('/catalogue')->group(function (): void {
+            /*
+            | The bell, under `/catalogue` because `/me` routes carry no tenant
+            | context. The permission decides who has a bell at all; each
+            | controller filters on `user_id`, because the organisation policy
+            | would otherwise show a colleague's alerts.
+            */
+            Route::middleware('permission:order.supervise_organisation')->group(function (): void {
+                Route::get('/staff-notifications', StaffNotificationIndexController::class)->name('catalogue.staff-notifications.index');
+                Route::post('/staff-notifications/read-all', StaffNotificationReadAllController::class)->name('catalogue.staff-notifications.read-all');
+                Route::post('/staff-notifications/{notification}/read', StaffNotificationReadController::class)
+                    ->whereUuid('notification')->name('catalogue.staff-notifications.read');
+            });
+
+            /*
+            | A kitchen's service timings. Reading checks its own two permissions
+            | (see the controller). No `org.trading` and no `precondition`: a
+            | suspended kitchen still has orders to finish, and the row carries
+            | no `lock_version`.
+            */
+            // The Activity page: read-only, for an owner investigating a number.
+            Route::middleware('permission:audit.view_organisation')->group(function (): void {
+                Route::get('/activity', AuditActivityIndexController::class)->name('catalogue.activity.index');
+                Route::get('/stock-activity', StockActivityIndexController::class)->name('catalogue.stock-activity.index');
+            });
+
+            Route::get('/kitchen-service-settings', KitchenServiceSettingsShowController::class)->name('catalogue.kitchen-service-settings.show');
+            Route::put('/kitchen-service-settings', KitchenServiceSettingsUpdateController::class)
+                ->middleware('permission:catalogue.manage_organisation')->name('catalogue.kitchen-service-settings.update');
+            // The kitchen's marketplace copy, read by the anonymous marketplace off `organisations`.
+            // A suspended kitchen may still read it; only the write needs `org.trading`.
+            Route::get('/storefront-profile', [StorefrontProfileController::class, 'show'])
+                ->middleware('permission:catalogue.manage_organisation')->name('catalogue.storefront-profile.show');
+            Route::put('/storefront-profile', [StorefrontProfileController::class, 'update'])
+                ->middleware(['org.trading', 'permission:catalogue.manage_organisation'])->name('catalogue.storefront-profile.update');
+            Route::post('/kitchen-pause', [KitchenPauseController::class, 'store'])
+                ->middleware('permission:order.supervise_organisation')->name('catalogue.kitchen-pause.store');
+            Route::delete('/kitchen-pause', [KitchenPauseController::class, 'destroy'])
+                ->middleware('permission:order.supervise_organisation')->name('catalogue.kitchen-pause.destroy');
+
             Route::get('/ingredients/nutrition-references', NutritionReferenceSearchController::class)
                 ->middleware('permission:catalogue.manage_organisation')->name('catalogue.ingredients.nutrition-references');
             Route::get('/ingredients/allergen-references', AllergenReferenceSearchController::class)
@@ -995,6 +1101,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 ->middleware(['permission:catalogue.manage_organisation', 'throttle:ingredient-assist'])->name('catalogue.ingredients.assist');
             Route::middleware('permission:catalogue.view_organisation')->group(function (): void {
                 Route::get('/ingredients', IngredientIndexController::class)->name('catalogue.ingredients.index');
+                // Static segments before `{ingredient}` — nothing here constrains the parameter to a
+                // uuid, so `export` would otherwise bind as a record and 404.
+                Route::get('/ingredients/export', IngredientExportController::class)->name('catalogue.ingredients.export');
+                Route::get('/ingredients/import-template', IngredientExportController::class)
+                    ->defaults('template', true)->name('catalogue.ingredients.import-template');
                 Route::get('/ingredients/{ingredient}', IngredientShowController::class)->name('catalogue.ingredients.show');
                 Route::get('/ingredients/{ingredient}/allergens', IngredientAllergenIndexController::class)->name('catalogue.ingredients.allergens.index');
                 Route::get('/ingredients/{ingredient}/aliases', IngredientAliasIndexController::class)->name('catalogue.ingredients.aliases.index');
@@ -1015,6 +1126,8 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
 
             Route::middleware(['org.trading', 'permission:catalogue.manage_organisation'])->group(function (): void {
                 Route::post('/ingredients', IngredientStoreController::class)->name('catalogue.ingredients.store');
+                Route::post('/ingredients/imports', IngredientImportController::class)
+                    ->middleware('throttle:catalogue-import')->name('catalogue.ingredients.imports.store');
 
                 Route::patch('/ingredients/{ingredient}', IngredientUpdateController::class)
                     ->middleware('precondition')
@@ -1083,6 +1196,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
 
             Route::middleware('permission:recipe.view_organisation')->group(function (): void {
                 Route::get('/recipes', RecipeIndexController::class)->name('catalogue.recipes.index');
+                // Static segments before `{recipe}`, for the same reason as the ingredient routes.
+                Route::get('/recipes/export', RecipeExportController::class)->name('catalogue.recipes.export');
+                Route::get('/recipes/import-template', RecipeExportController::class)
+                    ->defaults('template', true)->name('catalogue.recipes.import-template');
+                Route::get('/recipes/technical-sheets', RecipeTechnicalSheetsController::class)->name('catalogue.recipes.technical-sheets');
                 Route::get('/recipes/{recipe}', RecipeShowController::class)->name('catalogue.recipes.show');
                 Route::get('/recipes/{recipe}/versions', RecipeVersionIndexController::class)->name('catalogue.recipes.versions.index');
                 Route::get('/recipes/{recipe}/versions/{version}', RecipeVersionShowController::class)->name('catalogue.recipes.versions.show');
@@ -1098,6 +1216,8 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
 
             Route::middleware(['org.trading', 'permission:recipe.manage_organisation'])->group(function (): void {
                 Route::post('/recipes', RecipeStoreController::class)->name('catalogue.recipes.store');
+                Route::post('/recipes/imports', RecipeImportController::class)
+                    ->middleware('throttle:catalogue-import')->name('catalogue.recipes.imports.store');
 
                 // A kitchen's own photo of the recipe (BUG-14).
                 Route::post('/recipes/{record}/photo', RecordPhotoStoreController::class)
@@ -1149,6 +1269,10 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/recipes/{recipe}/versions/{version}/retire', RecipeVersionRetireController::class)
                     ->middleware('precondition')
                     ->name('catalogue.recipes.versions.retire');
+
+                Route::post('/recipes/{recipe}/versions/{version}/release', RecipeVersionReleaseController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.recipes.versions.release');
             });
 
             /*
@@ -1175,6 +1299,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             |
             */
             Route::middleware('permission:recipe.view_costs_organisation')->group(function (): void {
+                Route::get('/reports/dish-margins', DishMarginIndexController::class)
+                    ->name('catalogue.reports.dish-margins');
+
                 Route::get('/recipes/{recipe}/versions/{version}/technical-sheet', RecipeTechnicalSheetController::class)
                     ->name('catalogue.recipes.versions.technical-sheet');
 
@@ -1228,6 +1355,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/items', CatalogueItemIndexController::class)->name('catalogue.items.index');
                 Route::get('/items/{item}', CatalogueItemShowController::class)->name('catalogue.items.show');
                 Route::get('/items/{item}/allergens', CatalogueItemAllergenIndexController::class)->name('catalogue.items.allergens.index');
+                Route::get('/items/{item}/options', [CatalogueItemOptionController::class, 'index'])->name('catalogue.items.options.index');
 
                 // K1.8, and the same argument as its recipe twin: whoever has
                 // to complete a listing must be able to see what it is still
@@ -1253,9 +1381,15 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->defaults('subject', 'catalogue_item')
                     ->name('catalogue.items.photo.destroy');
 
+                Route::post('/items/{item}/allergens-assessed', CatalogueItemAllergensAssessedController::class)
+                    ->name('catalogue.items.allergens-assessed');
+
                 Route::patch('/items/{item}', CatalogueItemUpdateController::class)
                     ->middleware('precondition')
                     ->name('catalogue.items.update');
+
+                Route::put('/items/{item}/options', [CatalogueItemOptionController::class, 'replace'])
+                    ->name('catalogue.items.options.replace');
 
                 Route::put('/items/{item}/variants', CatalogueItemVariantReplaceController::class)
                     ->middleware('precondition')
@@ -1276,6 +1410,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/items/{item}/availability', CatalogueItemAvailabilityReplaceController::class)
                     ->middleware('precondition')
                     ->name('catalogue.items.availability.replace');
+
+                // One press, today only, and no lock version: see the controller.
+                Route::put('/items/{item}/off-today', [CatalogueItemOffTodayController::class, 'store'])
+                    ->name('catalogue.items.off-today.store');
+                Route::delete('/items/{item}/off-today', [CatalogueItemOffTodayController::class, 'destroy'])
+                    ->name('catalogue.items.off-today.destroy');
             });
 
             Route::middleware(['org.trading', 'permission:catalogue.publish_organisation'])->group(function (): void {
@@ -1336,6 +1476,9 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
 
                 // An article's B2B and B2C weight and price, read as one pair.
                 Route::get('/items/{item}/channel-prices', ItemChannelPricesShowController::class)->name('catalogue.items.channel-prices.show');
+
+                // A cooked item's packs, their packaging and prices, and where it sells.
+                Route::get('/items/{item}/packs', ItemPacksShowController::class)->name('catalogue.items.packs.show');
             });
 
             Route::middleware(['org.trading', 'permission:price_list.manage_organisation'])->group(function (): void {
@@ -1358,6 +1501,10 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/items/{item}/channel-prices', ItemChannelPricesSetController::class)
                     ->middleware(['precondition', 'permission:catalogue.manage_organisation'])
                     ->name('catalogue.items.channel-prices.set');
+
+                Route::put('/items/{item}/packs', ItemPacksSetController::class)
+                    ->middleware(['precondition', 'permission:catalogue.manage_organisation'])
+                    ->name('catalogue.items.packs.set');
             });
 
             Route::middleware(['org.trading', 'permission:catalogue.publish_organisation'])->group(function (): void {
@@ -1445,33 +1592,6 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::put('/plans/{item}/variant-durations', PlanVariantDurationReplaceController::class)
                     ->middleware('precondition')
                     ->name('catalogue.plans.variant-durations.replace');
-
-                /*
-                | The fixed menu — what the plan serves, on which day of its
-                | cycle. A fourth face of the same listing, so it takes the
-                | same `If-Match` on the **item's** validator that the profile
-                | and the matrix do.
-                |
-                | The read sits here rather than beside the profile read
-                | below, because the boundary that section draws is between
-                | what a customer will be shown and what a merchandiser
-                | decides. A menu editor is the second; the customer-facing
-                | "what is for dinner on Thursday" is a marketplace surface
-                | with its own presenter.
-                |
-                | The PUT also carries `menu_cycle_days` and
-                | `menu_cycle_anchor_date`, which are columns on
-                | `subscription_plan_profiles` and are **not** writable
-                | through `PUT …/profile`: that endpoint is a whole-document
-                | write, and a client sending a body written before those
-                | columns existed would silently withdraw a kitchen's menu.
-                | `PlanMenuService` is their only writer.
-                */
-                Route::get('/plans/{item}/menu', PlanMenuIndexController::class)->name('catalogue.plans.menu.index');
-
-                Route::put('/plans/{item}/menu', PlanMenuReplaceController::class)
-                    ->middleware('precondition')
-                    ->name('catalogue.plans.menu.replace');
             });
 
             /*
@@ -1578,10 +1698,26 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             | add and is wired into the registry now; nothing in this slice is
             | cost-bearing yet, so no route checks it.
             */
-            Route::middleware('permission:inventory.view_organisation')->group(function (): void {
-                Route::get('/inventory/items', StockItemIndexController::class)->name('catalogue.inventory.items.index');
+            /*
+            | Levels and the low-stock count are per branch: `branch.context`
+            | resolves `X-Branch-Id` (or the membership's own branch, or a sole
+            | branch) so the controllers' `TenantContext::branchId()` narrowing
+            | actually happens. It resolves, never requires — no branch still
+            | reads org-wide, as documented. It runs before `permission`, so a
+            | branch-scoped member passes PermissionChecker's branch-scope step.
+            */
+            Route::middleware(['branch.context', 'permission:inventory.view_organisation'])->group(function (): void {
+                Route::get('/inventory/levels/export', StockLevelExportController::class)->name('catalogue.inventory.levels.export');
                 Route::get('/inventory/levels', StockLevelIndexController::class)->name('catalogue.inventory.levels.index');
                 Route::get('/inventory/low-stock-count', StockLowStockCountController::class)->name('catalogue.inventory.low-stock-count');
+            });
+
+            Route::middleware('permission:inventory.view_organisation')->group(function (): void {
+                Route::get('/inventory/items', StockItemIndexController::class)->name('catalogue.inventory.items.index');
+                // The count-sheet template names no branch, so it needs no branch context.
+                Route::get('/inventory/counts/import-template', StockLevelExportController::class)
+                    ->defaults('template', true)->name('catalogue.inventory.counts.import-template');
+                Route::get('/inventory/duplicates', DuplicateStockIndexController::class)->name('catalogue.inventory.duplicates.index');
                 Route::get('/inventory/consumption-exceptions', ConsumptionExceptionIndexController::class)->name('catalogue.inventory.consumption-exceptions.index');
                 Route::get('/inventory/consumption-exceptions/unresolved-count', ConsumptionExceptionCountController::class)->name('catalogue.inventory.consumption-exceptions.count');
 
@@ -1620,6 +1756,34 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/quality-control/checks', QualityCheckIndexController::class)->name('catalogue.quality-control.checks.index');
             });
 
+            /*
+            | The count-sheet import writes one branch's shelves. `branch.context` sits
+            | first in the group for the same reason as the levels read above: appended
+            | route middleware would run after `permission`, and a branch-scoped member
+            | is refused there until the branch is resolved. The controller then requires
+            | the branch by hand — the middleware only resolves one.
+            */
+            /*
+            | The temperature log. Read by whoever reads stock. A reading is taken
+            | by whoever stands at the fridge, so the cook's code writes it beside
+            | the storekeeper's; which fridges exist is the storekeeper's.
+            */
+            Route::middleware(['branch.context', 'permission:inventory.view_organisation'])->group(function (): void {
+                Route::get('/quality-control/temperature-log', [TemperatureLogController::class, 'log'])->name('catalogue.quality-control.temperature-log');
+            });
+            Route::middleware(['branch.context', 'permission:order.prepare_organisation,inventory.manage_organisation'])->group(function (): void {
+                Route::post('/quality-control/temperature-readings', [TemperatureLogController::class, 'storeReading'])->name('catalogue.quality-control.temperature-readings.store');
+                Route::post('/quality-control/cooking-temperatures', [TemperatureLogController::class, 'storeCooking'])->name('catalogue.quality-control.cooking-temperatures.store');
+            });
+            Route::middleware(['branch.context', 'permission:inventory.manage_organisation'])->group(function (): void {
+                Route::post('/quality-control/temperature-units', [TemperatureLogController::class, 'storeUnit'])->name('catalogue.quality-control.temperature-units.store');
+                Route::patch('/quality-control/temperature-units/{unit}', [TemperatureLogController::class, 'updateUnit'])->name('catalogue.quality-control.temperature-units.update');
+            });
+
+            Route::middleware(['branch.context', 'permission:inventory.manage_organisation', 'throttle:catalogue-import'])->group(function (): void {
+                Route::post('/inventory/counts/imports', StockCountImportController::class)->name('catalogue.inventory.counts.imports.store');
+            });
+
             Route::middleware('permission:inventory.manage_organisation')->group(function (): void {
                 /*
                 | No `POST /inventory/items` (INV2.0). A stock item is derived
@@ -1632,6 +1796,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/inventory/adjustments', StockAdjustController::class)->name('catalogue.inventory.adjustments.store');
                 Route::post('/inventory/waste', StockWasteController::class)->name('catalogue.inventory.waste.store');
                 Route::post('/inventory/counts', StockCountController::class)->name('catalogue.inventory.counts.store');
+
+                // The review list's two answers: merge an emptied shelf with history
+                // into its twin, or keep both. Writes, so the manage code, not the
+                // list's view code.
+                Route::post('/inventory/duplicates/merge', [DuplicateStockResolveController::class, 'merge'])->name('catalogue.inventory.duplicates.merge');
+                Route::post('/inventory/duplicates/dismiss', [DuplicateStockResolveController::class, 'dismiss'])->name('catalogue.inventory.duplicates.dismiss');
 
                 // A receiver links a code nobody has linked yet, at the dock (owner,
                 // 2026-10-21): producer's codes only, no removal, audited. `org.trading`
@@ -1808,6 +1978,18 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 */
                 Route::get('/procurement/unpriced-receipts', UnpricedReceiptIndexController::class)->name('catalogue.procurement.unpriced-receipts.index');
                 Route::post('/procurement/goods-receipts/{goodsReceipt}/complete-prices', ReceiptPriceCompletionController::class)->name('catalogue.procurement.goods-receipts.complete-prices');
+
+                // What is owed for deliveries. Reading is the money code; acting on
+                // a row is the code the owner and finance hold.
+                Route::get('/procurement/payables', [PayableController::class, 'index'])->name('catalogue.procurement.payables.index');
+                Route::middleware('permission:inventory.approve_payables_organisation')->group(function (): void {
+                    Route::post('/procurement/payables/{goodsReceipt}/approve-price', [PayableController::class, 'approvePrice'])
+                        ->whereUuid('goodsReceipt')->name('catalogue.procurement.payables.approve-price');
+                    Route::post('/procurement/payables/{goodsReceipt}/pay', [PayableController::class, 'pay'])
+                        ->whereUuid('goodsReceipt')->name('catalogue.procurement.payables.pay');
+                    Route::put('/procurement/payables/{goodsReceipt}/due-date', [PayableController::class, 'setDueDate'])
+                        ->whereUuid('goodsReceipt')->name('catalogue.procurement.payables.due-date');
+                });
 
                 /*
                 | The weekly and monthly purchase check (SUP6, §3.7) — the same
@@ -1994,9 +2176,34 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             | path.
             |
             */
+            // The wall board: every open order, unpaged. A cook holds the wall's
+            // own code and not the book's, and gets it with the money off.
+            Route::get('/kitchen-display', KitchenDisplayController::class)
+                ->middleware('permission:order.view_organisation,order.prepare_organisation')
+                ->name('catalogue.kitchen-display.index');
+
             Route::middleware('permission:order.view_organisation')->group(function (): void {
                 Route::get('/orders', KitchenOrderIndexController::class)->name('catalogue.orders.index');
                 Route::get('/orders/{order}', KitchenOrderShowController::class)->name('catalogue.orders.show');
+
+                // What the order book did over a range of days, against the
+                // range before it. Counts and units only — no money — so the
+                // order book's own read code, not the cost one.
+                Route::get('/reports/kitchen-analytics', KitchenAnalyticsReportController::class)->name('catalogue.reports.kitchen-analytics.index');
+            });
+
+            Route::middleware('permission:order.manage_organisation,order.prepare_organisation')->group(function (): void {
+                // "Start" on the kitchen display: cooking has begun (HA-24).
+                // Stamps `preparing_at`; a placed order is confirmed first.
+                Route::post('/orders/{order}/start', KitchenOrderStartController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.orders.start');
+
+                // "Ready" on the kitchen display: cooked, not yet handed over.
+                // Stamps `ready_at` and leaves the order confirmed.
+                Route::post('/orders/{order}/ready', KitchenOrderReadyController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.orders.ready');
             });
 
             Route::middleware('permission:order.manage_organisation')->group(function (): void {
@@ -2011,18 +2218,6 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/orders/{order}/fulfil', KitchenOrderFulfilController::class)
                     ->middleware('precondition')
                     ->name('catalogue.orders.fulfil');
-
-                // "Start" on the kitchen display: cooking has begun (HA-24).
-                // Stamps `preparing_at`; a placed order is confirmed first.
-                Route::post('/orders/{order}/start', KitchenOrderStartController::class)
-                    ->middleware('precondition')
-                    ->name('catalogue.orders.start');
-
-                // "Ready" on the kitchen display: cooked, not yet handed over.
-                // Stamps `ready_at` and leaves the order confirmed.
-                Route::post('/orders/{order}/ready', KitchenOrderReadyController::class)
-                    ->middleware('precondition')
-                    ->name('catalogue.orders.ready');
 
                 Route::post('/orders/{order}/cancel', KitchenOrderCancelController::class)
                     ->middleware('precondition')
@@ -2040,6 +2235,48 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/orders/{order}/payments', OrderPaymentReceiptStoreController::class)
                     ->middleware(['precondition', 'idempotency'])
                     ->name('catalogue.orders.payments.store');
+
+                // A run leaving with a courier, and the same run coming back.
+                // Both write the run alone, so its state is the guard.
+                Route::post('/orders/{order}/delivery/courier', [KitchenOrderDeliveryController::class, 'courier'])
+                    ->name('catalogue.orders.delivery.courier');
+                Route::post('/orders/{order}/delivery/fail', [KitchenOrderDeliveryController::class, 'fail'])
+                    ->name('catalogue.orders.delivery.fail');
+            });
+
+            // What happens to a failed delivery is a manager's decision.
+            Route::middleware('permission:order.supervise_organisation')->group(function (): void {
+                Route::post('/orders/{order}/delivery/redeliver', [KitchenOrderDeliveryController::class, 'redeliver'])
+                    ->middleware('precondition')
+                    ->name('catalogue.orders.delivery.redeliver');
+                Route::post('/orders/{order}/delivery/close-failed', [KitchenOrderDeliveryController::class, 'closeFailed'])
+                    ->middleware('precondition')
+                    ->name('catalogue.orders.delivery.close-failed');
+
+                // What went wrong with an order, and putting it right.
+                Route::get('/complaints', [OrderComplaintController::class, 'index'])
+                    ->name('catalogue.complaints.index');
+                Route::post('/orders/{order}/complaints', [OrderComplaintController::class, 'store'])
+                    ->name('catalogue.orders.complaints.store');
+                Route::patch('/complaints/{complaint}', [OrderComplaintController::class, 'update'])
+                    ->name('catalogue.complaints.update');
+                Route::post('/complaints/{complaint}/remake', [OrderComplaintController::class, 'remake'])
+                    ->name('catalogue.complaints.remake');
+
+                // Money going back. A manager's act, and above the kitchen's
+                // limit it waits for the owner.
+                Route::get('/orders/{order}/refunds', [OrderRefundController::class, 'index'])
+                    ->name('catalogue.orders.refunds.index');
+                Route::post('/orders/{order}/refunds', [OrderRefundController::class, 'store'])
+                    ->middleware('idempotency')
+                    ->name('catalogue.orders.refunds.store');
+            });
+
+            Route::middleware('permission:order.approve_refund_organisation')->group(function (): void {
+                Route::post('/orders/{order}/refunds/{refund}/approve', [OrderRefundController::class, 'approve'])
+                    ->whereUuid('refund')->name('catalogue.orders.refunds.approve');
+                Route::post('/orders/{order}/refunds/{refund}/reject', [OrderRefundController::class, 'reject'])
+                    ->whereUuid('refund')->name('catalogue.orders.refunds.reject');
             });
 
             /*
@@ -2099,6 +2336,8 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 */
                 Route::post('/order-desk/quote', OrderDeskQuoteController::class)
                     ->name('catalogue.order-desk.quote');
+                Route::get('/order-desk/items/{item}/choices', OrderDeskDishChoicesController::class)
+                    ->name('catalogue.order-desk.items.choices');
             });
 
             /*
@@ -2137,12 +2376,19 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                     ->middleware('idempotency')
                     ->name('catalogue.order-desk.orders.store');
 
-                // The slots a sale can be booked into, for the agent who is
-                // booking it. The admin list needs `delivery_zone.manage_
-                // organisation`, which a desk agent need not hold.
-                Route::get('/order-desk/delivery-windows', OrderDeskDeliveryWindowIndexController::class)
-                    ->name('catalogue.order-desk.delivery-windows.index');
+                // Editing what was sold (a customer rang back). `If-Match` is the
+                // replay guard, so no idempotency key; see the controller.
+                Route::patch('/order-desk/orders/{order}', OrderDeskAmendmentController::class)
+                    ->middleware('precondition')
+                    ->name('catalogue.order-desk.orders.update');
             });
+
+            // The slots a sale can be booked into, for the agent booking it and
+            // the supervisor re-delivering it. The admin list needs `delivery_zone.
+            // manage_organisation`, which neither need hold.
+            Route::get('/order-desk/delivery-windows', OrderDeskDeliveryWindowIndexController::class)
+                ->middleware('permission:order.create_on_behalf_organisation,order.supervise_organisation')
+                ->name('catalogue.order-desk.delivery-windows.index');
 
             /*
             |--------------------------------------------------------------
@@ -2197,6 +2443,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::get('/order-desk/calendar', OrderDeskCalendarController::class)
                     ->middleware('permission:subscription.view_organisation')
                     ->name('catalogue.order-desk.calendar');
+                // The calendar's plan meals for one day, by subscriber and dish:
+                // the same two codes, for the same union of two books.
+                Route::get('/order-desk/plan-meals', OrderDeskPlanMealsController::class)
+                    ->middleware('permission:subscription.view_organisation')
+                    ->name('catalogue.order-desk.plan-meals');
             });
 
             /*
@@ -2254,11 +2505,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             | the assign endpoint would then refuse.
             |
             | It lists **every** active member, and that is not an oversight.
-            | There is no driver role on this platform by design — the driver's
+            | The Driver role names a job and opens nothing — the driver's
             | own run-sheet routes (`/driver/jobs`, further up this file) narrow
             | by `driver_user_id` rather than by a permission code, because
             | *a driver is staff of the kitchen whose jobs these are* —
-            | and inventing one here would mean a kitchen could not hand
+            | and narrowing to it here would mean a kitchen could not hand
             | tonight's late delivery to the chef who offered to drop it off on
             | the way home. The endpoint answers a question of fact, who works
             | here; the picker is where a kitchen's operating judgement lives.
@@ -2300,7 +2551,37 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 */
                 Route::get('/order-desk/cash-report', OrderDeskCashReportController::class)
                     ->name('catalogue.order-desk.cash-report');
+
+                // The kitchen home's Today card: the day's sales, cash, late
+                // orders and cancellations, on the cash report's local day.
+                Route::get('/order-desk/today', OrderDeskTodayController::class)
+                    ->name('catalogue.order-desk.today');
             });
+
+            // Cash coming back from the road. The cashier counts it; a short
+            // hand-in is a manager's to accept.
+            Route::middleware('permission:order.settle_cash_organisation')->group(function (): void {
+                Route::get('/order-desk/settlements', [OrderDeskSettlementController::class, 'index'])
+                    ->name('catalogue.order-desk.settlements.index');
+                Route::post('/order-desk/settlements', [OrderDeskSettlementController::class, 'store'])
+                    ->middleware('idempotency')
+                    ->name('catalogue.order-desk.settlements.store');
+                Route::get('/order-desk/closes', [OrderDeskCloseController::class, 'index'])
+                    ->name('catalogue.order-desk.closes.index');
+                Route::post('/order-desk/closes', [OrderDeskCloseController::class, 'store'])
+                    ->middleware('idempotency')
+                    ->name('catalogue.order-desk.closes.store');
+            });
+
+            Route::post('/order-desk/closes/{close}/sign-off', [OrderDeskCloseController::class, 'signOff'])
+                ->middleware('permission:order.supervise_organisation')
+                ->whereUuid('close')
+                ->name('catalogue.order-desk.closes.sign-off');
+
+            Route::post('/order-desk/settlements/{settlement}/sign-off', [OrderDeskSettlementController::class, 'signOff'])
+                ->middleware('permission:order.supervise_organisation')
+                ->whereUuid('settlement')
+                ->name('catalogue.order-desk.settlements.sign-off');
 
             /*
             |--------------------------------------------------------------
@@ -2349,6 +2630,11 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::middleware('permission:order.view_customer_contact_organisation')->group(function (): void {
                 Route::get('/order-desk/customers', OrderDeskCustomerIndexController::class)
                     ->name('catalogue.order-desk.customers.index');
+
+                // What the chosen customer declared, read for the order being
+                // taken: audited, codes and severities only.
+                Route::get('/order-desk/customers/{account}/allergies', OrderDeskCustomerAllergyController::class)
+                    ->name('catalogue.order-desk.customers.allergies');
 
                 // The kitchen's customer book: a read-only reference list and
                 // record, wider than the desk search (see the controllers).
@@ -2458,6 +2744,27 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
             Route::put('/branch-operating', BranchOperatingReplaceController::class)
                 ->middleware('permission:branch.manage_current')
                 ->name('kitchen.branch-operating.replace');
+
+            // The dates a branch is shut on top of its week, and a new branch.
+            Route::get('/branch-closures', [BranchClosureController::class, 'index'])
+                ->middleware('permission:branch.view_current')
+                ->name('kitchen.branch-closures.index');
+            Route::post('/branch-closures', [BranchClosureController::class, 'store'])
+                ->middleware('permission:branch.manage_current')
+                ->name('kitchen.branch-closures.store');
+            Route::delete('/branch-closures/{closure}', [BranchClosureController::class, 'destroy'])
+                ->whereUuid('closure')
+                ->middleware('permission:branch.manage_current')
+                ->name('kitchen.branch-closures.destroy');
+            Route::get('/setup', [KitchenSetupController::class, 'show'])
+                ->middleware('permission:branch.view_current')
+                ->name('kitchen.setup.show');
+            Route::post('/setup/go-live', [KitchenSetupController::class, 'goLive'])
+                ->middleware('permission:organisation.update_current')
+                ->name('kitchen.setup.go-live');
+            Route::post('/branches', BranchStoreController::class)
+                ->middleware('permission:branch.manage_current')
+                ->name('kitchen.branches.store');
         });
 
         /*
@@ -2675,7 +2982,45 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
                 Route::post('/applications/{application}/decline', PlatformB2bApplicationDeclineController::class)
                     ->middleware('precondition')
                     ->name('platform.b2b.applications.decline');
+
+                // The terms are the commercial half of the decision, so the
+                // authority that approves is the one that writes them. The
+                // applicant never sees a draft; `send` is what puts it in front
+                // of them, and `revise` takes back one they have not signed.
+                Route::post('/applications/{application}/agreements', PlatformB2bAgreementStoreController::class)
+                    ->name('platform.b2b.agreements.store');
+
+                Route::patch('/agreements/{agreement}', PlatformB2bAgreementUpdateController::class)
+                    ->middleware('precondition')
+                    ->name('platform.b2b.agreements.update');
+
+                Route::post('/agreements/{agreement}/send', PlatformB2bAgreementSendController::class)
+                    ->middleware('precondition')
+                    ->name('platform.b2b.agreements.send');
+
+                Route::post('/agreements/{agreement}/revise', PlatformB2bAgreementReviseController::class)
+                    ->middleware('precondition')
+                    ->name('platform.b2b.agreements.revise');
+
+                // Every kitchen's negotiated lists, read across tenancy, for the
+                // agreement editor's seller picker.
+                Route::get('/seller-price-lists', PlatformSellerPriceListIndexController::class)
+                    ->name('platform.b2b.seller-price-lists.index');
             });
+
+            Route::middleware('permission:b2b_application.view_platform')->group(function (): void {
+                Route::get('/applications/{application}/agreements', PlatformB2bAgreementIndexController::class)
+                    ->name('platform.b2b.agreements.index');
+
+                Route::get('/applications/{application}/invitations', PlatformB2bInvitationIndexController::class)
+                    ->name('platform.b2b.invitations.index');
+            });
+
+            // A fresh link is access to the company, the same authority as
+            // creating it.
+            Route::post('/applications/{application}/invitations/{invitation}/resend', PlatformB2bInvitationResendController::class)
+                ->middleware('permission:b2b_application.provision_platform')
+                ->name('platform.b2b.invitations.resend');
 
             // The irreversible half. Separate from deciding because an approval can be
             // revisited and a provisioned tenant cannot be un-provisioned.
@@ -2878,8 +3223,12 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | DELETE stamps `revoked_at`; nothing is removed. Who was invited and who
         | withdrew it is exactly the trail an access review reads.
         |
+        | `branch.context` resolves (never requires) a branch, so a branch-bound
+        | administrator passes `PermissionChecker`'s branch-scope step and then
+        | manages invitations to their own branch only.
+        |
         */
-        Route::middleware('org.context')->prefix('/organisations/{organisation}')->group(function (): void {
+        Route::middleware(['org.context', 'branch.context'])->prefix('/organisations/{organisation}')->group(function (): void {
             Route::post('/invitations', OrganisationInvitationStoreController::class)
                 ->middleware('permission:membership.invite_organisation')
                 ->name('organisations.invitations.store');
@@ -2913,11 +3262,14 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | and a mismatch is **404** — "no such organisation, as far as you are
         | concerned", the same answer and the same reason as next door.
         |
-        | **No `branch.context`, anywhere in this block.** Roles and memberships
-        | are organisation-wide. A membership's `branch_id` is data these endpoints
-        | *write* — it is how a kitchen says "this person works the airport branch"
-        | — not context they read, and requiring a selected branch to edit it would
-        | make the organisation-wide case unreachable from a branch-scoped session.
+        | **`branch.context` resolves, it never requires.** A membership's
+        | `branch_id` is data these endpoints *write* — it is how a kitchen says
+        | "this person works the airport branch". The middleware is here so that a
+        | branch-bound administrator passes `PermissionChecker`'s branch-scope step
+        | (without it, the context branch is null and they are refused
+        | everywhere); `AccessAdministrationLocator` then confines them to their
+        | own branch's people and keeps role definitions, which every branch
+        | shares, with whole-kitchen administrators.
         |
         | **No `org.trading`, anywhere in this block, and that is deliberate.**
         | A suspended kitchen may not sell: `org.trading` guards every catalogue
@@ -2943,7 +3295,7 @@ Route::middleware(['auth:sanctum', 'db.context', 'device.touch'])->group(functio
         | catalogue that offered one would be a form with a trap in it.
         |
         */
-        Route::middleware('org.context')->prefix('/organisations/{organisation}')->group(function (): void {
+        Route::middleware(['org.context', 'branch.context'])->prefix('/organisations/{organisation}')->group(function (): void {
             Route::middleware('permission:role.view_organisation')->group(function (): void {
                 Route::get('/permissions', PermissionCatalogueIndexController::class)
                     ->name('organisations.permissions.index');
@@ -3291,8 +3643,9 @@ Route::get('/media/photos/{photo}', RecordPhotoShowController::class)
 | better answer than a replayed envelope claiming an account was made twice.
 |
 | Rate limiting is the `api` group's throttle (60/min per IP for an anonymous
-| caller). The two anonymous routes here are the ones that most want a tighter
-| bucket of their own; noted for the integrator rather than assumed.
+| caller), tightened where a request costs something real: `guest-session` on
+| opening a session, and `guest-passcode` (per IP and per destination) on the
+| two routes that send a passcode (AppServiceProvider).
 |
 */
 
@@ -3302,6 +3655,7 @@ Route::get('/media/photos/{photo}', RecordPhotoShowController::class)
 // carried; neither is accepted in the body, because a caller who can choose
 // their own fingerprint does not have one.
 Route::post('/guest/sessions', GuestSessionStoreController::class)
+    ->middleware('throttle:guest-session')
     ->name('guest.sessions.store');
 
 // `guest.session`. The session's own state, never the token. A dead token is
@@ -3316,7 +3670,7 @@ Route::get('/guest/session', GuestSessionShowController::class)
 // guest supplied. 202: a challenge is a message in flight, not a resource the
 // caller may then read.
 Route::post('/guest/contacts', GuestContactStoreController::class)
-    ->middleware('guest.session')
+    ->middleware(['guest.session', 'throttle:guest-passcode'])
     ->name('guest.contacts.store');
 
 // `guest.session`. The passcode comes back and the session is promoted to
@@ -3359,6 +3713,7 @@ Route::post('/guest/convert', GuestConvertController::class)
 // submitted value and from configuration, and `GuestDeletionEnumerationTest`
 // asserts that on the whole serialised result.
 Route::post('/guest/deletion-requests', GuestDeletionRequestStoreController::class)
+    ->middleware('throttle:guest-passcode')
     ->name('guest.deletion-requests.store');
 
 // ANONYMOUS. Also always 202, with one indistinguishable refusal shape covering

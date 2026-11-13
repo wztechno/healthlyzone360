@@ -100,13 +100,18 @@ final readonly class DerivedAllergenService
      */
     public function publishedVersion(CatalogueItem $item): ?RecipeVersion
     {
-        if ($item->recipe_id === null) {
+        return $this->publishedVersionOf($item->recipe_id, $item->organisation_id);
+    }
+
+    private function publishedVersionOf(?string $recipeId, string $organisationId): ?RecipeVersion
+    {
+        if ($recipeId === null) {
             return null;
         }
 
         $version = RecipeVersion::withoutTenancy()
-            ->where('recipe_id', $item->recipe_id)
-            ->where('organisation_id', $item->organisation_id)
+            ->where('recipe_id', $recipeId)
+            ->where('organisation_id', $organisationId)
             ->where('status', RecipeVersionStatus::Published->value)
             ->first();
 

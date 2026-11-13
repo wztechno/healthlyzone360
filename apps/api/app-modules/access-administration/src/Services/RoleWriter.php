@@ -10,10 +10,12 @@ use Healthy360\AccessControl\Models\Permission;
 use Healthy360\AccessControl\Models\Role;
 use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\AccessControl\Services\PermissionCache;
+use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Support\Api\Exceptions\StaleLockVersion;
+use Healthy360\Tenancy\TenantContext;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -64,6 +66,8 @@ final readonly class RoleWriter
         private AccessAdministrationQuery $query,
         private GrantBoundary $boundary,
         private PermissionCache $cache,
+        private AuditRecorder $audit,
+        private TenantContext $tenant,
     ) {}
 
     /**
@@ -101,6 +105,7 @@ final readonly class RoleWriter
 
             $this->reconcileGrants($role, $codes);
             $this->cache->bumpVersion((string) $organisation->getKey());
+            $this->recordAudit('role.created', $role, (string) $actor->getKey(), $codes);
 
             return $role;
         });
@@ -144,6 +149,7 @@ final readonly class RoleWriter
 
             $this->reconcileGrants($role, $codes);
             $this->cache->bumpVersion((string) $role->organisation_id);
+            $this->recordAudit('role.updated', $role, (string) $actor->getKey(), $codes);
 
             return $role;
         });
@@ -197,7 +203,32 @@ final readonly class RoleWriter
             }
 
             $this->cache->bumpVersion((string) $role->organisation_id);
+            $this->recordAudit('role.deleted', $role, $this->tenant->userId());
         });
+    }
+
+    /**
+     * The role's own code and the grants it ends up with, in catalogue order:
+     * what an access review asks of a role change. Keyed `role` and
+     * `permissions`, never anything holding `code`, which the recorder redacts.
+     *
+     * @param  list<string>|null  $permissions
+     */
+    private function recordAudit(string $action, Role $role, ?string $actorUserId, ?array $permissions = null): void
+    {
+        $metadata = ['role' => (string) $role->code];
+
+        if ($permissions !== null) {
+            $metadata['permissions'] = $permissions;
+        }
+
+        $this->audit->record(
+            $action,
+            actorUserId: $actorUserId,
+            subjectType: 'role',
+            subjectId: (string) $role->getKey(),
+            metadata: $metadata,
+        );
     }
 
     /**

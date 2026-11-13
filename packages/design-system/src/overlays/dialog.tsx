@@ -14,6 +14,7 @@ import { IconButton } from '../actions/button.tsx';
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
 import { FadeIn } from '../motion/fade-in.tsx';
+import { SlideIn } from '../motion/slide-in.tsx';
 import { RECORD_WINDOW_SIDE } from './record-window.tsx';
 
 /**
@@ -35,6 +36,12 @@ export interface DialogProps {
     /** Blocks dismissal by backdrop tap. Escape still works — never trap a keyboard user. */
     readonly dismissOnBackdrop?: boolean | undefined;
     readonly size?: DialogSize | undefined;
+    /**
+     * `md` only. `card`: the kitchen desk's pop-up (Toasts / pop-ups / banners canvas, 2026-11-11)
+     * — a 22px corner, the question as the title in the display face, one 14px line under it, and
+     * a rise as it opens.
+     */
+    readonly look?: 'standard' | 'card' | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -79,9 +86,11 @@ export function Dialog({
     actions,
     dismissOnBackdrop = true,
     size = 'md',
+    look = 'standard',
     className,
     testID,
 }: DialogProps) {
+    const card = look === 'card';
     const { t } = useTranslation();
     const generated = useId();
     const viewport = useWindowDimensions();
@@ -103,7 +112,10 @@ export function Dialog({
             <RNText
                 nativeID={descriptionId}
                 testID={`${base}-description`}
-                className="text-sm text-content-secondary text-start"
+                className={cx(
+                    card ? 'text-sm leading-relaxed' : 'text-sm',
+                    'text-content-secondary text-start',
+                )}
             >
                 {description}
             </RNText>
@@ -214,7 +226,7 @@ export function Dialog({
                      * body — the column picker's eighteen checkboxes — spread across the screen.
                      */
                     <View className="w-full max-w-[480px]">
-                        <FadeIn>
+                        <Entrance card={card}>
                             <View
                                 testID={base}
                                 role="dialog"
@@ -225,7 +237,10 @@ export function Dialog({
                                 // box is whatever this panel asks for, so a percentage would resolve
                                 // against the panel itself and bound nothing at all.
                                 className={cx(
-                                    'w-full max-h-[85vh] min-h-0 shrink flex-col gap-4 rounded-xl bg-surface-raised p-6 shadow-elevation-4',
+                                    'w-full max-h-[85vh] min-h-0 shrink flex-col gap-4 bg-surface-raised p-6',
+                                    card
+                                        ? 'rounded-[22px] border border-stroke-subtle shadow-elevation-5'
+                                        : 'rounded-xl shadow-elevation-4',
                                     className,
                                 )}
                             >
@@ -236,7 +251,12 @@ export function Dialog({
                                             testID={`${base}-title`}
                                             accessibilityRole="header"
                                             aria-level={2}
-                                            className="min-w-0 shrink text-xl font-semibold text-content-primary text-start"
+                                            className={cx(
+                                                'min-w-0 shrink text-xl text-content-primary text-start',
+                                                card
+                                                    ? 'font-display font-bold tracking-tight'
+                                                    : 'font-semibold',
+                                            )}
                                         >
                                             {title}
                                         </RNText>
@@ -262,10 +282,21 @@ export function Dialog({
 
                                 {actionsNode}
                             </View>
-                        </FadeIn>
+                        </Entrance>
                     </View>
                 )}
             </View>
         </Modal>
+    );
+}
+
+/** The confirmation's entrance: a fade, or — the desk's card — a 16px rise. */
+function Entrance({ card, children }: { readonly card: boolean; readonly children: ReactNode }) {
+    return card ? (
+        <SlideIn edge="bottom" distance="medium" duration="slow">
+            {children}
+        </SlideIn>
+    ) : (
+        <FadeIn>{children}</FadeIn>
     );
 }

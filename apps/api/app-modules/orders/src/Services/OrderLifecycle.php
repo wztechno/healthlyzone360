@@ -9,7 +9,9 @@ use Closure;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Orders\Contracts\DeliveryJobProjection;
 use Healthy360\Orders\Contracts\OrderStockConsumption;
+use Healthy360\Orders\Enums\CancellationDisposition;
 use Healthy360\Orders\Enums\CancellationReason;
+use Healthy360\Orders\Enums\CustomerOrderEvent;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Enums\PaymentMethod;
@@ -56,6 +58,8 @@ final readonly class OrderLifecycle
         private OrderStockConsumption $consumption,
         private DeliveryJobProjection $jobs,
         private OrderPaymentReceipts $receipts,
+        private CalendarPortions $portions,
+        private CustomerOrderNotices $notices,
     ) {}
 
     /**
@@ -79,7 +83,7 @@ final readonly class OrderLifecycle
      */
     public function confirm(Order $order, ?int $expectedLockVersion = null): Order
     {
-        return $this->transition(
+        $confirmed = $this->transition(
             $order,
             OrderStatus::Confirmed,
             $expectedLockVersion,
@@ -92,6 +96,10 @@ final readonly class OrderLifecycle
                 }
             },
         );
+
+        $this->notices->send($confirmed, CustomerOrderEvent::Confirmed);
+
+        return $confirmed;
     }
 
     /**
@@ -216,7 +224,7 @@ final readonly class OrderLifecycle
      */
     public function fulfil(Order $order, ?int $expectedLockVersion = null): Order
     {
-        return $this->transition(
+        $fulfilled = $this->transition(
             $order,
             OrderStatus::Fulfilled,
             $expectedLockVersion,
@@ -232,24 +240,33 @@ final readonly class OrderLifecycle
                 }
             },
         );
+
+        $this->notices->send($fulfilled, CustomerOrderEvent::Delivered);
+
+        return $fulfilled;
     }
 
     /**
-     * A cash order handed over is a cash order paid: the driver took it at the
-     * door, the counter took it on collection. Whatever is still outstanding is
-     * receipted to whoever fulfilled it, so the cash report sees it. WISH is left
-     * alone — a transfer is only paid once somebody has checked its reference.
-     * A counter sale arrives here already settled, so nothing is written twice.
+     * A cash order handed over at the counter is a cash order paid: whatever is
+     * still outstanding is receipted to whoever fulfilled it, so the cash report
+     * sees it. A counter sale arrives here already settled, so nothing is written
+     * twice. WISH is left alone, because a transfer is only paid once somebody
+     * has checked its reference.
+     *
+     * **A delivery is left alone too.** Whoever pressed Fulfil at the display has
+     * no cash in their hand, and receipting the total to them was the audit's
+     * finding. The driver says what they took (`DeliveredOrderFulfilment`), and
+     * anything else stays unpaid and shows up in Unsettled.
      */
     private function takeCashRemainder(Order $order): void
     {
         $userId = $this->context->userId();
 
-        if ($order->payment_method === PaymentMethod::Wish || $userId === null) {
+        if ($order->fulfilment_type === FulfilmentType::Delivery || $order->payment_method === PaymentMethod::Wish || $userId === null) {
             return;
         }
 
-        $outstanding = $order->total_minor - (int) $order->paymentReceipts()->sum('amount_minor');
+        $outstanding = $order->total_minor - $order->receivedMinor();
 
         if ($outstanding <= 0) {
             return;
@@ -263,35 +280,51 @@ final readonly class OrderLifecycle
      * only useful if it is never optional — an order cancelled "for no stated
      * reason" is the row that makes every count wrong.
      *
-     * **The stock comes back and the delivery job does not go anywhere.** The
-     * asymmetry is deliberate and it is not an oversight: stock is a quantity
-     * that has to balance, so a deduction that is not reversed is a wrong number
-     * forever, whereas a delivery job is a *record of work* whose own status
-     * lifecycle — assigned, in transit, cancelled — belongs to the delivery
-     * module and is worked on the dispatch board. A cancelled confirmed order
-     * keeps its job row so that the board can show a dispatcher there is a run
-     * to call off, and so that a driver already holding the food is not deleted
-     * out of the system mid-journey. Cancelling the *run* is a delivery decision
-     * made where delivery decisions are made; this class does not reach across
-     * to make it, and `DeliveryJobProjection` deliberately offers no reverse to
-     * make it with.
+     * **The run ends first, and the stock follows what became of the food.**
+     * `DeliveryJobProjection::cancel()` is the first thing inside the
+     * transaction, because it is the one step that can refuse: food already on
+     * the road cannot be cancelled, and a refusal there rolls the order back to
+     * where it was, before any stock has moved. This reverses the old ruling
+     * that a run was the dispatch board's to call off. The live audit showed a
+     * cancelled order still offered to drivers, and an end that nobody has to
+     * go and remember is the only version of that which stays fixed.
+     *
+     * A null disposition restores, as every cancellation always has. `Wasted`
+     * leaves the deduction where it is, so the cost of food cooked and thrown
+     * away stays counted. Who may answer that question is
+     * `KitchenOrderCancelController`'s business, so a caller with no screen is
+     * asked nothing.
      *
      * @throws ApiException
      */
-    public function cancel(Order $order, CancellationReason $reason, ?int $expectedLockVersion = null): Order
+    public function cancel(Order $order, CancellationReason $reason, ?int $expectedLockVersion = null, ?CancellationDisposition $disposition = null): Order
     {
-        return $this->transition(
+        $cancelledOrder = $this->transition(
             $order,
             OrderStatus::Cancelled,
             $expectedLockVersion,
             [
                 'cancelled_at' => CarbonImmutable::now(),
                 'cancellation_reason' => $reason,
+                'cancellation_disposition' => $disposition,
+                // Whoever the context names. A queued job carries the user who
+                // dispatched it, so a job that cancels on its own must clear
+                // the user first, or the stamp names that person.
+                'cancelled_by' => $this->context->userId(),
             ],
-            function (Order $cancelled): void {
-                $this->consumption->restore($cancelled);
+            function (Order $cancelled) use ($disposition): void {
+                $this->jobs->cancel($cancelled);
+
+                if ($disposition !== CancellationDisposition::Wasted) {
+                    $this->consumption->restore($cancelled);
+                    $this->portions->release($cancelled);
+                }
             },
         );
+
+        $this->notices->send($cancelledOrder, CustomerOrderEvent::Cancelled);
+
+        return $cancelledOrder;
     }
 
     /**
@@ -346,6 +379,7 @@ final readonly class OrderLifecycle
                 'from_status' => $from->value,
                 'to_status' => $to->value,
                 'cancellation_reason' => $order->cancellation_reason?->value,
+                'cancellation_disposition' => $order->cancellation_disposition?->value,
                 'lock_version' => $order->lock_version,
             ], static fn (mixed $value): bool => $value !== null),
         );

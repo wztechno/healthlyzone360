@@ -17,6 +17,8 @@ import type {
 } from '@healthy360/domain-types';
 import type { MeasureUnit, NutritionFacts, Serving } from '@healthy360/nutrition';
 
+import type { DishOption, DishPortion } from './dish-options.ts';
+
 import type {
     CursorPage,
     CursorPageRequest,
@@ -118,6 +120,8 @@ export interface Kitchen {
     /** Generated placeholder identifier — never a remote image URL. */
     readonly imagePlaceholderId: string;
     readonly isVerified: boolean;
+    /** When a timed pause on new orders ends. Only the single kitchen read carries it. */
+    readonly pausedUntil?: string | null | undefined;
 }
 
 export interface MealAvailability {
@@ -169,12 +173,29 @@ export interface MarketplaceMeal {
     readonly price: Money;
     /** What `price` buys — the B2C pack's size. `null` for a dish priced as itself. */
     readonly pack: PackSize | null;
+    /** The dish's free options. Empty on a listing, which does not read them. */
+    readonly options?: readonly DishOption[] | undefined;
+    /** The portions to pick between, on the detail. Empty unless there are two. */
+    readonly portions?: readonly DishPortion[] | undefined;
     readonly preparationMinutes: number | null;
     readonly imagePlaceholderId: string;
     readonly availability: readonly MealAvailability[];
     readonly channels: KitchenSalesChannels;
     readonly rating: number | null;
     readonly ratingCount: number;
+}
+
+/** The four sittings a plan day is made of. */
+export const MEAL_SLOTS = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
+export type MealSlot = (typeof MEAL_SLOTS)[number];
+
+/**
+ * One place a dish goes on a plan day. A configuration with a fourth meal has a second lunch:
+ * `{ slot: 'lunch', sequence: 2 }`.
+ */
+export interface PlanSitting {
+    readonly slot: MealSlot;
+    readonly sequence: number;
 }
 
 export interface PlanVariant {
@@ -188,6 +209,11 @@ export interface PlanVariant {
     readonly fatRange: { readonly min: number; readonly max: number } | null;
     readonly mealsPerDay: number;
     readonly snacksPerDay: number;
+    /**
+     * The sittings the customer fills with a dish on every delivery day, in the order of the day.
+     * The server's rule, served rather than re-derived from the two counts.
+     */
+    readonly sittings: readonly PlanSitting[];
     readonly pricePerWeek: Money;
 }
 
@@ -220,8 +246,6 @@ export interface SubscriptionPlan {
     readonly dietClassifications: readonly DietClassification[];
     readonly variants: readonly PlanVariant[];
     readonly durations: readonly PlanDurationOption[];
-    /** A representative week, for the "sample menu" panel. */
-    readonly sampleMealIds: readonly MealId[];
     readonly imagePlaceholderId: string;
     readonly rating: number | null;
     readonly ratingCount: number;

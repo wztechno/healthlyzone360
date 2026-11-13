@@ -1,5 +1,12 @@
 import type {
+    RecordCookingTemperatureRequest,
+    RecordTemperatureRequest,
+    TemperatureLog,
+    TemperatureUnitDraft,
+} from './temperature-logs.ts';
+import type {
     BranchId,
+    CurrencyCode,
     GoodsReceiptId,
     IngredientId,
     IsoDateTime,
@@ -14,7 +21,8 @@ import type {
     UserId,
 } from '@healthy360/domain-types';
 
-import type { LocalisedText } from './kitchen-admin.ts';
+import type { LocalisedText, RecipeSellerKind } from './kitchen-admin.ts';
+import type { CookingTemperature } from './temperature-logs.ts';
 import type { CursorPage, CursorPageRequest, OffsetPageRequest } from './pagination.ts';
 
 /**
@@ -42,9 +50,8 @@ import type { CursorPage, CursorPageRequest, OffsetPageRequest } from './paginat
  *    by name — and a caller that preserves that order gets a usable picker over a long list. Levels
  *    are per-branch and read through the active branch context (`X-Branch-Id`, set by
  *    `ContextRepository`); nothing here takes a branch filter because the header already narrows it.
- * 2. **Procurement (O2) is receipts-only.** There is no purchase-order surface: `listSuppliers` and
- *    the goods-receipt pair are the whole scope, and `GoodsReceipt.purchaseOrderId` is always `null`
- *    until one exists to point at.
+ * 2. **A receipt names its order.** `GoodsReceipt.purchaseOrderId` and `purchaseOrderNumber` are
+ *    `null` on a market purchase; the order book itself sits behind the order-supplies code.
  * 3. **Production (O5) has no task UI.** `ProductionOrder` carries a status and the recipe version it
  *    plans against; completing one states what it consumed and yielded, not a checklist.
  * 4. **Quality control (O4) is hold/release only.** `holdQualityCheck` / `releaseQualityCheck` are the
@@ -125,6 +132,17 @@ export interface SetStockThresholdRequest {
 export const STOCK_MOVEMENT_REASONS = ['adjust', 'waste', 'receipt', 'consume', 'yield'] as const;
 export type StockMovementReason = (typeof STOCK_MOVEMENT_REASONS)[number];
 
+/** Why food was thrown away. Only `other` needs a note. */
+export const STOCK_WASTE_REASONS = [
+    'expired',
+    'spoiled',
+    'damaged',
+    'overproduced',
+    'customer_return',
+    'other',
+] as const;
+export type StockWasteReason = (typeof STOCK_WASTE_REASONS)[number];
+
 export interface StockMovement {
     readonly id: string;
     /** Signed — negative for waste and consumption, positive for receipts, yields and increases. */
@@ -132,12 +150,72 @@ export interface StockMovement {
     readonly reason: StockMovementReason;
 }
 
+/** One row of the ledger on the Activity page. */
+export interface StockActivityMovement {
+    readonly id: string;
+    readonly at: IsoDateTime;
+    readonly itemName: string;
+    readonly unit: string;
+    readonly reason: StockMovementReason;
+    readonly quantityDelta: string;
+    /** `null` when nothing valued it, which is never the same as free. */
+    readonly costMinor: number | null;
+    readonly currencyCode: CurrencyCode | null;
+    readonly notes: string | null;
+    /** Waste rows only; one from before reasons were recorded reads as `other`. */
+    readonly wasteReason: StockWasteReason | null;
+    readonly orderId: string | null;
+    readonly orderNumber: string | null;
+    /** A deduction for an order cancelled as wasted. */
+    readonly wastedOrder: boolean;
+    /** `false` on a row from before the actor column, or made by a job. */
+    readonly attributed: boolean;
+    readonly actorName: string | null;
+}
+
+export interface StockActivity {
+    readonly movements: readonly StockActivityMovement[];
+    /** Waste movements and wasted orders, per currency. */
+    readonly waste: readonly {
+        readonly currencyCode: CurrencyCode;
+        readonly amountMinor: number;
+    }[];
+    /** Waste with no cost to add, so a total is never read as complete when it is not. */
+    readonly unvaluedWasteCount: number;
+    readonly truncated: boolean;
+}
+
+/** One row of the audit trail. */
+export interface ActivityEntry {
+    readonly id: string;
+    readonly at: IsoDateTime;
+    readonly action: string;
+    readonly actorName: string | null;
+    readonly subjectType: string;
+    /** Set when the subject is an order. */
+    readonly orderId: string | null;
+    readonly orderNumber: string | null;
+    readonly metadata: Readonly<Record<string, unknown>>;
+}
+
+export interface ActivityPage {
+    readonly entries: readonly ActivityEntry[];
+    readonly truncated: boolean;
+}
+
+/** A window of whole UTC days, at most 31. */
+export interface ActivityWindow {
+    readonly from: string;
+    readonly to: string;
+}
+
 export interface StockAdjustmentRequest {
     readonly branchId: BranchId;
     readonly stockItemId: StockItemId;
     /** Signed: a correction that raises the level is positive, one that lowers it is negative. */
     readonly quantityDelta: number;
-    readonly notes?: string | null | undefined;
+    /** Why. The server refuses a movement without one. */
+    readonly notes: string;
 }
 
 export interface StockWasteRequest {
@@ -145,7 +223,9 @@ export interface StockWasteRequest {
     readonly stockItemId: StockItemId;
     /** Always positive; the server signs it negative on the ledger. */
     readonly quantity: number;
-    readonly notes?: string | null | undefined;
+    readonly reason: StockWasteReason;
+    /** Required when the reason is `other`. */
+    readonly notes: string | null;
 }
 
 /** A stock count: what the shelf holds. The server posts the difference from the ledger. */
@@ -195,6 +275,8 @@ export interface Supplier {
     readonly paymentTerms: string | null;
     /** Days between issuing an order and expecting it, 0–365. `0` is a same-morning market run. */
     readonly leadTimeDays: number | null;
+    /** Days after the invoice a delivery falls due. `null` works out no due date. */
+    readonly paymentDueDays?: number | null | undefined;
     readonly notes: string | null;
     /**
      * When the supplier was archived, or `null` for a live one.
@@ -806,6 +888,7 @@ export interface CreateSupplierRequest {
     readonly address?: string | null | undefined;
     readonly paymentTerms?: string | null | undefined;
     readonly leadTimeDays?: number | null | undefined;
+    readonly paymentDueDays?: number | null | undefined;
     readonly notes?: string | null | undefined;
 }
 
@@ -827,7 +910,95 @@ export interface UpdateSupplierRequest {
     readonly address?: string | null | undefined;
     readonly paymentTerms?: string | null | undefined;
     readonly leadTimeDays?: number | null | undefined;
+    readonly paymentDueDays?: number | null | undefined;
     readonly notes?: string | null | undefined;
+}
+
+/**
+ * A delivery's price against the one before it, as it stood when the line was priced.
+ * Major-unit decimal strings.
+ */
+export interface PayablePriceRise {
+    readonly nameEn: string | null;
+    readonly lastUnitPriceAmount: string;
+    readonly unitPriceAmount: string;
+    readonly priceVariancePercent: string;
+}
+
+/**
+ * What one pack of one dish earns on one place, as of the last run. `marginPercent` is `null` with
+ * a `withheldReason` whenever the figure would be a guess. Major-unit decimal strings.
+ */
+export interface DishMargin {
+    readonly id: string;
+    readonly catalogueItemId: string;
+    readonly name: LocalisedText;
+    /** The kind the dish is sold as — the `?kind=` its recipe opens under. */
+    readonly itemType: RecipeSellerKind;
+    /** The Home shop or Business. The counter charges the Home shop price and has no rows. */
+    readonly place: 'home' | 'business';
+    /** `null` on the one row of a dish with no pack or no recipe. */
+    readonly pack: DishMarginPack | null;
+    readonly priceAmount: string | null;
+    /** What the pack's fill costs; stated even while the packaging is unknown. */
+    readonly contentsAmount: string | null;
+    readonly costAmount: string | null;
+    readonly currencyCode: string | null;
+    readonly marginPercent: string | null;
+    readonly withheldReason:
+        | 'no_recipe'
+        | 'no_pack'
+        | 'no_price'
+        | 'packaging_unknown'
+        | 'cost_incomplete'
+        | 'currency_mismatch'
+        | null;
+    readonly isBelowTarget: boolean;
+}
+
+export interface DishMarginPack {
+    readonly variantId: string;
+    /** The pack's name as of the last run, else its code. */
+    readonly label: string | null;
+    /** How much one pack holds; `null` when it records no size. */
+    readonly fill: { readonly quantity: string; readonly unit: string } | null;
+}
+
+export interface DishMargins {
+    readonly targetPercent: number | null;
+    /** When the figures were worked out, or `null` before the first run. */
+    readonly computedAt: IsoDateTime | null;
+    /** Lowest margin first, withheld last. */
+    readonly dishes: readonly DishMargin[];
+}
+
+/** One delivery's money: what it comes to, when it falls due, and what holds it back. */
+export interface Payable {
+    readonly id: string;
+    readonly supplierName: LocalisedText;
+    readonly documentRef: string | null;
+    readonly supplierInvoiceRef: string | null;
+    readonly receivedOn: string | null;
+    readonly dueOn: string | null;
+    readonly isOverdue: boolean;
+    readonly paymentStatus: 'unpaid' | 'paid' | 'not_tracked';
+    readonly paidAt: IsoDateTime | null;
+    readonly paidReference: string | null;
+    readonly priceApprovalStatus: 'pending' | 'approved' | null;
+    /** Major units, or `null` while a line has no price. */
+    readonly amount: string | null;
+    readonly currencyCode: string | null;
+    readonly priceRises: readonly PayablePriceRise[];
+}
+
+export interface Payables {
+    /** Today on the kitchen's clock, which `isOverdue` was read against. */
+    readonly today: string;
+    /** What is owed, per currency. Never added across two. */
+    readonly totals: readonly { readonly currencyCode: string; readonly amount: string }[];
+    readonly unpaid: readonly Payable[];
+    /** The last thirty, newest first. */
+    readonly paid: readonly Payable[];
 }
 
 /** One contact in a replace request. `id` names an existing contact to update; omit it to create. */
@@ -923,6 +1094,13 @@ export interface GoodsReceiptLine extends ReceiptLineTraceability {
     readonly lineTotalAmount: string | null;
     readonly costCurrencyCode: string | null;
     /**
+     * The last priced delivery of this shelf before this one, per this line's unit (mass and volume
+     * convert), and this price against it in percent. Both `null` for a first purchase, across
+     * currencies or units that do not convert, or when costs are redacted.
+     */
+    readonly lastUnitPriceAmount: string | null;
+    readonly priceVariancePercent: string | null;
+    /**
      * When this line's money was settled (SUP5). `null` means the costing path has not run and price
      * completion may still act on it — the guard that stops one quantity being costed twice. Never
      * redacted: it is a work state, not a figure.
@@ -971,6 +1149,8 @@ export interface GoodsReceipt {
     readonly varianceNote: string | null;
     /** The order this delivery settled (SUP5), or `null` for a direct market purchase. */
     readonly purchaseOrderId: PurchaseOrderId | null;
+    /** That order's number. The number alone: reading the order takes the order-supplies code. */
+    readonly purchaseOrderNumber: string | null;
     readonly receivedAt: IsoDateTime | null;
     /**
      * The branch-local business day this delivery is filed under, `YYYY-MM-DD` (SUP5). A different
@@ -1230,6 +1410,7 @@ export interface PurchaseLedgerLine extends ReceiptLineTraceability {
     readonly supplier: SupplierRef | null;
     readonly documentRef: string | null;
     readonly purchaseOrderId: PurchaseOrderId | null;
+    readonly purchaseOrderNumber: string | null;
     /** The parent receipt's costing state (SUP5) — what the completeness filter reads. */
     readonly costStatus: ReceiptCostStatus | null;
     readonly stockItemId: StockItemId;
@@ -1241,6 +1422,13 @@ export interface PurchaseLedgerLine extends ReceiptLineTraceability {
     readonly unitPriceAmount: string | null;
     readonly lineTotalAmount: string | null;
     readonly costCurrencyCode: string | null;
+    /**
+     * The last priced delivery of this shelf before this one, per this line's unit (mass and volume
+     * convert), and this price against it in percent. Both `null` for a first purchase, across
+     * currencies or units that do not convert, or when costs are redacted.
+     */
+    readonly lastUnitPriceAmount: string | null;
+    readonly priceVariancePercent: string | null;
     /** This line's price is recorded and its valuation waits on an exchange rate (SUP5). */
     readonly valuationPendingFx: boolean;
     readonly costsRedacted: boolean;
@@ -1280,8 +1468,9 @@ export interface PurchaseLedgerFilter extends CursorPageRequest {
  * {@link currencyCode}: revenue is stored in minor units server-side and converted to major before
  * it reaches here, so it sits at the same scale as spend and COGS and the client never mixes the two.
  *
- * `grossMarginAmount` is `revenueAmount − cogsAmount`; `grossMarginPercent` is that as a percentage
- * of revenue, or `null` when there was no revenue to divide by. The `meal`/`product`/`other` revenue
+ * `revenueAmount` is the food alone, less refunds: delivery fees stay out. `grossMarginAmount` is `revenueAmount −
+ * cogsAmount`; `grossMarginPercent` is that as a percentage of revenue, or `null` when there was no
+ * revenue to divide by. Both are `null` when `isMarginWithheld`: the month's cost is incomplete. The `meal`/`product`/`other` revenue
  * split reconciles to the order-line subtotal — `other` collects subscription-plan and any non-meal,
  * non-product lines — and is drawn from the order lines, the one place the meal-versus-product
  * distinction is recorded (a consume movement records the order, not the line's kind, so COGS is not
@@ -1302,12 +1491,20 @@ export interface MonthlyCostReportRow {
     readonly wasteAmount: string | null;
     /** Total wasted quantity this month — the honest note when waste carries no cost. */
     readonly wasteQuantity: string | null;
-    /** Selling revenue — Σ order totals for confirmed/fulfilled orders, converted to major units. */
+    /** Selling revenue — Σ order subtotals for confirmed/fulfilled orders, converted to major units. */
     readonly revenueAmount: string;
-    /** Revenue minus COGS, major units. */
-    readonly grossMarginAmount: string;
-    /** Margin as a percentage of revenue, or `null` when revenue is zero. */
+    /** Refunds completed this month, major units. Already off `revenueAmount`. */
+    readonly refundsAmount: string;
+    /** Couriers' fees on prepaid runs that the kitchen paid, major units. Outside COGS and the margin. */
+    readonly courierExpenseAmount: string;
+    /** Revenue minus COGS, major units, or `null` when withheld. */
+    readonly grossMarginAmount: string | null;
+    /** Margin as a percentage of revenue, or `null` when revenue is zero or the margin is withheld. */
     readonly grossMarginPercent: string | null;
+    /** Cost is incomplete, so no margin is stated: the exception, line and batch counts say why. */
+    readonly isMarginWithheld: boolean;
+    /** Sold lines that drew no costed stock, such as a dish on sale with an empty recipe. */
+    readonly uncostedLineCount: number;
     readonly mealRevenueAmount: string;
     readonly productRevenueAmount: string;
     readonly otherRevenueAmount: string;
@@ -1409,6 +1606,73 @@ export interface InventoryValue {
     readonly asOf: string;
     readonly unvaluedItemCount: number;
     readonly isComplete: boolean;
+}
+
+/* ------------------------------------------------------------------------------------------------
+ * Kitchen analytics — what the order book did over a range of days
+ * ---------------------------------------------------------------------------------------------- */
+
+/** The four channel buckets; the report always returns all four, in this order. */
+export type KitchenAnalyticsChannel = 'subscription' | 'b2b' | 'pos' | 'a_la_carte';
+
+/** One range's figures. Orders and units exclude cancelled orders. */
+export interface KitchenAnalyticsTotals {
+    readonly orders: number;
+    readonly units: number;
+    readonly cancelled: number;
+    readonly fulfilled: number;
+    /** Placed or confirmed. */
+    readonly open: number;
+    /** Fulfilled orders carrying a requested delivery date — the on-time denominator. */
+    readonly fulfilledWithDue: number;
+    /** Of those, fulfilled by the end of the delivery window on the requested date. */
+    readonly onTime: number;
+    /** Mean minutes from placed to fulfilled; `null` when nothing was fulfilled. */
+    readonly avgLeadMinutes: number | null;
+}
+
+export interface KitchenAnalyticsDay {
+    /** `YYYY-MM-DD`, on the branch's clock. */
+    readonly date: string;
+    readonly orders: number;
+    readonly units: number;
+}
+
+export interface KitchenAnalyticsChannelVolume {
+    readonly key: KitchenAnalyticsChannel;
+    readonly orders: number;
+    readonly units: number;
+}
+
+export interface KitchenAnalyticsItem {
+    readonly catalogueItemId: string;
+    readonly nameEn: string;
+    readonly nameAr: string | null;
+    /** The catalogue item's type (`meal`, `product`, …); `null` when unknown. */
+    readonly itemType: string | null;
+    readonly orders: number;
+    readonly units: number;
+    /** ISO-8601 instant. */
+    readonly lastOrderedAt: string;
+}
+
+/** `GET /catalogue/reports/kitchen-analytics` — a range against the equal range before it. */
+export interface KitchenAnalyticsReport {
+    readonly from: string;
+    readonly to: string;
+    readonly current: KitchenAnalyticsTotals;
+    readonly previous: KitchenAnalyticsTotals;
+    /** Every day of the range, zero-filled. */
+    readonly days: readonly KitchenAnalyticsDay[];
+    readonly channels: readonly KitchenAnalyticsChannelVolume[];
+    /** The top 50 catalogue items by units. */
+    readonly items: readonly KitchenAnalyticsItem[];
+}
+
+/** Inclusive `YYYY-MM-DD` bounds; at most 366 days. */
+export interface KitchenAnalyticsFilter {
+    readonly from: string;
+    readonly to: string;
 }
 
 /** Optional inclusive `YYYY-MM` month bounds over the monthly cost report. */
@@ -1571,6 +1835,7 @@ export const CONSUMPTION_EXCEPTION_REASON_CODES = [
     'insufficient_stock',
     'no_net_content',
     'reserved_for_production',
+    'quality_hold',
 ] as const;
 export type ConsumptionExceptionReasonCode = (typeof CONSUMPTION_EXCEPTION_REASON_CODES)[number];
 
@@ -1635,6 +1900,56 @@ export interface ConsumptionExceptionFilter extends CursorPageRequest, OffsetPag
 }
 
 /** Optionally records why an exception is being marked handled. */
+export interface KitchenSetupStep {
+    readonly key: 'hours' | 'delivery' | 'menu' | 'prices' | 'team';
+    readonly done: boolean;
+    /** Team is the one step that does not hold back going live. */
+    readonly required: boolean;
+}
+
+/** The steps before a new kitchen takes customer orders. */
+export interface KitchenSetup {
+    readonly isLive: boolean;
+    readonly steps: readonly KitchenSetupStep[];
+}
+
+/** Dates a branch is shut on top of its week, both ends inclusive. */
+export interface BranchClosure {
+    readonly id: string;
+    readonly closedFrom: string;
+    readonly closedTo: string;
+    readonly note: string | null;
+}
+
+export interface AddBranchClosureRequest {
+    readonly closedFrom: string;
+    readonly closedTo: string;
+    readonly note: string | null;
+}
+
+export interface CreateBranchRequest {
+    readonly name: string;
+    readonly city: string | null;
+}
+
+/** Shelves sharing one name that the merge left for a person, and why. */
+export interface DuplicateStockGroup {
+    readonly name: string;
+    readonly reason:
+        | 'different_units'
+        | 'not_a_copy'
+        | 'both_have_history'
+        | 'both_sold_as_products'
+        | 'open_work';
+    readonly shelves: readonly {
+        readonly id: string;
+        readonly code: string;
+        readonly unitCode: string;
+        readonly quantity: string;
+        readonly hasHistory: boolean;
+    }[];
+}
+
 /** Unresolved and resolved consumption exceptions in scope — whole totals, not a page. */
 export interface ConsumptionExceptionTotals {
     readonly unresolved: number;
@@ -1905,6 +2220,8 @@ export interface ProductionOrderDetail {
     readonly order: ProductionOrder;
     readonly lines: readonly ProductionOrderLine[];
     readonly plan: ProductionPlan | null;
+    /** Its core-temperature readings, newest first. Empty when none were taken. */
+    readonly coreTemperatures: readonly CookingTemperature[];
     /** Whether this reader holds `production.view_costs_organisation`. */
     readonly costsVisible: boolean;
 }
@@ -2072,6 +2389,8 @@ export interface KitchenOpsRepository {
     listStockLevels(): Promise<readonly StockLevel[]>;
     recordStockAdjustment(request: StockAdjustmentRequest): Promise<StockMovement>;
     recordStockWaste(request: StockWasteRequest): Promise<StockMovement>;
+    getStockActivity(window: ActivityWindow): Promise<StockActivity>;
+    getActivity(window: ActivityWindow): Promise<ActivityPage>;
     /** Sets the shelf to what was counted; the movement carries the difference. */
     recordStockCount(request: StockCountRequest): Promise<StockMovement>;
     /** Sets or clears a level's reorder threshold; returns the updated level with its computed `isLow`. */
@@ -2205,7 +2524,8 @@ export interface KitchenOpsRepository {
     getProcurementReference(): Promise<ProcurementReference>;
     /**
      * The most recent fifty receipts, newest first. Costs redacted without the cost permission.
-     * `supplierLot` answers the recall question — which deliveries brought that lot.
+     * `supplierLot` answers the recall question — which deliveries brought that lot; `from` and
+     * `to` narrow to the days the deliveries were received, both ends inclusive.
      */
     listGoodsReceipts(filter?: GoodsReceiptFilter): Promise<readonly GoodsReceipt[]>;
     /**
@@ -2257,6 +2577,17 @@ export interface KitchenOpsRepository {
      * kitchen's trading months are few, so the bounded range is answered whole.
      */
     listCostReport(filter?: MonthlyCostReportFilter): Promise<readonly MonthlyCostReportRow[]>;
+    getDishMargins(): Promise<DishMargins>;
+    getPayables(): Promise<Payables>;
+    approvePayablePrice(receiptId: string): Promise<Payables>;
+    /** Writes down a payment made by hand. Nothing here sends money. */
+    payPayable(receiptId: string, reference: string | null): Promise<Payables>;
+    setPayableDueDate(receiptId: string, dueOn: string | null): Promise<Payables>;
+    /**
+     * Order volume over a range of days against the equal range before it — totals, a day series,
+     * the channel split and the top items. Counts only, no money: needs `order.view_organisation`.
+     */
+    getKitchenAnalytics(filter: KitchenAnalyticsFilter): Promise<KitchenAnalyticsReport>;
 
     /**
      * What the stock on hand is worth right now, per currency (PROD1). A current valuation, never a
@@ -2308,6 +2639,28 @@ export interface KitchenOpsRepository {
     listConsumptionExceptions(
         filter?: ConsumptionExceptionFilter,
     ): Promise<CursorPage<ConsumptionException>>;
+    /** Needs `branch.view_current`. */
+    getKitchenSetup(): Promise<KitchenSetup>;
+    /** Opens the kitchen for customer orders. Needs `organisation.update_current`. */
+    goLive(): Promise<KitchenSetup>;
+    /** The current branch's closures that have not ended. Needs `branch.view_current`. */
+    listBranchClosures(): Promise<readonly BranchClosure[]>;
+    /** Needs `branch.manage_current`. */
+    addBranchClosure(request: AddBranchClosureRequest): Promise<BranchClosure>;
+    /** Needs `branch.manage_current`. */
+    removeBranchClosure(closureId: string): Promise<void>;
+    /** Opens another branch. Needs `branch.manage_current` and an organisation-wide membership. */
+    createBranch(request: CreateBranchRequest): Promise<void>;
+    /** Stock shelves repeating a name that need a person. Needs `inventory.view_organisation`. */
+    listDuplicateStock(): Promise<readonly DuplicateStockGroup[]>;
+    /**
+     * Links a shelf with history, counted to zero in every branch, into its same-named twin. No
+     * movement changes; the dropped shelf leaves the lists. Refused `resource.conflict` with a
+     * `reason` (`stock_remaining`, `different_units`, `open_work`, …). Needs `inventory.manage_organisation`.
+     */
+    mergeDuplicateStock(keepId: string, dropId: string): Promise<void>;
+    /** Keeps same-named shelves as different things; the group leaves the list. Needs `inventory.manage_organisation`. */
+    dismissDuplicateStock(stockItemIds: readonly string[]): Promise<void>;
     /**
      * How many exceptions are unresolved right now, scoped to the active branch context (`X-Branch-Id`)
      * or the whole organisation when none is set — the count the hub badge and review KPI read.
@@ -2409,6 +2762,10 @@ export interface KitchenOpsRepository {
     ): Promise<ProductionOrderDetail>;
 
     /** The most recent fifty checks, newest first, over both allow-listed subjects. */
+    getTemperatureLog(month: string): Promise<TemperatureLog>;
+    recordTemperature(request: RecordTemperatureRequest): Promise<{ readonly outOfRange: boolean }>;
+    recordCookingTemperature(request: RecordCookingTemperatureRequest): Promise<void>;
+    saveTemperatureUnit(draft: TemperatureUnitDraft): Promise<void>;
     listQualityChecks(): Promise<readonly QualityCheck[]>;
     createQualityCheck(request: CreateQualityCheckRequest): Promise<QualityCheckResult>;
     holdQualityCheck(qualityCheckId: QualityCheckId): Promise<QualityCheckResult>;
@@ -2420,6 +2777,10 @@ export interface KitchenOpsRepository {
 export interface GoodsReceiptFilter {
     /** Only receipts with a line carrying exactly this supplier lot — the recall question. */
     readonly supplierLot?: string | undefined;
+    /** Received on or after this day (`YYYY-MM-DD`). */
+    readonly from?: string | undefined;
+    /** Received on or before this day (`YYYY-MM-DD`). */
+    readonly to?: string | undefined;
 }
 
 /** `supplier` — the producer's code on the pack. `system` — a kitchen code (GS1 RCN prefix 04). */

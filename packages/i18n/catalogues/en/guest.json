@@ -126,7 +126,8 @@
         "position": {
             "done": "done",
             "current": "in progress",
-            "upcoming": "still to come"
+            "upcoming": "still to come",
+            "skipped": "will not happen"
         },
         "states": {
             "placed": "Placed",
@@ -141,6 +142,7 @@
         "separator": " · ",
         "arriving": "Arriving",
         "noTime": "—",
+        "readyOutSoon": "Ready, out soon",
         "refresh": "Refresh status",
         "messageCourier": "Message the courier",
         "getHelp": "Get help",
@@ -149,7 +151,14 @@
         "courierDetail": "Courier details are not shared on this page.",
         "droppingAt": "Dropping at {{address}}.",
         "noteOnFile": "Note on file:",
-        "delivered": "Delivered"
+        "delivered": "Delivered",
+        "progressTitle": "Order progress",
+        "totalToPay": "Total — {{payment}}",
+        "cancelledStep": "Cancelled",
+        "cancelledStepDetail": "Nothing will be cooked or delivered.",
+        "copy": "Copy",
+        "copied": "Reference copied.",
+        "yourOrder": "Your order"
     },
     "convert": {
         "title": "Keep this order in an account?",
@@ -188,7 +197,15 @@
         "doneTitle": "Deleted",
         "doneBody": "Everything we held against that address is gone.",
         "suppressionNote": "One record is kept on purpose: a one-way fingerprint of the address, so that \"never contact me again\" outlives the deletion of everything else. It cannot be read back or used to reach you.",
-        "invalidCode": "That code is not right. A code will also fail if we hold nothing for the address you gave."
+        "invalidCode": "That code is not right. A code will also fail if we hold nothing for the address you gave.",
+        "stepAsk": "Ask",
+        "stepConfirm": "Confirm",
+        "stepDone": "Deleted",
+        "requestTitle": "Where did you order from?",
+        "requestBody": "Either one is enough. We will send a code to it.",
+        "or": "or",
+        "confirmCardTitle": "Enter the code we sent",
+        "progress": "Progress"
     },
     "eyebrow": "No account needed · Cash on delivery available",
     "change": "Change",

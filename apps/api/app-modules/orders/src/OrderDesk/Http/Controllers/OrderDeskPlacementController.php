@@ -226,6 +226,8 @@ final class OrderDeskPlacementController
                 reference: $payment['reference'],
                 notes: $payment['notes'],
                 idempotencyKey: $idempotencyKey,
+                allergyNote: $payload['allergy_note'],
+                allergenConflictsAcknowledged: $payload['acknowledge_allergen_conflicts'],
             ));
 
             return $this->respond($order, replayed: false);
@@ -265,6 +267,9 @@ final class OrderDeskPlacementController
                     fulfilmentType: $fulfilmentType,
                     placedOnBehalfBy: $this->agentId(),
                     paymentMethod: PaymentMethod::from($payload['payment_method']),
+                    allergyNote: $payload['allergy_note'],
+                    allergenConflictsAcknowledged: $payload['acknowledge_allergen_conflicts'],
+                    requireDeliveryPhone: true,
                 ),
                 $idempotencyKey,
             );

@@ -20,6 +20,10 @@ namespace Healthy360\Orders\Enums;
  * **not** here — there is nothing to fail, orders are paid at the door — and
  * inventing it now would be reserving a value for a phase that has not
  * designed it.
+ *
+ * `DeliveryFailed` is the one reason nobody picks from a list: only closing a
+ * failed delivery sets it (`FailedDelivery::closeFailed()`), so the count of them
+ * is a count of runs that really came back. `CancelOrderRequest` refuses it.
  */
 enum CancellationReason: string
 {
@@ -27,4 +31,5 @@ enum CancellationReason: string
     case KitchenUnableToFulfil = 'kitchen_unable_to_fulfil';
     case DeliveryUnavailable = 'delivery_unavailable';
     case AddressUnreachable = 'address_unreachable';
+    case DeliveryFailed = 'delivery_failed';
 }

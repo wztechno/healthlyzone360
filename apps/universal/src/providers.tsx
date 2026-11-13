@@ -1,4 +1,9 @@
-import { FormIssueScope, IssueTrayProvider, ToastProvider } from '@healthy360/design-system';
+import {
+    FormIssueScope,
+    IssueTrayProvider,
+    ToastProvider,
+    useHydrated,
+} from '@healthy360/design-system';
 import type { Repositories, SessionTokenStore } from '@healthy360/api-client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
@@ -11,7 +16,7 @@ import type { Metrics } from 'react-native-safe-area-context';
 import { createQueryClient } from './data/query-client.ts';
 import { persistCache, restoreCache } from './data/persistence.ts';
 import { AppRepositoryProvider } from './data/repository-provider.tsx';
-import { i18n } from './i18n.ts';
+import { hydrationI18n, i18n } from './i18n.ts';
 import { OnlineStatusProvider } from './online/online-status.tsx';
 import { SessionProvider } from './session/session-provider.tsx';
 import { createKeyValueStore } from './session/storage.ts';
@@ -68,6 +73,12 @@ export function AppProviders({
      */
     const [cacheLocale, setCacheLocale] = useState(() => i18n.resolvedLanguage ?? i18n.language);
 
+    // The static web export hydrates in English, then renders in the visitor's language
+    // (`hydrationI18n` in `i18n.ts` says why). Once the swap has committed, every Suspense boundary
+    // has hydrated, so client-only state such as the disk cache can arrive without a mismatch.
+    const hydrated = useHydrated();
+    const renderI18n = hydrated ? i18n : (hydrationI18n ?? i18n);
+
     useEffect(() => {
         const onLanguageChanged = () => setCacheLocale(i18n.resolvedLanguage ?? i18n.language);
         i18n.on('languageChanged', onLanguageChanged);
@@ -83,12 +94,13 @@ export function AppProviders({
         // Allow-listed persistence only — nothing under `session` or `devices` may reach disk
         // (plan §21). `restoreCache` discards anything written by an older cache version, and the
         // key carries the locale so an Arabic reader never restores English names from disk.
+        if (!hydrated) return undefined;
         restoreCache(client, cacheStore, cacheLocale);
         return persistCache(client, cacheStore, cacheLocale);
-    }, [client, cacheStore, cacheLocale]);
+    }, [client, cacheStore, cacheLocale, hydrated]);
 
     return (
-        <I18nextProvider i18n={i18n}>
+        <I18nextProvider i18n={renderI18n}>
             <SafeAreaProvider initialMetrics={initialMetrics ?? initialWindowMetrics}>
                 <QueryClientProvider client={client}>
                     <OnlineStatusProvider initialOnline={initialOnline}>

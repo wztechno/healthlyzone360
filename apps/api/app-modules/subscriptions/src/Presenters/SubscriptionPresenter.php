@@ -10,7 +10,6 @@ use Healthy360\Catalogues\Models\PlanDuration;
 use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Organisations\Models\Organisation;
-use Healthy360\Subscriptions\Models\CreditMemo;
 use Healthy360\Subscriptions\Models\Subscription;
 use Healthy360\Subscriptions\Models\SubscriptionDelivery;
 use Healthy360\Subscriptions\Models\SubscriptionMealChoice;
@@ -231,9 +230,8 @@ final class SubscriptionPresenter
             'starts_on' => $facts['started_on'] ?? null,
             'weekly_price_minor' => $subscription->effective_day_price_minor * $weekdayCount,
 
-            'allows_free_selection' => $profile instanceof SubscriptionPlanProfile
-                ? $profile->allows_free_selection
-                : false,
+            // Every plan is choose-your-own: the customer picks each day's meals.
+            'allows_free_selection' => true,
             'change_cutoff_hours' => $profile instanceof SubscriptionPlanProfile
                 ? $profile->change_cutoff_hours
                 : ChangeWindow::DEFAULT_CUTOFF_HOURS,
@@ -313,33 +311,6 @@ final class SubscriptionPresenter
             'generated_at' => $delivery->generated_at?->toIso8601String(),
             'settled_at' => $delivery->settled_at?->toIso8601String(),
             'meals' => $meals,
-        ];
-    }
-
-    /**
-     * A recorded refund.
-     *
-     * `settlement: manual` is stated on the wire rather than left to be
-     * inferred from the status vocabulary. It is the one sentence a customer
-     * cancelling most needs — no money has moved, and somebody will be in touch
-     * — and a client that had to know `recorded` meant that would eventually
-     * render it as "refunded".
-     *
-     * @return array<string, mixed>
-     */
-    public function creditMemo(CreditMemo $memo): array
-    {
-        return [
-            'id' => (string) $memo->getKey(),
-            'reason' => $memo->reason,
-            'unused_days' => $memo->unused_days,
-            'per_day_minor' => $memo->per_day_minor,
-            'amount_minor' => $memo->amount_minor,
-            'currency_code' => $memo->currency_code,
-            'status' => $memo->status->value,
-            'settlement' => 'manual',
-            'recorded_at' => $memo->recorded_at->toIso8601String(),
-            'settled_at' => $memo->settled_at?->toIso8601String(),
         ];
     }
 

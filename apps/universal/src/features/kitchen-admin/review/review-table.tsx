@@ -1,16 +1,17 @@
-import { Icon, IconButton, Text } from '@healthy360/design-system';
+import { Text } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { useMemo, useState } from 'react';
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 
 import { displayName, statusKey } from '../format.ts';
 import { reviewFamilyKey, reviewReasonKey, reviewRowTestId } from '../review-queue.ts';
 import type { ReviewItem } from '../review-queue.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { ROW_ACTIONS_WIDTH, RowActionsMenu } from '../catalogue/row-actions-menu.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
+import type { ColumnControls, ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { ReviewReasonChip } from './review-reason-chip.tsx';
 
@@ -46,24 +47,34 @@ export function shortReference(reference: string): string {
     return hash === -1 ? reference : reference.slice(hash + 1);
 }
 
+export type ReviewColumnControls = ColumnControls<ReviewItem, CatalogueColumn<ReviewItem>>;
+
 export interface ReviewTableProps {
-    /** Already narrowed by the screen's search and scope, in the queue's own order. */
+    /** Already narrowed by the screen's search, scope and window, in the queue's own order. */
+    readonly items: readonly ReviewItem[];
+    /** From {@link useReviewColumns} — held by the screen, so its toolbar carries the picker. */
+    readonly controls: ReviewColumnControls;
+    readonly onView: (item: ReviewItem) => void;
+    /** Closes the card a split Lens bar opens above it. */
+    readonly joined?: boolean | undefined;
+    readonly testID: string;
+}
+
+/**
+ * The table's columns under the Catalogue's controls — sort, header filters and the Show columns
+ * picker. Called by the screen rather than the table, so the picker can sit in the Lens bar.
+ */
+export function useReviewColumns({
+    items,
+    onView,
+    onOpen,
+    testID,
+}: {
     readonly items: readonly ReviewItem[];
     readonly onView: (item: ReviewItem) => void;
     readonly onOpen: (item: ReviewItem) => void;
     readonly testID: string;
-}
-
-const SWALLOW_CLICK =
-    Platform.OS === 'web'
-        ? {
-              onClick: (event: { stopPropagation: () => void }) => {
-                  event.stopPropagation();
-              },
-          }
-        : {};
-
-export function ReviewTable({ items, onView, onOpen, testID }: ReviewTableProps) {
+}): ReviewColumnControls {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const formatter = useFormatter();
@@ -188,41 +199,53 @@ export function ReviewTable({ items, onView, onOpen, testID }: ReviewTableProps)
         },
         {
             key: 'actions',
-            label: '',
-            width: 96,
+            role: 'actions',
+            label: t('kitchen:list.actionHeader'),
+            width: ROW_ACTIONS_WIDTH,
             priority: 95,
             align: 'end',
             grow: false,
+            sortable: false,
+            filterable: false,
             render: (item) => {
                 const id = reviewRowTestId(item.familyKey, item.id);
                 return (
-                    <View className="flex-row items-center gap-hair" {...SWALLOW_CLICK}>
-                        <IconButton
-                            testID={`${id}-view`}
-                            variant="ghost"
-                            size="sm"
-                            label={t('kitchen:list.view')}
-                            icon={<Icon name="eye" size="sm" />}
-                            onPress={() => {
-                                onView(item);
-                            }}
-                        />
-                        <IconButton
-                            testID={`${id}-open`}
-                            variant="ghost"
-                            size="sm"
-                            label={t('kitchen:catalogue.edit')}
-                            icon={<Icon name="pen" size="sm" />}
-                            onPress={() => {
-                                onOpen(item);
-                            }}
-                        />
-                    </View>
+                    <RowActionsMenu
+                        label={t('kitchen:list.rowActions')}
+                        testID={`${id}-actions`}
+                        actions={[
+                            {
+                                key: 'view',
+                                label: t('kitchen:list.view'),
+                                icon: 'eye',
+                                testID: `${id}-view`,
+                                onSelect: () => {
+                                    onView(item);
+                                },
+                            },
+                            {
+                                key: 'open',
+                                label: t('kitchen:catalogue.edit'),
+                                icon: 'pen',
+                                testID: `${id}-open`,
+                                onSelect: () => {
+                                    onOpen(item);
+                                },
+                            },
+                        ]}
+                    />
                 );
             },
         },
     ];
-    const controls = useColumnControls(items, columns, `${testID}-list`);
+    // View and Edit are the row's only way in, so they cannot be dropped with the columns.
+    return useColumnControls(items, columns, `${testID}-list`, {
+        picker: { locked: ['designation', 'actions'] },
+    });
+}
+
+export function ReviewTable({ items, controls, onView, joined, testID }: ReviewTableProps) {
+    const { t } = useTranslation();
 
     /**
      * The page, remembered against what it was chosen under — so a search, a scope or a header
@@ -247,6 +270,7 @@ export function ReviewTable({ items, onView, onOpen, testID }: ReviewTableProps)
                 rowKey={(item) => `${item.familyKey}-${item.id}`}
                 onRowPress={onView}
                 rowActionsLabel={t('kitchen:list.rowActions')}
+                joined={joined}
             />
             <CataloguePager
                 testID={`${testID}-pagination`}

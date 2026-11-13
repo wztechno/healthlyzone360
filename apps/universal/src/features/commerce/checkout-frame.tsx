@@ -281,6 +281,8 @@ export interface SummaryItem {
     readonly name: string;
     readonly quantity: number;
     readonly lineTotal: Money;
+    /** What the line changed about the dish, already worded. Empty or absent draws nothing. */
+    readonly detail?: string | undefined;
 }
 
 /** `2 × Grilled halloumi bowl ……… AED 84.00` — the rail's list of what is being bought. */
@@ -305,12 +307,22 @@ export function SummaryItems({
                     testID={`${testID}-${item.key}`}
                     className="flex-row items-baseline justify-between gap-3"
                 >
-                    <RNText className="min-w-0 shrink text-sm text-content-primary text-start">
-                        {t('commerce:cart.lineSummary', {
-                            quantity: formatter.formatNumber(item.quantity),
-                            meal: item.name,
-                        })}
-                    </RNText>
+                    <View className="min-w-0 shrink flex-col">
+                        <RNText className="text-sm text-content-primary text-start">
+                            {t('commerce:cart.lineSummary', {
+                                quantity: formatter.formatNumber(item.quantity),
+                                meal: item.name,
+                            })}
+                        </RNText>
+                        {item.detail === undefined || item.detail === '' ? null : (
+                            <RNText
+                                testID={`${testID}-${item.key}-detail`}
+                                className="text-xs text-content-secondary text-start"
+                            >
+                                {item.detail}
+                            </RNText>
+                        )}
+                    </View>
                     <RNText
                         className={cx(
                             'text-sm tabular-nums text-content-primary text-end',

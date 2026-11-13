@@ -15,6 +15,7 @@ use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Services\DerivedAllergenService;
+use Healthy360\Catalogues\Services\DishOptions;
 use Healthy360\Customers\Contracts\AreaServiceLookup;
 use Healthy360\Customers\Enums\CustomerAccountType;
 use Healthy360\Customers\Enums\CustomerAddressType;
@@ -24,7 +25,7 @@ use Healthy360\Delivery\Models\DeliveryZone;
 use Healthy360\Delivery\Services\ZoneResolver;
 use Healthy360\Delivery\Services\ZoneWindowService;
 use Healthy360\Orders\Contracts\BuyerAllergenCheck;
-use Healthy360\Orders\Contracts\OrderSchedulingLookup;
+use Healthy360\Orders\Contracts\OrderStockConsumption;
 use Healthy360\Orders\Enums\FulfilmentType;
 use Healthy360\Orders\Enums\OrderStatus;
 use Healthy360\Orders\Enums\PaymentMethod;
@@ -34,6 +35,8 @@ use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Organisations\Services\OrganisationTradingGuard;
 use Healthy360\Pricing\Contracts\BuyerAgreementLookup;
 use Healthy360\ReferenceData\Models\DeliveryArea;
+use Healthy360\Support\Alerts\StaffAlerts;
+use Healthy360\Support\Alerts\StaffAlertType;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Healthy360\Tenancy\TenantContext;
@@ -81,9 +84,10 @@ use Illuminate\Support\Facades\DB;
  *    precedence lives. The `AreaServiceLookup` port answers the broader
  *    question, so a refusal can say "nobody delivers to this area yet" rather
  *    than the less useful "we do not".
- * 5. The branch will still take an order for the requested day —
- *    `OrderSchedulingLookup`, the port over the kitchen's cut-offs.
- * 6. Every line is repriced and re-checked.
+ * 5. A serving branch can still make it for the requested day and window —
+ *    `OrderTimingRules`, over the kitchen's opening hours and cut-offs.
+ * 6. Every line is repriced and re-checked, and the subtotal meets the zone's
+ *    minimum.
  *
  * All of it inside one transaction, with the cart marked converted in the same
  * transaction: an order that exists beside a still-open basket is how a
@@ -150,7 +154,7 @@ use Illuminate\Support\Facades\DB;
  * | `CheckoutEligibility::outstanding()` | self-service only | self-service only | self-service only |
  * | `addressReasons()`, `zoneFor()`, fee currency | yes | — | — |
  * | `windowReasons()` | unless `enforceWindowOffer` is false | — | — |
- * | `scheduleReasons()` | yes | **yes** | — |
+ * | `composedTimingReasons()` | yes | **yes** | — |
  * | `composedSnapshots()` (repricing) | yes | yes | yes |
  * | `agreementReasons()`, agreement snapshot | yes | yes | yes |
  *
@@ -170,6 +174,17 @@ use Illuminate\Support\Facades\DB;
  * composed caller places on a private channel — a corporate standing order is
  * the obvious one — the alternative would be a wholesale order placed without a
  * minimum-order check, discovered in a reconciliation months later.
+ *
+ * ## Allergies reach the cook
+ *
+ * `persist()` snapshots every allergy the buyer declared onto the order, so a
+ * customer, desk, subscription or quotation order all carry it and a walk-in can
+ * carry a note. A conflict with what was declared is refused until acknowledged:
+ * always online, and on the composed path only when staff placed it. Generation
+ * has already chosen safe meals, and a quotation was agreed in writing.
+ *
+ * Managers are alerted once for any order with a snapshot or a note, except
+ * subscription generation, whose orders would alert every day.
  */
 final readonly class OrderPlacementService
 {
@@ -180,7 +195,7 @@ final readonly class OrderPlacementService
         private AreaServiceLookup $areas,
         private ZoneResolver $zones,
         private ZoneWindowService $zoneWindows,
-        private OrderSchedulingLookup $scheduling,
+        private OrderTimingRules $timing,
         private DerivedAllergenService $allergens,
         private OrderNumbers $numbers,
         private OrderIdempotency $idempotency,
@@ -190,6 +205,12 @@ final readonly class OrderPlacementService
         private BuyerAgreementLookup $agreements,
         private OrganisationTradingGuard $trading,
         private BuyerAllergenCheck $allergenCheck,
+        private OrderStockConsumption $stock,
+        private OrderAmendability $amendability,
+        private StaffAlerts $alerts,
+        private CalendarPortions $portions,
+        private DishOptions $dishOptions,
+        private DeliveryPhone $phones,
     ) {}
 
     /**
@@ -199,6 +220,7 @@ final readonly class OrderPlacementService
      * @param  CarbonImmutable|null  $requestedDate  the day asked for; taken from the lines when they name one
      * @param  string|null  $idempotencyKey  the client's replay key, when it sent one
      * @param  bool  $allergenConflictsAcknowledged  the customer saw the basket's allergen conflicts and chose to order anyway
+     * @param  bool  $requireDeliveryPhone  refuse `phone_required` when the driver would have no number — the customer's own checkout, online or guest
      *
      * @throws PlacementRefused|ApiException
      */
@@ -209,6 +231,7 @@ final readonly class OrderPlacementService
         ?CarbonImmutable $requestedDate = null,
         ?string $idempotencyKey = null,
         bool $allergenConflictsAcknowledged = false,
+        bool $requireDeliveryPhone = false,
     ): PlacementResult {
         $account = $this->accountOf($cart);
 
@@ -232,7 +255,7 @@ final readonly class OrderPlacementService
             fn (): Order => $this->seller->during(
                 $cart->organisation_id,
                 $cart->branch_id,
-                fn (): Order => $this->placeNow($cart, $account, $address, $deliveryWindowCode, $requestedDate, $allergenConflictsAcknowledged),
+                fn (): Order => $this->placeNow($cart, $account, $address, $deliveryWindowCode, $requestedDate, $allergenConflictsAcknowledged, $requireDeliveryPhone),
             ),
         );
 
@@ -291,12 +314,16 @@ final readonly class OrderPlacementService
             'fulfilment_type' => $placement->fulfilmentType->value,
             'placed_on_behalf_by' => $placement->placedOnBehalfBy,
             'payment_method' => $placement->paymentMethod->value,
+            'allergy_note' => $placement->allergyNote,
+            'allergen_conflicts_acknowledged' => $placement->allergenConflictsAcknowledged,
             'lines' => (string) json_encode(array_map(
                 static fn (ComposedLine $line): array => [
                     $line->catalogueItemId,
                     $line->catalogueItemVariantId,
                     $line->quantity,
                     $line->price?->unitPriceMinor,
+                    $line->optionIds,
+                    $line->note,
                 ],
                 $placement->lines,
             ), JSON_THROW_ON_ERROR),
@@ -376,6 +403,16 @@ final readonly class OrderPlacementService
             $reasons = [...$reasons, ...$this->eligibility->outstanding($account)];
         }
 
+        // The other half of having a person at the desk: the same check the
+        // customer's own checkout meets, cleared by the cashier saying the
+        // customer was told.
+        if ($placement->placedOnBehalfBy !== null && $account !== null && ! $placement->allergenConflictsAcknowledged) {
+            $reasons = [...$reasons, ...$this->allergenReasons($account, array_map(
+                static fn (ComposedLine $line): string => $line->catalogueItemId,
+                $placement->lines,
+            ), array_map(static fn (ComposedLine $line): array => $line->optionIds, $placement->lines))];
+        }
+
         $effectiveDate = $placement->requestedDate;
         $zone = null;
 
@@ -386,6 +423,11 @@ final readonly class OrderPlacementService
         if ($placement->fulfilmentType->requiresAddress() && $address !== null) {
             if ($account !== null) {
                 $reasons = [...$reasons, ...$this->addressReasons((string) $account->getKey(), $address)];
+            }
+
+            // The desk only: generation and quotations were agreed earlier.
+            if ($placement->requireDeliveryPhone && ! $this->phones->resolves($address->contact_point_id, $account === null ? null : (string) $account->getKey())) {
+                $reasons[] = ['reason' => 'phone_required'];
             }
 
             [$zone, $zoneReasons] = $this->zoneFor($placement->branchId, $address);
@@ -412,7 +454,7 @@ final readonly class OrderPlacementService
         // branch closed its book for that day is refused exactly as a delivery
         // is. A counter sale is handed over now and has no day to be late for.
         if ($placement->fulfilmentType !== FulfilmentType::Counter) {
-            $reasons = [...$reasons, ...$this->scheduleReasons($placement->branchId, $effectiveDate, $now)];
+            $reasons = [...$reasons, ...$this->composedTimingReasons($placement, $zone, $effectiveDate, $now)];
         }
 
         $channel = SalesChannel::withoutTenancy()->whereKey($placement->salesChannelId)->first();
@@ -452,6 +494,14 @@ final readonly class OrderPlacementService
             placedOnBehalfBy: $placement->placedOnBehalfBy,
             b2bAgreementId: $agreement['agreement_id'] ?? null,
             priceListId: $agreement['price_list_id'] ?? null,
+            allergyNote: $placement->allergyNote,
+            allergenConflictsAcknowledged: $placement->allergenConflictsAcknowledged,
+            // False only for subscription generation, which would alert daily.
+            alertsManagers: $placement->enforceWindowOffer,
+            // A subscription day and an accepted quotation were settled earlier:
+            // the calendar is not asked about them, so it is not charged for them.
+            countsPortions: ! $placement->keepsAgreedDay(),
+            waivesDeliveryFee: $placement->waivesDeliveryFee,
         );
 
         $this->audit->record(
@@ -576,6 +626,7 @@ final readonly class OrderPlacementService
         ?string $deliveryWindowCode,
         ?CarbonImmutable $requestedDate,
         bool $allergenConflictsAcknowledged = false,
+        bool $requireDeliveryPhone = false,
     ): Order {
         $now = CarbonImmutable::now();
         $reasons = [];
@@ -606,18 +657,17 @@ final readonly class OrderPlacementService
         $reasons = [...$reasons, ...$this->eligibility->outstanding($account)];
         $reasons = [...$reasons, ...$this->addressReasons($cart->customer_account_id, $address)];
 
+        if ($requireDeliveryPhone && ! $this->phones->resolves($address->contact_point_id, (string) $account->getKey())) {
+            $reasons[] = ['reason' => 'phone_required'];
+        }
+
         // Read at placement, not trusted from the preview: allergies changed
         // on another device since the basket was filled are caught here.
         if (! $allergenConflictsAcknowledged) {
-            foreach ($this->allergenCheck->conflicts($account, array_map(static fn (CartItem $line): string => $line->catalogue_item_id, $lines)) as $conflict) {
-                // `cause` carries the rule's own word for it, since `reason` names the refusal.
-                $reasons[] = [
-                    'reason' => 'allergen_conflict',
-                    'catalogue_item_id' => $conflict['catalogue_item_id'],
-                    'cause' => $conflict['reason'],
-                    'allergen_codes' => $conflict['allergen_codes'],
-                ];
-            }
+            $reasons = [...$reasons, ...$this->allergenReasons($account, array_map(
+                static fn (CartItem $line): string => $line->catalogue_item_id,
+                $lines,
+            ), array_map(static fn (CartItem $line): array => array_column($line->selected_options ?? [], 'id'), $lines))];
         }
 
         $effectiveDate = $this->effectiveDate($lines, $requestedDate, $reasons);
@@ -635,7 +685,21 @@ final readonly class OrderPlacementService
             ];
         }
 
-        $reasons = [...$reasons, ...$this->scheduleReasons($cart->branch_id, $effectiveDate, $now)];
+        // The basket's branch is usually null, and `OrderTimingRules` answers
+        // for whichever branches serve it then. A customer who names no day is
+        // asked about today, as `LineProbe` reads it: leaving the field blank
+        // must not be a way round the kitchen's hours.
+        $reasons = [...$reasons, ...$this->timing->refusals(
+            $cart->organisation_id,
+            $cart->branch_id,
+            $zone,
+            $effectiveDate,
+            $deliveryWindowCode,
+            $now,
+            leadTime: true,
+        )];
+        $reasons = [...$reasons, ...$this->timing->pauseRefusals($cart->organisation_id, $now)];
+        $reasons = [...$reasons, ...$this->timing->capacityRefusals($cart->organisation_id, $effectiveDate, $deliveryWindowCode)];
 
         $channel = SalesChannel::withoutTenancy()->whereKey($cart->sales_channel_id)->first();
 
@@ -645,6 +709,7 @@ final readonly class OrderPlacementService
         if ($lineReasons === []) {
             $subtotal = array_sum(array_map(static fn (array $line): int => $line['line_total_minor'], $snapshots));
             $reasons = [...$reasons, ...$this->agreementReasons($account, $channel, $subtotal, $effectiveDate ?? $now)];
+            $reasons = [...$reasons, ...$this->timing->minimumRefusals($zone, $subtotal, $cart->currency_code)];
         }
 
         if ($reasons !== []) {
@@ -675,9 +740,13 @@ final readonly class OrderPlacementService
             paymentMethod: PaymentMethod::CashOnDelivery,
             b2bAgreementId: $agreement['agreement_id'] ?? null,
             priceListId: $agreement['price_list_id'] ?? null,
+            allergenConflictsAcknowledged: $allergenConflictsAcknowledged,
             // Same transaction, deliberately. An order beside a still-open
             // basket is how a customer orders the same food twice.
-            within: fn (Order $order): mixed => $this->carts->markConverted($cart, (string) $order->getKey()),
+            within: function (Order $order) use ($cart): void {
+                $this->timing->holdCapacity($order);
+                $this->carts->markConverted($cart, (string) $order->getKey());
+            },
         );
 
         $this->audit->record(
@@ -737,6 +806,10 @@ final readonly class OrderPlacementService
      * basket path uses it to mark the cart converted; the composed path passes
      * nothing, because there is no basket to convert.
      *
+     * **The allergy snapshot is here so no path can miss it**, and it follows the
+     * lines because it names the ones each allergy conflicts with. `StaffAlerts`
+     * is safe inside this transaction: it cannot refuse the order it is about.
+     *
      * @param  CustomerAccount|null  $account  null only on a counter sale for somebody the desk did not name
      * @param  CustomerAddress|null  $address  null for pickup and counter; the whole snapshot block turns on it
      * @param  list<array<string, mixed>>  $snapshots
@@ -760,14 +833,24 @@ final readonly class OrderPlacementService
         ?callable $within = null,
         ?string $b2bAgreementId = null,
         ?string $priceListId = null,
+        ?string $allergyNote = null,
+        bool $allergenConflictsAcknowledged = false,
+        bool $alertsManagers = true,
+        bool $countsPortions = true,
+        bool $waivesDeliveryFee = false,
     ): Order {
         $subtotal = array_sum(array_map(static fn (array $line): int => $line['line_total_minor'], $snapshots));
         $fee = $zone instanceof DeliveryZone ? $zone->delivery_fee_minor : null;
+
+        if ($waivesDeliveryFee && $fee !== null) {
+            $fee = 0;
+        }
 
         return DB::transaction(function () use (
             $account, $address, $organisationId, $salesChannelId, $branchId, $currencyCode,
             $snapshots, $zone, $fee, $subtotal, $deliveryWindowCode, $effectiveDate, $now, $within,
             $b2bAgreementId, $priceListId, $fulfilmentType, $paymentMethod, $placedOnBehalfBy,
+            $allergyNote, $allergenConflictsAcknowledged, $alertsManagers, $countsPortions,
         ): Order {
             $order = new Order;
             $order->order_number = $this->numbers->next();
@@ -785,33 +868,7 @@ final readonly class OrderPlacementService
             if ($address !== null) {
                 // The address as it stands right now, copied. Editing it later
                 // must not change where this order was sent.
-                $area = DeliveryArea::query()->whereKey($address->delivery_area_id)->first();
-
-                $order->delivery_label = $address->label;
-                $order->delivery_line_one = $address->line_one;
-                $order->delivery_line_two = $address->line_two;
-                // The gazetteer's `region` — the governorate or district. It is
-                // deliberately unpopulated in the platform data (OD-12), so this
-                // is usually null; the column exists because a courier manifest
-                // has a city line and a snapshot that could not fill it would send
-                // somebody back to a table that has since changed.
-                $order->delivery_city = $area?->region;
-                $order->delivery_area_name_en = $area?->name_en;
-                $order->delivery_area_name_ar = $area?->name_ar;
-                $order->delivery_area_id = $address->delivery_area_id;
-                $order->delivery_zone_id = $zone?->getKey() === null ? null : (string) $zone->getKey();
-                // The half of the address that never used to travel. Copied
-                // rather than joined for the reason the rest of the block is:
-                // the row it came from may be edited, moved or deleted, and the
-                // delivery that already happened may not be rewritten by any of
-                // that. The contact point is a reference and not a copied
-                // number — which number the courier was *given* is the durable
-                // fact, and the verification state travels with the row.
-                $order->delivery_building = $address->building;
-                $order->delivery_floor = $address->floor;
-                $order->delivery_apartment = $address->apartment;
-                $order->delivery_directions = $address->directions;
-                $order->delivery_contact_point_id = $address->contact_point_id;
+                $this->destinationColumns($order, $address, $zone);
             }
 
             // Outside the address branch on purpose. "Be here at six" is a
@@ -825,33 +882,27 @@ final readonly class OrderPlacementService
             $order->price_list_id = $priceListId;
             $order->placed_at = $now;
             $order->created_by = $this->context->userId();
+            $order->allergy_note = $allergyNote;
             $order->lock_version = 0;
             $order->save();
 
-            foreach ($snapshots as $snapshot) {
-                $line = new OrderLine;
-                $line->order_id = (string) $order->getKey();
-                $line->catalogue_item_id = $snapshot['catalogue_item_id'];
-                $line->catalogue_item_variant_id = $snapshot['catalogue_item_variant_id'];
-                $line->name_en = $snapshot['name_en'];
-                $line->name_ar = $snapshot['name_ar'];
-                $line->variant_label = $snapshot['variant_label'];
-                $line->quantity = $snapshot['quantity'];
-                $line->unit_price_minor = $snapshot['unit_price_minor'];
-                $line->line_total_minor = $snapshot['line_total_minor'];
-                $line->currency_code = $snapshot['currency_code'];
-                $line->allergens = $snapshot['allergens'];
-                $line->pack_summary = $snapshot['pack_summary'];
-                $line->price_list_id = $snapshot['price_list_id'];
-                $line->price_list_item_id = $snapshot['price_list_item_id'];
-                // NULL for every line the resolver priced — which is every
-                // line except a subscription's grandfathered one.
-                $line->price_source = $snapshot['price_source'] ?? null;
-                $line->save();
+            $lines = array_map(fn (array $snapshot): OrderLine => $this->writeLine($order, $snapshot), $snapshots);
+
+            $this->snapshotAllergy($order, $account, $lines, $allergenConflictsAcknowledged, $placedOnBehalfBy, $now);
+
+            if ($countsPortions) {
+                $this->portions->take($order);
+                $order->portions_counted = true;
             }
+
+            $order->save();
 
             if ($within !== null) {
                 $within($order);
+            }
+
+            if ($alertsManagers) {
+                $this->alertAllergy($order);
             }
 
             return $order;
@@ -859,30 +910,553 @@ final readonly class OrderPlacementService
     }
 
     /**
-     * Whether the branch will still take an order for that day, as refusals.
+     * `allergen_conflict`, one per conflicting meal.
      *
-     * Shared by both entry points so there is one definition of "too late".
+     * Read at placement, not trusted from a preview: allergies changed on another
+     * device since the basket was filled are caught here. `cause` carries the
+     * rule's own word for it, since `reason` names the refusal.
+     *
+     * @param  list<string>  $catalogueItemIds
+     * @param  array<int, list<string>>  $optionIds  each line's chosen options, by the same index
+     * @return list<array<string, mixed>>
+     */
+    private function allergenReasons(CustomerAccount $account, array $catalogueItemIds, array $optionIds): array
+    {
+        return array_map(static fn (array $conflict): array => [
+            'reason' => 'allergen_conflict',
+            'catalogue_item_id' => $conflict['catalogue_item_id'],
+            'cause' => $conflict['reason'],
+            'allergen_codes' => $conflict['allergen_codes'],
+        ], $this->allergenCheck->conflicts($account, $catalogueItemIds, $optionIds));
+    }
+
+    /**
+     * Copy the buyer's declared allergies onto the order, each with the lines it
+     * conflicts with, and record who accepted a conflict.
+     *
+     * Every allergy, not only conflicts: the cook should know about a severe one
+     * even when the check found no match. An `unassessed` meal conflicts with all
+     * of them, because nothing says what it holds. An `excluded` one names no
+     * allergy, so it reaches only the acknowledgement.
+     *
+     * Asked only when there is something to find, so a customer who declared
+     * nothing costs subscription generation no per-line check.
+     *
+     * @param  list<OrderLine>  $lines
+     * @param  string|null  $acknowledgedBy  the cashier; null when the customer acknowledged it
+     */
+    private function snapshotAllergy(
+        Order $order,
+        ?CustomerAccount $account,
+        array $lines,
+        bool $acknowledged,
+        ?string $acknowledgedBy,
+        CarbonImmutable $now,
+    ): void {
+        $declared = $account === null ? [] : $this->allergenCheck->declared($account);
+
+        // Asked line by line, because two lines of one dish with different
+        // sauces are different food: the conflict is the line's, not the dish's.
+        $conflicts = [];
+
+        if ($account !== null && ($declared !== [] || $acknowledged)) {
+            foreach ($lines as $line) {
+                foreach ($this->allergenCheck->conflicts($account, [$line->catalogue_item_id], [array_column($line->selected_options ?? [], 'id')]) as $conflict) {
+                    $conflicts[] = [...$conflict, 'line_id' => (string) $line->getKey()];
+                }
+            }
+        }
+
+        $order->allergy_snapshot = $declared === [] ? null : array_map(static function (array $allergy) use ($conflicts): array {
+            $lineIds = [];
+
+            foreach ($conflicts as $conflict) {
+                if ($conflict['reason'] === 'unassessed' || in_array($allergy['allergen_code'], $conflict['allergen_codes'], true)) {
+                    $lineIds[] = $conflict['line_id'];
+                }
+            }
+
+            return [...$allergy, 'conflicts_with_line' => $lineIds];
+        }, $declared);
+
+        $accepted = $acknowledged && $conflicts !== [];
+
+        $order->allergy_acknowledged_at = $accepted ? $now : null;
+        $order->allergy_acknowledged_by = $accepted ? $acknowledgedBy : null;
+    }
+
+    /**
+     * Tell the managers about an order with an allergy on it. The allergens stay
+     * off the alert, which outlives the customer; the link shows the rest.
+     */
+    private function alertAllergy(Order $order): void
+    {
+        if ($order->allergy_snapshot === null && $order->allergy_note === null) {
+            return;
+        }
+
+        $this->alerts->send(StaffAlertType::AllergyOrder, $order->organisation_id, (string) $order->getKey(), [
+            'order_number' => $order->order_number,
+            'total_minor' => $order->total_minor,
+            'currency_code' => $order->currency_code,
+            'severe' => $order->hasSevereAllergy(),
+        ]);
+    }
+
+    /**
+     * Copy an address onto the order's delivery snapshot — at placement, and
+     * again when an edit sends the order somewhere new.
+     */
+    private function destinationColumns(Order $order, CustomerAddress $address, ?DeliveryZone $zone): void
+    {
+        $area = DeliveryArea::query()->whereKey($address->delivery_area_id)->first();
+
+        $order->delivery_label = $address->label;
+        $order->delivery_line_one = $address->line_one;
+        $order->delivery_line_two = $address->line_two;
+        // The gazetteer's `region` — the governorate or district. It is
+        // deliberately unpopulated in the platform data (OD-12), so this is
+        // usually null; the column exists because a courier manifest has a city
+        // line and a snapshot that could not fill it would send somebody back
+        // to a table that has since changed.
+        $order->delivery_city = $area?->region;
+        $order->delivery_area_name_en = $area?->name_en;
+        $order->delivery_area_name_ar = $area?->name_ar;
+        $order->delivery_area_id = $address->delivery_area_id;
+        $order->delivery_zone_id = $zone?->getKey() === null ? null : (string) $zone->getKey();
+        // The half of the address that never used to travel. Copied rather than
+        // joined for the reason the rest of the block is: the row it came from
+        // may be edited, moved or deleted, and the delivery that already
+        // happened may not be rewritten by any of that. The contact point is a
+        // reference and not a copied number — which number the courier was
+        // *given* is the durable fact, and the verification state travels with
+        // the row.
+        $order->delivery_building = $address->building;
+        $order->delivery_floor = $address->floor;
+        $order->delivery_apartment = $address->apartment;
+        $order->delivery_directions = $address->directions;
+        $order->delivery_contact_point_id = $address->contact_point_id;
+    }
+
+    /**
+     * Write one snapshot as an order line.
+     *
+     * @param  array<string, mixed>  $snapshot
+     */
+    private function writeLine(Order $order, array $snapshot): OrderLine
+    {
+        $line = new OrderLine;
+        $line->order_id = (string) $order->getKey();
+        $line->catalogue_item_id = $snapshot['catalogue_item_id'];
+        $line->catalogue_item_variant_id = $snapshot['catalogue_item_variant_id'];
+        $line->name_en = $snapshot['name_en'];
+        $line->name_ar = $snapshot['name_ar'];
+        $line->variant_label = $snapshot['variant_label'];
+        $line->quantity = $snapshot['quantity'];
+        $line->unit_price_minor = $snapshot['unit_price_minor'];
+        $line->line_total_minor = $snapshot['line_total_minor'];
+        $line->currency_code = $snapshot['currency_code'];
+        $line->allergens = $snapshot['allergens'];
+        $line->pack_summary = $snapshot['pack_summary'];
+        $line->selected_options = ($snapshot['selected_options'] ?? []) === [] ? null : $snapshot['selected_options'];
+        $line->note = $snapshot['note'] ?? null;
+        $line->line_key = $snapshot['line_key'] ?? '';
+        $line->price_list_id = $snapshot['price_list_id'];
+        $line->price_list_item_id = $snapshot['price_list_item_id'];
+        // NULL for every line the resolver priced — which is every line except
+        // a subscription's grandfathered one.
+        $line->price_source = $snapshot['price_source'] ?? null;
+        $line->save();
+
+        return $line;
+    }
+
+    /**
+     * Change an order already placed: its lines, and optionally its address,
+     * its day and slot, and how it will be paid.
+     *
+     * Staff only — the Order Desk's `PATCH`. The order keeps its customer, its
+     * channel, its branch, its currency and how it leaves; everything else is
+     * re-decided by the same gates a placement passes, with three differences:
+     *
+     *  * **Every line is repriced** on the order's own channel, on the day it is
+     *    for — the desk's quote asks the same question, so the total read out is
+     *    the total saved.
+     *  * **Only what changed is re-checked.** The address gates run for a new
+     *    address; the window gate for a new address or slot; the schedule gate
+     *    for a new day or slot. An edit to a quantity must not be refused because
+     *    the slot it already holds has since closed.
+     *  * **The allergens are re-checked whatever changed**, against the customer's
+     *    declarations as they stand now, and the snapshot is refreshed with them.
+     *    An earlier acknowledgement covered a different basket, so a conflict that
+     *    remains is refused until acknowledged again.
+     *  * **The cut-off is staff's to override**, and only the cut-off: a day in
+     *    the past or a day the branch is closed is still refused. Overriding it
+     *    is recorded on the audit row.
+     *
+     * Lines are matched by article (item + variant). An unchanged quantity keeps
+     * its row and is repriced in place; a changed or removed one is released
+     * from stock and deleted, and a changed or added one inserted and consumed —
+     * delete before insert, because `order_lines_one_row_per_article` holds one
+     * row per article. Stock moves only on a confirmed order: a placed one has
+     * not been consumed yet.
+     *
+     * Refused, as `order.placement_refused`, with `order_not_amendable` (see
+     * `OrderAmendability` for every `because`), `total_below_paid` when money
+     * already received exceeds the new total, and the whole placement vocabulary
+     * for everything else.
+     *
+     * @throws PlacementRefused|ApiException
+     */
+    public function amend(Order $order, OrderAmendment $draft, int $ifMatch): Order
+    {
+        return $this->seller->during(
+            $order->organisation_id,
+            $order->branch_id,
+            fn (): Order => DB::transaction(fn (): Order => $this->amendNow($order, $draft, $ifMatch)),
+        );
+    }
+
+    /**
+     * @throws PlacementRefused|ApiException
+     */
+    private function amendNow(Order $order, OrderAmendment $draft, int $ifMatch): Order
+    {
+        $now = CarbonImmutable::now();
+
+        // The lock serialises this edit against Start, Ready, a receipt and a
+        // colleague's edit; the version check is the lost-update guard.
+        $locked = Order::query()->whereKey($order->getKey())->lockForUpdate()->first();
+
+        if (! $locked instanceof Order || $locked->lock_version !== $ifMatch) {
+            throw new ApiException(
+                ErrorCode::ResourceConflict,
+                'This order changed while you were working on it. Reload it and try again.',
+            );
+        }
+
+        $this->trading->assertTrading($locked->organisation_id);
+
+        if ($draft->lines === []) {
+            throw new PlacementRefused([['reason' => 'cart_empty']]);
+        }
+
+        $stored = $locked->lines()->orderBy('created_at')->orderBy('id')->get();
+
+        $because = $this->amendability->reason($locked, $stored);
+
+        if ($because !== null) {
+            throw new PlacementRefused([['reason' => 'order_not_amendable', 'because' => $because]]);
+        }
+
+        $account = $locked->customer_account_id === null
+            ? null
+            : CustomerAccount::query()->whereKey($locked->customer_account_id)->first();
+
+        $storedDate = $locked->requested_delivery_date?->toDateString();
+        $dateChanged = $draft->requestedDate !== null && $draft->requestedDate->toDateString() !== $storedDate;
+        $windowChanged = $draft->windowCode !== null && $draft->windowCode !== $locked->delivery_window_code;
+        $effectiveDate = $draft->requestedDate ?? $locked->requested_delivery_date;
+        $windowCode = $draft->windowCode ?? $locked->delivery_window_code;
+        $address = $draft->address;
+        $fulfilmentType = $locked->fulfilment_type;
+
+        $placement = new ComposedPlacement(
+            account: $account,
+            address: $address,
+            organisationId: $locked->organisation_id,
+            salesChannelId: $locked->sales_channel_id,
+            branchId: $locked->branch_id,
+            currencyCode: $locked->currency_code,
+            lines: $draft->lines,
+            deliveryWindowCode: $windowCode,
+            requestedDate: $effectiveDate,
+            fulfilmentType: $fulfilmentType,
+            placedOnBehalfBy: $this->context->userId(),
+            paymentMethod: $draft->paymentMethod ?? $locked->payment_method,
+        );
+
+        $reasons = [];
+        $zone = null;
+
+        if ($address !== null) {
+            if (! $fulfilmentType->requiresAddress()) {
+                $reasons[] = ['reason' => 'address_not_applicable', 'fulfilment_type' => $fulfilmentType->value];
+            } else {
+                if ($account !== null) {
+                    $reasons = [...$reasons, ...$this->addressReasons((string) $account->getKey(), $address)];
+                }
+
+                [$zone, $zoneReasons] = $this->zoneFor($locked->branch_id, $address);
+                $reasons = [...$reasons, ...$zoneReasons];
+
+                if ($zone instanceof DeliveryZone && $zone->delivery_fee_minor !== null && $zone->currency_code !== $locked->currency_code) {
+                    $reasons[] = [
+                        'reason' => 'currency_mismatch',
+                        'subject' => 'delivery_fee',
+                        'expected_currency' => $locked->currency_code,
+                        'offered_currency' => $zone->currency_code,
+                    ];
+                }
+            }
+        }
+
+        $servingZone = $zone ?? ($locked->delivery_zone_id === null
+            ? null
+            : DeliveryZone::query()->whereKey($locked->delivery_zone_id)->first());
+
+        if ($fulfilmentType->requiresAddress() && ($address !== null || $windowChanged)) {
+            $reasons = [...$reasons, ...$this->windowReasons($servingZone, $windowCode)];
+        }
+
+        $cutOffOverridden = false;
+
+        if ($fulfilmentType !== FulfilmentType::Counter && ($dateChanged || $windowChanged) && $effectiveDate instanceof CarbonImmutable) {
+            $timing = fn (bool $waiveCutOff): array => $this->timing->refusals(
+                $locked->organisation_id,
+                $locked->branch_id,
+                $servingZone,
+                $effectiveDate,
+                $windowCode,
+                $now,
+                leadTime: false,
+                waiveCutOff: $waiveCutOff,
+            );
+
+            $refused = $timing(false);
+
+            if (($refused[0]['reason'] ?? null) === 'cut_off_passed') {
+                $cutOffOverridden = true;
+                $refused = $timing(true);
+            }
+
+            $reasons = [...$reasons, ...$refused];
+        }
+
+        if ($account !== null && ! $draft->allergenConflictsAcknowledged) {
+            $reasons = [...$reasons, ...$this->allergenReasons($account, array_map(
+                static fn (ComposedLine $line): string => $line->catalogueItemId,
+                $draft->lines,
+            ), array_map(static fn (ComposedLine $line): array => $line->optionIds, $draft->lines))];
+        }
+
+        $channel = SalesChannel::withoutTenancy()->whereKey($locked->sales_channel_id)->first();
+
+        // A line the order already holds for this day keeps its place. The
+        // calendar is about what can still be sold, and a kitchen that sold out
+        // after taking this order has not un-taken it.
+        $heldItemIds = $dateChanged ? [] : array_values($stored->pluck('catalogue_item_id')->map(static fn (mixed $id): string => (string) $id)->all());
+
+        [$snapshots, $lineReasons] = $this->composedSnapshots($placement, $effectiveDate, $heldItemIds);
+        $reasons = [...$reasons, ...$lineReasons];
+
+        $subtotal = array_sum(array_map(static fn (array $line): int => $line['line_total_minor'], $snapshots));
+        $fee = $address !== null ? $zone?->delivery_fee_minor : $locked->delivery_fee_minor;
+        $total = $subtotal + ($fee ?? 0);
+
+        // Both read the new subtotal, so neither is asked about a basket that
+        // is already refused line by line — the same guard `composeNow()` has.
+        if ($lineReasons === []) {
+            $reasons = [...$reasons, ...$this->agreementReasons($account, $channel, $subtotal, $effectiveDate ?? $now)];
+
+            // Read after the lock: a receipt written a moment ago counts.
+            $paid = $locked->receivedMinor();
+
+            if ($total < $paid) {
+                $reasons[] = [
+                    'reason' => 'total_below_paid',
+                    'total_minor' => $total,
+                    'paid_minor' => $paid,
+                    'currency_code' => $locked->currency_code,
+                ];
+            }
+        }
+
+        if ($reasons !== []) {
+            throw new PlacementRefused($reasons);
+        }
+
+        $totalBefore = $locked->total_minor;
+        $confirmed = $locked->status === OrderStatus::Confirmed;
+
+        // Against the day and the lines still on the order, before either moves.
+        $this->portions->release($locked);
+
+        /** @var array<string, OrderLine> $remaining */
+        $remaining = [];
+
+        foreach ($stored as $line) {
+            $remaining[$line->catalogue_item_id.'|'.($line->catalogue_item_variant_id ?? '').'|'.$line->line_key] = $line;
+        }
+
+        $kept = [];
+        $gone = [];
+        $toInsert = [];
+        $changedCount = 0;
+
+        foreach ($snapshots as $snapshot) {
+            $key = $snapshot['catalogue_item_id'].'|'.($snapshot['catalogue_item_variant_id'] ?? '').'|'.$snapshot['line_key'];
+            $existing = $remaining[$key] ?? null;
+            unset($remaining[$key]);
+
+            if ($existing instanceof OrderLine && $this->sameQuantity((string) $existing->quantity, (string) $snapshot['quantity'])) {
+                $kept[] = [$existing, $snapshot];
+
+                continue;
+            }
+
+            if ($existing instanceof OrderLine) {
+                $gone[] = $existing;
+                $changedCount++;
+            }
+
+            $toInsert[] = $snapshot;
+        }
+
+        $removedCount = count($remaining);
+        $gone = [...$gone, ...array_values($remaining)];
+        $goneIds = array_map(static fn (OrderLine $line): string => (string) $line->getKey(), $gone);
+
+        // Release first, while the consumes still name lines that exist.
+        if ($confirmed) {
+            $this->stock->restore($locked, $goneIds);
+        }
+
+        foreach ($kept as [$line, $snapshot]) {
+            // The price moves; `pack_summary` does not — it is what the stock
+            // deduction already read to know how much one sold unit took.
+            $line->unit_price_minor = $snapshot['unit_price_minor'];
+            $line->line_total_minor = $snapshot['line_total_minor'];
+            $line->currency_code = $snapshot['currency_code'];
+            $line->price_list_id = $snapshot['price_list_id'];
+            $line->price_list_item_id = $snapshot['price_list_item_id'];
+            $line->save();
+        }
+
+        if ($goneIds !== []) {
+            OrderLine::query()->whereIn('id', $goneIds)->delete();
+        }
+
+        $inserted = array_map(fn (array $snapshot): OrderLine => $this->writeLine($locked, $snapshot), $toInsert);
+
+        if ($confirmed && $inserted !== []) {
+            $this->stock->consume($locked, $inserted);
+        }
+
+        $agreement = $this->activeAgreementSnapshot($account, $channel, $effectiveDate ?? $now);
+
+        $locked->subtotal_minor = $subtotal;
+        $locked->delivery_fee_minor = $fee;
+        $locked->total_minor = $total;
+        $locked->payment_method = $placement->paymentMethod;
+        $locked->requested_delivery_date = $effectiveDate;
+        $locked->delivery_window_code = $windowCode;
+        $locked->b2b_agreement_id = $agreement['agreement_id'] ?? null;
+        $locked->price_list_id = $agreement['price_list_id'] ?? null;
+
+        if ($address !== null) {
+            $this->destinationColumns($locked, $address, $zone);
+        }
+
+        if ($draft->allergyNote !== null) {
+            $locked->allergy_note = $draft->allergyNote === '' ? null : $draft->allergyNote;
+        }
+
+        $this->snapshotAllergy(
+            $locked,
+            $account,
+            array_values($locked->lines()->get()->all()),
+            $draft->allergenConflictsAcknowledged,
+            $this->context->userId(),
+            $now,
+        );
+
+        if ($locked->portions_counted) {
+            $this->portions->take($locked);
+        }
+
+        $locked->lock_version = $ifMatch + 1;
+        $locked->save();
+
+        $this->alertAllergy($locked);
+
+        // No key may contain "code": the audit redactor matches by substring
+        // and would blank `window_code` — hence `window`.
+        $this->audit->record(
+            'order.amended',
+            actorUserId: $this->context->userId(),
+            subjectType: 'order',
+            subjectId: (string) $locked->getKey(),
+            metadata: [
+                'lines_added' => count($toInsert) - $changedCount,
+                'lines_removed' => $removedCount,
+                'lines_changed' => $changedCount,
+                'total_before' => $totalBefore,
+                'total_after' => $total,
+                'window' => $windowCode,
+                'date' => $effectiveDate?->toDateString(),
+                'payment_method' => $placement->paymentMethod->value,
+                'address_changed' => $address !== null,
+                'cut_off_overridden' => $cutOffOverridden,
+                'lock_version' => $locked->lock_version,
+            ],
+        );
+
+        return $locked;
+    }
+
+    /**
+     * Compared as decimals, never as strings: the column hands back `2.0000`
+     * for the `2` an edit sends, and the two are the same quantity.
+     */
+    private function sameQuantity(string $stored, string $requested): bool
+    {
+        return is_numeric($stored) && is_numeric($requested) && bccomp($stored, $requested, 6) === 0;
+    }
+
+    /**
+     * What a composed order is asked about its day and slot.
+     *
+     * **A subscription and an accepted quotation keep the path they always had**
+     * (`ComposedPlacement::keepsAgreedDay()`): their own branch's schedule when
+     * they have one, and nothing when they do not. A standing subscriber is not
+     * refused retroactively and a quotation's day was agreed in writing, so none
+     * of the wider rules a one-off order now meets reach either.
+     *
+     * **Everything else composed is a desk sale.** A cashier is talking to the
+     * kitchen, so the lead time and the zone minimum do not apply; a closed
+     * kitchen and a slot that has ended still do. No named day means nothing to
+     * ask, as `ComposedPlacement` says of `requestedDate`.
      *
      * @return list<array<string, mixed>>
      */
-    private function scheduleReasons(?string $branchId, ?CarbonImmutable $effectiveDate, CarbonImmutable $now): array
-    {
-        if ($branchId === null || ! $effectiveDate instanceof CarbonImmutable) {
+    private function composedTimingReasons(
+        ComposedPlacement $placement,
+        ?DeliveryZone $zone,
+        ?CarbonImmutable $effectiveDate,
+        CarbonImmutable $now,
+    ): array {
+        if (! $effectiveDate instanceof CarbonImmutable) {
             return [];
         }
 
-        $schedule = $this->scheduling->explain($branchId, $effectiveDate, $now);
+        if ($placement->keepsAgreedDay()) {
+            $refusal = $placement->branchId === null
+                ? null
+                : $this->timing->scheduleRefusal($placement->branchId, $effectiveDate, $now);
 
-        if ($schedule['accepted']) {
-            return [];
+            return $refusal === null ? [] : [$refusal];
         }
 
-        return [[
-            'reason' => $schedule['reason'] ?? 'cut_off_passed',
-            'branch_id' => $branchId,
-            'requested_date' => $effectiveDate->toDateString(),
-            'cut_off_at' => $schedule['cut_off_at'],
-        ]];
+        return $this->timing->refusals(
+            $placement->organisationId,
+            $placement->branchId,
+            $zone,
+            $effectiveDate,
+            $placement->deliveryWindowCode,
+            $now,
+            leadTime: false,
+        );
     }
 
     /**
@@ -898,9 +1472,15 @@ final readonly class OrderPlacementService
      * `currency_mismatch` in the override itself, which is checked here rather
      * than trusted.
      *
+     * The calendar is asked of everything but a subscription and an accepted
+     * quotation, exempt for the reason `composedTimingReasons()` gives, and
+     * `$heldItemIds`, the
+     * articles an order being edited already holds for that day.
+     *
+     * @param  list<string>  $heldItemIds
      * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
      */
-    private function composedSnapshots(ComposedPlacement $placement, ?CarbonImmutable $on): array
+    private function composedSnapshots(ComposedPlacement $placement, ?CarbonImmutable $on, array $heldItemIds = []): array
     {
         $channel = SalesChannel::withoutTenancy()->whereKey($placement->salesChannelId)->first();
 
@@ -922,6 +1502,15 @@ final readonly class OrderPlacementService
                 $on,
                 $placement->currencyCode,
                 $placement->account,
+                enforceCalendar: ! $placement->keepsAgreedDay()
+                    && ($on !== null || $placement->fulfilmentType === FulfilmentType::Counter)
+                    && ! in_array($line->catalogueItemId, $heldItemIds, true),
+                // A standing subscription was sold before the dish lost its assessment,
+                // and an edited order already holds its line. Each must keep going
+                // rather than quietly stop. An accepted quotation is not exempt: a
+                // dish nobody has assessed must not reach a plate through one.
+                enforceAssessment: $placement->enforceWindowOffer
+                    && ! in_array($line->catalogueItemId, $heldItemIds, true),
             );
 
             // A grandfathered line answers price and currency itself. A
@@ -959,6 +1548,14 @@ final readonly class OrderPlacementService
                 continue;
             }
 
+            $selected = $this->dishOptions->snapshot($line->catalogueItemId, $line->optionIds);
+
+            if ($selected === null) {
+                $refusals[] = ['reason' => $this->dishOptions->refusal($line->catalogueItemId, $line->optionIds), 'catalogue_item_id' => $line->catalogueItemId];
+
+                continue;
+            }
+
             $variant = $result->variant;
             $unitPriceMinor = $override === null ? $result->price?->amountMinor : $override->unitPriceMinor;
 
@@ -982,8 +1579,11 @@ final readonly class OrderPlacementService
                 'unit_price_minor' => $unitPriceMinor,
                 'line_total_minor' => $lineTotal,
                 'currency_code' => $placement->currencyCode,
-                'allergens' => $this->publicAllergens($item),
+                'allergens' => $this->publicAllergens($item, $line->optionIds),
                 'pack_summary' => $variant === null ? null : $this->packSummary((string) $variant->getKey()),
+                'selected_options' => $selected,
+                'note' => $line->note,
+                'line_key' => DishOptions::lineKey($line->optionIds, $line->note),
                 // The tariff row is still recorded when there was one, even
                 // behind an override: "which row said so today" is worth
                 // knowing beside "what we actually charged".
@@ -1039,6 +1639,19 @@ final readonly class OrderPlacementService
             $variant = $result->variant;
             $price = $result->price;
 
+            // Re-read from the dish: an option withdrawn since it was added is not sold.
+            $selected = $this->dishOptions->snapshot($line->catalogue_item_id, array_column($line->selected_options ?? [], 'id'));
+
+            if ($selected === null) {
+                $refusals[] = [
+                    'reason' => $this->dishOptions->refusal($line->catalogue_item_id, array_column($line->selected_options ?? [], 'id')),
+                    'catalogue_item_id' => $line->catalogue_item_id,
+                    'cart_item_id' => (string) $line->getKey(),
+                ];
+
+                continue;
+            }
+
             // Minor units, so the multiplication is integer × decimal and the
             // rounding happens exactly once, at the line total. Rounding the
             // unit price would compound across the order.
@@ -1054,8 +1667,11 @@ final readonly class OrderPlacementService
                 'unit_price_minor' => $price->amountMinor,
                 'line_total_minor' => $lineTotal,
                 'currency_code' => $price->currencyCode,
-                'allergens' => $this->publicAllergens($item),
+                'allergens' => $this->publicAllergens($item, array_column($selected, 'id')),
                 'pack_summary' => $variant === null ? null : $this->packSummary((string) $variant->getKey()),
+                'selected_options' => $selected,
+                'note' => $line->note,
+                'line_key' => $line->line_key,
                 'price_list_id' => $price->priceListId,
                 'price_list_item_id' => $price->priceListItemId,
             ];
@@ -1073,19 +1689,29 @@ final readonly class OrderPlacementService
      * the most likely row on the platform to be handed to a courier or a
      * marketplace partner.
      *
+     * A sauce or side chosen on the line joins the dish's label: the kitchen's
+     * ticket, the desk and the customer's receipt all read this one list.
+     *
+     * @param  list<string>  $optionIds
      * @return list<array{allergen_code: string, containment: string}>
      */
-    private function publicAllergens(CatalogueItem $item): array
+    private function publicAllergens(CatalogueItem $item, array $optionIds): array
     {
         $derived = $this->allergens->forItem($item);
 
-        return array_map(
+        $dish = array_map(
             static fn (array $allergen): array => [
                 'allergen_code' => $allergen['allergen_code'],
                 'containment' => $allergen['containment'],
             ],
             $derived['allergens'],
         );
+
+        if ($optionIds === []) {
+            return $dish;
+        }
+
+        return DishOptions::merge($dish, $this->dishOptions->allergensOf($optionIds)['allergens']);
     }
 
     /**

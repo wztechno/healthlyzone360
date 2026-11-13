@@ -13,6 +13,7 @@ import type {
 } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { forgetQueries } from '../../navigation/last-query.ts';
 import { withQuery, withReturnTo } from '../../navigation/return-to.ts';
 import type { ExpoRouterMock } from '../../testing/expo-router-mock.ts';
@@ -22,7 +23,6 @@ import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import {
     balanceDaysFor,
     balanceTotal,
-    cancellationCredit,
     effectiveDayPrice,
     listDayPrice,
     maxDiscountPercent,
@@ -83,6 +83,18 @@ function variant(plan: number, index: number, weekly: number, meals: number): Pl
         fatRange: null,
         mealsPerDay: meals,
         snacksPerDay: 0,
+        // The server's rule: two meals are lunch and dinner, a third adds breakfast.
+        sittings:
+            meals >= 3
+                ? [
+                      { slot: 'breakfast', sequence: 1 },
+                      { slot: 'lunch', sequence: 1 },
+                      { slot: 'dinner', sequence: 1 },
+                  ]
+                : [
+                      { slot: 'lunch', sequence: 1 },
+                      { slot: 'dinner', sequence: 1 },
+                  ],
         pricePerWeek: { amount: weekly, currency: 'AED' },
     };
 }
@@ -106,7 +118,6 @@ function plan(ordinal: number, name: string, slug: string): SubscriptionPlan {
         // The dearer band first: the advertised price must still be the cheapest one's.
         variants: [variant(ordinal, 1, 28000, 3), variant(ordinal, 0, 21000, 2)],
         durations: DURATIONS,
-        sampleMealIds: [],
         imagePlaceholderId: `plan-${slug}`,
         rating: null,
         ratingCount: 0,
@@ -143,7 +154,7 @@ const SUBSCRIPTION: Subscription = {
             countryCode: 'AE',
             instructions: null,
         },
-        selectedMealIds: [],
+        days: [],
     },
     planName: 'Balanced week',
     kitchenId: KITCHEN_ID,
@@ -253,19 +264,6 @@ describe('plan balance arithmetic', () => {
         expect(empty.weeks).toHaveLength(0);
         expect(empty.lastDelivery).toBeNull();
     });
-
-    it('credits the unused days at the effective per-day price', () => {
-        const simulation = simulateBalance({
-            days: 28,
-            weekdays: [1, 2, 3, 4],
-            skippedWeeks: [1],
-            start: new Date(2026, 9, 5),
-        });
-        const credit = cancellationCredit(simulation, 28, 2, { amount: 2850, currency: 'AED' });
-        expect(credit.usedDays).toBe(4);
-        expect(credit.unusedDays).toBe(24);
-        expect(credit.credit).toEqual({ amount: 24 * 2850, currency: 'AED' });
-    });
 });
 
 /* ── /plans ──────────────────────────────────────────────────────────────────────────────────── */
@@ -274,7 +272,7 @@ describe('PlansScreen — HealthZone structure', () => {
     it('opens on the title and count, and links to how plans work', async () => {
         await renderStubScreen(<PlansScreen />, { repositories: REPOSITORIES });
 
-        expect(screen.getByTestId('plans-header-title')).toHaveTextContent('Plans');
+        expect(screen.getByTestId('plans-header-title')).toHaveTextContent('Weekly plans');
         await waitFor(() => {
             expect(screen.getByTestId('plans-count')).toHaveTextContent('2 plans');
         });
@@ -304,6 +302,43 @@ describe('PlansScreen — HealthZone structure', () => {
         expect(screen.queryByTestId('plans-subscriber')).toBeNull();
     });
 
+    it('finds the best match from the three questions and rings its card', async () => {
+        // The desk finder carries the best-match tile.
+        await withDeskWidth(async () => {
+            await renderStubScreen(<PlansScreen />, { repositories: REPOSITORIES });
+            await waitFor(() => screen.getByTestId('plans-grid'));
+
+            // The options are the catalogue's own: 2 or 3 meals, its three balances, two calorie levels.
+            expect(screen.getByTestId('plans-finder-meals-2')).toBeTruthy();
+            expect(screen.getByTestId('plans-finder-meals-3')).toBeTruthy();
+            expect(screen.getByTestId('plans-finder-days-84')).toHaveTextContent('84 days');
+            expect(screen.queryByTestId('plans-finder-level-balanced')).toBeNull();
+            // Tied plans go to the earlier one.
+            expect(screen.getByTestId('plans-finder-match')).toHaveTextContent(/Balanced week/);
+            expect(screen.getByTestId('plan-card-balanced-week-match')).toBeTruthy();
+            expect(screen.queryByTestId('plan-card-lean-days-match')).toBeNull();
+
+            // Three meals moves the card onto its three-meal band.
+            await fireEvent.press(screen.getByTestId('plans-finder-meals-3'));
+            expect(
+                screen.getByTestId('plans-finder-meals-3').props.accessibilityState.checked,
+            ).toBe(true);
+            expect(screen.getByTestId('plan-card-balanced-week-price-amount')).toHaveTextContent(
+                moneyPattern(4000),
+            );
+        });
+    });
+
+    it('sends an anonymous starter through sign-in to the plan’s setup', async () => {
+        await renderStubScreen(<PlansScreen />, { repositories: REPOSITORIES });
+        await waitFor(() => screen.getByTestId('plans-grid'));
+
+        await fireEvent.press(screen.getByTestId('plan-card-lean-days-open'));
+        const pushed = String(routerMock.__push.mock.lastCall?.[0]);
+        expect(pushed).toMatch(/^\/sign-in\?/);
+        expect(pushed).toContain(String(LEAN.id));
+    });
+
     it('never asks an anonymous visitor for subscriptions', async () => {
         const { repositories } = await renderStubScreen(<PlansScreen />, {
             repositories: REPOSITORIES,
@@ -312,44 +347,26 @@ describe('PlansScreen — HealthZone structure', () => {
         expect(repositories.commerce.listSubscriptions).not.toHaveBeenCalled();
     });
 
-    it('marks a subscriber’s plan and shows their week and balance', async () => {
+    it('marks a subscriber’s plan Current, with Manage to its subscription', async () => {
         await renderStubScreen(<PlansScreen />, {
             session: testMeResponse(),
             repositories: SUBSCRIBER_REPOSITORIES,
         });
 
         await waitFor(() => {
-            expect(screen.getByTestId('plans-subscriber')).toBeTruthy();
+            expect(screen.getByTestId('plan-card-balanced-week-current')).toBeTruthy();
         });
-        expect(screen.getByTestId('plan-card-balanced-week-current')).toBeTruthy();
+        // Running the subscription is its own page's job: no week or balance band here.
+        expect(screen.queryByTestId('plans-subscriber')).toBeNull();
         expect(screen.queryByTestId('plan-card-lean-days-current')).toBeNull();
         // The held plan offers "Manage plan" where the others offer "Choose plan", named for screen
         // readers by the plan it chooses.
         expect(screen.queryByTestId('plan-card-balanced-week-open')).toBeNull();
-        expect(screen.getByTestId('plan-card-lean-days-open')).toHaveTextContent('Choose plan');
+        expect(screen.getByTestId('plan-card-lean-days-open')).toHaveTextContent(/Start this plan/);
         expect(screen.getByTestId('plan-card-lean-days-open')).toHaveProp(
             'accessibilityLabel',
             expect.stringMatching(/Lean days/),
         );
-        expect(screen.getByTestId('plans-subscriber-balance')).toHaveTextContent(/22/);
-        expect(screen.getByTestId('plans-subscriber-days')).toHaveTextContent(/3/);
-        // The week drawn is the one the next delivery (Monday 5 October) falls in.
-        expect(screen.getByTestId('plans-subscriber-week')).toHaveTextContent(/5.11/);
-        expect(screen.getByTestId('plans-subscriber-day-1').props.accessibilityLabel).toMatch(
-            /delivery day/,
-        );
-        expect(screen.getByTestId('plans-subscriber-day-2').props.accessibilityLabel).toMatch(
-            /no delivery/,
-        );
-        // The skipped Wednesday is marked as skipped, not as a delivery.
-        expect(screen.getByTestId('plans-subscriber-day-3').props.accessibilityLabel).toMatch(
-            /skipped/,
-        );
-        // The cut-off is the plan's own, from the balance read.
-        await waitFor(() => {
-            expect(screen.getByTestId('plans-subscriber-cutoff')).toHaveTextContent(/36/);
-        });
-
         await fireEvent.press(screen.getByTestId('plan-card-balanced-week-manage'));
         expect(routerMock.__push).toHaveBeenLastCalledWith(
             `/customer/subscriptions/${String(SUBSCRIPTION.id)}`,
@@ -358,9 +375,9 @@ describe('PlansScreen — HealthZone structure', () => {
 
     /**
      * Every live subscription, not the newest (plans-21): a person holding two plans sees both
-     * marked and both summarised, and a subscription that has run its course marks nothing.
+     * marked, and a subscription that has run its course marks nothing.
      */
-    it('marks and summarises every live subscription, and ignores one that has ended', async () => {
+    it('marks every live subscription, and ignores one that has ended', async () => {
         const second: Subscription = {
             ...SUBSCRIPTION,
             id: uuid(7, 2) as SubscriptionId,
@@ -386,9 +403,8 @@ describe('PlansScreen — HealthZone structure', () => {
         });
 
         await waitFor(() => {
-            expect(screen.getAllByTestId('plans-subscriber')).toHaveLength(2);
+            expect(screen.getByTestId('plan-card-balanced-week-current')).toBeTruthy();
         });
-        expect(screen.getByTestId('plan-card-balanced-week-current')).toBeTruthy();
         expect(screen.getByTestId('plan-card-lean-days-current')).toBeTruthy();
         expect(screen.queryByTestId('plan-card-lean-days-open')).toBeNull();
 
@@ -416,64 +432,6 @@ describe('PlansScreen — HealthZone structure', () => {
         expect(screen.queryByTestId('plans-subscriber')).toBeNull();
         expect(screen.queryByTestId('plan-card-balanced-week-current')).toBeNull();
         expect(screen.getByTestId('plan-card-balanced-week-open')).toBeTruthy();
-    });
-
-    it('skips the next delivery for real, after asking', async () => {
-        const { repositories } = await renderStubScreen(<PlansScreen />, {
-            session: testMeResponse(),
-            repositories: SUBSCRIBER_REPOSITORIES,
-        });
-        await waitFor(() => screen.getByTestId('plans-subscriber-skip'));
-
-        await fireEvent.press(screen.getByTestId('plans-subscriber-skip'));
-        expect(repositories.commerce.skipDay).not.toHaveBeenCalled();
-        await fireEvent.press(screen.getByTestId('plans-subscriber-skip-confirm'));
-
-        await waitFor(() => {
-            expect(repositories.commerce.skipDay).toHaveBeenCalledWith(SUBSCRIPTION.id, {
-                date: '2026-10-05',
-            });
-        });
-    });
-
-    it('pauses the plan for real, and opens the dietary profile', async () => {
-        const { repositories } = await renderStubScreen(<PlansScreen />, {
-            session: testMeResponse(),
-            repositories: SUBSCRIBER_REPOSITORIES,
-        });
-        await waitFor(() => screen.getByTestId('plans-subscriber-pause'));
-
-        await fireEvent.press(screen.getByTestId('plans-subscriber-pause'));
-        await fireEvent.press(screen.getByTestId('plans-subscriber-pause-confirm'));
-        await waitFor(() => {
-            expect(repositories.commerce.pause).toHaveBeenCalledWith(SUBSCRIPTION.id);
-        });
-
-        // Carrying this page, so saving the rules comes back here rather than to a dead end.
-        await fireEvent.press(screen.getByTestId('plans-subscriber-dietary'));
-        expect(routerMock.__push).toHaveBeenLastCalledWith(
-            withReturnTo('/customer/account/allergies', '/plans'),
-        );
-    });
-
-    it('offers Resume in Pause’s place on a paused plan, and no skip', async () => {
-        await renderStubScreen(<PlansScreen />, {
-            session: testMeResponse(),
-            repositories: {
-                ...SUBSCRIBER_REPOSITORIES,
-                commerce: {
-                    ...SUBSCRIBER_REPOSITORIES.commerce,
-                    listSubscriptions: async () => page([{ ...SUBSCRIPTION, state: 'paused' }]),
-                },
-            },
-        });
-        await waitFor(() => screen.getByTestId('plans-subscriber-resume'));
-
-        expect(screen.queryByTestId('plans-subscriber-pause')).toBeNull();
-        expect(screen.getByTestId('plans-subscriber-skip').props.accessibilityState.disabled).toBe(
-            true,
-        );
-        expect(screen.getByTestId('plans-subscriber-state')).toHaveTextContent(/paused/i);
     });
 
     it('toggles a plan into the comparison from its card', async () => {
@@ -596,7 +554,7 @@ describe('PlanDetailScreen — the band, the sign-in round trip and a held plan'
 
         const configure = await screen.findByTestId('plan-detail-configure');
         await waitFor(() => {
-            expect(configure).toHaveTextContent('Sign in to configure it');
+            expect(configure).toHaveTextContent(/Sign in to configure it/);
         });
         await fireEvent.press(screen.getByTestId('plan-detail-configure'));
 
@@ -627,7 +585,7 @@ describe('PlanDetailScreen — the band, the sign-in round trip and a held plan'
         });
 
         const configure = await screen.findByTestId('plan-detail-configure');
-        expect(configure).not.toHaveTextContent('Sign in to configure it');
+        expect(configure).not.toHaveTextContent(/Sign in to configure it/);
         expect(configure.props.accessibilityState).toMatchObject({ disabled: true });
         await fireEvent.press(configure);
         expect(routerMock.__push).not.toHaveBeenCalled();
@@ -646,23 +604,23 @@ describe('PlanDetailScreen — the band, the sign-in round trip and a held plan'
         });
 
         const manage = await screen.findByTestId('plan-detail-manage');
-        expect(manage).toHaveTextContent('Manage plan');
+        expect(manage).toHaveTextContent(/Manage plan/);
         await fireEvent.press(manage);
         expect(routerMock.__push).toHaveBeenLastCalledWith(
             `/customer/subscriptions/${String(SUBSCRIPTION.id)}`,
         );
-        expect(screen.getByTestId('plan-detail-configure')).toHaveTextContent('Set up plan');
+        expect(screen.getByTestId('plan-detail-configure')).toHaveTextContent(/Set up plan/);
     });
 
-    it('goes Home to the marketplace home, not the launch resolver', async () => {
+    it('goes back up to the plans, never to the launch resolver', async () => {
         await renderStubScreen(<PlanDetailScreen planId={String(BALANCED.id)} />, {
             repositories: DETAIL_REPOSITORIES,
         });
         await screen.findByTestId('plan-detail-name');
 
-        await fireEvent.press(screen.getByTestId('plan-detail-crumb-home'));
-        expect(routerMock.__router.navigate).toHaveBeenCalledWith('/discover');
+        await fireEvent.press(screen.getByTestId('plan-detail-crumb-plans'));
         expect(routerMock.__push).not.toHaveBeenCalledWith('/');
+        expect(routerMock.__router.navigate).not.toHaveBeenCalledWith('/');
     });
 });
 
@@ -729,9 +687,8 @@ describe('PlanBalanceCalculator', () => {
         );
         // Mon–Thu with week 2 skipped: 4, skip, then 24 ÷ 4 = 6 more weeks.
         expect(screen.getByTestId('plans-calculator-lasts-value')).toHaveTextContent(/8/);
-        expect(screen.getByTestId('plans-calculator-credit')).toHaveTextContent(
-            moneyPattern(24 * 2850),
-        );
+        // Paid per delivery: no money is held, so no credit is worked out or shown.
+        expect(screen.queryByTestId('plans-calculator-note')).toBeNull();
     });
 
     it('moves the end date, not the price, when a week is un-skipped', async () => {
@@ -786,6 +743,6 @@ describe('PlanBalanceCalculator', () => {
         }
 
         expect(screen.queryByTestId('plans-calculator-weeks')).toBeNull();
-        expect(screen.getByTestId('plans-calculator-credit')).toHaveTextContent(/weekday/);
+        expect(screen.getByTestId('plans-calculator-note')).toHaveTextContent(/weekday/);
     });
 });

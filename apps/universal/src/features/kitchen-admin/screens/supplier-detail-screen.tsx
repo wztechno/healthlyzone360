@@ -1,7 +1,5 @@
 import type { LocalisedText, SuppliedItem, SupplierDetail } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Callout,
     Cascade,
     Dialog,
@@ -40,14 +38,14 @@ import {
     useUpdateSupplierMutation,
     useUpsertSupplierLinkMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { displayName } from '../format.ts';
+import { displayName, unitCodeLabel } from '../format.ts';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusField } from '../field-focus.ts';
@@ -68,6 +66,10 @@ import type {
 } from '../supplier-contact-editor.tsx';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { withReturnTo } from '../../../navigation/return-to.ts';
+import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/suppliers/{supplier}` and `/kitchen/suppliers/new` — the supplier record (SUP1).
  *
@@ -139,6 +141,7 @@ interface DetailsDraft {
     readonly address: string;
     readonly paymentTerms: string;
     readonly leadTimeDays: string;
+    readonly paymentDueDays: string;
     readonly notes: string;
 }
 
@@ -172,6 +175,7 @@ const EMPTY_DETAILS: DetailsDraft = {
     address: '',
     paymentTerms: '',
     leadTimeDays: '',
+    paymentDueDays: '',
     notes: '',
 };
 
@@ -184,6 +188,7 @@ function detailsFrom(record: SupplierDetail): DetailsDraft {
         address: record.address ?? '',
         paymentTerms: record.paymentTerms ?? '',
         leadTimeDays: record.leadTimeDays === null ? '' : String(record.leadTimeDays),
+        paymentDueDays: String(record.paymentDueDays ?? ''),
         notes: record.notes ?? '',
     };
 }
@@ -215,6 +220,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
     const { locale } = useLocale();
     const formatter = useFormatter();
     const router = useRouter();
+    const here = useCurrentHref();
     const toast = useToast();
     const canManage = useCan(INVENTORY_MANAGE_PERMISSION);
     const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
@@ -339,8 +345,9 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
     };
 
     const leadTime = parseLeadTime(details.leadTimeDays);
+    const dueDays = parseLeadTime(details.paymentDueDays);
     const nameMissing = details.name.en.trim() === '';
-    const detailsBlocked = nameMissing || leadTime === undefined;
+    const detailsBlocked = nameMissing || leadTime === undefined || dueDays === undefined;
 
     /*
      * What the server may refuse on the record, in the order the Details step draws the fields —
@@ -375,6 +382,10 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
         lead_time_days: {
             label: t('kitchen:ops.suppliers.fieldLeadTime'),
             fieldId: 'kitchen-supplier-lead-time',
+        },
+        payment_due_days: {
+            label: t('kitchen:ops.suppliers.fieldPaymentDueDays'),
+            fieldId: 'kitchen-supplier-payment-due-days',
         },
         address: {
             label: t('kitchen:ops.suppliers.fieldAddress'),
@@ -422,7 +433,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
     };
 
     function saveDetails() {
-        if (!editable || detailsBlocked || leadTime === undefined) return;
+        if (!editable || detailsBlocked || leadTime === undefined || dueDays === undefined) return;
 
         const fields = {
             nameEn: details.name.en.trim(),
@@ -432,6 +443,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
             address: blankToNull(details.address),
             paymentTerms: blankToNull(details.paymentTerms),
             leadTimeDays: leadTime,
+            paymentDueDays: dueDays,
             notes: blankToNull(details.notes),
         };
 
@@ -629,7 +641,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                             maximumFractionDigits: 2,
                         }),
                         currency: purchase.costCurrencyCode ?? '',
-                        unit: purchase.unitCode ?? '',
+                        unit: purchase.unitCode === null ? '' : unitCodeLabel(purchase.unitCode, t),
                     })}
                 </Text>
                 <Text variant="caption" tone="secondary" testID={`${testID}-price-date`}>
@@ -662,10 +674,9 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                             {row.stockItem?.code ?? ''}
                         </Text>
                         {row.isPreferred ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${testID}-preferred`}
                                 tone="success"
-                                icon="check"
                                 label={t('kitchen:ops.suppliers.preferredBadge')}
                             />
                         ) : null}
@@ -702,7 +713,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                   return (
                       <Inline space="xs" wrap justify="end">
                           {row.isPreferred ? null : (
-                              <Button
+                              <DeskButton
                                   testID={`${testID}-make-preferred`}
                                   size="sm"
                                   variant="secondary"
@@ -718,7 +729,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                   }}
                               />
                           )}
-                          <Button
+                          <DeskButton
                               testID={`${testID}-edit-ref`}
                               size="sm"
                               variant="ghost"
@@ -728,7 +739,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                   setRefDraft(row.supplierItemRef ?? '');
                               }}
                           />
-                          <Button
+                          <DeskButton
                               testID={`${testID}-unlink`}
                               size="sm"
                               variant="ghost"
@@ -754,7 +765,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                     tone="warning"
                     title={t('kitchen:ops.suppliers.notFoundTitle')}
                     actions={
-                        <Button
+                        <DeskButton
                             testID="kitchen-supplier-not-found-back"
                             variant="quiet"
                             label={t('kitchen:ops.suppliers.backToList')}
@@ -942,7 +953,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                 }
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-supplier-screen-back"
                             variant="secondary"
                             label={t('kitchen:editor.cancel')}
@@ -951,7 +962,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                             }}
                         />
                         {isCreating || !canManage ? null : isArchived ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-supplier-restore"
                                 variant="secondary"
                                 label={t('kitchen:ops.suppliers.restore')}
@@ -970,7 +981,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                 }}
                             />
                         ) : (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-supplier-archive"
                                 variant="quiet"
                                 label={t('kitchen:list.archive')}
@@ -979,21 +990,19 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                 }}
                             />
                         )}
-                        {/*
-                         * The details' Save, last, on every step. Hidden rather than disabled on an
-                         * archived supplier: every field is locked and the callout says why, so a
-                         * Save that could never work is noise.
-                         */}
-                        {!canManage || isArchived ? null : (
-                            <Button
-                                testID="kitchen-supplier-screen-save"
-                                label={t('kitchen:ops.suppliers.saveDetails')}
-                                loading={create.isPending || update.isPending}
-                                disabled={create.isPending || update.isPending}
-                                onPress={attemptSave}
-                            />
-                        )}
                     </>
+                }
+                creating={isCreating}
+                save={
+                    !canManage || isArchived
+                        ? undefined
+                        : {
+                              testID: 'kitchen-supplier-screen-save',
+                              label: t('kitchen:ops.suppliers.saveDetails'),
+                              loading: create.isPending || update.isPending,
+                              disabled: create.isPending || update.isPending,
+                              onPress: attemptSave,
+                          }
                 }
                 errors={{
                     summary: t(
@@ -1057,7 +1066,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                 {form.current !== 'details' ? null : (
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-supplier-details"
                         title={t('kitchen:ops.suppliers.sectionDetails')}
                     >
@@ -1189,6 +1198,24 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                             />
 
                             <TextInputField
+                                testID="kitchen-supplier-payment-due-days"
+                                id="kitchen-supplier-payment-due-days"
+                                label={t('kitchen:ops.suppliers.fieldPaymentDueDays')}
+                                placeholder={t('kitchen:ops.suppliers.paymentDueDaysPlaceholder')}
+                                size="sm"
+                                value={details.paymentDueDays}
+                                keyboardType="number-pad"
+                                disabled={!editable}
+                                onChangeText={(paymentDueDays) => {
+                                    editDetails({ ...details, paymentDueDays });
+                                }}
+                                {...(dueDays === undefined
+                                    ? { error: t('kitchen:ops.suppliers.leadTimeInvalid') }
+                                    : {})}
+                                {...server.flag('payment_due_days')}
+                            />
+
+                            <TextInputField
                                 testID="kitchen-supplier-address"
                                 id="kitchen-supplier-address"
                                 label={t('kitchen:ops.suppliers.fieldAddress')}
@@ -1229,12 +1256,12 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                 {isCreating || form.current !== 'contacts' ? null : (
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-supplier-contacts"
                         title={t('kitchen:ops.suppliers.sectionContacts')}
                         actions={
                             editable ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-supplier-contacts-add"
                                     size="sm"
                                     variant="secondary"
@@ -1318,7 +1345,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                              */}
                             {editable ? (
                                 <Inline space="sm" justify="end" wrap>
-                                    <Button
+                                    <DeskButton
                                         testID="kitchen-supplier-contacts-save"
                                         label={t('kitchen:ops.suppliers.saveContacts')}
                                         loading={saveContacts.isPending}
@@ -1335,7 +1362,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                 {isCreating || form.current !== 'items' ? null : (
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-supplier-supplied-items"
                         title={t('kitchen:ops.suppliers.itemsTitle')}
                         actions={
@@ -1346,14 +1373,17 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                  * promise the destination refuses.
                                  */}
                                 {canViewCosts && parsed !== null ? (
-                                    <Button
+                                    <DeskButton
                                         testID="kitchen-supplier-see-ledger"
                                         size="sm"
                                         variant="ghost"
                                         label={t('kitchen:ops.suppliers.seeLedger')}
                                         onPress={() => {
                                             router.push(
-                                                `/kitchen/purchases-ledger?supplier=${String(parsed)}` as never,
+                                                withReturnTo(
+                                                    `/kitchen/purchases-ledger?supplier=${String(parsed)}`,
+                                                    here,
+                                                ) as never,
                                             );
                                         }}
                                     />
@@ -1362,15 +1392,12 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                         }
                     >
                         <Stack space="md">
-                            {linkFailure === null ? null : (
-                                <Callout
-                                    testID="kitchen-supplier-items-error"
-                                    role="alert"
-                                    tone="danger"
-                                    title={t('kitchen:editor.saveError')}
-                                    body={linkServer.unplaced ?? linkFailure.message}
-                                />
-                            )}
+                            <FailureToast
+                                failure={linkFailure}
+                                testID="kitchen-supplier-items-error"
+                                title={t('kitchen:editor.saveError')}
+                                body={linkServer.unplaced ?? linkFailure?.message}
+                            />
 
                             {suppliedItems.length === 0 ? (
                                 <Text testID="kitchen-supplier-items-empty" tone="secondary">
@@ -1437,7 +1464,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                         onChangeText={setPickedRef}
                                         className="w-48"
                                     />
-                                    <Button
+                                    <DeskButton
                                         testID="kitchen-supplier-item-link"
                                         label={t('kitchen:ops.suppliers.linkItem')}
                                         loading={linkItem.isPending}
@@ -1453,6 +1480,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
 
             {/* ── supplier item reference ──────────────────────────────────────────────────── */}
             <Dialog
+                look="card"
                 testID="kitchen-supplier-item-ref-dialog"
                 open={editingRef !== null}
                 onClose={() => {
@@ -1464,7 +1492,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                 description={t('kitchen:ops.suppliers.editRefBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-supplier-item-ref-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -1472,7 +1500,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                 setEditingRef(null);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-supplier-item-ref-save"
                             label={t('kitchen:common.save')}
                             loading={linkItem.isPending}
@@ -1495,6 +1523,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
 
             {/* ── unlink ───────────────────────────────────────────────────────────────────── */}
             <Dialog
+                look="card"
                 testID="kitchen-supplier-unlink-dialog"
                 open={unlinking !== null}
                 onClose={() => {
@@ -1506,7 +1535,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                 description={t('kitchen:ops.suppliers.unlinkBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-supplier-unlink-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -1514,7 +1543,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                 setUnlinking(null);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-supplier-unlink-confirm"
                             variant="danger"
                             label={t('kitchen:ops.suppliers.unlinkConfirm')}
@@ -1531,6 +1560,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
 
             {/* ── archive ──────────────────────────────────────────────────────────────────── */}
             <Dialog
+                look="card"
                 testID="kitchen-supplier-archive-dialog"
                 open={showArchive}
                 onClose={() => {
@@ -1540,7 +1570,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                 description={t('kitchen:ops.suppliers.archiveBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-supplier-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -1548,7 +1578,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                 setShowArchive(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-supplier-archive-confirm"
                             variant="danger"
                             label={t('kitchen:ops.suppliers.archiveConfirm')}

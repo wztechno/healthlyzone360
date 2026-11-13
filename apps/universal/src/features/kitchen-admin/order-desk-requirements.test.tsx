@@ -4,7 +4,8 @@ import type {
     OrderDeskRequirements,
     OrderDeskRequirementsFilters,
 } from '@healthy360/api-client/contracts';
-import { screen, waitFor } from '@testing-library/react-native';
+import type { BranchId } from '@healthy360/domain-types';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 
 import { kitchenManagerSession, testActiveContext } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
@@ -27,14 +28,21 @@ beforeAll(() => {
 afterAll(() => {
     Dimensions.set({ window: narrowWindow, screen: narrowScreen });
 });
-jest.mock('expo-router', () => ({
-    __esModule: true,
-    useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
-    usePathname: () => '/kitchen/order-desk/requirements',
-    useLocalSearchParams: () => ({}),
-    Redirect: () => null,
-    Link: ({ children }: { children: React.ReactNode }) => children,
-}));
+jest.mock('expo-router', () => {
+    const push = jest.fn();
+    return {
+        __esModule: true,
+        useRouter: () => ({ push, replace: jest.fn(), back: jest.fn() }),
+        usePathname: () => '/kitchen/order-desk/requirements',
+        useLocalSearchParams: () => ({}),
+        Redirect: () => null,
+        Link: ({ children }: { children: React.ReactNode }) => children,
+        __push: push,
+    };
+});
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const routerMock = require('expo-router') as { __push: jest.Mock };
 
 /**
  * The requirements screen: the buy list, and the three things it must never say.
@@ -115,6 +123,46 @@ function showStockColumns(): void {
 
 afterEach(() => {
     forgetColumnChoice(TABLE);
+    routerMock.__push.mockClear();
+});
+
+describe('order desk requirements — create order', () => {
+    it('hands only the short shelves to the supply-order builder', async () => {
+        await renderRequirements(async () =>
+            answer([
+                requirement(),
+                requirement({
+                    stockItemId: SECOND_SHELF_ID,
+                    code: 'sku-salt',
+                    nameEn: 'Salt',
+                    short: '0.0000',
+                    suggestedBuy: '0.0000',
+                }),
+            ]),
+        );
+        await settled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-order-desk-requirements-create-order'));
+        });
+
+        expect(routerMock.__push).toHaveBeenCalledTimes(1);
+        const href = String(routerMock.__push.mock.calls[0]?.[0]);
+        const query = new URLSearchParams(href.slice(href.indexOf('?') + 1));
+        expect(href.startsWith('/kitchen/supply-orders/new?')).toBe(true);
+        expect(query.get('items')).toBe(SHELF_ID);
+        // Back to the same window, so the list the order was raised from is the one that returns.
+        expect(decodeURIComponent(query.get('returnTo') ?? '')).toMatch(
+            /^\/kitchen\/order-desk\/requirements\?from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}$/,
+        );
+    });
+
+    it('offers no order when nothing is short', async () => {
+        await renderRequirements(async () => answer([requirement({ short: '0.0000' })]));
+        await settled();
+
+        expect(screen.queryByTestId('kitchen-order-desk-requirements-create-order')).toBeNull();
+    });
 });
 
 describe('order desk requirements — the ladder', () => {
@@ -152,7 +200,7 @@ describe('order desk requirements — the ladder', () => {
         expect(screen.queryByTestId('kitchen-order-desk-requirements-table')).toBeNull();
     });
 
-    it('says a window the server answered and found nothing in, rather than drawing an empty table', async () => {
+    it('says a window the server answered and found nothing in, under the table header', async () => {
         await renderRequirements(async () => answer([]));
 
         await waitFor(
@@ -161,7 +209,8 @@ describe('order desk requirements — the ladder', () => {
             },
             { timeout: 5000 },
         );
-        expect(screen.queryByTestId('kitchen-order-desk-requirements-table')).toBeNull();
+        // The header stays, so the page keeps its shape.
+        expect(screen.getByTestId('kitchen-order-desk-requirements-table')).toBeTruthy();
     });
 });
 
@@ -314,18 +363,22 @@ describe('order desk requirements — what the rows say', () => {
         await renderRequirements(async () =>
             answer([requirement()], {
                 days: 3,
-                reasons: { plan_has_no_menu: 2, meal_has_no_recipe: 1 },
+                reasons: { meals_not_chosen: 2, meal_has_no_recipe: 1 },
             }),
         );
 
         await settled();
 
-        const card = screen.getByTestId('kitchen-order-desk-requirements-figures-notComputable');
+        const card = screen.getByTestId(
+            'kitchen-order-desk-requirements-toolbar-figure-notComputable',
+        );
 
         expect(
-            screen.getByTestId('kitchen-order-desk-requirements-figures-notComputable-value'),
+            screen.getByTestId(
+                'kitchen-order-desk-requirements-toolbar-figure-notComputable-value',
+            ),
         ).toHaveTextContent('3');
-        expect(card).toHaveTextContent(/Plan has no menu \(2\)/);
+        expect(card).toHaveTextContent(/Meals not chosen yet \(2\)/);
         expect(card).toHaveTextContent(/Meal has no recipe \(1\)/);
 
         // And the table still carries exactly the one row that could be computed.
@@ -340,7 +393,66 @@ describe('order desk requirements — what the rows say', () => {
         await settled();
 
         expect(
-            screen.getByTestId('kitchen-order-desk-requirements-figures-notComputable-value'),
+            screen.getByTestId(
+                'kitchen-order-desk-requirements-toolbar-figure-notComputable-value',
+            ),
         ).toHaveTextContent('0');
+    });
+});
+
+describe('order desk requirements — the weekly check', () => {
+    it("puts Monday's shortfalls in the tray, and points the window at that week from there", async () => {
+        const listRequirements = jest.fn(async () => answer([requirement()]));
+        await renderStubScreen(<OrderDeskRequirementsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                orderDesk: {
+                    listRequirements,
+                    getWeeklyStockCheck: async () => ({
+                        id: 'check-0001',
+                        branchId: 'test-0000-branch-0001' as BranchId,
+                        windowFrom: '2026-10-19',
+                        windowTo: '2026-10-25',
+                        checkedAt: '2026-10-19T04:00:00Z',
+                        requirementCount: 12,
+                        shortCount: 1,
+                        notComputableDays: 0,
+                        shortfalls: [
+                            {
+                                stockItemId: SHELF_ID,
+                                code: 'sku-flour',
+                                name: 'Flour',
+                                unitCode: 'kg',
+                                required: '10',
+                                available: '2',
+                                short: '8',
+                                suggestedBuy: '8',
+                            },
+                        ],
+                    }),
+                },
+            },
+        });
+        await settled();
+
+        // A card in the docked tray, not a band over the list.
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-weekly-check')).toBeTruthy();
+        });
+        expect(screen.getByTestId('kitchen-weekly-check')).toHaveTextContent(/Flour/);
+        expect(
+            within(screen.getByTestId('kitchen-order-desk-requirements-tray')).getByTestId(
+                'kitchen-weekly-check',
+            ),
+        ).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-weekly-check-show-window'));
+        });
+        await waitFor(() => {
+            expect(listRequirements).toHaveBeenLastCalledWith(
+                expect.objectContaining({ from: '2026-10-19', to: '2026-10-25' }),
+            );
+        });
     });
 });

@@ -35,7 +35,7 @@
             "columnExpires": "تنتهي"
         },
         "searchLabel": "ابحث في الفريق",
-        "searchHint": "الاسم أو البريد الإلكتروني",
+        "searchHint": "ابحث عن الأشخاص بالاسم أو البريد الإلكتروني",
         "searchPageHint": "ابحث في هذه الصفحة",
         "segmentLabel": "من يُعرض",
         "segmentWorking": "على رأس العمل",
@@ -84,21 +84,21 @@
         "saved_two": "تم الحفظ. يحمل {{name}} الآن دورين.",
         "saved_few": "تم الحفظ. يحمل {{name}} الآن {{count}} أدوار.",
         "saved_many": "تم الحفظ. يحمل {{name}} الآن {{count}} دورًا.",
-        "saved_other": "تم الحفظ. يحمل {{name}} الآن {{count}} دور."
+        "saved_other": "تم الحفظ. يحمل {{name}} الآن {{count}} دور.",
+        "notFoundTitle": "عضو الفريق هذا غير موجود هنا",
+        "notFoundBody": "قد يكون الرابط قديمًا، أو ربما غادر المطبخ.",
+        "backToList": "العودة إلى الفريق"
     },
     "roles": {
         "title": "الأدوار",
         "subtitle": "ما يُسمح لكل مسمّى وظيفي بالوصول إليه. عدّل دورًا يتغيّر معه كل من يحمله.",
         "templatesHeading": "الأدوار القياسية",
-        "templatesHint": "تحدّدها Healthy360 وتشترك فيها كل المطابخ. انسخ واحدًا لتصنع نسخةً خاصة بك.",
         "ownHeading": "أدوار هذا المطبخ",
-        "ownHint": "الأدوار التي عرّفتها. هذه وحدها قابلة للتعديل.",
         "caption": "الأدوار المتاحة في هذا المطبخ",
         "columns": {
             "role": "الدور",
             "holders": "يحمله",
             "pages": "الصلاحيات",
-            "kind": "النوع",
             "description": "الوصف"
         },
         "holdersNone": "لا أحد بعد",
@@ -106,8 +106,6 @@
         "edit": "تعديل",
         "open": "فتح",
         "create": "دور جديد",
-        "emptyTitle": "لم تعرّف أي أدوار خاصة بك",
-        "emptyBody": "انسخ دورًا قياسيًا لتصنع نسخةً يستطيع هذا المطبخ تغييرها.",
         "holders_zero": "لا أحد",
         "holders_one": "شخص واحد",
         "holders_two": "شخصان",
@@ -121,18 +119,8 @@
         "permissionCount_many": "{{count}} صلاحية",
         "permissionCount_other": "{{count}} صلاحية",
         "searchLabel": "ابحث في الأدوار",
-        "searchHint": "الاسم أو الرمز",
-        "segmentLabel": "أي الأدوار",
-        "segmentAll": "الكل",
-        "segmentOwn": "أدوار هذا المطبخ",
-        "segmentTemplates": "القياسية",
-        "kindOwn": "خاص",
-        "kindTemplate": "قياسي",
+        "searchHint": "ابحث في الأدوار بالاسم أو الرمز",
         "noDescription": "بلا وصف",
-        "statOwn": "أدوار هذا المطبخ",
-        "statOwnCaption": "قابلة للتعديل هنا",
-        "statTemplates": "القياسية",
-        "statTemplatesCaption": "انسخ واحدًا لتغييره",
         "statUnheld": "غير مُسندة",
         "statUnheldCaption": "لا يحملها أحد",
         "statRoles": "أدوار",
@@ -166,7 +154,6 @@
         "deleteConfirm": "احذفه",
         "deleted": "تم حذف {{name}}.",
         "cancel": "إلغاء",
-        "templateNotice": "هذا دور قياسي ولا يمكن تعديله. انسخه لتصنع نسخةً يستطيع هذا المطبخ تغييرها.",
         "shadowsTemplate": "يوجد دور قياسي بهذا المرجع. سيُستخدم دورك بدلًا منه في كل مكان داخل هذا المطبخ.",
         "selfLockout": "سيؤدي هذا إلى إلغاء قدرتك أنت على إدارة الأدوار، ولن يستطيع أحد إعادتها إليك من هنا.",
         "deleteBlocked_zero": "لا أحد يحمل هذا الدور.",
@@ -174,7 +161,10 @@
         "deleteBlocked_two": "ما زال شخصان يحملان هذا الدور. امنحهما دورًا آخر أولًا.",
         "deleteBlocked_few": "ما زال {{count}} أشخاص يحملون هذا الدور. امنحهم دورًا آخر أولًا.",
         "deleteBlocked_many": "ما زال {{count}} شخصًا يحملون هذا الدور. امنحهم دورًا آخر أولًا.",
-        "deleteBlocked_other": "ما زال {{count}} شخص يحملون هذا الدور. امنحهم دورًا آخر أولًا."
+        "deleteBlocked_other": "ما زال {{count}} شخص يحملون هذا الدور. امنحهم دورًا آخر أولًا.",
+        "notFoundTitle": "هذا الدور غير موجود هنا",
+        "notFoundBody": "قد يكون الرابط قديمًا، أو ربما حُذف الدور.",
+        "backToList": "كل الأدوار"
     },
     "pages": {
         "levels": {
@@ -216,7 +206,7 @@
     "extras": {
         "orderDeskSale": "تسجيل عملية بيع",
         "orderDeskCustomer": "فتح حساب لمتصل",
-        "unpricedReceipts": "إيصالات بلا أسعار"
+        "cashSettle": "تسوية النقد وإقفال اليوم"
     },
     "add": {
         "title": "إضافة مستخدم",
@@ -353,6 +343,12 @@
         "order.manage_organisation": {
             "name": "تأكيد الطلبات وتنفيذها وإلغاؤها"
         },
+        "order.prepare_organisation": {
+            "name": "العمل على شاشة المطبخ"
+        },
+        "order.supervise_organisation": {
+            "name": "إلغاء الطلبات بعد بدء الطهي وتلقي تنبيهات الطلبات"
+        },
         "order.view_customer_contact_organisation": {
             "name": "الاطّلاع على بيانات تواصل العملاء وعناوينهم وسجلات شركاتهم"
         },
@@ -409,6 +405,15 @@
         },
         "user.manage_organisation": {
             "name": "إنشاء حسابات دخول"
+        },
+        "order.approve_refund_organisation": {
+            "name": "الموافقة على الاسترداد فوق حد المطبخ"
+        },
+        "order.settle_cash_organisation": {
+            "name": "تسجيل النقد الذي يسلّمه السائقون وشركات التوصيل"
+        },
+        "inventory.approve_payables_organisation": {
+            "name": "الموافقة على أسعار التوريد وتسجيل الفواتير كمدفوعة"
         }
     }
 }

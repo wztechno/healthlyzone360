@@ -13,6 +13,7 @@ use Healthy360\Inventory\Models\StockLevel;
 use Healthy360\Inventory\Services\StockItemDerivationService;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Organisations\Models\OrganisationBranch;
+use Healthy360\Organisations\Models\OrganisationMembership;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
@@ -48,6 +49,7 @@ it('lists stock levels enriched with the item code, name and ingredient, and rec
         'branch_id' => (string) $this->branch->getKey(),
         'stock_item_id' => (string) $item->getKey(),
         'quantity_delta' => 10,
+        'notes' => 'Counted',
     ], $this->headers)->assertCreated();
 
     expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('10.0000');
@@ -61,6 +63,83 @@ it('lists stock levels enriched with the item code, name and ingredient, and rec
         ]);
 });
 
+/*
+| Levels are per branch. The route sits behind `branch.context`, which
+| resolves the branch from `X-Branch-Id` (or the membership's own branch);
+| without it the controller's narrowing never fired and every branch's shelf
+| came back, so the stock screen showed whichever branch was keyed last.
+*/
+it('narrows stock levels to the branch the request names, and reads org-wide without one', function (): void {
+    $other = OrganisationBranch::factory()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'country_code' => $this->tenant->organisation->country_code,
+    ]);
+    $item = StockItem::query()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'code' => 'rice-01',
+        'name_en' => 'Rice',
+        'unit_code' => 'kg',
+    ]);
+
+    foreach ([[$this->branch, 10], [$other, 4]] as [$branch, $delta]) {
+        $this->postJson('/api/v1/catalogue/inventory/adjustments', [
+            'branch_id' => (string) $branch->getKey(),
+            'stock_item_id' => (string) $item->getKey(),
+            'quantity_delta' => $delta,
+            'notes' => 'Counted',
+        ], $this->headers)->assertCreated();
+    }
+
+    $levels = $this->getJson('/api/v1/catalogue/inventory/levels', $this->headers)->assertOk()->json('data.levels');
+
+    expect($levels)->toHaveCount(1)
+        ->and($levels[0]['branch_id'])->toBe((string) $this->branch->getKey())
+        ->and($levels[0]['quantity'])->toBe('10.0000');
+
+    // An organisation-wide member of a two-branch kitchen has no branch to
+    // default to: `branch.context` resolves, it never requires, so the list
+    // reads org-wide as the spec documents.
+    $this->getJson('/api/v1/catalogue/inventory/levels', PricingWorld::headers($this->tenant))
+        ->assertOk()
+        ->assertJsonCount(2, 'data.levels');
+});
+
+it('defaults a branch-scoped member to its own branch\'s levels when no header is sent', function (): void {
+    $other = OrganisationBranch::factory()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'country_code' => $this->tenant->organisation->country_code,
+    ]);
+    $item = StockItem::query()->create([
+        'organisation_id' => $this->tenant->organisation->getKey(),
+        'code' => 'rice-01',
+        'name_en' => 'Rice',
+        'unit_code' => 'kg',
+    ]);
+
+    foreach ([$this->branch, $other] as $branch) {
+        $this->postJson('/api/v1/catalogue/inventory/adjustments', [
+            'branch_id' => (string) $branch->getKey(),
+            'stock_item_id' => (string) $item->getKey(),
+            'quantity_delta' => 3,
+            'notes' => 'Counted',
+        ], $this->headers)->assertCreated();
+    }
+
+    OrganisationMembership::withoutTenancy()
+        ->where('organisation_id', $this->tenant->organisation->getKey())
+        ->where('user_id', $this->tenant->user->getKey())
+        ->update(['branch_id' => $other->getKey()]);
+
+    // `branch.context` runs before `permission`, so a branch-scoped member
+    // passes PermissionChecker's branch-scope step instead of being refused.
+    $levels = $this->getJson('/api/v1/catalogue/inventory/levels', PricingWorld::headers($this->tenant))
+        ->assertOk()
+        ->json('data.levels');
+
+    expect($levels)->toHaveCount(1)
+        ->and($levels[0]['branch_id'])->toBe((string) $other->getKey());
+});
+
 it('records waste as a negative movement', function (): void {
     $item = StockItem::query()->create([
         'organisation_id' => $this->tenant->organisation->getKey(),
@@ -72,12 +151,15 @@ it('records waste as a negative movement', function (): void {
         'branch_id' => (string) $this->branch->getKey(),
         'stock_item_id' => (string) $item->getKey(),
         'quantity_delta' => 5,
+        'notes' => 'Counted',
     ], $this->headers)->assertCreated();
 
     $this->postJson('/api/v1/catalogue/inventory/waste', [
         'branch_id' => (string) $this->branch->getKey(),
         'stock_item_id' => (string) $item->getKey(),
         'quantity' => 3,
+        'reason' => 'other',
+        'notes' => 'Dropped',
     ], $this->headers)->assertCreated()
         ->assertJsonPath('data.movement.quantity_delta', '-3.0000');
 });
@@ -90,18 +172,18 @@ it('refuses waste or a decrease that would take the shelf below zero, and posts 
     ]);
     $shelf = ['branch_id' => (string) $this->branch->getKey(), 'stock_item_id' => (string) $item->getKey()];
 
-    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 2], $this->headers)->assertCreated();
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 2, 'notes' => 'Counted'], $this->headers)->assertCreated();
 
-    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => 2.5], $this->headers)
+    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => 2.5, 'reason' => 'damaged', 'notes' => 'Dropped'], $this->headers)
         ->assertStatus(409)
         ->assertJsonPath('error.code', 'inventory.insufficient_stock');
-    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => -2.5], $this->headers)
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => -2.5, 'notes' => 'Counted'], $this->headers)
         ->assertStatus(409);
 
     expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('2.0000');
 
     // Exactly what is on the shelf is fine: it empties, it does not go under.
-    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => 2], $this->headers)->assertCreated();
+    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => 2, 'reason' => 'damaged', 'notes' => 'Dropped'], $this->headers)->assertCreated();
 
     expect(StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity'))->toBe('0.0000');
 });
@@ -114,9 +196,9 @@ it('refuses a negative or zero waste on the quantity field, and posts nothing', 
     ]);
     $shelf = ['branch_id' => (string) $this->branch->getKey(), 'stock_item_id' => (string) $item->getKey()];
 
-    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 5], $this->headers)->assertCreated();
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 5, 'notes' => 'Counted'], $this->headers)->assertCreated();
 
-    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => $quantity], $this->headers)
+    $this->postJson('/api/v1/catalogue/inventory/waste', $shelf + ['quantity' => $quantity, 'reason' => 'damaged', 'notes' => 'Dropped'], $this->headers)
         ->assertUnprocessable()
         ->assertJsonPath('error.code', 'validation.failed')
         ->assertJsonStructure(['error' => ['details' => ['fields' => ['quantity']]]]);
@@ -134,7 +216,7 @@ it('records a count as the difference from the ledger, in either direction and a
     $shelf = ['branch_id' => (string) $this->branch->getKey(), 'stock_item_id' => (string) $item->getKey()];
     $level = fn (): string => (string) StockLevel::withoutTenancy()->where('stock_item_id', $item->getKey())->value('quantity');
 
-    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 10], $this->headers)->assertCreated();
+    $this->postJson('/api/v1/catalogue/inventory/adjustments', $shelf + ['quantity_delta' => 10, 'notes' => 'Counted'], $this->headers)->assertCreated();
 
     $this->postJson('/api/v1/catalogue/inventory/counts', $shelf + ['counted_quantity' => 7.5, 'notes' => 'Weekly count'], $this->headers)
         ->assertCreated()
@@ -218,6 +300,7 @@ it('lists a shelf for every ingredient, tagged by backing and ranked with the st
         'branch_id' => (string) $this->branch->getKey(),
         'stock_item_id' => (string) $stocked->getKey(),
         'quantity_delta' => 12,
+        'notes' => 'Counted',
     ], $this->headers)->assertCreated();
 
     $response = $this->getJson('/api/v1/catalogue/inventory/items', $this->headers)->assertOk();
@@ -302,6 +385,7 @@ it('gates the inventory write endpoint on the role resolved inventory.manage gra
         'branch_id' => (string) $branch->getKey(),
         'stock_item_id' => (string) $item->getKey(),
         'quantity_delta' => 5,
+        'notes' => 'Opening count',
     ], $headers);
 
     if ($mayWrite) {

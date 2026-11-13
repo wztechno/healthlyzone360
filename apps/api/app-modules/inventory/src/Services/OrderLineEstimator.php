@@ -10,6 +10,7 @@ use Healthy360\Orders\Models\OrderLine;
 use Healthy360\Recipes\Services\WeeklyLineCost;
 use Healthy360\Recipes\Services\WeeklyRecipeCostingService;
 use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 
 /**
  * What a sold line was **expected** to cost, written once at confirm (PROD1).
@@ -48,6 +49,19 @@ use Illuminate\Database\QueryException;
  * the prices of the moment. Swallowed here rather than left to abort a confirm —
  * a kitchen does not lose an order because a reporting figure could not be
  * written.
+ *
+ * **The nested transaction is what makes that swallow real**, and it is
+ * `DeliveryJobProjector`'s reasoning word for word: in PostgreSQL any error
+ * aborts the enclosing transaction, so catching the 23505 in PHP does not undo
+ * it — every later statement fails with *current transaction is aborted* until
+ * a rollback. A nested `DB::transaction` is a `SAVEPOINT` the duplicate unwinds
+ * to, leaving the caller's transaction usable.
+ *
+ * Without it this was not best-effort but fatal, and on exactly the path that
+ * always finds its own earlier estimate: `OrderConsumptionService::retry()`
+ * wraps a retry in one transaction, so the duplicate written here poisoned it
+ * and every open stock gap failed with 25P02 instead of retrying. That is what
+ * `ConsumptionExceptionSweep` was reporting, once per gap, every five minutes.
  */
 final readonly class OrderLineEstimator
 {
@@ -117,14 +131,18 @@ final readonly class OrderLineEstimator
         }
 
         try {
-            $estimate = new OrderLineEstimatedCost;
-            $estimate->organisation_id = (string) $order->organisation_id;
-            $estimate->order_id = (string) $order->getKey();
-            $estimate->order_line_id = (string) $line->getKey();
-            $estimate->estimated_cost_amount = $this->round($total);
-            $estimate->currency_code = $currency;
-            $estimate->weekly_price_publication_id = $publicationId;
-            $estimate->save();
+            // Wrapped even though it is a single statement: the SAVEPOINT is the
+            // only reason the catch below can be a swallow rather than a wound.
+            DB::transaction(function () use ($order, $line, $total, $currency, $publicationId): void {
+                $estimate = new OrderLineEstimatedCost;
+                $estimate->organisation_id = (string) $order->organisation_id;
+                $estimate->order_id = (string) $order->getKey();
+                $estimate->order_line_id = (string) $line->getKey();
+                $estimate->estimated_cost_amount = $this->round($total);
+                $estimate->currency_code = $currency;
+                $estimate->weekly_price_publication_id = $publicationId;
+                $estimate->save();
+            });
         } catch (QueryException $exception) {
             // 23505 on `order_line_id`: a confirm delivered twice. The first
             // estimate stands and is the right one — it was computed at the

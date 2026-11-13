@@ -121,7 +121,7 @@ export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
     },
     {
         key: 'plans',
-        labelKey: 'marketplace:nav.plans',
+        labelKey: 'marketplace:nav.weeklyPlans',
         href: '/plans',
         icon: 'calendar',
         area: 'public',
@@ -143,11 +143,10 @@ export const MARKETPLACE_NAVIGATION: readonly ConsumerNavigationDescriptor[] = [
     },
     {
         key: 'for-business',
-        labelKey: 'marketplace:nav.forBusiness',
+        labelKey: 'marketplace:nav.business',
         href: '/for-business',
         icon: 'branch',
         area: 'public',
-        secondary: true,
     },
 ];
 

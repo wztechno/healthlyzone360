@@ -59,9 +59,10 @@ const COMFORTABLE_CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
  * from padding, so "make the admin two pixels tighter" stays one edit in `control.ts`.
  */
 const COMPACT_CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'h-control-sm px-control-sm gap-control-sm rounded',
-    md: 'h-control-md px-control-md gap-control-md rounded',
-    lg: 'h-control-lg px-control-lg gap-control-lg rounded',
+    // The admin canvas draws every button as a pill: 34px in a toolbar or a row, 40 and 44 above that.
+    sm: 'h-desk-toolbar px-3 gap-1.5 rounded-full',
+    md: 'h-10 px-4 gap-2 rounded-full',
+    lg: 'h-11 px-4 gap-2 rounded-full',
 };
 
 const CONTAINER_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>> = {
@@ -86,9 +87,9 @@ const COMFORTABLE_LABEL_SIZE: Readonly<Record<ButtonSize, string>> = {
  * gives the size and the variant gives the weight, so the two never disagree.
  */
 const COMPACT_LABEL_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'text-role-label',
-    md: 'text-role-label',
-    lg: 'text-role-label',
+    sm: 'text-[13px] leading-[18px] !font-semibold',
+    md: 'text-[13px] leading-[18px] !font-semibold',
+    lg: 'text-[13px] leading-[18px] !font-semibold',
 };
 
 const LABEL_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>> = {
@@ -107,6 +108,7 @@ const SPINNER_COLOUR: Readonly<Record<ButtonVariant, (theme: ThemeTokens) => str
     quiet: (theme) => theme.colours.textSecondary,
     ghost: (theme) => theme.colours.brandSurface,
     danger: (theme) => theme.semantic.danger.onDefault,
+    sidebar: (theme) => theme.colours.onSidebarActive,
 };
 
 export interface ButtonProps extends Omit<
@@ -159,6 +161,8 @@ export function Button({
     // A loading button is not merely styled as busy — it must not fire again, or a double tap
     // submits the form twice while the first request is still in flight.
     const inert = disabled || loading;
+    // Faded white on the sidebar's green reads as a hover state, and its words barely read at all.
+    const outlinedWhenInert = inert && variant === 'sidebar';
 
     const floating = useRef<FloatingLabel | null>(null);
     const hideHint = useCallback(() => {
@@ -207,10 +211,12 @@ export function Button({
             }}
             className={cx(
                 'flex-row items-center justify-center',
-                CONTAINER_VARIANT[variant],
+                outlinedWhenInert
+                    ? 'border border-content-on-sidebar/60 bg-transparent'
+                    : CONTAINER_VARIANT[variant],
                 CONTAINER_SIZE[density][size],
                 block ? 'self-stretch' : 'self-start',
-                inert ? 'opacity-50' : null,
+                inert && !outlinedWhenInert ? 'opacity-50' : null,
                 className,
             )}
         >
@@ -233,7 +239,13 @@ export function Button({
                 // No family class: there is one Latin family, set on `html` per script. This used
                 // to add `ADMIN_FONT_CLASS` on the compact branch, which is now an empty string —
                 // a concatenation that costs a branch and says nothing.
-                className={cx(LABEL_VARIANT[variant], LABEL_SIZE[density][size], 'text-center')}
+                className={cx(
+                    outlinedWhenInert
+                        ? 'font-semibold text-content-on-sidebar'
+                        : LABEL_VARIANT[variant],
+                    LABEL_SIZE[density][size],
+                    'text-center',
+                )}
                 numberOfLines={1}
             >
                 {label}

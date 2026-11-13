@@ -185,6 +185,8 @@ Two tables, and **no new PostgreSQL policy**. The `RlsTest` pin stays at eleven.
 
 **Data loading**: no seeder. A menu is a kitchen's own decision about what it cooks, and a seeded one would be a claim about a real kitchen's production. `DemoTenantSeeder` leaves every plan menu-less, which is also the state that keeps the demo's subscription orders deducting nothing. Test fixtures are built by `PlanMenuEntryFactory`.
 
+**Retired 2026-10-28.** Customers now choose every meal of every delivery day themselves, at purchase and before each day's cut-off, so a plan no longer states a menu. `plan_menu_entries` and the two `subscription_plan_profiles` columns are dropped (`2026_10_28_000001_drop_plan_menu_entries_table`); the `kitchen_default` meal-choice rows the menu wrote stay as the record of what was sent. The stock cut-over above now happens per subscription day instead: every chosen day carries meal lines. A day nobody chose for — a balance day a skip or a pause pushed later — is filled from the customer's own latest choices for that weekday, as `subscription_meal_choices.source = 'repeated'` (`2026_10_28_000101_admit_repeated_meal_choice_source`).
+
 ## Internal production — phase PROD1 (weekly prices, production items, reservations)
 
 Four new tables and three widened ones, and **no new PostgreSQL policy**: the `RlsTest` pin stays at
@@ -278,6 +280,19 @@ protect nothing the parents leave open. The `RlsTest` pin does not move.
 **Data loading**: no seeder writes a barcode or a counter. A code is a statement that a kitchen
 stocks this product, and the counter's value is exactly the set of labels it has printed; both are
 written through `IngredientBarcodeService`, which tests use too.
+
+## P0 Stage 1 — staff alerts, service settings, order allergies (2026-11-02)
+
+| Table | Cluster | Classification | PII | Isolation strategy | Notes |
+|---|---|---|---|---|---|
+| staff_notifications | Operations | Confidential (`data`) / Internal (the rest) | Yes (indirect) | `org-rls` | One row per recipient per alert, unique on `(user_id, type, subject_id)`. `data` carries the order number, money and a severity flag, and never a customer's name, an allergy or an address, because the row outlives the customer and closing an account does not visit this table |
+| kitchen_service_settings | Kitchen operations | Internal | No | `org-rls` | One row per organisation: lead time, the alarm and escalation limits, and the refund approval limit. Created on first read, and the defaults live on the model |
+| branch_closures | Kitchen operations | **Public** | No | `org-rls` (writes; reads open) | Dates a branch is shut on top of its week, both ends inclusive. Read open for the reason `branch_opening_hours` is: a closure is a public fact about a place, read from carts with no organisation declared. Writes carry the organisation policy |
+| cash_settlements | Orders | Confidential (`short_reason`) / Internal (the rest) | Yes (indirect) | `org-rls` | One hand-in of cash from an own driver or a courier. There is no shift table, so a row is the shift. `delivery_jobs.cash_settlement_id` says which runs it covered, which is what stops a run being settled twice; a receipt is never marked. `short_minor` is held to the other figures by a CHECK, and a short row needs a reason and waits for a manager's sign-off. The app takes no pay decision from it |
+| order_refunds | Orders | Confidential (`reason`) / Internal (the rest) | Yes (indirect) | `org-rls` | One entry of money going back (`refund`) or of a receipt written by mistake (`receipt_correction`). Never edits a receipt. Capped together at what the order's receipts say arrived, under a lock on the order. Above the kitchen's limit an entry waits as `pending_approval`; a trigger lets the owner's answer move it once and refuses every other update and every delete. The people named are staff, not customers |
+| daily_closes | Orders | Confidential (`variance_reason`) / Internal (the rest) | Yes (indirect) | `org-rls` | One shift's till count in one currency. A shift is everything since the last close. The float and count are typed; counter cash, hand-ins and cash refunds are read at the close from the same rows the cash report and the settlement read, and stored so a report shows what was signed. Held together by CHECKs. A short row needs a reason and a manager's sign-off, and the app takes no pay decision from it |
+| dish_margins | Catalogues | Confidential (`price_amount`, `cost_amount`, `margin_percent`) / Internal (the rest) | No | `org-rls` | What one dish on sale earns on one channel as of the last overnight run: a read model rewritten by `RefreshDishMargins` from the published version's list price and the live weekly cost. `margin_percent` is null with a `withheld_reason` whenever the figure would be a guess. Also the alert's memory: the cost it last saw and `below_target_since` |
+| orders (`allergy_snapshot`, `allergy_note`, `allergy_acknowledged_at`, `allergy_acknowledged_by`) | Orders | **Special category** | Yes | stated gap (Journey phases above); `orders` carries no policy | The customer's declared allergies copied onto the order, the desk's note, and who acknowledged a conflict. Health data. Served by purpose of use (`OrderPresenter::kitchen()`). Cleared when an account closes or a guest is purged. A guest's own erasure request is refused while an order is open, because the kitchen still needs them |
 
 ## Standing conventions
 

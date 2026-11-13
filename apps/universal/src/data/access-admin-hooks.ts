@@ -76,6 +76,20 @@ function useConsoleOrganisation(): string | undefined {
     return accessState.organisation?.id;
 }
 
+/**
+ * Whether the caller's membership is bound to one branch. Such an administrator manages that
+ * branch's people only, and may not change role definitions — a role is shared by every branch —
+ * so the console draws the role book read-only and offers no "Whole kitchen" scope.
+ */
+export function useIsBranchBoundAdmin(): boolean {
+    const { me } = useSession();
+    const membershipId = me?.activeContext?.membershipId;
+    const membership = me?.memberships.find((candidate) => candidate.id === membershipId);
+    // The membership's own binding, not how many branches it may work in: an owner of a
+    // two-branch kitchen lists both and is bound to neither.
+    return membership != null && membership.branchId !== null;
+}
+
 export function usePermissionCatalogueQuery(
     enabled = true,
 ): UseQueryResult<readonly PermissionDomain[], unknown> {

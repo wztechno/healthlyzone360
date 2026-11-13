@@ -81,7 +81,7 @@ describe('per-shelf quantities', () => {
 
 describe('what the form refuses to send', () => {
     it('will not complete without a produced quantity', () => {
-        const errors = completionErrors(emptyCompletionDraft(), 'complete');
+        const errors = completionErrors(emptyCompletionDraft(), 'complete', null);
 
         expect(errors.produced).toBe('kitchen:ops.production.producedRequired');
         expect(hasCompletionErrors(errors)).toBe(true);
@@ -90,13 +90,13 @@ describe('what the form refuses to send', () => {
     it('accepts nothing produced, because a lost batch is a real answer', () => {
         const draft = { ...emptyCompletionDraft(), produced: '0' };
 
-        expect(hasCompletionErrors(completionErrors(draft, 'complete'))).toBe(false);
+        expect(hasCompletionErrors(completionErrors(draft, 'complete', null))).toBe(false);
     });
 
     it('refuses more rejected than produced, because rejected is inside produced', () => {
         const draft = { ...emptyCompletionDraft(), produced: '38', rejected: '39' };
 
-        expect(completionErrors(draft, 'complete').rejected).toBe(
+        expect(completionErrors(draft, 'complete', null).rejected).toBe(
             'kitchen:ops.production.rejectedTooHigh',
         );
     });
@@ -104,10 +104,29 @@ describe('what the form refuses to send', () => {
     it('demands a reason to abandon and not to complete', () => {
         const draft = { ...emptyCompletionDraft(), produced: '38' };
 
-        expect(completionErrors(draft, 'complete').reason).toBeUndefined();
-        expect(completionErrors(draft, 'abandon').reason).toBe(
+        expect(completionErrors(draft, 'complete', null).reason).toBeUndefined();
+        expect(completionErrors(draft, 'abandon', null).reason).toBe(
             'kitchen:ops.production.abandonReasonRequired',
         );
+    });
+
+    it('asks for a use-by when food reaches a shelf and the recipe has no shelf life', () => {
+        const draft = { ...emptyCompletionDraft(), produced: '38' };
+
+        expect(completionErrors(draft, 'complete', null).expiry).toBe(
+            'kitchen:ops.production.expiryRequired',
+        );
+        expect(completionErrors(draft, 'abandon', null).expiry).toBe(
+            'kitchen:ops.production.expiryRequired',
+        );
+        // The recipe's shelf life fills it, a typed date answers it, and nothing usable needs none.
+        expect(completionErrors(draft, 'complete', 3).expiry).toBeUndefined();
+        expect(
+            completionErrors({ ...draft, expiryDate: '2026-10-01' }, 'complete', null).expiry,
+        ).toBeUndefined();
+        expect(
+            completionErrors({ ...draft, rejected: '38' }, 'complete', null).expiry,
+        ).toBeUndefined();
     });
 });
 

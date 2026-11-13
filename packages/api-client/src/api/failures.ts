@@ -328,9 +328,11 @@ export function mapErrorEnvelope(body: unknown, context: ErrorEnvelopeContext): 
     if (code === 'resource.conflict') {
         const currentLockVersion = readCurrentLockVersion(details);
         const membershipCount = readMembershipCount(details);
+        const reason = readDetailString(details, 'reason');
         return conflictFailure({
             ...(currentLockVersion === undefined ? {} : { currentLockVersion }),
             ...(membershipCount === undefined ? {} : { membershipCount }),
+            ...(reason === '' ? {} : { reason }),
             message,
             correlationId,
         });
@@ -468,6 +470,24 @@ export function mapErrorEnvelope(body: unknown, context: ErrorEnvelopeContext): 
      */
     if (code.startsWith('catalogue.')) {
         const fields = readValidationFields(details);
+        /*
+         * A publish refusal's reasons, kept as fields a screen can put on its own cards —
+         * `reasons.place_unpriced.home` — each carrying the refusal's sentence, so a screen that
+         * prints only what adds to the message prints nothing more.
+         */
+        const reasonFields: Record<string, string[]> = {};
+        if (code === 'catalogue.publish_blocked') {
+            for (const { reason, context } of readRefusalReasons(details)) {
+                const place = typeof context['place'] === 'string' ? `.${context['place']}` : '';
+                reasonFields[`reasons.${reason}${place}`] = [message];
+            }
+        }
+        if (Object.keys(fields).length === 0 && Object.keys(reasonFields).length > 0) {
+            return validationFailure(
+                { form: [message], ...reasonFields },
+                { message, correlationId },
+            );
+        }
         return validationFailure(Object.keys(fields).length > 0 ? fields : { form: [message] }, {
             message,
             correlationId,

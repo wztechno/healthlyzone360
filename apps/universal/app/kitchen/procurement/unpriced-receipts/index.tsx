@@ -1,18 +1,10 @@
-import { lazyScreen } from '../../../../src/shell/lazy-screen.tsx';
+import { Redirect } from 'expo-router';
 
 /**
- * `/kitchen/procurement/unpriced-receipts` — the receipts still waiting on their invoices (SUP5).
- *
- * Under `procurement/` beside the receive route, so both new surfaces crumb to the same family the
- * receipts they act on already live in.
+ * `/kitchen/procurement/unpriced-receipts` — where the unpriced-receipt queue used to be. It is the
+ * To price tab of Supplier bills now, and this stays so a bookmark still arrives. A redirect is not
+ * a page: `entity-registry.test.ts` skips it.
  */
-const UnpricedReceiptsScreen = lazyScreen(
-    'kitchen-unpriced-receipts-loading',
-    async () =>
-        (await import('../../../../src/features/kitchen-admin/screens/index.ts'))
-            .UnpricedReceiptsScreen,
-);
-
 export default function KitchenUnpricedReceipts() {
-    return <UnpricedReceiptsScreen />;
+    return <Redirect href={'/kitchen/supplier-bills?tab=unpriced' as never} />;
 }

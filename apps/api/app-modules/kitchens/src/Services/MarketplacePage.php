@@ -55,9 +55,10 @@ final class MarketplacePage
     /**
      * @param  Builder<CatalogueItem>  $query  a fresh query; it is cloned per pass
      * @param  callable(CatalogueItem): (array<string, mixed>|null)  $project  null rejects the row
+     * @param  (callable(list<CatalogueItem>): void)|null  $prepare  given each batch before its rows are projected, to read ahead what they share
      * @return array{items: list<array<string, mixed>>, meta: array{count: int, next_cursor: string|null, has_more: bool}}
      */
-    public static function walk(Builder $query, int $limit, ?string $cursor, callable $project): array
+    public static function walk(Builder $query, int $limit, ?string $cursor, callable $project, ?callable $prepare = null): array
     {
         /** @var list<array<string, mixed>> $kept */
         $kept = [];
@@ -92,6 +93,10 @@ final class MarketplacePage
             }
 
             $lastExamined = $examined->last();
+
+            if ($prepare !== null) {
+                $prepare(array_values($examined->all()));
+            }
 
             foreach ($examined as $row) {
                 $projected = $project($row);

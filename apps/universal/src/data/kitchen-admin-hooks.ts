@@ -24,9 +24,9 @@ import type {
     MealAdminFilter,
     PlanAdmin,
     PlanAdminFilter,
-    PlanMenu,
     PriceListAdmin,
     PriceListAdminFilter,
+    PriceListPage,
     ProductAdmin,
     ProductAdminFilter,
     RecipeAdmin,
@@ -36,12 +36,13 @@ import type {
     RecipeRollupDraft,
     RecipeRollupPreview,
     ReferenceSeries,
-    ReplacePlanMenuRequest,
     ServiceArea,
     SetBranchOperatingRequest,
     SetChannelAvailabilityRequest,
     ItemChannelPrices,
+    ItemPacks,
     SetItemChannelPricesRequest,
+    SetItemPacksRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
     SetPlanCombinationsRequest,
@@ -547,6 +548,10 @@ function useIngredientWriteEffects(): (ingredient: IngredientAdmin) => void {
     return (ingredient: IngredientAdmin) => {
         queryClient.setQueryData(queryKeys.kitchenAdmin.ingredient(ingredient.id), ingredient);
         void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+        // A shelf is derived from its ingredient — made with it, named and measured by it — so a
+        // stock list read before this write can miss a new copy's shelf: a receipt opened on that
+        // copy then started on an empty line (2026-10-28).
+        void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOps.stockItems() });
     };
 }
 
@@ -965,6 +970,48 @@ export function useRecipeKindCountsQuery(enabled = true): UseQueryResult<RecipeK
     });
 }
 
+/**
+ * How much of each kind is on sale, for the overview's bars: for every kind, two numbered-page
+ * requests of one row each, reading `totalCount`, so nothing walks pages.
+ */
+export function useRecipeOnSaleByKindQuery(
+    enabled = true,
+): UseQueryResult<
+    Readonly<
+        Record<RecipeKind, { readonly total: number | null; readonly published: number | null }>
+    >
+> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.recipes({ derive: 'on-sale-by-kind' }),
+        enabled: enabled && repositories !== null,
+        queryFn: async () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            const counted = await Promise.all(
+                RECIPE_KINDS.map(async (kind) => {
+                    const [all, onSale] = await Promise.all([
+                        repositories.kitchenAdmin.listRecipes({ kind, page: 1, perPage: 1 }),
+                        repositories.kitchenAdmin.listRecipes({
+                            kind,
+                            sellingStatus: 'published',
+                            page: 1,
+                            perPage: 1,
+                        }),
+                    ]);
+                    return [kind, { total: all.totalCount, published: onSale.totalCount }] as const;
+                }),
+            );
+            return Object.fromEntries(counted) as Readonly<
+                Record<
+                    RecipeKind,
+                    { readonly total: number | null; readonly published: number | null }
+                >
+            >;
+        },
+    });
+}
+
 /* ── recipe writes ───────────────────────────────────────────────────────────────────────────── */
 
 /**
@@ -1188,6 +1235,32 @@ export function usePublishRecipeMutation(): UseMutationResult<
     return useMutation({
         mutationFn: ({ recipeId, request }: RecipeLifecycleVariables) =>
             repositories.kitchenAdmin.publishRecipe(recipeId, request),
+        onSuccess: onWritten,
+    });
+}
+
+export interface ReleaseRecipeVersionVariables {
+    readonly recipeId: RecipeId;
+    readonly versionId: RecipeVersionId;
+    /** The version's own lock, not the recipe's: the quarantined version is the one released. */
+    readonly lockVersion: number;
+}
+
+/**
+ * Releases a quarantined version once a manager has compared its old and new allergen labels; the
+ * new label goes live on the same version, and its listings go back on sale.
+ */
+export function useReleaseRecipeVersionMutation(): UseMutationResult<
+    RecipeAdmin,
+    unknown,
+    ReleaseRecipeVersionVariables
+> {
+    const repositories = useRepositories();
+    const onWritten = useRecipeWriteEffects();
+
+    return useMutation({
+        mutationFn: ({ recipeId, versionId, lockVersion }: ReleaseRecipeVersionVariables) =>
+            repositories.kitchenAdmin.releaseRecipeVersion(recipeId, versionId, lockVersion),
         onSuccess: onWritten,
     });
 }
@@ -1437,6 +1510,9 @@ function followLockVersion(
         queryKeys.kitchenAdmin.itemChannelPrices(itemId),
         (prices) => (prices === undefined ? undefined : { ...prices, lockVersion }),
     );
+    queryClient.setQueryData<ItemPacks>(queryKeys.kitchenAdmin.itemPacks(itemId), (packs) =>
+        packs === undefined ? undefined : { ...packs, lockVersion },
+    );
 }
 
 function useProductWriteEffects(): (product: ProductAdmin) => void {
@@ -1640,6 +1716,86 @@ export function useSetItemChannelPricesMutation(): UseMutationResult<
             queryClient.setQueryData<ProductAdmin>(
                 queryKeys.kitchenAdmin.product(itemId as ProductId),
                 bump,
+            );
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+        },
+    });
+}
+
+/* ── Packs & prices ──────────────────────────────────────────────────────────────────────────── */
+
+/** A cooked item's packs, their packaging, prices and places. */
+export function useItemPacksQuery(itemId: ProductId | MealId | null): UseQueryResult<ItemPacks> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.kitchenAdmin.itemPacks(itemId ?? ''),
+        enabled: repositories !== null && itemId !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (itemId === null) throw new Error('No item identifier.');
+            return repositories.kitchenAdmin.getItemPacks(itemId);
+        },
+    });
+}
+
+export interface SetItemPacksVariables {
+    readonly itemId: ProductId | MealId;
+    /** Everything but the lock, which is read from the cache when the write is sent. */
+    readonly request: Omit<SetItemPacksRequest, 'lockVersion'>;
+}
+
+/**
+ * Writes an item's packs. The item's lock version is read from the cache **at call time** — the
+ * listing saved a moment earlier by the same press moved it — taking the newest the meal, product
+ * and packs entries know. The lock the write answers with goes back into all three.
+ */
+export function useSetItemPacksMutation(): UseMutationResult<
+    ItemPacks,
+    unknown,
+    SetItemPacksVariables
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: ({ itemId, request }: SetItemPacksVariables) => {
+            const locks = [
+                queryClient.getQueryData<MealAdmin>(queryKeys.kitchenAdmin.meal(itemId as MealId))
+                    ?.meta.lockVersion,
+                queryClient.getQueryData<ProductAdmin>(
+                    queryKeys.kitchenAdmin.product(itemId as ProductId),
+                )?.meta.lockVersion,
+                queryClient.getQueryData<ItemPacks>(queryKeys.kitchenAdmin.itemPacks(itemId))
+                    ?.lockVersion,
+            ].filter((lock): lock is number => lock !== undefined);
+            return repositories.kitchenAdmin.setItemPacks(itemId, {
+                ...request,
+                lockVersion: locks.length === 0 ? 0 : Math.max(...locks),
+            });
+        },
+        onSuccess: (packs, { itemId }) => {
+            queryClient.setQueryData(queryKeys.kitchenAdmin.itemPacks(itemId), packs);
+            const bump = <T extends { readonly meta: { readonly lockVersion: number } }>(
+                record: T | undefined,
+            ): T | undefined =>
+                record === undefined
+                    ? undefined
+                    : { ...record, meta: { ...record.meta, lockVersion: packs.lockVersion } };
+            queryClient.setQueryData<MealAdmin>(
+                queryKeys.kitchenAdmin.meal(itemId as MealId),
+                bump,
+            );
+            queryClient.setQueryData<ProductAdmin>(
+                queryKeys.kitchenAdmin.product(itemId as ProductId),
+                bump,
+            );
+            queryClient.setQueryData<ItemChannelPrices>(
+                queryKeys.kitchenAdmin.itemChannelPrices(itemId),
+                (prices) =>
+                    prices === undefined
+                        ? undefined
+                        : { ...prices, lockVersion: packs.lockVersion },
             );
             void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
         },
@@ -1859,28 +2015,6 @@ export function useAdminPlansByIds(
     });
 }
 
-/**
- * The plan's fixed menu.
- *
- * Its own query rather than a field of {@link useAdminPlanQuery}, because the plan record does not
- * carry one: the menu is a separate document on a separate endpoint, and the four sections that
- * were there before this one have no use for it. Disabled until the identifier parses, exactly like
- * the detail read beside it.
- */
-export function usePlanMenuQuery(planId: SubscriptionPlanId | null): UseQueryResult<PlanMenu> {
-    const { repositories } = useRepositoryContext();
-
-    return useQuery({
-        queryKey: queryKeys.kitchenAdmin.planMenu(planId ?? ('' as SubscriptionPlanId)),
-        enabled: repositories !== null && planId !== null,
-        queryFn: () => {
-            if (repositories === null) throw new Error('Repositories are not ready.');
-            if (planId === null) throw new Error('No plan identifier.');
-            return repositories.kitchenAdmin.getPlanMenu(planId);
-        },
-    });
-}
-
 /** The plan counts behind the hub card, in one query. Four `limit: 1` listings, folded. */
 export function usePlanSummaryQuery(enabled = true): UseQueryResult<PublishedFamilySummary> {
     const { repositories } = useRepositoryContext();
@@ -2047,46 +2181,6 @@ export function useSetPlanCombinationsMutation(): UseMutationResult<
         mutationFn: ({ planId, request }: SetPlanCombinationsVariables) =>
             repositories.kitchenAdmin.setPlanCombinations(planId, request),
         onSuccess: onWritten,
-    });
-}
-
-export interface ReplacePlanMenuVariables {
-    readonly planId: SubscriptionPlanId;
-    readonly request: ReplacePlanMenuRequest;
-}
-
-/**
- * Replaces the whole fixed menu — or withdraws it, when all three parts arrive empty.
- *
- * Two invalidations rather than one, and neither is optional. The menu's own entry is refreshed
- * because it is what changed; the plan record is refreshed because this write moves the **catalogue
- * item's** lock version, which is the number the editor's other four sections send with their next
- * save. Leaving the record stale would make the next unrelated save fail with a conflict the person
- * could not account for.
- *
- * The workspace root is *not* blanket-invalidated the way {@link usePlanWriteEffects} does it: a
- * menu changes nothing on the plan listing, nothing a shopper sees, and nothing in the price lists.
- * What it does change is what a generated subscription order deducts — and there is no client cache
- * of that to invalidate, which is precisely why the editor states the consequence before the save
- * rather than after it.
- */
-export function useReplacePlanMenuMutation(): UseMutationResult<
-    PlanMenu,
-    unknown,
-    ReplacePlanMenuVariables
-> {
-    const repositories = useRepositories();
-    const queryClient = useQueryClient();
-
-    return useMutation({
-        mutationFn: ({ planId, request }: ReplacePlanMenuVariables) =>
-            repositories.kitchenAdmin.replacePlanMenu(planId, request),
-        onSuccess: (menu) => {
-            queryClient.setQueryData(queryKeys.kitchenAdmin.planMenu(menu.planId), menu);
-            void queryClient.invalidateQueries({
-                queryKey: queryKeys.kitchenAdmin.plan(menu.planId),
-            });
-        },
     });
 }
 
@@ -2422,6 +2516,29 @@ export function useRetireMealMutation(): UseMutationResult<
     });
 }
 
+/**
+ * "Assessed: contains none of these". For a product or a meal alike, so it invalidates rather than
+ * writes one kind's record into the cache, and the consumer roots hear it because the item goes back
+ * on sale.
+ */
+export function useMarkAllergensAssessedMutation(): UseMutationResult<
+    void,
+    unknown,
+    ProductId | MealId
+> {
+    const repositories = useRepositories();
+    const queryClient = useQueryClient();
+
+    return useMutation({
+        mutationFn: (itemId: ProductId | MealId) =>
+            repositories.kitchenAdmin.markAllergensAssessed(itemId),
+        onSuccess: () => {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenAdmin.all() });
+            void queryClient.invalidateQueries({ queryKey: queryKeys.catalogue.all() });
+        },
+    });
+}
+
 export interface SetMealAvailabilityVariables {
     readonly mealId: MealId;
     readonly request: SetMealAvailabilityRequest;
@@ -2491,6 +2608,17 @@ export function recipeRollupHash(draft: RecipeRollupDraft): string {
             line.quantity ?? null,
         ]),
         draft.packagingWastePercent ?? null,
+        // Each pack is costed under its key, so a fill or a component changed is a new question.
+        (draft.packs ?? []).map((pack) => [
+            pack.key,
+            pack.fillQuantity,
+            pack.fillUnit,
+            pack.components.map((component) => [
+                String(component.ingredientId),
+                component.quantity,
+                component.isContainer,
+            ]),
+        ]),
     ]);
 }
 
@@ -3378,7 +3506,7 @@ export function usePriceListPageQuery(
     filter: ListFilter<PriceListAdminFilter> | undefined,
     page: number,
     enabled = true,
-): PagedListResult<PriceListAdmin> {
+): UseQueryResult<PriceListPage, Error> {
     const { repositories } = useRepositoryContext();
 
     const key = queryKeys.kitchenAdmin.priceListsPage(filter, page);

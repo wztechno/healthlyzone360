@@ -1,27 +1,42 @@
 import type {
     DeliveryAddress,
+    DishOption,
     GuestOrderState,
+    KitchenOrderFulfilmentType,
     OrderStepTimes,
 } from '@healthy360/api-client/contracts';
-import { Button, Callout, Icon, useBreakpoint } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint, useMotion, useToast } from '@healthy360/design-system';
+import type { IconName } from '@healthy360/design-system';
 import type { Money } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
+import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Text as RNText, View } from 'react-native';
+import {
+    ActivityIndicator,
+    Animated,
+    Easing,
+    Platform,
+    Pressable,
+    Text as RNText,
+    View,
+} from 'react-native';
 
 import { usePrototypeAction } from '../../prototype/index.ts';
-import { Eyebrow } from '../../ui/eyebrow.tsx';
+import { dishOptionsLine } from '../../ui/dish-choices.tsx';
 import { formatAddress } from '../commerce/address.ts';
 import { formatMoney } from '../marketplace/format.ts';
 import { OrderLineThumb } from './order-line-thumb.tsx';
-import { currentStepIndex } from './order-progress.ts';
+import { ORDER_PROGRESS_STEPS, currentStepIndex } from './order-progress.ts';
 import type { OrderProgressStep } from './order-progress.ts';
-import { OrderTimeline } from './order-timeline.tsx';
+import { CancelledTimeline, OrderTimeline } from './order-timeline.tsx';
 
 /**
- * The HealthZone `track` screen's body, shared by the guest page (`/orders/{reference}`) and the
- * signed-in one (`/customer/orders/{order}`).
+ * The accepted Track board's body, shared by the guest page (`/orders/{reference}`) and the
+ * signed-in one (`/customer/orders/{order}`): the eyebrow and the status as the headline, the canopy
+ * "journey" with the road from the kitchen to the door and the rider on it, then "Order progress"
+ * beside "In this order" and "Courier".
  *
  * ## One presentation over two contracts
  *
@@ -64,6 +79,9 @@ export interface TrackableOrder {
         readonly name: string;
         readonly quantity: number;
         readonly lineTotal: Money;
+        /** What the line changed about the dish. An order that carries none leaves them out. */
+        readonly options?: readonly DishOption[] | undefined;
+        readonly note?: string | null | undefined;
     }[];
     readonly total: Money;
     readonly address: DeliveryAddress;
@@ -76,10 +94,13 @@ export interface TrackableOrder {
     readonly placedAt: string;
     /** When it reached each later step. A guest order carries none. */
     readonly stepTimes?: OrderStepTimes | undefined;
+    /** On a delivery, "ready" means it leaves soon, not that somebody should come for it. */
+    readonly fulfilmentType?: KitchenOrderFulfilmentType | undefined;
 }
 
-/** The design's white card: `--card` on a `--line` hairline, 16px corners. */
-const CARD = 'flex-col rounded-xl border border-stroke bg-surface-raised';
+/** The board's white card: 26px corners on a soft hairline, with its shadow. */
+const CARD =
+    'flex-col rounded-[26px] border border-stroke-subtle bg-surface-raised shadow-elevation-2';
 
 export interface OrderTrackingProps {
     readonly order: TrackableOrder;
@@ -91,8 +112,18 @@ export interface OrderTrackingProps {
      */
     readonly onRefresh?: (() => void) | undefined;
     readonly refreshing?: boolean | undefined;
+    /**
+     * Opens the page's own cancel confirmation. Drawn only while the order is `placed`: once the
+     * kitchen accepts it, the customer contacts the kitchen instead.
+     */
+    readonly onCancel?: (() => void) | undefined;
     /** Drawn at the foot of the timeline card, under the buttons. */
     readonly footer?: ReactNode;
+    /**
+     * Shop · Orders, pin 3: the reference as a bold, copyable chip under the lede, with the line
+     * on keeping it — the guest page's, which has no account to find the order from later.
+     */
+    readonly showReference?: boolean | undefined;
     /** Prefix for every test ID — `guest-order`, `customer-order`. */
     readonly testID: string;
 }
@@ -102,7 +133,9 @@ export function OrderTracking({
     paymentLabel,
     onRefresh,
     refreshing,
+    onCancel,
     footer,
+    showReference = false,
     testID,
 }: OrderTrackingProps) {
     const { t } = useTranslation();
@@ -111,6 +144,11 @@ export function OrderTracking({
     const { atLeast } = useBreakpoint();
     const prototype = usePrototypeAction();
     const wide = atLeast('md');
+    const router = useRouter();
+    // No endpoint yet: the prototype mechanism's "not available yet" toast (Shop · Orders, pin 5).
+    const askForHelp = () => {
+        prototype({ contract: 'POST /api/v1/orders/{order}/support-requests' });
+    };
 
     const current = currentStepIndex(order.state);
     const placedAt = formatter.formatDate(order.placedAt, { timeStyle: 'short' });
@@ -149,185 +187,567 @@ export function OrderTracking({
         }
     }
     const deliveredAt = order.state === 'delivered' ? (order.stepTimes?.delivered ?? null) : null;
+    const steps = ORDER_PROGRESS_STEPS.length - 1;
+    const progress = current === null ? 0 : current / steps;
+    const currentStep = current === null ? null : ORDER_PROGRESS_STEPS[current];
 
     return (
         <View className="flex-col">
-            {/* ── opening: eyebrow, the status as the headline, the window on the canopy ── */}
-            <View className="flex-row flex-wrap items-end justify-between gap-4">
-                <View className="min-w-[260px] flex-1 flex-col">
-                    <RNText
-                        testID={`${testID}-eyebrow`}
-                        selectable
-                        className="text-xs font-medium uppercase tracking-widest text-content-secondary text-start"
-                    >
-                        {t('guest:order.number')}
-                        <RNText testID={`${testID}-reference`}>{order.reference}</RNText>
-                        {t('guest:order.separator')}
-                        <RNText testID={`${testID}-placed`}>
-                            {t('guest:order.placedAt', { time: placedAt })}
-                        </RNText>
-                    </RNText>
-                    <RNText
-                        testID={`${testID}-title`}
-                        accessibilityRole="header"
-                        aria-level={1}
-                        // `text-4xl` (36px), the nearest step to the design's 38.
-                        className="mt-2.5 font-display text-4xl font-bold leading-[1.05] tracking-display text-content-primary text-start"
-                    >
-                        {t(`guest:order.headline.${order.state}`)}
-                    </RNText>
-                    <RNText
-                        testID={`${testID}-lead`}
-                        className="mt-1.5 text-base text-content-secondary text-start"
-                    >
-                        {t(`guest:order.lead.${order.state}`)}
-                    </RNText>
-                </View>
-
-                <View
-                    testID={`${testID}-window`}
-                    className="min-w-[190px] flex-col gap-1 rounded-panel bg-surface-canopy px-5 py-4"
+            {/* ── opening: eyebrow, the status as the headline, its lede ── */}
+            <View className="mt-3.5 flex-col">
+                <RNText
+                    testID={`${testID}-eyebrow`}
+                    selectable
+                    className="text-xs font-semibold uppercase tracking-wider tabular-nums text-content-secondary text-start"
                 >
-                    <Eyebrow tone="canopy">
-                        {deliveredAt === null
-                            ? t('guest:order.arriving')
-                            : t('guest:order.delivered')}
-                    </Eyebrow>
-                    <RNText
-                        testID={`${testID}-slot`}
-                        className="font-display text-2xl font-bold tracking-display text-content-on-canopy text-start"
-                    >
-                        {deliveredAt === null
-                            ? arriving
-                            : formatter.formatDate(deliveredAt, {
-                                  weekday: 'short',
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                              })}
+                    {t('guest:order.number')}
+                    <RNText testID={`${testID}-reference`} className="text-content-primary">
+                        {order.reference}
                     </RNText>
-                </View>
+                    {t('guest:order.separator')}
+                    <RNText testID={`${testID}-placed`}>
+                        {t('guest:order.placedAt', { time: placedAt })}
+                    </RNText>
+                </RNText>
+                <RNText
+                    testID={`${testID}-title`}
+                    accessibilityRole="header"
+                    aria-level={1}
+                    className="mt-1.5 font-display text-4xl font-bold leading-[46px] tracking-display text-content-primary text-start"
+                >
+                    {t(`guest:order.headline.${order.state}`)}
+                </RNText>
+                <RNText
+                    testID={`${testID}-lead`}
+                    className="mt-1.5 text-base font-medium text-content-secondary text-start"
+                >
+                    {t(`guest:order.lead.${order.state}`)}
+                </RNText>
             </View>
 
-            {/* ── the timeline, and the three actions under it ── */}
-            <View testID={`${testID}-progress`} className={`${CARD} mt-6 p-6`}>
-                {current === null ? (
-                    <Callout
-                        testID={`${testID}-cancelled`}
-                        role="status"
-                        tone="info"
-                        title={t('guest:order.cancelledTitle')}
-                        body={t('guest:order.cancelledBody')}
-                    />
-                ) : (
-                    <OrderTimeline
-                        testID={`${testID}-timeline`}
-                        current={current}
-                        placedAt={placedAt}
-                        times={times}
-                        placedDetail={t('guest:order.steps.placed.detail', {
-                            payment: paymentLabel,
-                            total: formatMoney(formatter, order.total),
-                        })}
-                    />
-                )}
-                <View className="mt-0.5 flex-row flex-wrap gap-2.5 border-t border-stroke-subtle pt-4">
-                    {onRefresh === undefined ? null : (
-                        <Button
-                            testID={`${testID}-refresh`}
-                            label={t('guest:order.refresh')}
-                            loading={refreshing ?? false}
-                            onPress={onRefresh}
+            {showReference ? <ReferenceChip testID={testID} reference={order.reference} /> : null}
+
+            {/* ── the journey: when it arrives, and the road from the kitchen to the door ── */}
+            {current === null ? (
+                // Shop · Orders, pin 1: a cancelled order has no arrival — a red card with what
+                // that means and two ways on, in place of the canopy band.
+                <View
+                    testID={`${testID}-cancelled`}
+                    role="status"
+                    className="mt-[22px] flex-row flex-wrap items-center gap-[18px] rounded-[26px] border border-danger-border bg-danger-subtle px-6 py-[22px]"
+                >
+                    <View className="h-14 w-14 items-center justify-center rounded-[18px] bg-danger-strong">
+                        <Icon name="close" size="lg" className="text-danger-on-strong" />
+                    </View>
+                    <View className="min-w-[200px] flex-1 flex-col gap-0.5">
+                        <RNText className="font-display text-xl font-bold text-danger-on-subtle text-start">
+                            {t('guest:order.cancelledTitle')}
+                        </RNText>
+                        <RNText className="text-sm font-medium text-danger-on-subtle text-start">
+                            {t('guest:order.cancelledBody')}
+                        </RNText>
+                    </View>
+                    <View className="flex-row flex-wrap gap-2">
+                        <PillButton
+                            testID={`${testID}-cancelled-help`}
+                            label={t('guest:order.getHelp')}
+                            hint={t('marketplace:prototype.hint')}
+                            onPress={askForHelp}
                         />
-                    )}
-                    {order.state === 'out_for_delivery' ? (
-                        <Button
-                            testID={`${testID}-message`}
-                            variant="secondary"
-                            label={t('guest:order.messageCourier')}
-                            accessibilityHint={t('marketplace:prototype.hint')}
+                        <PillButton
+                            testID={`${testID}-cancelled-browse`}
+                            label={t('account:orders.browse')}
+                            ink
                             onPress={() => {
-                                prototype({
-                                    contract: 'POST /api/v1/orders/{order}/courier-messages',
-                                });
+                                router.push('/meals');
                             }}
                         />
-                    ) : null}
-                    <Button
-                        testID={`${testID}-help`}
-                        variant="quiet"
-                        label={t('guest:order.getHelp')}
-                        accessibilityHint={t('marketplace:prototype.hint')}
-                        onPress={() => {
-                            prototype({ contract: 'POST /api/v1/orders/{order}/support-requests' });
-                        }}
-                    />
+                    </View>
                 </View>
-                {footer === undefined ? null : <View className="pt-4">{footer}</View>}
-            </View>
-
-            {/* ── what is in it, and who is bringing it where ── */}
-            <View className={wide ? 'mt-4 flex-row items-stretch gap-4' : 'mt-4 flex-col gap-4'}>
-                <View testID={`${testID}-items`} className={`${CARD} p-5 ${wide ? 'flex-1' : ''}`}>
-                    <Eyebrow>{t('guest:order.itemsTitle')}</Eyebrow>
-                    <View className="mt-3 flex-col gap-3" testID={`${testID}-lines`}>
-                        {order.lines.map((line) => (
-                            <View
-                                key={line.id}
-                                testID={`${testID}-line-${line.id}`}
-                                className="flex-row items-center gap-3"
+            ) : (
+                <View
+                    testID={`${testID}-window`}
+                    className="relative mt-[22px] overflow-hidden rounded-[26px] bg-surface-canopy px-7 pb-[22px] pt-6"
+                >
+                    <View
+                        aria-hidden
+                        className="absolute -end-[100px] -top-[160px] h-[420px] w-[420px] rounded-full bg-stage-green opacity-15"
+                    />
+                    <View className="flex-row flex-wrap items-end justify-between gap-4">
+                        <View className="min-w-0">
+                            <RNText className="text-xs font-bold uppercase tracking-wider text-stage-green text-start">
+                                {deliveredAt === null
+                                    ? t('guest:order.arriving')
+                                    : t('guest:order.delivered')}
+                            </RNText>
+                            <RNText
+                                testID={`${testID}-slot`}
+                                className="mt-1 font-display text-2xl font-bold tracking-display text-content-on-canopy text-start"
                             >
-                                <OrderLineThumb
-                                    name={line.name}
-                                    className="h-[46px] w-[46px] rounded"
+                                {deliveredAt === null
+                                    ? arriving
+                                    : formatter.formatDate(deliveredAt, {
+                                          weekday: 'short',
+                                          hour: 'numeric',
+                                          minute: '2-digit',
+                                      })}
+                            </RNText>
+                        </View>
+                        {currentStep === null || currentStep === undefined ? null : (
+                            <RNText className="text-sm font-medium text-content-on-canopy-muted">
+                                {currentStep === 'ready_for_pickup' &&
+                                order.fulfilmentType === 'delivery'
+                                    ? t('guest:order.readyOutSoon')
+                                    : t(`guest:order.steps.${currentStep}.title`)}
+                            </RNText>
+                        )}
+                    </View>
+                    {current === null ? null : (
+                        <Road progress={progress} moving={order.state === 'out_for_delivery'} />
+                    )}
+                </View>
+            )}
+
+            {/* ── the timeline beside what is in it and who is bringing it ── */}
+            <View
+                className={
+                    wide ? 'mt-[22px] flex-row items-start gap-6' : 'mt-[22px] flex-col gap-4'
+                }
+            >
+                <View
+                    testID={`${testID}-progress`}
+                    className={`${CARD} px-[22px] py-5 ${wide ? 'min-w-0 flex-1' : ''}`}
+                >
+                    <CardTitle>{t('guest:order.progressTitle')}</CardTitle>
+                    {current === null ? (
+                        <CancelledTimeline
+                            testID={`${testID}-timeline`}
+                            placedAt={placedAt}
+                            times={times}
+                            placedDetail={t('guest:order.steps.placed.detail', {
+                                payment: paymentLabel,
+                                total: formatMoney(formatter, order.total),
+                            })}
+                        />
+                    ) : (
+                        <OrderTimeline
+                            testID={`${testID}-timeline`}
+                            current={current}
+                            placedAt={placedAt}
+                            times={times}
+                            delivery={order.fulfilmentType === 'delivery'}
+                            placedDetail={t('guest:order.steps.placed.detail', {
+                                payment: paymentLabel,
+                                total: formatMoney(formatter, order.total),
+                            })}
+                        />
+                    )}
+                    {/* A cancelled order's ways on are in its red card; nothing to refresh or ask. */}
+                    {current === null ? null : (
+                        <View className="flex-row flex-wrap gap-2 border-t border-stroke-subtle pt-3.5">
+                            {onRefresh === undefined ? null : (
+                                <SoftButton
+                                    testID={`${testID}-refresh`}
+                                    label={t('guest:order.refresh')}
+                                    icon="refresh"
+                                    primary
+                                    busy={refreshing ?? false}
+                                    onPress={onRefresh}
                                 />
-                                <RNText className="min-w-0 flex-1 text-sm text-content-primary text-start">
-                                    {t('guest:order.lineLabel', {
-                                        qty: formatter.formatNumber(line.quantity),
-                                        name: line.name,
-                                    })}
+                            )}
+                            {onCancel === undefined || order.state !== 'placed' ? null : (
+                                <SoftButton
+                                    testID={`${testID}-cancel`}
+                                    label={t('account:orders.cancelOpen')}
+                                    icon="close"
+                                    onPress={onCancel}
+                                />
+                            )}
+                            <SoftButton
+                                testID={`${testID}-help`}
+                                label={t('guest:order.getHelp')}
+                                icon="circleHelp"
+                                hint={t('marketplace:prototype.hint')}
+                                onPress={askForHelp}
+                            />
+                            {order.state === 'out_for_delivery' ? (
+                                <SoftButton
+                                    testID={`${testID}-message`}
+                                    label={t('guest:order.messageCourier')}
+                                    icon="send"
+                                    hint={t('marketplace:prototype.hint')}
+                                    onPress={() => {
+                                        prototype({
+                                            contract:
+                                                'POST /api/v1/orders/{order}/courier-messages',
+                                        });
+                                    }}
+                                />
+                            ) : null}
+                        </View>
+                    )}
+                    {footer === undefined ? null : <View className="pt-4">{footer}</View>}
+                </View>
+
+                <View className={wide ? 'w-[380px] flex-col gap-4' : 'flex-col gap-4'}>
+                    <View testID={`${testID}-items`} className={`${CARD} px-5 py-[18px]`}>
+                        <CardTitle>{t('guest:order.itemsTitle')}</CardTitle>
+                        <View className="flex-col" testID={`${testID}-lines`}>
+                            {order.lines.map((line) => (
+                                <View
+                                    key={line.id}
+                                    testID={`${testID}-line-${line.id}`}
+                                    className="flex-row items-center gap-3 py-2"
+                                >
+                                    <OrderLineThumb
+                                        name={line.name}
+                                        className="h-12 w-12 rounded-xl"
+                                    />
+                                    <RNText className="min-w-0 flex-1 text-sm font-semibold text-content-primary text-start">
+                                        {t('guest:order.lineLabel', {
+                                            qty: formatter.formatNumber(line.quantity),
+                                            name: line.name,
+                                        })}
+                                        <LineMods
+                                            line={line}
+                                            testID={`${testID}-line-${line.id}`}
+                                        />
+                                    </RNText>
+                                    <RNText className="text-sm font-bold tabular-nums text-content-primary text-end">
+                                        {formatMoney(formatter, line.lineTotal)}
+                                    </RNText>
+                                </View>
+                            ))}
+                        </View>
+                        <View className="mt-2 flex-row items-baseline justify-between border-t border-dashed border-stroke pt-3">
+                            <RNText className="text-sm font-medium text-content-secondary">
+                                {t('guest:order.totalToPay', { payment: paymentLabel })}
+                            </RNText>
+                            <RNText className="font-display text-2xl font-bold tabular-nums text-content-primary">
+                                {formatMoney(formatter, order.total)}
+                            </RNText>
+                        </View>
+                    </View>
+
+                    <View testID={`${testID}-detail`} className={`${CARD} px-5 py-[18px]`}>
+                        <CardTitle>{t('guest:order.courierTitle')}</CardTitle>
+                        <View className="flex-row items-center gap-3">
+                            <View
+                                aria-hidden
+                                accessibilityElementsHidden
+                                importantForAccessibility="no-hide-descendants"
+                                className="h-12 w-12 items-center justify-center rounded-full bg-surface-brand-subtle"
+                            >
+                                <Icon
+                                    name="bike"
+                                    size="md"
+                                    className="text-content-on-brand-subtle"
+                                />
+                            </View>
+                            <View className="min-w-0 flex-1 flex-col">
+                                <RNText className="text-base font-bold text-content-primary text-start">
+                                    {t('guest:order.courierName')}
                                 </RNText>
-                                <RNText className="text-sm font-semibold tabular-nums text-content-primary text-end">
-                                    {formatMoney(formatter, line.lineTotal)}
+                                <RNText className="text-sm font-medium text-content-secondary text-start">
+                                    {t('guest:order.courierDetail')}
                                 </RNText>
                             </View>
-                        ))}
-                    </View>
-                </View>
-
-                <View testID={`${testID}-detail`} className={`${CARD} p-5 ${wide ? 'flex-1' : ''}`}>
-                    <Eyebrow>{t('guest:order.courierTitle')}</Eyebrow>
-                    <View className="mt-3 flex-row items-center gap-3">
-                        <View
-                            aria-hidden
-                            accessibilityElementsHidden
-                            importantForAccessibility="no-hide-descendants"
-                            className="h-[52px] w-[52px] items-center justify-center rounded-full border border-stroke-subtle bg-surface-sunken"
+                        </View>
+                        <RNText
+                            testID={`${testID}-address`}
+                            className="mt-3 border-t border-stroke-subtle pt-3 text-sm font-medium leading-relaxed text-content-secondary text-start"
                         >
-                            <Icon name="bike" size="md" className="text-content-secondary" />
-                        </View>
-                        <View className="min-w-0 flex-1 flex-col">
-                            <RNText className="font-display text-lg font-bold tracking-display text-content-primary text-start">
-                                {t('guest:order.courierName')}
-                            </RNText>
-                            <RNText className="text-sm text-content-secondary text-start">
-                                {t('guest:order.courierDetail')}
-                            </RNText>
-                        </View>
+                            {t('guest:order.droppingAt', { address: formatAddress(order.address) })}
+                            {note === '' ? null : (
+                                <>
+                                    {' '}
+                                    {t('guest:order.noteOnFile')}{' '}
+                                    <RNText className="italic">{note}</RNText>
+                                </>
+                            )}
+                        </RNText>
                     </View>
-                    <RNText
-                        testID={`${testID}-address`}
-                        className="mt-4 border-t border-stroke-subtle pt-3 text-sm leading-relaxed text-content-primary text-start"
-                    >
-                        {t('guest:order.droppingAt', { address: formatAddress(order.address) })}
-                        {note === '' ? null : (
-                            <>
-                                {' '}
-                                {t('guest:order.noteOnFile')}{' '}
-                                <RNText className="italic">{note}</RNText>
-                            </>
-                        )}
-                    </RNText>
                 </View>
+            </View>
+        </View>
+    );
+}
+
+/**
+ * What a line changed about the dish and its note, in the cart line's own wording
+ * (`cart-line.tsx`), as a second line nested in the line's label. Nothing when it changed nothing.
+ */
+function LineMods({
+    line,
+    testID,
+}: {
+    readonly line: TrackableOrder['lines'][number];
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const { locale } = useLocale();
+    const mods = [dishOptionsLine(line.options, locale, t), line.note]
+        .filter((part) => part != null && part !== '')
+        .join(t('catalogue:dishOptions.separator'));
+    if (mods === '') return null;
+    return (
+        <RNText testID={`${testID}-mods`} className="text-xs font-normal text-content-secondary">
+            {'\n'}
+            {mods}
+        </RNText>
+    );
+}
+
+function CardTitle({ children }: { readonly children: string }) {
+    return (
+        <RNText
+            accessibilityRole="header"
+            aria-level={2}
+            className="mb-3 text-base font-bold text-content-primary text-start"
+        >
+            {children}
+        </RNText>
+    );
+}
+
+/** The cancelled card's two ways on: a white pill, and the ink one. */
+function PillButton({
+    testID,
+    label,
+    ink = false,
+    hint,
+    onPress,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly ink?: boolean;
+    readonly hint?: string | undefined;
+    readonly onPress: () => void;
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            accessibilityHint={hint}
+            onPress={onPress}
+            className={cx(
+                'h-11 flex-row items-center rounded-full px-[18px]',
+                ink
+                    ? 'bg-content-primary hover:opacity-90'
+                    : 'border border-stroke bg-surface-raised hover:bg-surface-sunken',
+            )}
+        >
+            <RNText
+                className={cx(
+                    'text-sm font-bold',
+                    ink ? 'text-surface-base' : 'text-content-primary',
+                )}
+            >
+                {label}
+            </RNText>
+        </Pressable>
+    );
+}
+
+/** What the web can copy to: the async clipboard, where the page is allowed it. */
+function webClipboard(): { writeText: (text: string) => Promise<void> } | null {
+    if (Platform.OS !== 'web') return null;
+    const nav = (
+        globalThis as { navigator?: { clipboard?: { writeText: (text: string) => Promise<void> } } }
+    ).navigator;
+    return nav?.clipboard ?? null;
+}
+
+/**
+ * The reference as a chip: its label, the number in the display face, and Copy where the page
+ * can copy (on native the number is selectable instead). The keep-it line sits under it.
+ */
+function ReferenceChip({
+    testID,
+    reference,
+}: {
+    readonly testID: string;
+    readonly reference: string;
+}) {
+    const { t } = useTranslation();
+    const toast = useToast();
+    const clipboard = webClipboard();
+    return (
+        <View className="mt-3 flex-col items-start">
+            <View
+                testID={`${testID}-reference-chip`}
+                className="flex-row items-center gap-2.5 rounded-2xl border border-stroke-subtle bg-surface-raised py-1.5 pe-1.5 ps-3.5 shadow-elevation-1"
+            >
+                <RNText className="text-xs font-semibold text-content-secondary">
+                    {t('guest:order.reference')}
+                </RNText>
+                <RNText
+                    testID={`${testID}-reference-keep`}
+                    selectable
+                    className="font-display text-base font-bold tracking-wide tabular-nums text-content-primary"
+                >
+                    {reference}
+                </RNText>
+                {clipboard === null ? null : (
+                    <Pressable
+                        testID={`${testID}-reference-copy`}
+                        role="button"
+                        accessibilityRole="button"
+                        onPress={() => {
+                            void clipboard.writeText(reference).then(() => {
+                                toast.show({
+                                    testID: `${testID}-reference-copied`,
+                                    tone: 'success',
+                                    message: t('guest:order.copied'),
+                                });
+                            });
+                        }}
+                        className="h-[34px] flex-row items-center gap-1.5 rounded-[11px] bg-surface-brand-subtle px-3 hover:opacity-90"
+                    >
+                        <Icon name="copy" size="sm" className="text-content-on-brand-subtle" />
+                        <RNText className="text-xs font-bold text-content-on-brand-subtle">
+                            {t('guest:order.copy')}
+                        </RNText>
+                    </Pressable>
+                )}
+            </View>
+            <RNText className="mt-1.5 text-sm font-medium text-content-secondary text-start">
+                {t('guest:order.keepReference')}
+            </RNText>
+        </View>
+    );
+}
+
+/** The board's 44px soft buttons under the timeline — Refresh, Get help, Message the courier. */
+function SoftButton({
+    testID,
+    label,
+    icon,
+    primary = false,
+    busy = false,
+    hint,
+    onPress,
+}: {
+    readonly testID: string;
+    readonly label: string;
+    readonly icon: IconName;
+    readonly primary?: boolean;
+    readonly busy?: boolean;
+    readonly hint?: string | undefined;
+    readonly onPress: () => void;
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="button"
+            accessibilityRole="button"
+            accessibilityHint={hint}
+            disabled={busy}
+            aria-busy={busy}
+            accessibilityState={{ disabled: busy, busy }}
+            onPress={onPress}
+            className={cx(
+                'h-11 flex-row items-center gap-2 rounded-[14px] border px-4',
+                primary
+                    ? 'border-surface-brand bg-surface-brand hover:opacity-90'
+                    : 'border-stroke bg-surface-raised hover:bg-surface-brand-subtle',
+            )}
+        >
+            {busy ? (
+                <ActivityIndicator size="small" />
+            ) : (
+                <Icon
+                    name={icon}
+                    size="sm"
+                    className={primary ? 'text-content-on-brand' : 'text-content-primary'}
+                />
+            )}
+            <RNText
+                className={cx(
+                    'text-sm font-semibold',
+                    primary ? 'text-content-on-brand' : 'text-content-primary',
+                )}
+            >
+                {label}
+            </RNText>
+        </Pressable>
+    );
+}
+
+/**
+ * The board's road: a dashed line from the kitchen to the door, filled as far as the order has
+ * come, with the rider on it — bobbing while the food is on the road. Drawn with flex parts, not an
+ * inline `start`, so it runs the right way in Arabic.
+ */
+function Road({ progress, moving }: { readonly progress: number; readonly moving: boolean }) {
+    const { enabled } = useMotion();
+    const [bob] = useState(() => new Animated.Value(0));
+    useEffect(() => {
+        if (!enabled || !moving) return undefined;
+        const loop = Animated.loop(
+            Animated.sequence([
+                Animated.timing(bob, {
+                    toValue: 1,
+                    duration: 600,
+                    easing: Easing.inOut(Easing.quad),
+                    useNativeDriver: Platform.OS !== 'web',
+                }),
+                Animated.timing(bob, {
+                    toValue: 0,
+                    duration: 600,
+                    easing: Easing.inOut(Easing.quad),
+                    useNativeDriver: Platform.OS !== 'web',
+                }),
+            ]),
+        );
+        loop.start();
+        return () => {
+            loop.stop();
+        };
+    }, [bob, enabled, moving]);
+    const share = Math.max(0, Math.min(1, progress));
+
+    return (
+        <View aria-hidden className="relative mt-[22px] h-14">
+            {/* The dashes: short bars along the whole run. */}
+            <View className="absolute end-[22px] start-[22px] top-[26px] h-1 flex-row justify-between overflow-hidden">
+                {Array.from({ length: 48 }, (_, index) => (
+                    <View key={index} className="h-1 w-2.5 rounded-full bg-content-on-canopy/30" />
+                ))}
+            </View>
+            {/* How far it has come. */}
+            <View className="absolute end-[22px] start-[22px] top-[26px] h-1 flex-row">
+                <View className="h-1 rounded-full bg-stage-green" style={{ flex: share }} />
+                <View style={{ flex: 1 - share }} />
+            </View>
+            <View className="absolute start-0 top-1.5 h-11 w-11 items-center justify-center rounded-full bg-content-on-canopy/15">
+                <Icon name="store" size="md" className="text-content-on-canopy" />
+            </View>
+            <View className="absolute end-0 top-1.5 h-11 w-11 items-center justify-center rounded-full bg-content-on-canopy/15">
+                <Icon name="house" size="md" className="text-content-on-canopy" />
+            </View>
+            {/* The rider, where the fill ends. */}
+            <View className="absolute end-[22px] start-[22px] top-0.5 h-[52px] flex-row">
+                <View style={{ flex: share }} />
+                <View className="w-0 items-center">
+                    <Animated.View
+                        className="h-[52px] w-[52px] items-center justify-center rounded-full border-8 border-stage-green/20 bg-stage-green"
+                        style={{
+                            transform: [
+                                {
+                                    translateY: bob.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [0, -3],
+                                    }),
+                                },
+                            ],
+                        }}
+                    >
+                        <Icon name="bike" size="md" className="text-surface-canopy" />
+                    </Animated.View>
+                </View>
+                <View style={{ flex: 1 - share }} />
             </View>
         </View>
     );

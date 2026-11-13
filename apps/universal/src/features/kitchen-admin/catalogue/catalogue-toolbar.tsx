@@ -160,7 +160,7 @@ export function CatalogueToolbar<Status extends string = string>({
         // its filters open (a date picker's month). A plain View, so the class is not overridden.
         <View
             testID={testID}
-            className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-brand-100 bg-surface-raised p-tight shadow-elevation-card"
+            className="z-10 min-h-control-sm flex-row flex-wrap items-center gap-tight rounded-panel border border-stroke-subtle bg-surface-raised p-tight shadow-elevation-card"
         >
             {/*
              * `flex-1` — basis zero — is what makes the zone wrap inside before the row wraps

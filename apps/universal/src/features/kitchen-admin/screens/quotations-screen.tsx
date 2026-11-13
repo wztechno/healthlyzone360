@@ -6,8 +6,6 @@ import type {
     KitchenQuotationStatus,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Callout,
     Cascade,
     EmptyState,
@@ -41,8 +39,8 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../catalogue/catalogue-toolbar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure, LensMixPart, LensTone } from '../catalogue/lens-bar.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { quotationLineColumns } from '../commercial/quotation-line-columns.tsx';
@@ -61,10 +59,13 @@ import {
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { focusField } from '../field-focus.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { RecordFormOpening } from '../record-form-opening.tsx';
+import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
+import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /** The request `?view=` names, read on its own when the loaded page does not hold it. */
 function useQuotationById(id: string | null) {
     const parsed = QuotationId.safeParse(id);
@@ -97,9 +98,9 @@ function useQuotationById(id: string | null) {
  *
  * ## Pricing rules kept verbatim
  *
- * Major units in, minor units out through `parseMinorAmount`. **Every line, or none**: Send stays
- * disabled until every line parses; zero is accepted, empty is not, and the sentence beside the
- * button says so. Currency is stated, never chosen. A conflict and a stale quotation are answered
+ * Major units in, minor units out through `parseMinorAmount`. **Every line, or none**: until every
+ * line parses, Send takes the reader to the first that does not and the guidance callout says why;
+ * zero is accepted, empty is not. Currency is stated, never chosen. A conflict and a stale quotation are answered
  * with a re-read, told apart in the copy.
  *
  * ## Filtering and search happen here because the endpoint offers none
@@ -194,8 +195,8 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                 compareText(left.reference, right.reference, direction),
             render: (row) => (
                 <Text
-                    variant="mono"
-                    className="font-semibold"
+                    tone="secondary"
+                    className="font-semibold tabular-nums"
                     testID={`${kitchenQuotationRowTestId(String(row.id))}-reference`}
                 >
                     {row.reference}
@@ -232,7 +233,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
             },
             render: (row) => (
                 <Text
-                    variant="mono"
+                    tone="secondary"
                     testID={`${kitchenQuotationRowTestId(String(row.id))}-currency`}
                 >
                     {row.currencyCode}
@@ -250,8 +251,8 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                 compareText(left.submittedAt ?? '', right.submittedAt ?? '', direction),
             render: (row) => (
                 <Text
-                    variant="mono"
                     tone="secondary"
+                    className="tabular-nums"
                     testID={`${kitchenQuotationRowTestId(String(row.id))}-submitted`}
                 >
                     {submittedText(row, t, formatter)}
@@ -265,7 +266,13 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
             width: 120,
             priority: 85,
             value: (row) => t(kitchenQuotationStatusKey(row.status)),
-            // One status at a time, all five — the segments fold three of them into Closed, and
+            sort: (left, right, direction) =>
+                compareText(
+                    t(kitchenQuotationStatusKey(left.status)),
+                    t(kitchenQuotationStatusKey(right.status)),
+                    direction,
+                ),
+            // One status at a time, all five — the figures fold three of them into Closed, and
             // this is where "only the declined ones" is asked.
             filter: {
                 values: () =>
@@ -276,7 +283,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                 match: (row, value) => row.status === value,
             },
             render: (row) => (
-                <Badge
+                <DeskChip
                     testID={`${kitchenQuotationRowTestId(String(row.id))}-status`}
                     tone={kitchenQuotationStatusTone(row.status)}
                     label={t(kitchenQuotationStatusKey(row.status))}
@@ -287,7 +294,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
 
     const controls = useColumnControls(rows, columns, 'kitchen-quotations');
     const listFailure = toFailure(quotations.error);
-    // The segment, the search and the header filters all narrow the same held rows, so "unfiltered"
+    // The status figure, the search and the header filters all narrow the same held rows, so "unfiltered"
     // and Clear have to answer for all three.
     const unfiltered = filter === 'all' && search === '' && !controls.filtered;
     const clearFilters = () => {
@@ -310,14 +317,12 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
         );
     }
 
-    const loaded = all.length;
-    const awaiting = all.filter((row) => row.status === 'submitted').length;
-    const quoted = all.filter((row) => row.status === 'quoted').length;
-
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-quotations-view"
+                look="board"
+                eyebrow={t('kitchen:recordView.eyebrowQuotations')}
                 onBack={() => {
                     setViewing(null);
                 }}
@@ -338,145 +343,142 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                 }}
             />
         );
-    }
+
+    // A failed read has no figures to state; the bar holds its placeholders over the error.
+    const pending = quotations.isPending || listFailure !== null;
+    const filterToken = t('kitchen:lens.token', {
+        label: t('kitchen:toolbar.statusLabel'),
+        value: t(`kitchen:ops.quotations.filter.${filter}`),
+    });
+
+    // The table closes the toolbar's card only when it is drawn.
+    const joined = !quotations.isPending && controls.rows.length > 0;
 
     return (
         <Cascade space="md" testID="kitchen-quotations-screen">
-            {listFailure !== null ? null : (
-                <CatalogueStatCards
-                    testID="kitchen-quotations-panel-metric"
-                    pending={quotations.isPending}
-                    cards={[
-                        {
-                            key: 'loaded',
-                            label: t('kitchen:ops.quotations.metrics.loaded'),
-                            value: String(loaded),
-                            unit: t('kitchen:list.statRecords'),
-                            caption: t('kitchen:ops.quotations.statLoadedCaption'),
-                            mark: 'list',
-                            tone: 'brand',
-                            onPress: clearFilters,
-                            accessibilityLabel: t('kitchen:ops.quotations.clearFilter'),
-                        },
-                        {
-                            key: 'awaiting',
-                            label: t('kitchen:ops.quotations.metrics.awaiting'),
-                            value: String(awaiting),
-                            unit: t('kitchen:list.statRecords'),
-                            caption: t('kitchen:ops.quotations.statAwaitingCaption'),
-                            mark: 'clock',
-                            tone: awaiting === 0 ? 'default' : 'warning',
-                            onPress: () => {
-                                setFilter('awaiting');
-                            },
-                            accessibilityLabel: t('kitchen:ops.quotations.filter.awaiting'),
-                        },
-                        {
-                            key: 'quoted',
-                            label: t('kitchen:ops.quotations.metrics.quoted'),
-                            value: String(quoted),
-                            unit: t('kitchen:list.statRecords'),
-                            caption: t('kitchen:ops.quotations.statQuotedCaption'),
-                            mark: 'circleCheck',
-                        },
-                    ]}
-                />
-            )}
-
-            <CatalogueToolbar<StatusFilter>
-                testID="kitchen-quotations-toolbar"
-                search={search}
-                onSearchChange={(next) => {
-                    setSearch(next);
-                    setViewing(null);
-                }}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:ops.quotations.columnReference')}
-                statusLabel={t('kitchen:ops.quotations.filterLabel')}
-                statusSegments={FILTERS.map((value) => ({
-                    value,
-                    label: t(`kitchen:ops.quotations.filter.${value}`),
-                }))}
-                status={filter}
-                onStatusChange={(next) => {
-                    setFilter(next);
-                    setViewing(null);
-                }}
-            >
-                <ColumnPicker {...controls.picker} />
-            </CatalogueToolbar>
-
-            {quotations.isPending ? (
-                <TableSkeleton testID="kitchen-quotations-loading" />
-            ) : listFailure !== null ? (
-                <ErrorState
-                    testID="kitchen-quotations-error"
-                    title={t('kitchen:ops.quotations.loadErrorTitle')}
-                    failure={listFailure}
-                    onRetry={() => {
-                        void quotations.refetch();
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-quotations-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures(all, pending, filter, t, (next) => {
+                        setFilter(next);
+                        setViewing(null);
+                    })}
+                    {...(pending ? {} : lensMix(all, filter, t))}
+                    search={search}
+                    onSearchChange={(next) => {
+                        setSearch(next);
+                        setViewing(null);
                     }}
-                    retrying={quotations.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-quotations-empty"
-                    title={t(
-                        unfiltered
-                            ? 'kitchen:ops.quotations.emptyTitle'
-                            : 'kitchen:ops.quotations.filteredEmptyTitle',
-                    )}
-                    body={t(
-                        unfiltered
-                            ? 'kitchen:ops.quotations.emptyBody'
-                            : 'kitchen:ops.quotations.filteredEmptyBody',
-                    )}
-                    actions={
-                        unfiltered ? undefined : (
-                            <Button
-                                testID="kitchen-quotations-clear"
-                                variant="secondary"
-                                size="sm"
-                                label={t('kitchen:ops.quotations.clearFilter')}
-                                onPress={clearFilters}
-                            />
-                        )
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:ops.quotations.searchPlaceholder')}
+                    tokens={
+                        filter === 'all'
+                            ? []
+                            : [
+                                  {
+                                      key: 'status',
+                                      label: filterToken,
+                                      removeLabel: t('kitchen:toolbar.removeFilter', {
+                                          filter: filterToken,
+                                      }),
+                                      onRemove: () => {
+                                          setFilter('all');
+                                      },
+                                  },
+                              ]
                     }
+                    result={
+                        pending
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: controls.rows.length,
+                                  total: all.length,
+                              })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered ? {} : { onClear: clearFilters })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                 />
-            ) : (
-                <CatalogueList<KitchenQuotation>
-                    testID="kitchen-quotations-table"
-                    label={t('kitchen:ops.quotations.caption')}
-                    columns={controls.columns}
-                    rows={controls.rows}
-                    rowKey={(row) => String(row.id)}
-                    density="sm"
-                    onRowPress={(row) => {
-                        setOpenId(row.id);
-                    }}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                    rowActions={(row): readonly MenuItem[] => [
-                        {
-                            key: 'view',
-                            label: t('kitchen:list.view'),
-                            icon: CATALOGUE_ROW_ICONS.view,
-                            testID: `${kitchenQuotationRowTestId(String(row.id))}-view`,
-                            onSelect: () => {
-                                setViewing(row);
+
+                {quotations.isPending ? (
+                    <TableSkeleton testID="kitchen-quotations-loading" />
+                ) : listFailure !== null ? (
+                    <ErrorState
+                        testID="kitchen-quotations-error"
+                        title={t('kitchen:ops.quotations.loadErrorTitle')}
+                        failure={listFailure}
+                        onRetry={() => {
+                            void quotations.refetch();
+                        }}
+                        retrying={quotations.isFetching}
+                    />
+                ) : controls.rows.length === 0 ? (
+                    <EmptyState
+                        testID="kitchen-quotations-empty"
+                        title={t(
+                            unfiltered
+                                ? 'kitchen:ops.quotations.emptyTitle'
+                                : 'kitchen:ops.quotations.filteredEmptyTitle',
+                        )}
+                        body={t(
+                            unfiltered
+                                ? 'kitchen:ops.quotations.emptyBody'
+                                : 'kitchen:ops.quotations.filteredEmptyBody',
+                        )}
+                        actions={
+                            unfiltered ? undefined : (
+                                <DeskButton
+                                    testID="kitchen-quotations-clear"
+                                    variant="secondary"
+                                    size="sm"
+                                    label={t('kitchen:ops.quotations.clearFilter')}
+                                    onPress={clearFilters}
+                                />
+                            )
+                        }
+                    />
+                ) : (
+                    <CatalogueList<KitchenQuotation>
+                        testID="kitchen-quotations-table"
+                        joined
+                        label={t('kitchen:ops.quotations.caption')}
+                        columns={controls.columns}
+                        rows={controls.rows}
+                        rowKey={(row) => String(row.id)}
+                        density="sm"
+                        onRowPress={(row) => {
+                            setOpenId(row.id);
+                        }}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        rowActions={(row): readonly MenuItem[] => [
+                            {
+                                key: 'view',
+                                label: t('kitchen:list.view'),
+                                icon: CATALOGUE_ROW_ICONS.view,
+                                testID: `${kitchenQuotationRowTestId(String(row.id))}-view`,
+                                onSelect: () => {
+                                    setViewing(row);
+                                },
                             },
-                        },
-                        {
-                            key: 'edit',
-                            label: t('kitchen:catalogue.edit'),
-                            icon: CATALOGUE_ROW_ICONS.edit,
-                            testID: `${kitchenQuotationRowTestId(String(row.id))}-open`,
-                            onSelect: () => {
-                                setOpenId(row.id);
+                            {
+                                key: 'edit',
+                                label: t('kitchen:catalogue.edit'),
+                                icon: CATALOGUE_ROW_ICONS.edit,
+                                testID: `${kitchenQuotationRowTestId(String(row.id))}-open`,
+                                onSelect: () => {
+                                    setOpenId(row.id);
+                                },
                             },
-                        },
-                    ]}
-                />
-            )}
+                        ]}
+                    />
+                )}
+            </View>
+
+            {viewPopup}
         </Cascade>
     );
 }
@@ -523,6 +525,9 @@ function QuotationPricing({
     const lines: readonly KitchenQuotationLine[] = quotation?.lines ?? NO_LINES;
     const currency: CurrencyCode = quotation?.currencyCode ?? 'USD';
     const editable = quotation !== null && canQuote && canQuoteKitchenQuotation(quotation.status);
+    // Prices typed and not sent: Back to quotations, the trail and the browser's Back ask first.
+    const dirty = editable && Object.values(prices).some((value) => value.trim() !== '');
+    const guard = useUnsavedGuardFor(dirty, { message: t('kitchen:unsaved.browserPrompt') });
 
     const parsedPrices = useMemo(() => {
         if (lines.length === 0) return null;
@@ -599,11 +604,13 @@ function QuotationPricing({
     }
 
     const backButton = (
-        <Button
+        <DeskButton
             testID="kitchen-quotations-back"
             variant="secondary"
             label={t('kitchen:ops.quotations.backToQuotations')}
-            onPress={onBack}
+            onPress={() => {
+                guard.intercept(onBack);
+            }}
         />
     );
 
@@ -664,11 +671,12 @@ function QuotationPricing({
             {/* The way back first and the commit last; the summary beside the cards repeats neither. */}
             <RecordFormOpening
                 testID="kitchen-quotations-detail"
-                title={t('kitchen:ops.quotations.detailTitle', { reference: quotation.reference })}
-                dirty={false}
+                title={t('kitchen:ops.quotations.detailTitle', {
+                    reference: quotation.reference,
+                })}
+                dirty={dirty}
                 badges={
-                    <Badge
-                        variant="label"
+                    <DeskChip
                         testID="kitchen-quotations-detail-status"
                         tone={kitchenQuotationStatusTone(quotation.status)}
                         label={t(kitchenQuotationStatusKey(quotation.status))}
@@ -693,7 +701,7 @@ function QuotationPricing({
                     <>
                         {backButton}
                         {editable ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-quotations-send"
                                 label={t('kitchen:ops.quotations.send')}
                                 loading={quote.isPending}
@@ -727,7 +735,7 @@ function QuotationPricing({
                                     : 'kitchen:ops.quotations.conflictTitle',
                             )}
                             actions={
-                                <Button
+                                <DeskButton
                                     testID="kitchen-quotations-conflict-refresh"
                                     size="sm"
                                     variant="secondary"
@@ -767,7 +775,7 @@ function QuotationPricing({
                 >
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         title={t('kitchen:ops.quotations.linesHeading')}
                         testID="kitchen-quotations-detail-lines-section"
                         aside={
@@ -804,7 +812,7 @@ function QuotationPricing({
 
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         title={t('kitchen:ops.quotations.requestHeading')}
                         testID="kitchen-quotations-detail-request"
                     >
@@ -816,7 +824,7 @@ function QuotationPricing({
 
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         title={t('kitchen:ops.quotations.notes')}
                         testID="kitchen-quotations-detail-notes"
                     >
@@ -831,7 +839,7 @@ function QuotationPricing({
                     {quotation.declineReason === null ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             title={t('kitchen:ops.quotations.declineHeading')}
                             testID="kitchen-quotations-detail-decline"
                         >
@@ -848,6 +856,7 @@ function QuotationPricing({
                  */}
                 <RecordSummaryAside
                     testID="kitchen-quotations-detail-summary"
+                    variant="panel"
                     title={t('kitchen:ops.quotations.summaryTitle')}
                     width={sideBySide ? ASIDE_WIDTH : null}
                     rows={[
@@ -894,8 +903,75 @@ function QuotationPricing({
                     }}
                 />
             </View>
+            <EditorGuardDialogs guard={guard} testID="kitchen-quotations-detail" />
         </Cascade>
     );
+}
+
+const FILTER_TONES: Readonly<Record<Exclude<StatusFilter, 'all'>, LensTone>> = {
+    awaiting: 'warning',
+    quoted: 'info',
+    closed: 'neutral',
+};
+
+/** How many held quotations each segment of the queue holds. The three partition it. */
+function filterCount(all: readonly KitchenQuotation[], filter: StatusFilter): number {
+    const allowed = FILTER_STATUSES[filter];
+    return allowed.length === 0
+        ? all.length
+        : all.filter((row) => allowed.includes(row.status)).length;
+}
+
+/**
+ * The Lens bar's figures: All, then Awaiting a price · Priced · Closed. The whole queue is held, so
+ * every figure counts all of it, whatever is in force.
+ */
+function lensFigures(
+    all: readonly KitchenQuotation[],
+    pending: boolean,
+    filter: StatusFilter,
+    t: TFunction,
+    setFilter: (next: StatusFilter) => void,
+): readonly LensFigure[] {
+    return FILTERS.map((value, index): LensFigure => {
+        const label = t(`kitchen:ops.quotations.filter.${value}`);
+        return {
+            key: value,
+            label: value === 'all' ? t('kitchen:lens.allQuotations') : label,
+            value: pending ? null : filterCount(all, value),
+            ...(value === 'all' ? {} : { tone: FILTER_TONES[value] }),
+            separated: index === 1,
+            active: filter === value,
+            onPress: () => {
+                setFilter(value);
+            },
+            accessibilityLabel:
+                value === 'all'
+                    ? t('kitchen:lens.allAction')
+                    : t('kitchen:lens.showOnlyStatus', { status: label }),
+        };
+    });
+}
+
+/** How the queue divides between the three, and the same in words. */
+function lensMix(
+    all: readonly KitchenQuotation[],
+    filter: StatusFilter,
+    t: TFunction,
+): { readonly mix: readonly LensMixPart[]; readonly mixLabel: string } {
+    return {
+        mix: (['awaiting', 'quoted', 'closed'] as const).map((value) => ({
+            key: value,
+            value: filterCount(all, value),
+            tone: FILTER_TONES[value],
+            dimmed: filter !== 'all' && filter !== value,
+        })),
+        mixLabel: t('kitchen:lens.quotationsMix', {
+            awaiting: filterCount(all, 'awaiting'),
+            quoted: filterCount(all, 'quoted'),
+            closed: filterCount(all, 'closed'),
+        }),
+    };
 }
 
 function submittedText(row: KitchenQuotation, t: TFunction, formatter: Formatter): string {

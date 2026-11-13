@@ -2,8 +2,6 @@ import { formatGtin } from '@healthy360/api-client/contracts';
 import type { ApiFailure, BarcodeScan, IngredientBarcode } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
-    Callout,
     FormSection,
     Icon,
     IconButton,
@@ -32,6 +30,8 @@ import { barcodeFailureText } from './barcode-scan.ts';
 import { CameraScanButton } from './camera-scan-button.tsx';
 import { unitCodeLabel, unitShortKey } from './format.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { FailureToast } from './failure-toast.tsx';
 /**
  * An ingredient's barcodes (ingredient barcodes, plan §8): producer's codes and the one kitchen code.
  *
@@ -44,12 +44,15 @@ export interface IngredientBarcodesSectionProps {
     /** The ingredient's default unit — what a pack size is counted in. */
     readonly defaultUnit: MeasureUnit;
     readonly canManage: boolean;
+    /** `ruled` inside a form drawn as one card; `panel` a flat card of its own. */
+    readonly variant?: 'card' | 'ruled' | 'panel' | undefined;
 }
 
 export function IngredientBarcodesSection({
     ingredientId,
     defaultUnit,
     canManage,
+    variant = 'card',
 }: IngredientBarcodesSectionProps) {
     const { t } = useTranslation();
     const { locale } = useLocale();
@@ -98,13 +101,13 @@ export function IngredientBarcodesSection({
 
     return (
         <FormSection
-            variant="card"
+            variant={variant}
             testID="kitchen-ingredient-barcodes"
             title={t('kitchen:barcodes.title')}
             description={t('kitchen:barcodes.description')}
             actions={
                 canManage && !hasKitchenCode && barcodes.data !== undefined ? (
-                    <Button
+                    <DeskButton
                         testID="kitchen-ingredient-barcode-generate"
                         variant="secondary"
                         size="sm"
@@ -119,13 +122,21 @@ export function IngredientBarcodesSection({
         >
             <Stack space="sm">
                 {rows.length === 0 ? (
-                    <Text
-                        testID="kitchen-ingredient-barcodes-empty"
-                        variant="caption"
-                        tone="secondary"
-                    >
-                        {t('kitchen:barcodes.empty')}
-                    </Text>
+                    <View className="flex-row items-center gap-2.5 rounded-[14px] border border-dashed border-stroke p-3">
+                        <View
+                            aria-hidden
+                            className="h-10 w-10 items-center justify-center rounded-xl bg-surface-sunken"
+                        >
+                            <Icon name="scanBarcode" className="text-content-secondary" />
+                        </View>
+                        <Text
+                            testID="kitchen-ingredient-barcodes-empty"
+                            variant="strong"
+                            tone="secondary"
+                        >
+                            {t('kitchen:barcodes.empty')}
+                        </Text>
+                    </View>
                 ) : (
                     // Two field tracks and their gap: a code's badges and actions stay beside it
                     // instead of drifting to the far edge of a wide card.
@@ -142,7 +153,6 @@ export function IngredientBarcodesSection({
                                         <Badge
                                             variant="label"
                                             tone={row.origin === 'system' ? 'info' : 'neutral'}
-                                            icon={null}
                                             label={t(
                                                 row.origin === 'system'
                                                     ? 'kitchen:barcodes.originSystem'
@@ -159,7 +169,7 @@ export function IngredientBarcodesSection({
                                 trailing={
                                     <Inline space="xs" align="center">
                                         {row.origin === 'system' ? (
-                                            <Button
+                                            <DeskButton
                                                 testID={`kitchen-ingredient-barcode-${row.id}-print`}
                                                 variant="quiet"
                                                 size="sm"
@@ -234,7 +244,7 @@ export function IngredientBarcodesSection({
                         {/* Wrapped: `Button` pins itself `self-start`, which beats the row's
                             `items-end` and left it level with the labels, not the inputs. */}
                         <View>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-ingredient-barcode-add"
                                 size="sm"
                                 label={t('kitchen:barcodes.add')}
@@ -248,15 +258,12 @@ export function IngredientBarcodesSection({
                     </View>
                 ) : null}
 
-                {failure === null ? null : (
-                    <Callout
-                        testID="kitchen-ingredient-barcode-error"
-                        role="alert"
-                        tone="danger"
-                        title={t('kitchen:barcodes.refusedTitle')}
-                        body={barcodeFailureText(t, failure, locale) ?? ''}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID="kitchen-ingredient-barcode-error"
+                    title={t('kitchen:barcodes.refusedTitle')}
+                    body={barcodeFailureText(t, failure, locale) ?? ''}
+                />
             </Stack>
         </FormSection>
     );

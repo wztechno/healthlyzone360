@@ -7,6 +7,7 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
+    Inline,
     ListItem,
     PasswordInput,
     Skeleton,
@@ -17,7 +18,7 @@ import type { IconName } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { Device, DeviceId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -25,6 +26,7 @@ import {
     useConfirmPasswordMutation,
     useDevicesQuery,
     useRevokeDeviceMutation,
+    useRevokeOtherDevicesMutation,
 } from '../data/hooks.ts';
 import { MarkTile, SettingsPage } from '../ui/settings-page.tsx';
 
@@ -64,10 +66,12 @@ export function DevicesScreen() {
 
     const devices = useDevicesQuery();
     const revoke = useRevokeDeviceMutation();
+    const revokeOthers = useRevokeOtherDevicesMutation();
     const confirmPassword = useConfirmPasswordMutation();
 
     const [pendingDevice, setPendingDevice] = useState<Device | null>(null);
-    const [stepUpDevice, setStepUpDevice] = useState<Device | null>(null);
+    const [confirmingOthers, setConfirmingOthers] = useState(false);
+    const [stepUpDevice, setStepUpDevice] = useState<Device | 'others' | null>(null);
     const [password, setPassword] = useState('');
     const [stepUpError, setStepUpError] = useState<string | null>(null);
 
@@ -100,6 +104,42 @@ export function DevicesScreen() {
         [revoke, t, toast],
     );
 
+    const listFailure = toFailure(devices.error);
+    const current = devices.data?.find((device) => device.isCurrent);
+    const others = useMemo(
+        () => devices.data?.filter((device) => !device.isCurrent) ?? [],
+        [devices.data],
+    );
+
+    const performRevokeOthers = useCallback(() => {
+        revokeOthers.mutate(
+            others.map((other) => other.id as DeviceId),
+            {
+                onSuccess: () => {
+                    toast.show({
+                        message: t('auth:devices.revokedOthers'),
+                        tone: 'success',
+                        testID: 'devices-revoked-others-toast',
+                    });
+                },
+                onError: (error: unknown) => {
+                    const failure = toFailure(error);
+                    if (failure?.code === 'auth.step_up_required') {
+                        setStepUpDevice('others');
+                        setPassword('');
+                        setStepUpError(null);
+                        return;
+                    }
+                    toast.show({
+                        message: failure?.message ?? t('errors:generic.body'),
+                        tone: 'danger',
+                        testID: 'device-revoke-error-toast',
+                    });
+                },
+            },
+        );
+    }, [others, revokeOthers, t, toast]);
+
     const submitStepUp = useCallback(() => {
         const device = stepUpDevice;
         if (device === null) return;
@@ -111,7 +151,11 @@ export function DevicesScreen() {
                 onSuccess: () => {
                     setStepUpDevice(null);
                     setPassword('');
-                    performRevoke(device);
+                    if (device === 'others') {
+                        performRevokeOthers();
+                    } else {
+                        performRevoke(device);
+                    }
                 },
                 onError: (error: unknown) => {
                     const failure = toFailure(error);
@@ -123,11 +167,7 @@ export function DevicesScreen() {
                 },
             },
         );
-    }, [confirmPassword, password, performRevoke, stepUpDevice]);
-
-    const listFailure = toFailure(devices.error);
-    const current = devices.data?.find((device) => device.isCurrent);
-    const others = devices.data?.filter((device) => !device.isCurrent) ?? [];
+    }, [confirmPassword, password, performRevoke, performRevokeOthers, stepUpDevice]);
 
     const describe = (device: Device) =>
         `${t(PLATFORM_KEY[device.platform])} · ${
@@ -250,18 +290,62 @@ export function DevicesScreen() {
                     title={t('auth:devices.unrecognisedTitle')}
                     body={t('auth:devices.unrecognisedBody')}
                     actions={
-                        <Button
-                            testID="devices-change-password"
-                            variant="secondary"
-                            size="sm"
-                            label={t('auth:profile.changePassword')}
-                            onPress={() => {
-                                router.push('/change-password');
-                            }}
-                        />
+                        <Inline space="xs" wrap>
+                            <Button
+                                testID="devices-revoke-others"
+                                variant="secondary"
+                                size="sm"
+                                label={t('auth:devices.revokeOthers')}
+                                loading={revokeOthers.isPending}
+                                onPress={() => {
+                                    setConfirmingOthers(true);
+                                }}
+                            />
+                            <Button
+                                testID="devices-change-password"
+                                variant="secondary"
+                                size="sm"
+                                label={t('auth:profile.changePassword')}
+                                onPress={() => {
+                                    router.push('/change-password');
+                                }}
+                            />
+                        </Inline>
                     }
                 />
             )}
+
+            <Dialog
+                testID="revoke-others-dialog"
+                open={confirmingOthers}
+                onClose={() => {
+                    setConfirmingOthers(false);
+                }}
+                title={t('auth:devices.revokeOthersTitle')}
+                description={t('auth:devices.revokeOthersBody')}
+                actions={
+                    <>
+                        <Button
+                            testID="revoke-others-dialog-cancel"
+                            variant="quiet"
+                            label={t('common:action.cancel')}
+                            onPress={() => {
+                                setConfirmingOthers(false);
+                            }}
+                        />
+                        <Button
+                            testID="revoke-others-dialog-confirm"
+                            variant="danger"
+                            label={t('auth:devices.revokeOthersConfirm')}
+                            loading={revokeOthers.isPending}
+                            onPress={() => {
+                                setConfirmingOthers(false);
+                                performRevokeOthers();
+                            }}
+                        />
+                    </>
+                }
+            />
 
             <Dialog
                 testID="revoke-dialog"

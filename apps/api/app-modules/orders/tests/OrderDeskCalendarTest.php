@@ -12,9 +12,7 @@ use Healthy360\AccessControl\Models\RolePermission;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\PlanDuration;
-use Healthy360\Catalogues\Models\PlanMenuEntry;
 use Healthy360\Catalogues\Models\PlanVariantProfile;
-use Healthy360\Catalogues\Models\SubscriptionPlanProfile;
 use Healthy360\Customers\Database\Factories\CustomerAccountFactory;
 use Healthy360\Customers\Models\CustomerAddress;
 use Healthy360\Orders\Enums\OrderStatus;
@@ -340,44 +338,6 @@ it('counts a plan day once per meal it serves, by sitting', function (): void {
             ['code' => 'dinner', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 1]],
             ['code' => 'lunch', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 1]],
             ['code' => 'snack', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 1]],
-        ]);
-});
-
-it('takes a fixed menu’s own sittings for the cycle day, cut to the configuration’s count', function (): void {
-    $this->travelTo(CarbonImmutable::parse('2026-05-11 08:00:00', 'UTC'));
-
-    // Two meals a day by configuration, on a two-day menu anchored on the
-    // Monday: day one is a lunch and two dinners, day two is breakfast alone.
-    // The menu names the sittings and the configuration caps them — generation
-    // sends a 2-meal subscriber the day's first two — so the Monday counts the
-    // lunch and the first dinner, and the Tuesday its one breakfast.
-    $subscription = calendarPlanSubscription($this, [1, 2], mealsPerDay: 2, snacksPerDay: 0);
-
-    SubscriptionPlanProfile::factory()->create([
-        'catalogue_item_id' => $subscription->catalogue_item_id,
-        'organisation_id' => $this->orgId,
-        'menu_cycle_days' => 2,
-        'menu_cycle_anchor_date' => '2026-05-11',
-    ]);
-
-    foreach ([[1, 'lunch', 1], [1, 'dinner', 1], [1, 'dinner', 2], [2, 'breakfast', 1]] as [$day, $slot, $sequence]) {
-        PlanMenuEntry::factory()->on($day, $slot, $sequence)->create([
-            'catalogue_item_id' => $subscription->catalogue_item_id,
-            'organisation_id' => $this->orgId,
-        ]);
-    }
-
-    $monday = calendarDay($this, '2026-05-11', '2026-05-12', '2026-05-11');
-    $tuesday = calendarDay($this, '2026-05-11', '2026-05-12', '2026-05-12');
-
-    expect($monday['counts']['projected'])->toBe(2)
-        ->and($monday['windows'])->toBe([
-            ['code' => 'dinner', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 1]],
-            ['code' => 'lunch', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 1]],
-        ])
-        ->and($tuesday['counts']['projected'])->toBe(1)
-        ->and($tuesday['windows'])->toBe([
-            ['code' => 'breakfast', 'counts' => ['order' => 0, 'scheduled' => 0, 'projected' => 1]],
         ]);
 });
 

@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Healthy360\PlatformAdministration\Services;
 
 use App\Models\User;
+use Healthy360\AccessControl\Services\OrganisationRoles;
 use Healthy360\Audit\Services\AuditRecorder;
 use Healthy360\Catalogues\Enums\SalesChannelKind;
 use Healthy360\Catalogues\Enums\SalesChannelStatus;
 use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Kitchens\Services\KitchenServiceSettingsLookup;
 use Healthy360\Organisations\Enums\BranchStatus;
 use Healthy360\Organisations\Enums\OrganisationStatus;
 use Healthy360\Organisations\Models\Organisation;
@@ -111,7 +113,11 @@ final readonly class KitchenProvisioning
      */
     public const string DESK_CHANNEL_CODE = 'desk';
 
-    public function __construct(private AuditRecorder $audit) {}
+    public function __construct(
+        private AuditRecorder $audit,
+        private OrganisationRoles $roles,
+        private KitchenServiceSettingsLookup $settings,
+    ) {}
 
     /**
      * @param  array{
@@ -217,6 +223,9 @@ final readonly class KitchenProvisioning
                     'updated_by' => (string) $actor->getKey(),
                 ],
             );
+
+            $this->roles->provision((string) $kitchen->getKey());
+            $this->settings->markNotOpenYet((string) $kitchen->getKey());
 
             return $kitchen;
         });

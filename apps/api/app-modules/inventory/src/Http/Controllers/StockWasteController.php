@@ -9,6 +9,7 @@ use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 final class StockWasteController
 {
@@ -18,18 +19,20 @@ final class StockWasteController
             'branch_id' => ['required', 'uuid'],
             'stock_item_id' => ['required', 'uuid'],
             'quantity' => ['required', 'numeric', 'min:0.0001'],
-            'notes' => ['nullable', 'string', 'max:255'],
+            'reason' => ['required', 'string', Rule::in(InventoryService::WASTE_REASONS)],
+            // The reason says why; only `other` needs it spelled out.
+            'notes' => ['required_if:reason,other', 'nullable', 'string', 'max:255'],
         ]);
 
-        $movement = $inventory->recordMovement(
+        $movement = $inventory->recordWaste(
             $context->organisationId(),
             $validated['branch_id'],
             $validated['stock_item_id'],
-            'waste',
             // Stated as a positive quantity (validated `min:0.0001`); the ledger
             // records it negative. The service narrows and validates the string.
-            '-'.(string) $validated['quantity'],
-            notes: $validated['notes'] ?? null,
+            (string) $validated['quantity'],
+            $validated['notes'] ?? null,
+            $validated['reason'],
         );
 
         return ApiResponse::data(['movement' => [

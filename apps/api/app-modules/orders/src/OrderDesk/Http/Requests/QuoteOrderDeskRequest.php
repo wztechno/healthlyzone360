@@ -69,6 +69,9 @@ class QuoteOrderDeskRequest extends FormRequest
             'lines.*.catalogue_item_id' => ['required', 'uuid'],
             'lines.*.catalogue_item_variant_id' => ['nullable', 'uuid'],
             'lines.*.quantity' => ['required', 'numeric', 'gt:0'],
+            'lines.*.option_ids' => ['nullable', 'array', 'max:40'],
+            'lines.*.option_ids.*' => ['uuid'],
+            'lines.*.note' => ['nullable', 'string', 'max:300'],
             'customer_account_id' => ['nullable', 'uuid'],
             'customer_address_id' => ['nullable', 'uuid'],
             // `date_format` rather than `date`, for the reason every other date
@@ -76,6 +79,9 @@ class QuoteOrderDeskRequest extends FormRequest
             // day a kitchen can schedule against.
             'requested_delivery_date' => ['nullable', 'date_format:Y-m-d'],
             'delivery_window_code' => ['nullable', 'string', 'max:40'],
+            // Quoting an edit: price on that order's channel, for its customer,
+            // branch and fulfilment type — the body's own are then ignored.
+            'amending_order_id' => ['nullable', 'uuid'],
         ];
     }
 
@@ -83,11 +89,12 @@ class QuoteOrderDeskRequest extends FormRequest
      * @return array{
      *     fulfilment_type: string,
      *     branch_id: string|null,
-     *     lines: list<array{catalogue_item_id: string, catalogue_item_variant_id: string|null, quantity: string}>,
+     *     lines: list<array{catalogue_item_id: string, catalogue_item_variant_id: string|null, quantity: string, option_ids: list<string>, note: string|null}>,
      *     customer_account_id: string|null,
      *     customer_address_id: string|null,
      *     requested_delivery_date: string|null,
-     *     delivery_window_code: string|null
+     *     delivery_window_code: string|null,
+     *     amending_order_id: string|null
      * }
      */
     public function payload(): array
@@ -95,7 +102,7 @@ class QuoteOrderDeskRequest extends FormRequest
         /** @var array<string, mixed> $validated */
         $validated = $this->validated();
 
-        /** @var list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: int|float|string}> $lines */
+        /** @var list<array{catalogue_item_id: string, catalogue_item_variant_id?: string|null, quantity: int|float|string, option_ids?: list<string>|null, note?: string|null}> $lines */
         $lines = $validated['lines'];
 
         return [
@@ -114,6 +121,8 @@ class QuoteOrderDeskRequest extends FormRequest
                     // a float would acquire a fifteenth decimal place and a line
                     // total nobody could reproduce.
                     'quantity' => (string) $line['quantity'],
+                    'option_ids' => array_values($line['option_ids'] ?? []),
+                    'note' => $line['note'] ?? null,
                 ],
                 $lines,
             ),
@@ -121,6 +130,7 @@ class QuoteOrderDeskRequest extends FormRequest
             'customer_address_id' => $this->stated($validated['customer_address_id'] ?? null),
             'requested_delivery_date' => $this->stated($validated['requested_delivery_date'] ?? null),
             'delivery_window_code' => $this->stated($validated['delivery_window_code'] ?? null),
+            'amending_order_id' => $this->stated($validated['amending_order_id'] ?? null),
         ];
     }
 

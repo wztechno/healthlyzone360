@@ -1,8 +1,8 @@
 import { SHOWN_SHELVES, shelfNarrowing } from './shown-shelves.ts';
 
 describe('shelfNarrowing', () => {
-    it('shows the meal, sauce, dressing and frozen shelves', () => {
-        expect(SHOWN_SHELVES).toEqual(['meal', 'sauce', 'dressing', 'frozen']);
+    it('shows the meal, sauce, dressing, frozen and beverage shelves', () => {
+        expect(SHOWN_SHELVES).toEqual(['meal', 'sauce', 'dressing', 'frozen', 'beverage']);
     });
 
     it('asks for every item type the shown shelves hold, and leaves the shelf to the caller', () => {

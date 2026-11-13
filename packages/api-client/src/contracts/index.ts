@@ -11,6 +11,7 @@ import type { KitchenAdminRepository } from './kitchen-admin.ts';
 import type { KitchenOpsRepository } from './kitchen-ops.ts';
 import type { KitchenOrdersRepository } from './kitchen-orders.ts';
 import type { KitchenCustomersRepository } from './kitchen-customers.ts';
+import type { StaffAlertsRepository } from './staff-alerts.ts';
 import type { KitchenQuotationsRepository } from './kitchen-quotations.ts';
 import type { MarketplaceRepository } from './marketplace.ts';
 import type { NutritionRepository } from './nutrition.ts';
@@ -18,6 +19,7 @@ import type { OrderDeskRepository } from './order-desk.ts';
 import type { MealPlanRepository } from './planner.ts';
 import type { AccessAdminRepository } from './access-admin.ts';
 import type { PlatformAdminRepository } from './platform-admin.ts';
+import type { PlatformB2bRepository } from './platform-b2b.ts';
 import type { ProfessionalRepository } from './professional.ts';
 import type { ContextRepository, DeviceRepository, SessionRepository } from './session.ts';
 import type { VerificationRepository } from './verification.ts';
@@ -98,7 +100,7 @@ export type {
     SortDirection,
 } from './pagination.ts';
 
-export { MEAL_SORTS } from './marketplace.ts';
+export { MEAL_SLOTS, MEAL_SORTS } from './marketplace.ts';
 export type {
     DeliveryZone,
     DietCategory,
@@ -113,11 +115,13 @@ export type {
     MarketplaceRepository,
     MealAvailability,
     MealFilter,
+    MealSlot,
     MealSort,
     OpeningHours,
     PackSize,
     PlanDurationOption,
     PlanFilter,
+    PlanSitting,
     PlanVariant,
     SubscriptionPlan,
 } from './marketplace.ts';
@@ -214,9 +218,10 @@ export type {
     ChangeAddressRequest,
     ChangeSlotRequest,
     CheckoutPreview,
+    ChosenDay,
+    ChosenMeal,
     CommerceRepository,
     CreateSubscriptionRequest,
-    CreditMemo,
     DeliveryAddress,
     DeliverySlot,
     MealChoiceSource,
@@ -243,6 +248,8 @@ export type {
     SubscriptionDeliveryStatus,
     SubscriptionFilter,
     SubscriptionMealChoice,
+    SubscriptionPlanDay,
+    SubscriptionPlanDays,
     SubscriptionPreview,
     SubscriptionQuote,
     SubscriptionQuoteRefusal,
@@ -279,7 +286,6 @@ export {
     PLAN_DURATION_KINDS,
     PACKAGING_CATEGORY_CODE,
     PACKAGING_BASES,
-    PLAN_MENU_SLOTS,
     PRICE_STATUSES,
     PRODUCTION_MODES,
     PRODUCT_FAMILY_CATEGORY_CODES,
@@ -343,15 +349,13 @@ export type {
     PlanCombination,
     PlanDurationAdmin,
     PlanDurationKind,
-    PlanMenu,
-    PlanMenuEntry,
-    PlanMenuEntryInput,
-    PlanMenuSlot,
     PlanVariantAdmin,
     PlanVariantInput,
     PriceListAdmin,
     PriceListAdminFilter,
     PriceListEntry,
+    PriceListFigures,
+    PriceListPage,
     PriceStatus,
     ProductAdmin,
     ProductAdminFilter,
@@ -382,11 +386,20 @@ export type {
     RecipeComputedCost,
     RecipeCostHalf,
     RecipeLineCost,
+    RecipeLineCostSource,
+    RecipeLineSourceRecipe,
+    ProducedByRecipe,
     RecipePackageCost,
     TechnicalSheetAdmin,
     TechnicalSheetLineAdmin,
+    TransferResource,
+    DownloadedFile,
+    ImportUpload,
+    ImportRowOutcomeKind,
+    ImportRowOutcome,
+    ImportReport,
+    RecipeSheetBundle,
     ReferenceSeries,
-    ReplacePlanMenuRequest,
     RollupWarning,
     ServiceArea,
     ServiceAreaFilter,
@@ -398,6 +411,18 @@ export type {
     SetItemChannelPricesRequest,
     ItemChannelOffer,
     ItemChannelPrices,
+    ItemPack,
+    ItemPackComponent,
+    ItemPackCounter,
+    ItemPackPlace,
+    ItemPackPrice,
+    ItemPacks,
+    PackCostWithheldReason,
+    PackPlace,
+    RecipePackCost,
+    RecipeRollupPack,
+    SetItemPack,
+    SetItemPacksRequest,
     TradeChannel,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
@@ -418,6 +443,21 @@ export type {
     UpdateProductRequest,
     UpdateRecipeRequest,
 } from './kitchen-admin.ts';
+export {
+    SALES_CHANNEL_KINDS,
+    WHOLESALE_CHANNEL_KINDS,
+    isWholesaleChannelKind,
+} from './kitchen-wholesale.ts';
+export type {
+    CreatePriceListRequest,
+    CreateSalesChannelRequest,
+    ItemChannelOffering,
+    PriceListChannels,
+    PriceListCustomerScope,
+    SalesChannelKind,
+    SalesChannelRecord,
+    SetPriceListChannelsRequest,
+} from './kitchen-wholesale.ts';
 
 export {
     CONSUMPTION_EXCEPTION_REASON_CODES,
@@ -432,6 +472,7 @@ export {
     SPEND_SUMMARY_GROUPINGS,
     SPEND_SUMMARY_INCLUDES,
     STOCK_MOVEMENT_REASONS,
+    STOCK_WASTE_REASONS,
     formatGtin,
 } from './kitchen-ops.ts';
 export type {
@@ -452,6 +493,12 @@ export type {
     ConsumptionExceptionFilter,
     ConsumptionExceptionRetry,
     ConsumptionExceptionTotals,
+    AddBranchClosureRequest,
+    BranchClosure,
+    CreateBranchRequest,
+    DuplicateStockGroup,
+    KitchenSetup,
+    KitchenSetupStep,
     ConsumptionExceptionReasonCode,
     CreateProductionOrderRequest,
     CreatePurchaseOrderInput,
@@ -471,8 +518,21 @@ export type {
     InventoryValueRow,
     LastPurchase,
     MeasurementUnitOption,
+    KitchenAnalyticsChannel,
+    KitchenAnalyticsChannelVolume,
+    KitchenAnalyticsDay,
+    KitchenAnalyticsFilter,
+    KitchenAnalyticsItem,
+    KitchenAnalyticsReport,
+    KitchenAnalyticsTotals,
     MonthlyCostReportFilter,
+    DishMargin,
+    DishMarginPack,
+    DishMargins,
     MonthlyCostReportRow,
+    Payable,
+    PayablePriceRise,
+    Payables,
     OrderProposal,
     OrderProposalItem,
     OrderProposalOrigin,
@@ -531,6 +591,12 @@ export type {
     StockLevel,
     StockMovement,
     StockMovementReason,
+    StockWasteReason,
+    ActivityEntry,
+    ActivityPage,
+    ActivityWindow,
+    StockActivity,
+    StockActivityMovement,
     StockWasteRequest,
     StockCountRequest,
     ReplaceSupplierContactsRequest,
@@ -556,7 +622,9 @@ export type {
 } from './kitchen-ops.ts';
 
 export {
+    KITCHEN_ORDER_CANCELLATION_DISPOSITIONS,
     KITCHEN_ORDER_CANCELLATION_REASONS,
+    KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS,
     KITCHEN_ORDER_FULFILMENT_TYPES,
     KITCHEN_ORDER_OPEN_STATUSES,
     KITCHEN_ORDER_PAYMENT_METHODS,
@@ -565,22 +633,40 @@ export {
 export type {
     CancelKitchenOrderRequest,
     KitchenOrder,
+    KitchenOrderBookRow,
+    CloseFailedDeliveryRequest,
+    FailKitchenOrderDeliveryRequest,
+    HandToCourierRequest,
+    KitchenOrderCancellationDisposition,
     KitchenOrderCancellationReason,
+    KitchenOrderPickableCancellationReason,
+    RedeliverKitchenOrderRequest,
+    KitchenOrderAllergy,
+    KitchenOrderAllergyItem,
     KitchenOrderDelivery,
     KitchenOrderDeliveryRun,
     KitchenOrderFilters,
     KitchenOrderFulfilmentType,
     KitchenOrderLine,
     KitchenOrderLineAllergen,
+    KitchenDisplay,
     KitchenOrderPage,
     KitchenOrderPaymentMethod,
     KitchenOrderPaymentReceipt,
     KitchenOrderPaymentSummary,
+    KitchenOrderPlanDay,
+    KitchenOrderPlanMeal,
     KitchenOrdersRepository,
     KitchenOrderStatus,
     KitchenOrderTransitionRequest,
     RecordedKitchenOrderPayment,
+    DecideOrderRefundRequest,
+    OrderRefund,
+    OrderRefundKind,
+    OrderRefundLedger,
+    OrderRefundStatus,
     RecordKitchenOrderPaymentRequest,
+    RecordOrderRefundRequest,
 } from './kitchen-orders.ts';
 
 export {
@@ -593,6 +679,7 @@ export {
 } from './order-desk.ts';
 export type {
     AddOrderDeskCustomerAddressRequest,
+    AmendOrderDeskOrderRequest,
     AssignDeliveryJobRequest,
     AssignedDeliveryJob,
     CalendarBasis,
@@ -604,17 +691,34 @@ export type {
     OrderDeskCalendarFilters,
     OrderDeskCalendarMeta,
     OrderDeskCalendarWindow,
+    CashRun,
+    CashSettlementRecord,
+    DailyCloseRecord,
+    DailyCloseTotal,
+    OpenDailyClose,
+    OrderDeskCloses,
+    TillBranch,
+    RecordDailyCloseRequest,
+    CourierCashOwed,
+    CourierCashRun,
+    DriverCashOwed,
     OrderDeskCashReport,
+    OrderDeskCashReportAdjustment,
     OrderDeskCashReportFilters,
     OrderDeskCashReportMeta,
     OrderDeskCashReportRow,
     OrderDeskCashReportTotal,
+    OrderDeskSettlements,
+    RecordCashSettlementRequest,
     OrderDeskCounterPayment,
     OrderDeskCustomer,
     OrderDeskCustomerAddress,
     OrderDeskCustomerContact,
+    OrderDeskPlanMeal,
+    OrderDeskPlanMealDish,
     OrderDeskCustomerCreated,
     OrderDeskCustomerOrigin,
+    OrderDeskCustomerAllergies,
     OrderDeskCustomerSearch,
     OrderDeskDeliveryJob,
     OrderDeskDeliveryWindow,
@@ -638,6 +742,8 @@ export type {
     OrderDeskRequirementsMeta,
     OrderDeskSaleRequest,
     OrderDeskShortfallCount,
+    OrderDeskToday,
+    OrderDeskTodayAmount,
     WeeklyStockCheck,
     WeeklyStockShortfall,
     OrderDeskWindow,
@@ -645,9 +751,15 @@ export type {
     UpdateOrderDeskCustomerRequest,
 } from './order-desk.ts';
 
-export { DRIVER_JOB_STATUSES, DRIVER_JOB_TRACKING_STATUSES } from './driver-jobs.ts';
+export {
+    DELIVERY_FAILURE_REASONS,
+    DRIVER_JOB_STATUSES,
+    DRIVER_JOB_TRACKING_STATUSES,
+} from './driver-jobs.ts';
 export type {
     DeliverDriverJobRequest,
+    DeliveryFailureReason,
+    FailDeliveryRequest,
     DriverJob,
     DriverJobDelivery,
     DriverJobStatus,
@@ -669,6 +781,16 @@ export type {
     KitchenCustomersRepository,
     KitchenCustomerType,
 } from './kitchen-customers.ts';
+
+export { STAFF_ALERT_TYPES } from './staff-alerts.ts';
+export type {
+    KitchenServiceSettings,
+    StaffAlert,
+    StaffAlertList,
+    StaffAlertsRepository,
+    StaffAlertType,
+    StorefrontProfile,
+} from './staff-alerts.ts';
 
 export { KITCHEN_QUOTATION_STATUSES } from './kitchen-quotations.ts';
 export type {
@@ -732,6 +854,7 @@ export {
     CLOSURE_REASON_CODES,
     CLOSURE_REQUEST_STATUSES,
     CLOSURE_SCOPES,
+    FOOD_EXCLUSION_KINDS,
 } from './account.ts';
 export type {
     AccountChecklistItem,
@@ -755,7 +878,10 @@ export type {
     ConsentState,
     CustomerAccount,
     CustomerAddress,
+    DietaryIngredientMatch,
     DietaryProfile,
+    FoodExclusion,
+    FoodExclusionKind,
     RequestClosureRequest,
     SaveAddressRequest,
     SaveDietaryProfileRequest,
@@ -799,6 +925,7 @@ export {
     B2B_APPLICATION_SECTIONS,
     B2B_APPLICATION_STATES,
     B2B_BUSINESS_TYPES,
+    B2B_CONTACT_ROLES,
     B2B_DELIVERY_WINDOWS,
     B2B_DOCUMENT_KINDS,
     B2B_ORDER_FREQUENCIES,
@@ -815,11 +942,14 @@ export {
     SETTLEMENT_STATUSES,
 } from './b2b-application.ts';
 export type {
+    AgreementSeller,
     AgreementSignatureKind,
     AgreementStatus,
     AgreementTerms,
     B2BAgreement,
     B2BApplication,
+    B2BApplicationContact,
+    B2BApplicationLocation,
     B2BApplicationRepository,
     B2BApplicationSection,
     B2BApplicationSectionState,
@@ -827,6 +957,7 @@ export type {
     B2BApplicationState,
     B2BBusinessType,
     B2BCompanySection,
+    B2BContactRole,
     B2BDeliveryWindow,
     B2BDocumentKind,
     B2BLogisticsSection,
@@ -861,6 +992,21 @@ export type {
     SignatureEvidence,
     UploadDocumentRequest,
 } from './b2b-application.ts';
+
+export { PLATFORM_APPLICATION_STATUSES, PLATFORM_INVITATION_STATUSES } from './platform-b2b.ts';
+export type {
+    AgreementTermsInput,
+    PlatformApplicationFilter,
+    PlatformApplicationStatus,
+    PlatformB2bApplication,
+    PlatformB2bApplicationSummary,
+    PlatformB2bRepository,
+    PlatformInvitation,
+    PlatformInvitationStatus,
+    PlatformKycDocument,
+    ProvisionOutcome,
+    SellerPriceListOption,
+} from './platform-b2b.ts';
 
 /* ------------------------------------------------------------------------------------------------
  * PA1 — platform administration of kitchen tenants.
@@ -903,7 +1049,6 @@ export {
     STAFF_INVITATION_STATUSES,
     TEAM_MEMBER_STATUSES,
     isDeletableRole,
-    isEditableRole,
     isReactivatableMember,
     isWorkingMember,
 } from './access-admin.ts';
@@ -1057,6 +1202,12 @@ export interface Repositories {
     readonly kitchenCustomers: KitchenCustomersRepository;
 
     /**
+     * The top-bar alerts addressed to the caller, and the kitchen's service timings that decide
+     * when they fire. See `./staff-alerts.ts`.
+     */
+    readonly staffAlerts: StaffAlertsRepository;
+
+    /**
      * One driver's run sheet, and the stamp that closes a job.
      *
      * Not a branch of `kitchenOrders` and not a branch of `commerce`. Both of those are *orders* —
@@ -1081,6 +1232,13 @@ export interface Repositories {
      * the API implementations cover the same surface.
      */
     readonly platformAdmin: PlatformAdminRepository;
+
+    /**
+     * The platform reviewer's half of B2B onboarding — queue, file, decision, agreement,
+     * provisioning. Not a branch of `b2bApplication`: a reviewer sees internal notes, drafts and
+     * duplicate matches an applicant's client must never receive. See `./platform-b2b.ts`.
+     */
+    readonly platformB2b: PlatformB2bRepository;
 
     /**
      * Taking up an offer of membership (PA1) — the twentieth field.
@@ -1112,3 +1270,22 @@ export interface Repositories {
      */
     readonly accessAdmin: AccessAdminRepository;
 }
+export type * from './dish-options.ts';
+export { COMPLAINT_CAUSES, COMPLAINT_OUTCOMES } from './complaints.ts';
+export type {
+    ComplaintCause,
+    ComplaintOutcome,
+    OrderComplaint,
+    RecordComplaintRequest,
+    UpdateComplaintRequest,
+} from './complaints.ts';
+export type {
+    CookingTemperature,
+    RecordCookingTemperatureRequest,
+    RecordTemperatureRequest,
+    TemperatureLog,
+    TemperatureReading,
+    TemperatureSlot,
+    TemperatureUnit,
+    TemperatureUnitDraft,
+} from './temperature-logs.ts';

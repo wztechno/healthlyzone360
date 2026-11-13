@@ -80,9 +80,37 @@ export function startProcess(process: ActiveProcess): void {
     store.write(KEY, process);
 }
 
-/** Ends it — the gap is closed, the reader is back where it began, or they chose to stop. */
+/** Ends it — the gap is closed, the reader is back where it began, or the work is saved. */
 export function endProcess(): void {
     store.clear(KEY);
+}
+
+/**
+ * The page's work is saved, so the process that was keeping it is over.
+ *
+ * The process exists so leaving never loses work; once the page has written its drafts there is
+ * nothing left to lose, and a Continue that leads back to a saved page is only noise (2026-10-27).
+ * Ends a process that began on this page — a recipe whose ingredient detour it was — or a stock-gap
+ * fix this page is a step of. Not a detour's own step: saving the ingredient a recipe sent the reader
+ * to leaves the recipe's unsaved drafts where they were, and Continue is still the way back to them.
+ */
+export function endProcessSavedOn(pathname: string): void {
+    const current = store.read(KEY);
+    if (current === null) return;
+    const isStep =
+        current.stepPaths.includes(pathname) || pathnameOf(current.resumeHref) === pathname;
+    if (current.originPath === pathname || (current.kind === 'stockGapFix' && isStep)) {
+        store.clear(KEY);
+    }
+}
+
+/**
+ * Whether the page is a step of the running process — its work is already one Continue away, so
+ * an editor kept on the way out is not listed a second time (`kept-work.ts`).
+ */
+export function isStepOfActiveProcess(pathname: string): boolean {
+    const current = store.read(KEY);
+    return current !== null && !isOutsideProcess(current, pathname);
 }
 
 export function readActiveProcess(): ActiveProcess | null {
@@ -122,7 +150,8 @@ export function useProcessStep(href: string | null, returnTo: string | null): vo
 /**
  * Whether Continue belongs on this page: there is a process, and this page is not one of its
  * steps — the reader has stepped out of it. Its origin counts as outside: back on Stock gaps by the
- * sidebar, the recipe they were fixing is still one press away.
+ * sidebar, the recipe they were fixing is still one press away. Back there by the fix's own way
+ * back, the process has already ended (`consumption-exceptions-screen.tsx`).
  */
 export function isOutsideProcess(process: ActiveProcess | null, pathname: string): boolean {
     return (

@@ -27,10 +27,14 @@ import {
 import type { NutritionFacts } from '@healthy360/nutrition';
 import type { AccessState } from '@healthy360/permissions';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { readKeptWork } from '../../navigation/kept-work.ts';
+import { clearAllSessionDrafts } from '../../navigation/session-draft.ts';
+import { guardNavigation } from '../../navigation/use-unsaved-guard.ts';
 import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
 import {
+    KITCHEN_MANAGER_PERMISSIONS,
     MEMBER_PERMISSIONS,
     TEST_BRANCH_ID,
     TEST_ORGANISATION_ID,
@@ -47,6 +51,7 @@ import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { displayName, isTranslationIncomplete, statusTone, unitDimension } from './format.ts';
 import { ENTITY_FAMILIES, WORKSPACE_PERMISSIONS, permittedFamilies } from './entity-registry.ts';
 import { AllergenClassesScreen } from './screens/allergen-classes-screen.tsx';
+import { canSaveFiles } from './save-download.ts';
 import { IngredientEditScreen } from './screens/ingredient-edit-screen.tsx';
 import { IngredientsScreen } from './screens/ingredients-screen.tsx';
 import { forgetColumnChoice } from './catalogue/column-picker.tsx';
@@ -109,6 +114,9 @@ jest.mock('expo-document-picker', () => ({
     getDocumentAsync: jest.fn(),
 }));
 
+// jest-expo runs as iOS, where nothing can be saved; the Export tests below say this build can.
+jest.mock('./save-download.ts');
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const routerMock = require('expo-router') as { __push: jest.Mock; __replace: jest.Mock };
 
@@ -141,6 +149,7 @@ const USDA_CANDIDATE: NutritionReferenceCandidate = {
     suitable: true,
     reasons: [],
     missing_nutrients: [],
+    unsupported_basis: false,
     source_hash: 'a'.repeat(64),
     retrieved_at: '2026-10-14T00:00:00Z',
 };
@@ -425,6 +434,7 @@ function hubRepositories(ingredients: readonly IngredientAdmin[]): RepositoryOve
         kitchenOps: {
             countLowStockLevels: async () => 0,
             countUnresolvedConsumptionExceptions: async () => 0,
+            listDuplicateStock: async () => [],
         },
     };
 }
@@ -561,6 +571,9 @@ describe('entity registry', () => {
                 'catalogue',
                 'commercial',
                 'operations',
+                'buying',
+                'foodSafety',
+                'reports',
                 // AA1. Added deliberately, which is what this restated list is for.
                 'access',
             ]).toContain(family.group);
@@ -591,6 +604,10 @@ describe('the kitchen hub', () => {
         await untilVisible('kitchen-home-screen');
 
         expect(screen.getByTestId('kitchen-family-ingredients')).toBeTruthy();
+        // The fifth module of a section waits behind "+N more".
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-home-section-catalogue-more'));
+        });
         expect(screen.getByTestId('kitchen-family-allergen-classes')).toBeTruthy();
         expect(screen.getByTestId('kitchen-home-section-catalogue')).toBeTruthy();
         expect(screen.getByTestId('kitchen-home-kpis')).toBeTruthy();
@@ -638,6 +655,104 @@ describe('the kitchen hub', () => {
                 expect.objectContaining({ sellingStatus: 'published' }),
             );
         });
+    });
+
+    it('lists repeated stock names under needs attention, and counts them on the To do pill', async () => {
+        const base = hubRepositories([]);
+        const shelf = (id: string) => ({
+            id,
+            code: id.toUpperCase(),
+            unitCode: 'kg',
+            quantity: '0.0000',
+            hasHistory: false,
+        });
+        await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                ...base,
+                kitchenOps: {
+                    ...base.kitchenOps,
+                    listDuplicateStock: async () => [
+                        { name: 'Rice', reason: 'not_a_copy', shelves: [shelf('r1'), shelf('r2')] },
+                        {
+                            name: 'Oats',
+                            reason: 'different_units',
+                            shelves: [shelf('o1'), shelf('o2')],
+                        },
+                    ],
+                },
+            },
+        });
+
+        await untilVisible('kitchen-family-stock-duplicates-total');
+        expect(screen.getByTestId('kitchen-family-stock-duplicates-total')).toHaveTextContent(
+            /Stock rows sharing a name/,
+        );
+        expect(screen.getByTestId('kitchen-home-attention-stock-duplicates')).toHaveAccessibleName(
+            /2 stock names repeated/,
+        );
+        // The Go to pill carries the same number.
+        expect(screen.getByTestId('kitchen-family-stock-duplicates-open')).toHaveTextContent(/2/);
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-home-attention-stock-duplicates'));
+        });
+        expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/stock-duplicates');
+    });
+
+    it('never runs the duplicate scan for a reader who may not see stock', async () => {
+        const { repositories } = await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession({
+                activeContext: testActiveContext({
+                    permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                        (permission) => !permission.startsWith('inventory.'),
+                    ),
+                }),
+            }),
+            repositories: hubRepositories([]),
+        });
+
+        await untilVisible('kitchen-home-screen');
+        await untilVisible('kitchen-family-ingredients-total');
+        expect(screen.queryByTestId('kitchen-home-attention-stock-duplicates')).toBeNull();
+        expect(screen.queryByTestId('kitchen-family-stock-duplicates')).toBeNull();
+        expect(repositories.kitchenOps.listDuplicateStock).not.toHaveBeenCalled();
+    });
+
+    it('drops the Setup pill once the kitchen is live', async () => {
+        const base = hubRepositories([]);
+        await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                ...base,
+                kitchenOps: {
+                    ...base.kitchenOps,
+                    getKitchenSetup: async () => ({ isLive: true, steps: [] }),
+                },
+            },
+        });
+
+        // Review is in the same To do card, so once it is drawn the card is.
+        await untilVisible('kitchen-family-review');
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-family-setup')).toBeNull();
+        });
+    });
+
+    it('keeps the Setup pill while the kitchen is not live', async () => {
+        const base = hubRepositories([]);
+        await renderStubScreen(<KitchenHomeScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                ...base,
+                kitchenOps: {
+                    ...base.kitchenOps,
+                    getKitchenSetup: async () => ({ isLive: false, steps: [] }),
+                },
+            },
+        });
+
+        await untilVisible('kitchen-family-setup');
     });
 
     it('refuses a signed-in person whose role carries no catalogue permission', async () => {
@@ -703,16 +818,31 @@ describe('the ingredient list at desk width', () => {
         });
 
         await untilVisible('kitchen-ingredients-loading');
-        // The cards are drawn while the list loads — label, caption, and a placeholder holding the
-        // figure's line — so the toolbar and table do not drop by a card's height when it lands.
-        expect(screen.getByTestId('kitchen-ingredients-stats-draft')).toHaveTextContent(/Draft/);
-        expect(screen.getByTestId('kitchen-ingredients-stats-draft-loading')).toBeTruthy();
-        expect(screen.queryByTestId('kitchen-ingredients-stats-draft-value')).toBeNull();
+        // The Lens bar's figures are drawn while the list loads — label, and a placeholder holding
+        // the number's line — so the table does not drop when they land.
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-figure-draft')).toHaveTextContent(
+            /Draft/,
+        );
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-figure-draft-loading')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-ingredients-toolbar-figure-draft-value')).toBeNull();
 
         await untilVisible('kitchen-ingredients-table');
 
-        expect(screen.queryByTestId('kitchen-ingredients-stats-draft-loading')).toBeNull();
-        expect(screen.getByTestId('kitchen-ingredients-stats-shown-value')).toHaveTextContent('2');
+        await waitFor(() => {
+            expect(
+                screen.queryByTestId('kitchen-ingredients-toolbar-figure-draft-loading'),
+            ).toBeNull();
+        });
+        expect(
+            screen.getByTestId('kitchen-ingredients-toolbar-figure-all-value'),
+        ).toHaveTextContent('2');
+        // One published, one draft — the mix and the figures agree.
+        expect(
+            screen.getByTestId('kitchen-ingredients-toolbar-figure-published-value'),
+        ).toHaveTextContent('1');
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-result')).toHaveTextContent(
+            '2 of 2',
+        );
         // The rows arrive through their entrance; the row itself is the same element as ever.
         expect(
             screen.getByTestId(`kitchen-ingredients-table-row-${String(mapped.id)}-entrance`),
@@ -761,33 +891,37 @@ describe('the ingredient list', () => {
         // The six defaults: Allergens in, Unit one pick away.
         expect(screen.getByTestId(cell('allergens-none'))).toBeTruthy();
         expect(screen.queryByTestId(cell('unit'))).toBeNull();
+        // The desk pill reads "6 of 6"; its full name is "Show columns · 6 of 6".
         expect(screen.getByTestId('kitchen-ingredients-columns-trigger')).toHaveTextContent(
-            /Show columns · 6 of 6/,
+            /6 of 6/,
         );
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-trigger').props.accessibilityLabel,
+        ).toMatch(/Show columns · 6 of 6/);
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-trigger'));
         });
-        await untilVisible('kitchen-ingredients-columns-unit-control');
+        await untilVisible('kitchen-ingredients-columns-unit');
 
         // Full: an unticked column cannot be added, and Item can never be dropped.
         expect(
-            screen.getByTestId('kitchen-ingredients-columns-unit-control').props.accessibilityState,
+            screen.getByTestId('kitchen-ingredients-columns-unit').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: true, checked: false }));
         expect(
-            screen.getByTestId('kitchen-ingredients-columns-name-control').props.accessibilityState,
+            screen.getByTestId('kitchen-ingredients-columns-name').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: true, checked: true }));
 
         // Drop Allergens, which frees the slot Unit then takes.
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-allergens-control'));
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-allergens'));
         });
         expect(screen.queryByTestId(cell('allergens-none'))).toBeNull();
         expect(
-            screen.getByTestId('kitchen-ingredients-columns-unit-control').props.accessibilityState,
+            screen.getByTestId('kitchen-ingredients-columns-unit').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: false }));
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-unit-control'));
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-unit'));
         });
         expect(screen.getByTestId(cell('unit'))).toBeTruthy();
 
@@ -803,11 +937,11 @@ describe('the ingredient list', () => {
         });
         expect(screen.queryByTestId(cell('allergens-none'))).toBeNull();
         expect(
-            screen.getByTestId('kitchen-ingredients-columns-name-control').props.accessibilityState,
+            screen.getByTestId('kitchen-ingredients-columns-name').props.accessibilityState,
         ).toEqual(expect.objectContaining({ checked: true }));
-        expect(screen.getByTestId('kitchen-ingredients-columns-trigger')).toHaveTextContent(
-            /Show columns · 1 of 6/,
-        );
+        expect(
+            screen.getByTestId('kitchen-ingredients-columns-trigger').props.accessibilityLabel,
+        ).toMatch(/Show columns · 1 of 6/);
         expect(
             screen.getByTestId('kitchen-ingredients-columns-clear').props.accessibilityState,
         ).toEqual(expect.objectContaining({ disabled: true }));
@@ -816,7 +950,7 @@ describe('the ingredient list', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredients-columns-done'));
         });
-        expect(screen.queryByTestId('kitchen-ingredients-columns-unit-control')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredients-columns-unit')).toBeNull();
     });
 
     it('answers a search nothing matches with the filtered empty state', async () => {
@@ -841,6 +975,58 @@ describe('the ingredient list', () => {
         // The filtered branch is the one a person actually reaches, and it is the one that offers a
         // way back out of the filter.
         expect(screen.getByTestId('kitchen-ingredients-clear')).toBeTruthy();
+    });
+
+    it('narrows to the uncosted rows from the Unpriced figure, and lets go when pressed again', async () => {
+        const priced = ingredient(1, { unitPrice: { amount: 3.9, currency: 'AED' } });
+        const first = ingredient(2);
+        const second = ingredient(3);
+        await renderStubScreen(<IngredientsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: ingredientListing(() => [priced, first, second]),
+                },
+            },
+        });
+        await untilVisible('kitchen-ingredients-table');
+        // The list's own row: at this (phone) width there are no per-column cells to find.
+        const row = (target: IngredientAdmin) =>
+            `kitchen-ingredients-table-row-${String(target.id)}`;
+
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('kitchen-ingredients-toolbar-figure-uncosted-value'),
+            ).toHaveTextContent('2');
+        });
+        expect(screen.getByTestId(row(priced))).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-toolbar-figure-uncosted'));
+        });
+
+        await waitFor(() => {
+            expect(screen.queryByTestId(row(priced))).toBeNull();
+        });
+        expect(screen.getByTestId(row(first))).toBeTruthy();
+        expect(screen.getByTestId(row(second))).toBeTruthy();
+        expect(
+            screen.getByTestId('kitchen-ingredients-toolbar-figure-uncosted').props
+                .accessibilityState,
+        ).toEqual(expect.objectContaining({ selected: true }));
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-token-uncosted')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-ingredients-toolbar-result')).toHaveTextContent(
+            '2 of 2',
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredients-toolbar-figure-uncosted'));
+        });
+
+        await waitFor(() => {
+            expect(screen.getByTestId(row(priced))).toBeTruthy();
+        });
+        expect(screen.queryByTestId('kitchen-ingredients-toolbar-token-uncosted')).toBeNull();
     });
 
     it('renders the error state when the listing fails', async () => {
@@ -918,6 +1104,95 @@ describe('the ingredient list', () => {
     });
 });
 
+describe('the ingredient list — import and export', () => {
+    const TOOLBAR = 'kitchen-ingredients-toolbar';
+    const canSave = jest.mocked(canSaveFiles);
+
+    beforeEach(() => {
+        canSave.mockReturnValue(true);
+    });
+
+    afterEach(() => {
+        canSave.mockReset();
+    });
+
+    async function renderList() {
+        const file = { blob: new Blob(['x']), filename: 'ingredients.xlsx' };
+        const rendered = await renderStubScreen(<IngredientsScreen />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    listIngredients: ingredientListing(() => [ingredient(1), ingredient(2)]),
+                    listIngredientCategories: async () => CATEGORY_TREE,
+                    exportIngredients: async () => file,
+                },
+            },
+        });
+        await untilVisible('kitchen-ingredients-table');
+        return rendered;
+    }
+
+    async function openExport() {
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-export`));
+        });
+        await untilVisible(`${TOOLBAR}-export-pdf`);
+    }
+
+    it('exports the workbook for the list as it is filtered', async () => {
+        const { repositories } = await renderList();
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(`${TOOLBAR}-search-input`), 'Ingredient 2');
+        });
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.listIngredients).toHaveBeenCalledWith(
+                expect.objectContaining({ query: 'Ingredient 2' }),
+            );
+        });
+
+        await openExport();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-export-excel`));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.exportIngredients).toHaveBeenCalledWith(
+                expect.objectContaining({ query: 'Ingredient 2', referenceSeries: 'ING-' }),
+            );
+        });
+    });
+
+    it('opens the print view for the table once the whole set has landed', async () => {
+        await renderList();
+        await openExport();
+
+        await waitFor(() => {
+            expect(screen.getByTestId(`${TOOLBAR}-export-pdf`)).not.toBeDisabled();
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-export-pdf`));
+        });
+
+        expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/ingredients/print');
+    });
+
+    it('lays out the ingredient sheet, with the catalogue’s own category codes', async () => {
+        await renderList();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId(`${TOOLBAR}-import`));
+        });
+
+        await untilVisible(`${TOOLBAR}-import-dialog`);
+        expect(screen.getByText('Name (EN)')).toBeTruthy();
+        // The top level of the tree only — the leaf `store-cupboard-grains` is not a Category.
+        await waitFor(() => {
+            expect(screen.getByText('Accepted: store-cupboard')).toBeTruthy();
+        });
+    });
+});
+
 /* ------------------------------------------------------------------------------------------------
  * The editor
  * ---------------------------------------------------------------------------------------------- */
@@ -986,6 +1261,13 @@ describe('the ingredient editor', () => {
         await selectUsdaReference();
 
         await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-ingredient-made-from-input'),
+                'Green wheat',
+            );
+        });
+
+        await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
         });
 
@@ -1002,6 +1284,7 @@ describe('the ingredient editor', () => {
         expect(repositories.kitchenAdmin.createIngredient).toHaveBeenCalledWith({
             name: { en: 'Toasted burghul', ar: '' },
             categoryCode: 'store-cupboard',
+            composition: 'Green wheat',
             measurementUnit: 'g',
             // Stated, and stated false. The Sale section's toggle is a field the form collects, so
             // omitting it would leave the server to pick — and "can this be sold on its own?"
@@ -1011,7 +1294,7 @@ describe('the ingredient editor', () => {
         });
     });
 
-    it('keeps new food Save disabled until a suitable reference is confirmed', async () => {
+    it('saves no new food until a suitable reference is confirmed, and says why', async () => {
         const { repositories } = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
             session: kitchenManagerSession(),
             repositories: { kitchenAdmin: editorReads(() => []) },
@@ -1026,11 +1309,20 @@ describe('the ingredient editor', () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
         });
 
-        expect(screen.getByTestId('kitchen-ingredient-editor-screen-save')).toBeDisabled();
+        // Pressable, and answered: the notice names the unconfirmed match with the blank fields.
+        await untilVisible('kitchen-ingredient-tray-blocked');
+        expect(screen.getByTestId('kitchen-ingredient-tray-blocked-list')).toHaveTextContent(
+            /Confirm the nutrition match to save/,
+        );
         expect(repositories.kitchenAdmin.createIngredient).not.toHaveBeenCalled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-tray-blocked-not-now'));
+        });
+        expect(screen.queryByTestId('kitchen-ingredient-tray-blocked')).toBeNull();
     });
 
-    it('forks a platform-library record on arrival and lands on the copy', async () => {
+    it('writes nothing when a platform-library record is opened, and copies it on the button', async () => {
         const record = platformIngredient(5, { meta: meta({ status: 'published' }) });
         const copy = ingredient(6, { name: record.name });
 
@@ -1048,7 +1340,16 @@ describe('the ingredient editor', () => {
             },
         );
 
-        // Opening the row to edit it is the request: nobody presses "Edit for this kitchen".
+        // Looking is not asking: the copy and its stock row used to appear here.
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-ingredient-fork');
+            expect(repositories.kitchenAdmin.forkIngredient).not.toHaveBeenCalled();
+
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-fork'));
+            });
+        });
+
         await waitFor(
             () => {
                 expect(routerMock.__replace).toHaveBeenCalledWith(
@@ -1059,7 +1360,6 @@ describe('the ingredient editor', () => {
         );
         expect(repositories.kitchenAdmin.forkIngredient).toHaveBeenCalledTimes(1);
         expect(repositories.kitchenAdmin.forkIngredient).toHaveBeenCalledWith(record.id);
-        expect(screen.queryByTestId('kitchen-ingredient-platform-library')).toBeNull();
     });
 
     it('keeps a platform-library record read-only when the fork fails, and offers it again', async () => {
@@ -1082,6 +1382,10 @@ describe('the ingredient editor', () => {
 
         // Both said in the issue tray, docked beside the page at a desk's width.
         await withDeskWidth(async () => {
+            await untilVisible('kitchen-ingredient-fork');
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-fork'));
+            });
             await untilVisible('kitchen-ingredient-fork-error');
             expect(screen.getByTestId('kitchen-ingredient-platform-library')).toBeTruthy();
             // The retry is the card's own action.
@@ -1095,7 +1399,7 @@ describe('the ingredient editor', () => {
          *
          * Composition and allergens are read-only for every record (§6.2), so there is no writable
          * path on a platform row at all: copying it into this kitchen is the one thing that can
-         * happen next, and when the automatic copy fails the card's button is how it happens.
+         * happen next, and the card's button is how it happens.
          */
         await openIngredientStep('allergens');
         // The determination is still *shown*, as a chip on the read-only panel — read-only is not
@@ -1526,7 +1830,7 @@ describe('the ingredient editor', () => {
             screen.getByTestId('kitchen-ingredient-unit-price-unit', {
                 includeHiddenElements: true,
             }),
-        ).toHaveTextContent('USD / kg');
+        ).toHaveTextContent('USD / Kg');
     });
 
     it('asks before discarding unsaved changes, and leaves when told to', async () => {
@@ -1570,14 +1874,14 @@ describe('the ingredient editor', () => {
     });
 
     /**
-     * The four fields the form no longer collects, and the write that must not clear them.
+     * The three fields the form no longer collects, and the write that must not clear them.
      *
-     * Kitchen reference, Composition, Other names and Notes left the form when the editor was cut
-     * down to the design's four sections. They are still on the record and still writable through
-     * the contract — this screen simply stopped being where they are edited. That makes the *shape
-     * of the request* the thing worth pinning: `UpdateIngredientRequest` treats a field it does not
-     * receive as untouched and an explicit `null` as a clear, so a form that posted the four blanks
-     * it no longer collects would erase four columns on the first save of any record that had them.
+     * Kitchen reference, Other names and Notes left the form when the editor was cut down to the
+     * design's four sections. They are still on the record and still writable through the contract
+     * — this screen simply stopped being where they are edited. That makes the *shape of the
+     * request* the thing worth pinning: `UpdateIngredientRequest` treats a field it does not receive
+     * as untouched and an explicit `null` as a clear, so a form that posted the three blanks it no
+     * longer collects would erase three columns on the first save of any record that had them.
      *
      * This replaces the alias-editing test, which covered a control the form no longer has. What it
      * was really protecting is here instead: the aliases survive the save.
@@ -1628,11 +1932,51 @@ describe('the ingredient editor', () => {
         const [, request] = (repositories.kitchenAdmin.updateIngredient as jest.Mock).mock
             .calls[0] as [IngredientId, Record<string, unknown>];
         // Absent, not null. `null` is a clear on this contract and `undefined` is "untouched", and
-        // the difference is four columns of somebody else's data.
+        // the difference is three columns of somebody else's data.
         expect(request).not.toHaveProperty('aliases');
         expect(request).not.toHaveProperty('reference');
-        expect(request).not.toHaveProperty('composition');
         expect(request).not.toHaveProperty('notes');
+    });
+
+    it('edits the composition, and an emptied box clears it', async () => {
+        const record = ingredient(3, { composition: 'Garlic, oil' });
+
+        const { repositories } = await renderStubScreen(
+            <IngredientEditScreen ingredient={String(record.id)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                        updateIngredient: async (_id, request) => ({
+                            ...record,
+                            meta: { ...record.meta, lockVersion: request.lockVersion + 1 },
+                        }),
+                    },
+                },
+            },
+        );
+
+        await untilVisible('kitchen-ingredient-made-from-input');
+        expect(screen.getByTestId('kitchen-ingredient-made-from-input').props.value).toBe(
+            'Garlic, oil',
+        );
+
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-made-from-input'), '');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.updateIngredient).toHaveBeenCalled();
+        });
+
+        const [, request] = (repositories.kitchenAdmin.updateIngredient as jest.Mock).mock
+            .calls[0] as [IngredientId, Record<string, unknown>];
+        expect(request).toHaveProperty('composition', null);
     });
 
     /*
@@ -1679,8 +2023,10 @@ describe('the ingredient editor', () => {
         });
 
         await openIngredientStep('measurement');
-        await untilVisible('kitchen-ingredient-items-per-unit-input');
+        await untilVisible('kitchen-ingredient-unit-trigger');
         expect(screen.queryByTestId('kitchen-ingredient-grams-per-unit')).toBeNull();
+        // Nor how many items a kilogram holds: that question is asked only of pieces.
+        expect(screen.queryByTestId('kitchen-ingredient-items-per-unit')).toBeNull();
     });
 
     it('clears the mass when the stock unit moves, so a litre never weighs a kilogram', async () => {
@@ -1789,6 +2135,80 @@ describe('the ingredient editor', () => {
  * editable, sent on their own. And a record whose figures a published recipe **derives** gets
  * neither, because the server refuses both on a derivation.
  */
+/**
+ * A recipe's "No price yet" on a food ingredient. Food is priced off its receipts, never typed, so
+ * the fix is posting one: the tray's card opens the receipt form on this ingredient, with the way
+ * back to the recipe that asked.
+ */
+describe('a food ingredient with no price, sent from a recipe', () => {
+    const RECIPE_RETURN = '/kitchen/recipes/01a08514-be2f-717f-96bd-8087ebf66134';
+
+    it('opens the receipt form on the ingredient, returning to the recipe', async () => {
+        const record = ingredient(92);
+        await renderStubScreen(
+            <IngredientEditScreen
+                ingredient={String(record.id)}
+                needs="price"
+                returnTo={RECIPE_RETURN}
+            />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                    },
+                },
+            },
+        );
+
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-ingredient-record-delivery');
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-record-delivery'));
+            });
+        });
+        await waitFor(() => {
+            expect(routerMock.__push).toHaveBeenCalledWith(
+                `/kitchen/procurement/new?ingredient=${String(record.id)}&returnTo=${encodeURIComponent(
+                    encodeURIComponent(RECIPE_RETURN),
+                )}`,
+            );
+        });
+    });
+
+    it('points at the price field for someone who may not post a receipt', async () => {
+        const record = ingredient(93);
+        await renderStubScreen(
+            <IngredientEditScreen
+                ingredient={String(record.id)}
+                needs="price"
+                returnTo={RECIPE_RETURN}
+            />,
+            {
+                session: kitchenManagerSession({
+                    activeContext: testActiveContext({
+                        permissions: KITCHEN_MANAGER_PERMISSIONS.filter(
+                            (permission) => permission !== 'inventory.manage_organisation',
+                        ),
+                    }),
+                }),
+                repositories: {
+                    kitchenAdmin: {
+                        ...editorReads(() => [record]),
+                        getIngredient: async () => record,
+                    },
+                },
+            },
+        );
+
+        await withDeskWidth(async () => {
+            await untilVisible('kitchen-ingredient-fix-price');
+            expect(screen.queryByTestId('kitchen-ingredient-record-delivery')).toBeNull();
+        });
+    });
+});
+
 describe('USDA lookup and explicit allergen review', () => {
     it('searches only on submission and explains an empty response', async () => {
         const onChange = jest.fn();
@@ -1829,6 +2249,43 @@ describe('USDA lookup and explicit allergen review', () => {
         expect(screen.getByTestId('nutrition-reference-select-usda:12345')).toBeDisabled();
         await fireEvent.press(screen.getByTestId('nutrition-reference-select-usda:12345'));
         expect(onChange).not.toHaveBeenCalled();
+        expect(screen.getByTestId('nutrition-reference-missing-usda:12345')).toBeTruthy();
+        expect(screen.queryByTestId('nutrition-reference-basis-usda:12345')).toBeNull();
+        expect(screen.getByTestId('nutrition-reference-none-usable')).toBeTruthy();
+    });
+
+    it('names a per-ml basis, and never draws an empty "Missing" tag', async () => {
+        await renderStubScreen(
+            <NutritionReferencePicker
+                name="louisiana sauce"
+                value={undefined}
+                onChange={jest.fn()}
+            />,
+            {
+                repositories: {
+                    kitchenAdmin: {
+                        searchNutritionReferences: async () => [
+                            {
+                                ...USDA_CANDIDATE,
+                                ref: 'usda:1909200',
+                                data_type: 'Branded',
+                                suitable: false,
+                                reasons: ['A confirmed gram basis is required.'],
+                                missing_nutrients: [],
+                                unsupported_basis: true,
+                            },
+                            USDA_CANDIDATE,
+                        ],
+                    },
+                },
+            },
+        );
+        await fireEvent.press(screen.getByTestId('nutrition-reference-search'));
+        await untilVisible('nutrition-reference-basis-usda:1909200');
+        expect(screen.queryByTestId('nutrition-reference-missing-usda:1909200')).toBeNull();
+        expect(screen.getByTestId('nutrition-reference-select-usda:1909200')).toBeDisabled();
+        // One usable match is a way forward, so there is nothing to warn about.
+        expect(screen.queryByTestId('nutrition-reference-none-usable')).toBeNull();
     });
 
     it('confirms unchanged pending mappings using review evidence and the snapshot token', async () => {
@@ -2211,13 +2668,9 @@ describe('composition and allergens', () => {
             },
         });
 
-        await untilVisible('kitchen-ingredient-mapping-milk-trigger');
+        await untilVisible('kitchen-ingredient-mapping-milk-contains');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-trigger'));
-        });
-        await untilVisible('kitchen-ingredient-mapping-milk-option-contains');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-option-contains'));
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-contains'));
         });
 
         // The page counts it as unsaved…
@@ -2226,9 +2679,74 @@ describe('composition and allergens', () => {
             fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
         });
 
-        // …and the record Save, which would remount the allergen editor, does not run.
-        await untilVisible('kitchen-ingredient-issues');
+        // …and the record Save, which would remount the allergen editor, does not run: it says why.
+        await untilVisible('kitchen-ingredient-tray-blocked');
         expect(updateIngredient).not.toHaveBeenCalled();
+    });
+
+    it('records a ticked allergen box as "contains"', async () => {
+        const record = ingredient(11, { allergens: [] });
+        const writes: unknown[] = [];
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => [record]),
+                    getIngredient: async () => record,
+                    setIngredientAllergens: async (_id, request) => {
+                        writes.push(request.mappings.map((m) => [m.allergenCode, m.containment]));
+                        return record;
+                    },
+                },
+            },
+        });
+
+        await untilVisible('kitchen-ingredient-mapping-milk-contains');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-milk-contains'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-save'));
+        });
+
+        await waitFor(() => {
+            expect(writes).toEqual([[['milk', 'contains']]]);
+        });
+    });
+
+    it('hides the allergen boxes once the reference lookup found the allergens', async () => {
+        const record = ingredient(12, {
+            allergens: [mapping('milk', { lookupSource: { source_hash: 'abc', ref: 'off:1' } })],
+        });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { ...editorReads(() => [record]), getIngredient: async () => record },
+            },
+        });
+
+        await untilVisible('ingredient-allergen-recorded-milk');
+        expect(screen.queryByTestId('kitchen-ingredient-mapping-grid')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredient-mapping-save')).toBeNull();
+    });
+
+    it('hides the allergen boxes once the master list brought the allergens in', async () => {
+        const record = ingredient(13, {
+            allergens: [mapping('gluten', { source: 'master_list' })],
+        });
+
+        await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: { ...editorReads(() => [record]), getIngredient: async () => record },
+            },
+        });
+
+        await untilVisible('ingredient-allergen-recorded-gluten');
+        expect(screen.queryByTestId('kitchen-ingredient-mapping-grid')).toBeNull();
+        expect(screen.queryByTestId('kitchen-ingredient-mapping-save')).toBeNull();
     });
 
     it('renders the quarantine a write elsewhere put the record into', async () => {
@@ -2369,11 +2887,11 @@ describe('the allergen class reference', () => {
         await untilVisible('kitchen-allergen-classes-table');
 
         expect(ALLERGEN_CLASSES).toHaveLength(14);
-        // The count moved from a caption line under the list to the Shown stat card every other
-        // Catalogue page opens with — the same figure, where a reader now looks for it.
-        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
-            /14/,
-        );
+        // The count is the Lens bar's All figure every other Catalogue page opens with — the same
+        // number, where a reader now looks for it.
+        expect(
+            screen.getByTestId('kitchen-allergen-classes-toolbar-figure-all-value'),
+        ).toHaveTextContent(/14/);
         // No governance banner: the team's no-helper-copy rule.
         expect(screen.queryByTestId('kitchen-allergen-classes-governance')).toBeNull();
 
@@ -2438,17 +2956,24 @@ describe('the allergen class reference', () => {
             fireEvent.press(screen.getByTestId('kitchen-allergen-classes-column-markets-GCC'));
         });
 
-        // Every class but the EU-only one and the unregulated one: twelve, and Shown says twelve.
+        // Every class but the EU-only one and the unregulated one: twelve, and the result says so.
         await waitFor(() => {
             expect(screen.queryByTestId('kitchen-allergen-class-lupin-name')).toBeNull();
         });
         expect(screen.queryByTestId('kitchen-allergen-class-molluscs-name')).toBeNull();
         expect(screen.getByTestId('kitchen-allergen-class-gluten-name')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
-            /^12$/,
+        expect(screen.getByTestId('kitchen-allergen-classes-toolbar-result')).toHaveTextContent(
+            '12 of 14',
         );
 
-        // A filter value leaves the menu open, so the next market is one press away.
+        // The desk menu closes on a pick: open it again unless it is still on screen.
+        if (screen.queryByTestId('kitchen-allergen-classes-column-markets-none') === null) {
+            await act(async () => {
+                fireEvent.press(
+                    screen.getByTestId('kitchen-allergen-classes-column-markets-trigger'),
+                );
+            });
+        }
         await untilVisible('kitchen-allergen-classes-column-markets-none');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-allergen-classes-column-markets-none'));
@@ -2458,8 +2983,8 @@ describe('the allergen class reference', () => {
             expect(screen.getByTestId('kitchen-allergen-class-molluscs-name')).toBeTruthy();
         });
         expect(screen.queryByTestId('kitchen-allergen-class-gluten-name')).toBeNull();
-        expect(screen.getByTestId('kitchen-allergen-classes-stats-shown-value')).toHaveTextContent(
-            /^1$/,
+        expect(screen.getByTestId('kitchen-allergen-classes-toolbar-result')).toHaveTextContent(
+            '1 of 14',
         );
     });
 });
@@ -2540,6 +3065,110 @@ describe('Open Food Facts allergen lookup', () => {
         expect(screen.getByTestId('allergen-reference-select-off:3017620422003')).toBeDisabled();
     });
 
+    it('says so when a barcode finds a product that declares nothing, and not for a name', async () => {
+        const onNothingDeclared = jest.fn();
+        await renderStubScreen(
+            <AllergenReferencePicker
+                name="water"
+                classes={[]}
+                value={undefined}
+                onChange={jest.fn()}
+                onNothingDeclared={onNothingDeclared}
+            />,
+            {
+                repositories: {
+                    kitchenAdmin: {
+                        searchAllergenReferences: async () => ({
+                            candidates: [
+                                {
+                                    ...ALLERGEN_CANDIDATE,
+                                    mappings: [],
+                                    importable: false,
+                                    selection_token: null,
+                                },
+                            ],
+                            notices: [],
+                        }),
+                    },
+                },
+            },
+        );
+
+        // By name: a list of lookalikes, so nothing is ticked for the cook.
+        await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+        await untilVisible('allergen-reference-off:3017620422003');
+        expect(onNothingDeclared).not.toHaveBeenCalled();
+
+        await fireEvent.changeText(
+            screen.getByTestId('allergen-reference-barcode-input'),
+            '5281023000030',
+        );
+        await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+        await waitFor(() => expect(onNothingDeclared).toHaveBeenCalledTimes(1));
+    });
+
+    it('folds the edit form to one ticked "no allergens" box when a barcode declares nothing', async () => {
+        const record = ingredient(94, { allergens: [] });
+        const { repositories } = await renderStubScreen(
+            <IngredientAllergenEditor ingredient={record} classes={[]} />,
+            {
+                repositories: {
+                    kitchenAdmin: {
+                        searchAllergenReferences: async () => ({
+                            candidates: [
+                                {
+                                    ...ALLERGEN_CANDIDATE,
+                                    mappings: [],
+                                    importable: false,
+                                    selection_token: null,
+                                },
+                            ],
+                            notices: [],
+                        }),
+                        setIngredientAllergens: async () => record,
+                    },
+                },
+            },
+        );
+        expect(screen.getByTestId('kitchen-ingredient-mapping-grid')).toBeTruthy();
+
+        await fireEvent.changeText(
+            screen.getByTestId('allergen-reference-barcode-input'),
+            '5281023000030',
+        );
+        await fireEvent.press(screen.getByTestId('allergen-reference-search'));
+        await untilVisible('kitchen-ingredient-mapping-none');
+        expect(screen.queryByTestId('kitchen-ingredient-mapping-grid')).toBeNull();
+
+        await fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-save'));
+        await waitFor(() =>
+            expect(repositories.kitchenAdmin.setIngredientAllergens).toHaveBeenCalledWith(
+                record.id,
+                { lockVersion: record.meta.lockVersion, mappings: [] },
+            ),
+        );
+
+        // Unticked, the boxes come back for the cook to fill.
+        await fireEvent.press(screen.getByTestId('kitchen-ingredient-mapping-none-control'));
+        expect(screen.getByTestId('kitchen-ingredient-mapping-grid')).toBeTruthy();
+    });
+
+    it('drops the product lookup once allergens are recorded, and lists them instead', async () => {
+        const record = ingredient(92, { allergens: [mapping('milk')] });
+        await renderStubScreen(<IngredientAllergenEditor ingredient={record} classes={[]} />);
+        await untilVisible('ingredient-allergen-recorded-milk');
+        expect(screen.queryByTestId('allergen-reference-picker')).toBeNull();
+    });
+
+    it('offers the product lookup again when a changed reference asks for a review', async () => {
+        const record = ingredient(93, {
+            allergens: [mapping('milk')],
+            allergenReviewRequired: true,
+        });
+        await renderStubScreen(<IngredientAllergenEditor ingredient={record} classes={[]} />);
+        await untilVisible('allergen-reference-picker');
+    });
+
     it('requires purchased-product acknowledgement before importing suggestions with the current review token', async () => {
         const record = ingredient(90, { allergenReviewToken: 'b'.repeat(64), allergens: [] });
         const { repositories } = await renderStubScreen(
@@ -2613,7 +3242,11 @@ it('includes acknowledged allergen suggestions when creating a new ingredient an
     await fireEvent.press(screen.getByTestId('allergen-reference-search'));
     await untilVisible('allergen-reference-select-off:3017620422003');
     await fireEvent.press(screen.getByTestId('allergen-reference-select-off:3017620422003'));
-    expect(screen.getByTestId('kitchen-ingredient-editor-screen-save')).toBeDisabled();
+    // Unconfirmed, a Save is answered with the notice and sends nothing.
+    await fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+    await untilVisible('kitchen-ingredient-tray-blocked');
+    expect(repositories.kitchenAdmin.createIngredient).not.toHaveBeenCalled();
+    await fireEvent.press(screen.getByTestId('kitchen-ingredient-tray-blocked-not-now'));
     await fireEvent.press(screen.getByTestId('allergen-reference-confirm-control'));
     await fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
     await waitFor(() =>
@@ -2652,6 +3285,9 @@ describe('the ingredient assistant', () => {
                 relation: 'same',
                 reason: 'Plain.',
             },
+            unit: null,
+            gramsPerUnit: null,
+            allergens: { candidates: [], notices: [], pick: null, codes: null, reason: null },
             unavailable: [],
             ...overrides,
         };
@@ -2791,10 +3427,15 @@ describe('the ingredient assistant', () => {
         await act(async () => {
             pending[0]!(duplicate('Oldest run.'));
         });
+        // Every run settles, so no request is left pending once the test ends.
+        await act(async () => {
+            pending[1]!(duplicate('Middle run.'));
+        });
 
         await untilVisible('kitchen-ingredient-assist-arabic');
         expect(screen.getByText(/Newest run\./)).toBeTruthy();
         expect(screen.queryByText(/Oldest run\./)).toBeNull();
+        expect(screen.queryByText(/Middle run\./)).toBeNull();
     });
 
     it('does not replace a nutrition match the cook already chose', async () => {
@@ -2916,6 +3557,180 @@ describe('the ingredient assistant', () => {
         expect(screen.getByTestId('kitchen-ingredient-name-ar-input').props.value).toBe('حمّص');
     });
 
+    it('fills the unit pair and the mass of one litre, and asks items per unit only of pieces', async () => {
+        await openForm(async () => suggestion({ unit: 'l', gramsPerUnit: 915 }));
+
+        await typeName('Olive oil');
+        await leaveName();
+
+        await untilVisible('kitchen-ingredient-assist-unit');
+        expect(screen.getByTestId('kitchen-ingredient-purchase-unit-trigger')).toHaveTextContent(
+            /Litres/,
+        );
+        expect(screen.getByTestId('kitchen-ingredient-unit-trigger')).toHaveTextContent(/Litres/);
+        expect(screen.getByTestId('kitchen-ingredient-grams-per-unit-input').props.value).toBe(
+            '915',
+        );
+        expect(screen.getByTestId('kitchen-ingredient-assist-grams')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-ingredient-items-per-unit')).toBeNull();
+
+        // Corrected by the cook, the estimate is theirs and loses its AI marker.
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-ingredient-grams-per-unit-input'),
+                '920',
+            );
+        });
+        expect(screen.queryByTestId('kitchen-ingredient-assist-grams')).toBeNull();
+    });
+
+    it('copies the purchase unit into the stock unit, which stays editable', async () => {
+        await openForm(async () => suggestion());
+
+        const choosePurchase = async (unit: string) => {
+            await act(async () => {
+                fireEvent.press(screen.getByTestId('kitchen-ingredient-purchase-unit-trigger'));
+            });
+            await untilVisible(`kitchen-ingredient-purchase-unit-option-${unit}`);
+            await act(async () => {
+                fireEvent.press(
+                    screen.getByTestId(`kitchen-ingredient-purchase-unit-option-${unit}`),
+                );
+            });
+        };
+
+        await choosePurchase('piece');
+        expect(screen.getByTestId('kitchen-ingredient-unit-trigger')).toHaveTextContent(/Pieces/);
+        expect(screen.getByTestId('kitchen-ingredient-items-per-unit')).toBeTruthy();
+
+        await choosePurchase('kg');
+        expect(screen.getByTestId('kitchen-ingredient-unit-trigger')).toHaveTextContent(
+            /Kilograms/,
+        );
+        expect(screen.queryByTestId('kitchen-ingredient-items-per-unit')).toBeNull();
+
+        // Still the cook's to change on its own.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-unit-trigger'));
+        });
+        await untilVisible('kitchen-ingredient-unit-option-l');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-unit-option-l'));
+        });
+        expect(screen.getByTestId('kitchen-ingredient-unit-trigger')).toHaveTextContent(/Litres/);
+        expect(screen.getByTestId('kitchen-ingredient-purchase-unit-trigger')).toHaveTextContent(
+            /Kilograms/,
+        );
+    });
+
+    it('preselects the Open Food Facts product it judged to be this ingredient, unconfirmed', async () => {
+        await openForm(async () =>
+            suggestion({
+                allergens: {
+                    candidates: [ALLERGEN_CANDIDATE],
+                    notices: [],
+                    pick: 0,
+                    codes: [{ allergenCode: AllergenCode.unsafe('milk'), containment: 'contains' }],
+                    reason: 'Butter is made from milk.',
+                },
+            }),
+        );
+
+        await typeName('Butter');
+        await leaveName();
+
+        await untilVisible('allergen-reference-ai-pick');
+        expect(screen.getByTestId('allergen-reference-confirm-control')).not.toBeChecked();
+        // A chosen product is the answer; the AI's own read stands aside.
+        expect(screen.queryByTestId('kitchen-ingredient-ai-allergens')).toBeNull();
+    });
+
+    it("writes the allergens the AI indicated, once confirmed, as the kitchen's own", async () => {
+        const created = ingredient(9, {
+            name: { en: 'Burghul', ar: 'برغل' },
+            reference: null,
+            meta: meta({ status: 'draft', lockVersion: 3 }),
+        });
+        const { repositories } = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: {
+                kitchenAdmin: {
+                    ...editorReads(() => []),
+                    assistIngredient: async () =>
+                        suggestion({
+                            allergens: {
+                                candidates: [],
+                                notices: ['open_food_facts.throttled'],
+                                pick: null,
+                                codes: [
+                                    {
+                                        allergenCode: AllergenCode.unsafe('gluten'),
+                                        containment: 'contains',
+                                    },
+                                ],
+                                reason: 'Bulgur is cracked wheat.',
+                            },
+                            unavailable: ['allergens'],
+                        }),
+                    createIngredient: async () => created,
+                    searchNutritionReferences: async () => [USDA_CANDIDATE],
+                    setIngredientAllergens: async () => created,
+                },
+            },
+        });
+        await untilVisible('kitchen-ingredient-name-en-input');
+
+        await typeName('Burghul');
+        await leaveName();
+        await untilVisible('kitchen-ingredient-ai-allergens');
+        expect(screen.getByTestId('kitchen-ingredient-no-allergens')).toBeTruthy();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-ai-allergens-confirm-control'));
+        });
+        // Confirmed allergens and "none" are two answers; only one is offered at a time.
+        expect(screen.queryByTestId('kitchen-ingredient-no-allergens')).toBeNull();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('nutrition-reference-confirm-control'));
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-save'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.setIngredientAllergens).toHaveBeenCalledWith(
+                created.id,
+                {
+                    lockVersion: 3,
+                    mappings: [
+                        {
+                            allergenCode: AllergenCode.unsafe('gluten'),
+                            containment: 'contains',
+                            marketScope: [],
+                            verification: 'operator_confirmed',
+                            sourceNote: expect.stringMatching(/AI/),
+                        },
+                    ],
+                },
+            );
+        });
+    });
+
+    it('says when the AI found no allergens, and ticks nothing for the cook', async () => {
+        await openForm(async () =>
+            suggestion({
+                allergens: { candidates: [], notices: [], pick: null, codes: [], reason: null },
+            }),
+        );
+
+        await typeName('Rice');
+        await leaveName();
+
+        await untilVisible('kitchen-ingredient-ai-allergens-none');
+        expect(screen.getByTestId('kitchen-ingredient-no-allergens-control')).not.toBeChecked();
+    });
+
     it('lists exact and possible duplicates, and says which parts were unavailable', async () => {
         const existing = ingredient(4, { name: { en: 'Burghul', ar: 'برغل' } });
         const similar = ingredient(5, { name: { en: 'Bulgur wheat', ar: '' } });
@@ -3007,6 +3822,80 @@ describe('a row added from the recipe editor', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('leaving the ingredient form with unsaved work', () => {
+    it('offers to keep a new ingredient for later, lists it, and puts it back on return', async () => {
+        const first = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+        await untilVisible('kitchen-ingredient-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-name-en-input'), 'Sumac');
+        });
+
+        // The sidebar asks now, rather than leaving the work behind without a word.
+        const navigate = jest.fn();
+        await act(async () => {
+            guardNavigation(navigate);
+        });
+        await untilVisible('kitchen-ingredient-editor-screen-unsaved-dialog');
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-ingredient-editor-screen-unsaved-keep-for-later'),
+            );
+        });
+        expect(navigate).toHaveBeenCalledTimes(1);
+        expect(readKeptWork()).toEqual([
+            expect.objectContaining({
+                kind: 'ingredient',
+                subject: 'Sumac',
+                href: '/kitchen/ingredients/new',
+            }),
+        ]);
+        await act(async () => {
+            first.view.unmount();
+        });
+
+        await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+        await untilVisible('kitchen-ingredient-draft-restored-toast');
+        expect(screen.getByTestId('kitchen-ingredient-name-en-input').props.value).toBe('Sumac');
+        clearAllSessionDrafts();
+    });
+
+    it('keeps the work when Cancel is answered with Keep for later', async () => {
+        const first = await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+        await untilVisible('kitchen-ingredient-name-en-input');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId('kitchen-ingredient-name-en-input'), 'Sumac');
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-ingredient-editor-screen-back'));
+        });
+        await untilVisible('kitchen-ingredient-editor-screen-unsaved-dialog');
+        await act(async () => {
+            fireEvent.press(
+                screen.getByTestId('kitchen-ingredient-editor-screen-unsaved-keep-for-later'),
+            );
+        });
+        await act(async () => {
+            first.view.unmount();
+        });
+
+        // Cancel's own leave used to clear the draft after it was kept: the card opened empty.
+        await renderStubScreen(<IngredientEditScreen ingredient="new" />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => []) },
+        });
+        await untilVisible('kitchen-ingredient-draft-restored-toast');
+        expect(screen.getByTestId('kitchen-ingredient-name-en-input').props.value).toBe('Sumac');
+        clearAllSessionDrafts();
+    });
+
     it('keeps it when the reader leaves another way than Cancel, and puts it back on return', async () => {
         const record = ingredient(41, { name: { en: 'Sumac', ar: 'سماق' } });
         const reads = {

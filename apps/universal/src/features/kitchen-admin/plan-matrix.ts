@@ -290,6 +290,17 @@ export function cellVariants(
     );
 }
 
+/** How many row and band pairs nobody can buy: a cell with no live configuration in it. */
+export function unsoldCellCount(
+    rows: readonly MatrixRow[],
+    bands: readonly MatrixBand[],
+    variants: readonly VariantDraft[],
+): number {
+    return rows
+        .flatMap((row) => bands.map((band) => cellVariants(variants, row, band).length))
+        .filter((occupants) => occupants === 0).length;
+}
+
 /**
  * Toggles a cell's existence, returning the new variant array.
  *

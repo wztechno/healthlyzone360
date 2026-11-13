@@ -36,6 +36,9 @@ import type {
     NutritionReferenceCandidate,
     ItemChannelOffer,
     ItemChannelPrices,
+    ItemPack,
+    ItemPackPrice,
+    ItemPacks,
     PackagingBasis,
     RecipePackagingLine,
     MealAdmin,
@@ -43,8 +46,6 @@ import type {
     PlanAdmin,
     PlanCombination,
     PlanDurationAdmin,
-    PlanMenu,
-    PlanMenuEntry,
     PlanVariantAdmin,
     PriceListAdmin,
     PriceListEntry,
@@ -61,6 +62,7 @@ import type {
     RecipeComputedCost,
     RecipeAllergenDeclaration,
     RecipeLine,
+    RecipeLineCostSource,
     RecipeOutput,
     RecipeRollupPreview,
     RecipeStepAdmin,
@@ -99,13 +101,11 @@ import type {
     MealCombinationOption,
     PlanDurationAssignment,
     PlanDurationOption,
-    PlanMenuCycle as WirePlanMenuCycle,
-    PlanMenuEntry as WirePlanMenuEntry,
     PlanProfile,
     PlanVariantCell,
     PriceListChannelAssignment,
     PriceListStatus,
-    RecipeLine as WireRecipeLine,
+    RecipeLine as GeneratedRecipeLine,
     RecipeRollupPreview as WireRecipeRollupPreview,
     RecipeOutput as WireRecipeOutput,
     RecipeStep as WireRecipeStep,
@@ -116,6 +116,7 @@ import type {
     CatalogueItemStatus,
     DeliveryZoneStatus,
     ItemChannelPricesEnvelope,
+    ItemPacksEnvelope,
     PriceStatus,
     TechnicalSheet as WireTechnicalSheet,
     WeeklyCost as WireWeeklyCost,
@@ -286,6 +287,7 @@ export function mapIngredientAllergenMapping(wire: WireAllergenMapping): Ingredi
         verification: mapAllergenVerification(wire.verification_status),
         sourceNote: wire.evidence ?? null,
         lookupSource: wire.lookup_source ?? null,
+        source: wire.source,
         layer: wire.layer,
     };
 }
@@ -408,6 +410,20 @@ export function mapIngredientAdmin(
                 ? null
                 : IngredientId.unsafe(wire.forked_from_ingredient_id),
         notes: wire.notes ?? null,
+        // Absent on a single read — `undefined`, not "bought in", so a caller can keep the list's.
+        producedByRecipe:
+            wire.produced_by_recipe === undefined
+                ? undefined
+                : wire.produced_by_recipe === null
+                  ? null
+                  : {
+                        id: RecipeId.unsafe(wire.produced_by_recipe.id),
+                        name: {
+                            en: wire.produced_by_recipe.name_en,
+                            ar: wire.produced_by_recipe.name_ar,
+                        },
+                        isPublished: wire.produced_by_recipe.is_published,
+                    },
     };
 }
 
@@ -717,6 +733,8 @@ export function mapProductAdminFromItem(
         dataQualityFlags: wire.data_quality_flags,
         imagePlaceholderId: catalogueImageId(wire),
         stockBlockers: mapStockBlockers(wire.stock_blockers),
+        allergensAssessed: wire.allergens_assessed,
+        onSaleWithoutRecipe: wire.on_sale_without_recipe,
     };
 }
 
@@ -780,6 +798,8 @@ export function mapMealAdminFromItem(
         availability: options?.availability ?? availabilityFromWire ?? [],
         imagePlaceholderId: catalogueImageId(wire),
         stockBlockers: mapStockBlockers(wire.stock_blockers),
+        allergensAssessed: wire.allergens_assessed,
+        onSaleWithoutRecipe: wire.on_sale_without_recipe,
         marginPercent: null,
     };
 }
@@ -924,6 +944,8 @@ function mapRecipeSeller(wire: AdminRecipeSoldAs): RecipeSoldAs {
                       netUnit: mapMeasureUnit(wire.default_pack.net_unit_code),
                   },
         stockBlockers: mapStockBlockers(wire.stock_blockers),
+        allergensAssessed: wire.allergens_assessed,
+        onSaleWithoutRecipe: wire.on_sale_without_recipe,
     };
 }
 
@@ -1024,10 +1046,22 @@ function measureUnitById(id: string | null | undefined, units: UnitCodeLookup): 
     return mapMeasureUnit(id === null || id === undefined ? null : units.get(id));
 }
 
+/**
+ * A recipe line. The technical-sheets batch also names the ingredient, so a printed sheet does not
+ * need a read per line; the single-version read does not, and falls back to the designation.
+ */
+export type WireRecipeLine = GeneratedRecipeLine & {
+    readonly ingredient_name_en?: string | null;
+    readonly ingredient_name_ar?: string | null;
+};
+
 function mapRecipeLine(wire: WireRecipeLine, units: UnitCodeLookup): RecipeLine {
     return {
         ingredientId: IngredientId.unsafe(wire.ingredient_id),
-        ingredientName: localised(wire.source_designation ?? '', undefined),
+        ingredientName: localised(
+            wire.ingredient_name_en ?? wire.source_designation ?? '',
+            wire.ingredient_name_ar ?? undefined,
+        ),
         quantity: parseDecimal(wire.quantity),
         unit: measureUnitById(wire.unit_id, units),
         sourceDesignation: wire.source_designation ?? null,
@@ -1130,6 +1164,9 @@ export function mapRecipeVersionAdmin(
         estimatedCost: null,
         derivationStale: wire.derivation_state === 'stale',
         publishedAt: wire.published_at ?? null,
+        reviewReason: wire.review_reason ?? null,
+        previousLabel: wire.previous_label ?? null,
+        lockVersion: wire.lock_version,
     };
 }
 
@@ -1207,11 +1244,25 @@ function mapComputedCost(
         readonly ingredient_id: string;
         readonly unit_cost_amount: string | null;
         readonly line_cost_amount: string | null;
+        readonly cost_source?: RecipeLineCostSource | null;
+        readonly source_recipe?: {
+            readonly id: string;
+            readonly name_en: string;
+            readonly name_ar: string;
+        } | null;
     }) => ({
         lineNumber: line.line_number,
         ingredientId: IngredientId.unsafe(line.ingredient_id),
         unitCost: amount(line.unit_cost_amount),
         lineCost: amount(line.line_cost_amount),
+        costSource: line.cost_source ?? null,
+        sourceRecipe:
+            line.source_recipe == null
+                ? null
+                : {
+                      id: RecipeId.unsafe(line.source_recipe.id),
+                      name: { en: line.source_recipe.name_en, ar: line.source_recipe.name_ar },
+                  },
     });
 
     return {
@@ -1249,6 +1300,13 @@ function mapComputedCost(
             lineNumber: line.line_number,
             ingredientId: IngredientId.unsafe(line.ingredient_id),
             cost: amount(line.cost_per_package_amount),
+        })),
+        packs: ('packs' in wire ? (wire.packs ?? []) : []).map((pack) => ({
+            key: pack.key,
+            contents: amount(pack.contents_amount),
+            packaging: amount(pack.packaging_amount),
+            cost: amount(pack.cost_amount),
+            withheldReason: pack.withheld_reason,
         })),
     };
 }
@@ -1288,6 +1346,7 @@ function mapWeeklyCost(wire: WireWeeklyCost): RecipeWeeklyCost {
             },
             totalCostPerYieldUnit: null,
             packages: [],
+            packs: [],
         }),
         weeklyPricePublicationId: wire.weekly_price_publication_id ?? null,
         hasCarriedForwardPrices: wire.has_carried_forward_prices,
@@ -1481,6 +1540,10 @@ export function mapDeliveryZoneAdmin(
                 : KitchenId.unsafe(wire.branch_id),
         branchIds: wire.branch_id === null ? [] : [KitchenBranchId.unsafe(wire.branch_id)],
         areas: options?.areas ?? [],
+        ...(wire.area_count === undefined ? {} : { areaCount: wire.area_count }),
+        ...(wire.inactive_area_count === undefined
+            ? {}
+            : { inactiveAreaCount: wire.inactive_area_count }),
         deliveryFeeMinor: wire.delivery_fee_minor,
         minimumOrderMinor: wire.minimum_order_minor,
         currency: isCurrencyCode(wire.currency_code) ? wire.currency_code : 'USD',
@@ -1573,49 +1636,6 @@ export function mapPlanVariantsFromCells(
     });
 }
 
-/**
- * One menu entry.
- *
- * The dish's name comes down resolved (`meal_name_en` / `meal_name_ar`) so a fourteen-day menu
- * renders from one read rather than fourteen; both sides are nullable on the wire for the row whose
- * meal has since been withdrawn, and an empty string is the honest rendering of that — the editor
- * says "this dish is gone" from the absence rather than from an invented name.
- */
-function mapPlanMenuEntry(wire: WirePlanMenuEntry): PlanMenuEntry {
-    return {
-        id: wire.id,
-        cycleDay: wire.cycle_day,
-        slot: wire.slot,
-        sequence: wire.sequence,
-        mealId: MealId.unsafe(wire.meal_catalogue_item_id),
-        mealName: localised(wire.meal_name_en ?? '', wire.meal_name_ar),
-    };
-}
-
-/**
- * A plan's fixed menu, from the envelope that carries all three of its parts.
- *
- * `meta` is the **catalogue item's**, not the profile's: `subscription_plan_profiles` carries no
- * lock version, so the item's is what `If-Match` sends — the same rule the profile write follows.
- *
- * Entries arrive in the server's order and are kept in it. Sorting them here would put a second
- * opinion about what order a menu is in between the server and the screen, and the editor groups
- * them by day anyway.
- */
-export function mapPlanMenu(
-    item: AdminCatalogueItem,
-    cycle: WirePlanMenuCycle,
-    entries: readonly WirePlanMenuEntry[],
-): PlanMenu {
-    return {
-        planId: SubscriptionPlanId.unsafe(item.id),
-        meta: mapCatalogueItemMeta(item),
-        cycleDays: cycle.cycle_days,
-        anchorDate: cycle.anchor_date,
-        entries: entries.map(mapPlanMenuEntry),
-    };
-}
-
 export function mapBranchOperating(
     branchId: KitchenBranchId,
     daysWire: readonly WireBranchOperatingDay[],
@@ -1701,5 +1721,69 @@ export function mapItemChannelPrices(wire: WireItemChannelPrices): ItemChannelPr
         lockVersion: wire.lock_version,
         b2b: offer(wire.channels.b2b),
         b2c: offer(wire.channels.b2c),
+    };
+}
+
+/* ── Packs & prices ──────────────────────────────────────────────────────────────────────────── */
+
+export type WireItemPacks = ItemPacksEnvelope['data'];
+type WireItemPackPlace = NonNullable<WireItemPacks['places']['home']>;
+type WireItemPack = WireItemPacks['packs'][number];
+
+/**
+ * Wire → `ItemPacks`. A place whose currency this build cannot format is read as absent, as on
+ * `mapItemChannelPrices`; a fill in a unit this build does not know reads as kilograms.
+ */
+export function mapItemPacks(wire: WireItemPacks): ItemPacks {
+    const place = (row: WireItemPackPlace | null) =>
+        row === null || !isCurrencyCode(row.currency_code)
+            ? null
+            : {
+                  salesChannelId: row.sales_channel_id,
+                  priceListId: PriceListId.unsafe(row.price_list_id),
+                  currency: row.currency_code,
+                  offered: row.offered,
+              };
+    const price = (
+        row: { amount_minor: number; inherited: boolean } | null,
+    ): ItemPackPrice | null =>
+        row === null ? null : { amountMinor: row.amount_minor, inherited: row.inherited };
+    const pack = (row: WireItemPack): ItemPack => ({
+        id: row.id,
+        code: row.code,
+        name:
+            row.name_en === null && row.name_ar === null
+                ? null
+                : localised(row.name_en ?? '', row.name_ar),
+        isDefault: row.is_default,
+        fill: {
+            quantity: Number(row.fill.quantity),
+            unit: isMeasureUnit(row.fill.unit) ? row.fill.unit : 'kg',
+        },
+        components: row.components.map((component) => ({
+            ingredientId: IngredientId.unsafe(component.ingredient_id),
+            quantity: Number(component.quantity),
+            isContainer: component.is_container,
+        })),
+        prices: { home: price(row.prices.home), business: price(row.prices.business) },
+    });
+    const counter = wire.places.counter;
+
+    return {
+        lockVersion: wire.lock_version,
+        places: {
+            home: place(wire.places.home),
+            business: place(wire.places.business),
+            counter:
+                counter === null
+                    ? null
+                    : {
+                          salesChannelId: counter.sales_channel_id,
+                          offered: counter.offered,
+                          followsHome: counter.follows_home,
+                          priceListName: counter.price_list_name,
+                      },
+        },
+        packs: wire.packs.map(pack),
     };
 }

@@ -51,6 +51,7 @@ final class CartItemStoreController
 
         $account = $this->locator->shopper();
         $basket = $this->locator->cart($account, $cart);
+        $this->locator->assertShopperMayTradeOnCart($account, $basket);
 
         $deliveryDate = $payload['delivery_date'] ?? null;
         $quantity = $payload['quantity'] ?? null;
@@ -61,6 +62,8 @@ final class CartItemStoreController
             $payload['catalogue_item_variant_id'] ?? null,
             $quantity ?? 1,
             $deliveryDate === null ? null : CarbonImmutable::createFromFormat('Y-m-d', $deliveryDate)->startOfDay(),
+            array_values($payload['option_ids'] ?? []),
+            $payload['note'] ?? null,
         );
 
         $lines = $basket->items()->orderBy('created_at')->orderBy('id')->get();

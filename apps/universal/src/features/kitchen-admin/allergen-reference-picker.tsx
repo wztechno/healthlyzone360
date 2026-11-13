@@ -4,7 +4,6 @@ import type {
     AllergenReferenceSelection,
 } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Checkbox,
     Inline,
@@ -23,6 +22,7 @@ import { Linking, View } from 'react-native';
 import { useAllergenReferenceSearch } from '../../data/kitchen-admin-hooks.ts';
 import { containmentKey, displayName } from './format.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 const ODBL_URL = 'https://opendatacommons.org/licenses/odbl/1-0/';
 
 /**
@@ -32,19 +32,37 @@ const ODBL_URL = 'https://opendatacommons.org/licenses/odbl/1-0/';
  * products as framed rows — name and brand on the line, its declared allergens as tags under it, the
  * source and licence the data asks to be credited with, and a Select. Once one is chosen the list
  * folds down to it, its confirmation and a Change.
+ *
+ * The ingredient assistant can hand it a `suggestion`: the same search, already run for the typed
+ * name, and the product it judged to be plainly this ingredient. Those rows stand in for a search
+ * until the cook runs their own; the purchased-product confirmation stays theirs.
  */
 export function AllergenReferencePicker({
     name,
     classes,
     value,
     onChange,
+    suggestion,
     disabled = false,
+    onNothingDeclared,
 }: {
     readonly name: string;
     readonly classes: readonly AllergenClass[];
     readonly value: AllergenReferenceSelection | undefined;
     readonly onChange: (value: AllergenReferenceSelection | undefined) => void;
+    readonly suggestion?:
+        | {
+              readonly candidates: readonly AllergenReferenceCandidate[];
+              readonly pick: number | null;
+          }
+        | undefined;
     readonly disabled?: boolean;
+    /**
+     * A barcode search found the product and it declares nothing — no allergen, no term we could
+     * not place. The product cannot be imported (an empty list is not an allergen-free claim), so
+     * the form ticks its own "no allergens" box for the cook to see instead.
+     */
+    readonly onNothingDeclared?: (() => void) | undefined;
 }) {
     const { t } = useTranslation();
     const { locale } = useLocale();
@@ -58,13 +76,34 @@ export function AllergenReferencePicker({
     const run = () => {
         if (blocked) return;
         onChange(undefined);
-        search.mutate({ query: query.trim(), barcode: barcode.trim() || undefined });
+        const byBarcode = barcode.trim() !== '';
+        search.mutate(
+            { query: query.trim(), barcode: barcode.trim() || undefined },
+            {
+                onSuccess: (result) => {
+                    if (
+                        byBarcode &&
+                        result.candidates.length > 0 &&
+                        result.candidates.every(
+                            (candidate) =>
+                                candidate.mappings.length === 0 &&
+                                candidate.unmapped_terms.length === 0,
+                        )
+                    ) {
+                        onNothingDeclared?.();
+                    }
+                },
+            },
+        );
     };
 
-    const chosen = search.data?.candidates.find(
-        (candidate) => value?.candidate.ref === candidate.ref,
-    );
-    const candidates = chosen !== undefined ? [chosen] : (search.data?.candidates ?? []);
+    const listed = search.data?.candidates ?? suggestion?.candidates ?? [];
+    const chosen = listed.find((candidate) => value?.candidate.ref === candidate.ref);
+    const candidates = chosen !== undefined ? [chosen] : listed;
+    const picked =
+        search.data === undefined && suggestion?.pick != null
+            ? suggestion.candidates[suggestion.pick]
+            : undefined;
 
     const className = (code: string) => {
         const known = classes.find((entry) => String(entry.code) === code);
@@ -104,16 +143,20 @@ export function AllergenReferencePicker({
             >
                 {candidate.attribution}
             </Text>
-            <Text
-                variant="caption"
-                tone="secondary"
-                accessibilityRole="link"
-                onPress={() => {
-                    void Linking.openURL(ODBL_URL);
-                }}
-            >
-                ODbL
-            </Text>
+            {/* The attribution usually names the licence already; a second "ODbL" beside it
+                read as a stutter. */}
+            {candidate.attribution.includes('ODbL') ? null : (
+                <Text
+                    variant="caption"
+                    tone="secondary"
+                    accessibilityRole="link"
+                    onPress={() => {
+                        void Linking.openURL(ODBL_URL);
+                    }}
+                >
+                    ODbL
+                </Text>
+            )}
         </Inline>
     );
 
@@ -148,7 +191,7 @@ export function AllergenReferencePicker({
                     {/* `Button` holds itself to the top (`self-start`); the wrapper is what the row
                         lines up with the input box. */}
                     <View>
-                        <Button
+                        <DeskButton
                             testID="allergen-reference-search"
                             variant="secondary"
                             label={t('kitchen:nutritionLookup.search')}
@@ -192,26 +235,38 @@ export function AllergenReferencePicker({
                             <View
                                 key={candidate.ref}
                                 testID={`allergen-reference-${candidate.ref}`}
-                                className={
+                                // The whole row is the choice, so the selected tint runs under
+                                // its declarations too, not only its title line.
+                                className={[
                                     index < candidates.length - 1
                                         ? 'border-b border-stroke-subtle'
-                                        : ''
-                                }
+                                        : '',
+                                    selected ? 'bg-surface-brand-subtle' : '',
+                                ].join(' ')}
                             >
                                 <ListItem
                                     title={candidate.label}
                                     selected={selected}
                                     divider={false}
                                     meta={
-                                        <Text variant="caption" tone="secondary">
-                                            {[candidate.brand, candidate.ref]
-                                                .filter(Boolean)
-                                                .join(' · ')}
-                                        </Text>
+                                        <>
+                                            {candidate === picked ? (
+                                                <Tag
+                                                    testID="allergen-reference-ai-pick"
+                                                    tone="info"
+                                                    label={t('kitchen:assist.aiPick')}
+                                                />
+                                            ) : null}
+                                            <Text variant="caption" tone="secondary">
+                                                {[candidate.brand, candidate.ref]
+                                                    .filter(Boolean)
+                                                    .join(' · ')}
+                                            </Text>
+                                        </>
                                     }
                                     trailing={
                                         selected ? (
-                                            <Button
+                                            <DeskButton
                                                 testID="allergen-reference-change"
                                                 size="sm"
                                                 variant="ghost"
@@ -219,7 +274,7 @@ export function AllergenReferencePicker({
                                                 onPress={() => onChange(undefined)}
                                             />
                                         ) : (
-                                            <Button
+                                            <DeskButton
                                                 testID={`allergen-reference-select-${candidate.ref}`}
                                                 size="sm"
                                                 variant="secondary"

@@ -154,6 +154,7 @@ export const DRAWN_ICON_FALLBACKS = {
     circleCheck: 'check',
     circleX: 'error',
     truck: 'user',
+    printer: 'device',
     wallet: 'basket',
     utensils: 'plate',
     cookingPot: 'calendar',
@@ -162,6 +163,11 @@ export const DRAWN_ICON_FALLBACKS = {
     circleHelp: 'info',
     handshake: 'lock',
     ban: 'dotOutline',
+    // Account → "Ingredients to leave out": the kind on each food, and the search's keyboard hint.
+    // Lucide's `thumbs-down`, `corner-down-left` and `type`.
+    thumbsDown: 'minus',
+    cornerDownLeft: 'chevronBackward',
+    typeText: 'pen',
     infoCircle: 'info',
     trendingUp: 'calendar',
     trendingDown: 'warning',
@@ -216,6 +222,33 @@ export const DRAWN_ICON_FALLBACKS = {
     swatchBook: 'prototype',
     // Ingredient barcodes: the camera scan control. Lucide's `scan-barcode`.
     scanBarcode: 'search',
+    // The kitchen top bar's staff alerts. Lucide's `bell`.
+    bell: 'warning',
+    // The shop's account: the header button and the account menu's Profile. Lucide's `user`.
+    person: 'user',
+    // The account menu's Favourites. Lucide's `heart`.
+    heart: 'starOutline',
+    // An address's kind on the account pages: home and work. Lucide's `house` and `briefcase`.
+    house: 'home',
+    briefcase: 'device',
+    // A step onwards — the basket's Checkout. Lucide's `arrow-right`, turned round in Arabic.
+    arrowForward: 'chevronForward',
+    // The shop pop-ups' head tiles. Lucide's `pause`, `play`, `skip-forward` and `trash-2`.
+    pause: 'minus',
+    play: 'chevronForward',
+    skipForward: 'chevronForward',
+    trash: 'close',
+    // The menu card's calories pill. Lucide's `flame`.
+    flame: 'dot',
+    // The shop's state cards. Lucide's `cloud-alert` and `rotate-cw`.
+    cloudAlert: 'offline',
+    rotateCw: 'refresh',
+    // The guest order page's reference chip. Lucide's `copy`.
+    copy: 'archive',
+    // The workspace frame's Workspaces control and page-panel close. Lucide's `grip` and
+    // `chevrons-left`.
+    gridDots: 'menu',
+    chevronsBackward: 'chevronBackward',
 } as const satisfies Readonly<Record<string, IconGlyphName>>;
 export type DrawnIconName = keyof typeof DRAWN_ICON_FALLBACKS;
 

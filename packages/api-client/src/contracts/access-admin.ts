@@ -40,10 +40,10 @@ import type { CursorPage, OffsetPageRequest } from './pagination.ts';
  *    {@link AccessAdminRepository.endMember}, because a single call taking a string would let a
  *    screen ship a dropdown in which the one irreversible act sits beside three reversible ones.
  *    Branch scope is the exception and is a patch, because where somebody works moves both ways.
- * 4. **A template is readable and not writable.** {@link OrganisationRoleSummary.isSystem} is the
- *    field every screen branches on: the console offers **Copy** on those rows and never Edit.
- *    `updateRole` on one answers `resource.not_found` — from the writing side there is no role at
- *    that identifier belonging to you.
+ * 4. **Every role a kitchen sees is its own.** Each organisation holds a copy of every standard role,
+ *    made when it was created, so every listed role is editable; the platform templates behind them
+ *    are never served. A role is shared by every branch, so an administrator bound to one branch is
+ *    refused role writes (`authz.permission_denied`) and the console draws the book read-only.
  * 5. **Every write carries a lock version.** Two administrators on one console is the ordinary case,
  *    and what last-write-wins would silently discard here is an authorisation decision.
  * 6. **The initial password is returned once.** {@link CreatedStaffAccount.initialPassword} exists on
@@ -56,8 +56,8 @@ import type { CursorPage, OffsetPageRequest } from './pagination.ts';
  * versions point at the person behind it, and who *used* to have access is what an access review
  * reads.
  *
- * No way to make a role a template. `isSystem` is the platform's, and a tenant that could set it
- * would be a tenant defining a role it could then never edit.
+ * No way to make a role a template. `isSystem` is the platform's, and is always `false` on a role
+ * a tenant is served.
  *
  * No `grantPermissionToMember`. Permissions reach people through roles and nothing else — the
  * backend has no table for a direct grant, and a method that existed only to throw would be a
@@ -98,8 +98,6 @@ export interface PermissionDomain {
  * `holderCount` is the figure that makes the list actionable: it says which roles are real and which
  * were defined and forgotten, and it is the number that decides whether Delete will be refused.
  *
- * `lockVersion` is `0` on a template and is never checked there. Served anyway, so a client can type
- * one shape for both kinds of row rather than branching on whether a validator arrived.
  */
 export interface OrganisationRoleSummary {
     readonly id: RoleId;
@@ -109,7 +107,7 @@ export interface OrganisationRoleSummary {
     readonly nameAr: string;
     readonly descriptionEn: string | null;
     readonly descriptionAr: string | null;
-    /** A platform template: visible in every tenant, editable in none. Copy, never Edit. */
+    /** Always `false` for a role a tenant is served — every organisation owns its roles. */
     readonly isSystem: boolean;
     readonly holderCount: number;
     readonly permissionCount: number;
@@ -124,14 +122,9 @@ export interface OrganisationRole extends OrganisationRoleSummary {
     readonly updatedByName: string | null;
 }
 
-/** Whether the console may offer Edit and Delete on this row at all. The one predicate it branches on. */
-export function isEditableRole(role: OrganisationRoleSummary): boolean {
-    return !role.isSystem;
-}
-
 /** Whether deleting would be refused. Answered from the row, so the screen need not try it to find out. */
 export function isDeletableRole(role: OrganisationRoleSummary): boolean {
-    return isEditableRole(role) && role.holderCount === 0;
+    return role.holderCount === 0;
 }
 
 export interface CreateRoleRequest {

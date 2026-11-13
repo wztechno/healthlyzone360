@@ -106,9 +106,20 @@ const META = {
     window: 'today',
     today: '2026-08-15',
     timezone: 'Asia/Dubai',
+    past_due_count: 11,
+    overdue_count: 9,
+    overdue_grace_minutes: 30,
 };
 
 describe('createApiOrderDeskRepository — listQueue', () => {
+    it('asks for the past due lens by name', async () => {
+        const { repository, calls } = harness([{ status: 200, body: { data: [], meta: META } }]);
+
+        await repository.listQueue({ window: 'today', lens: 'past_due' });
+
+        expect(calls[0]?.path).toBe('/catalogue/order-desk/queue?window=today&lens=past_due');
+    });
+
     it('reads the literal path with no query at all when nothing is filtered', async () => {
         const { repository, calls } = harness([
             { status: 200, body: { data: [wireRow()], meta: META } },
@@ -298,6 +309,9 @@ describe('createApiOrderDeskRepository — listQueue', () => {
             // Not sent by this wire, and only `window: 'range'` names them: absent reads as no span.
             from: null,
             to: null,
+            pastDueCount: 11,
+            overdueCount: 9,
+            overdueGraceMinutes: 30,
             today: '2026-08-15',
             timezone: 'Asia/Dubai',
         });
@@ -583,7 +597,7 @@ describe('createApiOrderDeskRepository — requirements', () => {
                 body: {
                     data: {
                         requirements: [ROW],
-                        not_computable: { days: 2, reasons: { plan_has_no_menu: 2 } },
+                        not_computable: { days: 2, reasons: { meals_not_chosen: 2 } },
                     },
                     meta: REQUIREMENTS_META,
                 },
@@ -612,7 +626,7 @@ describe('createApiOrderDeskRepository — requirements', () => {
                 suggestedBuy: '8.0000',
             },
         ]);
-        expect(answer.notComputable).toEqual({ days: 2, reasons: { plan_has_no_menu: 2 } });
+        expect(answer.notComputable).toEqual({ days: 2, reasons: { meals_not_chosen: 2 } });
         expect(answer.meta).toEqual({
             from: '2026-09-07',
             to: '2026-09-20',
@@ -929,6 +943,62 @@ describe('createApiOrderDeskRepository — placeSale', () => {
         // A present-but-undefined key would serialise to one the server refuses with a 422.
         expect('payment' in body).toBe(false);
         expect(body['payment_method']).toBe('cash_on_delivery');
+    });
+});
+
+describe('createApiOrderDeskRepository — amendOrder', () => {
+    it('patches the whole basket with If-Match and no idempotency key', async () => {
+        const { repository, calls } = harness([
+            {
+                status: 200,
+                body: {
+                    data: {
+                        order: wireRow({
+                            lock_version: 4,
+                            customer_account_id: ACCOUNT_UUID,
+                            amendable: true,
+                        }),
+                    },
+                    meta: {},
+                },
+            },
+        ]);
+
+        const order = await repository.amendOrder({
+            id: ORDER_UUID,
+            lockVersion: 3,
+            lines: [{ catalogueItemId: ITEM_UUID, catalogueItemVariantId: null, quantity: '2' }],
+            deliveryWindowCode: 'evening',
+        });
+
+        expect(calls[0]?.method).toBe('PATCH');
+        expect(calls[0]?.path).toBe(`/catalogue/order-desk/orders/${ORDER_UUID}`);
+        expect(calls[0]?.headers['if-match']).toBe('"3"');
+        expect(calls[0]?.headers['idempotency-key']).toBeUndefined();
+        // Unchanged fields are omitted — omission is "keep what is stored".
+        expect(calls[0]?.body).toEqual({
+            lines: [
+                { catalogue_item_id: ITEM_UUID, catalogue_item_variant_id: null, quantity: '2' },
+            ],
+            delivery_window_code: 'evening',
+        });
+        expect(order.lockVersion).toBe(4);
+        expect(order.amendable).toBe(true);
+        expect(order.customerAccountId).toBe(ACCOUNT_UUID);
+    });
+
+    it('quotes an edit on the order it amends', async () => {
+        const { repository, calls } = harness([
+            { status: 200, body: { data: { quote: wireQuote() }, meta: {} } },
+        ]);
+
+        await repository.quoteSale({
+            fulfilmentType: 'delivery',
+            lines: [{ catalogueItemId: ITEM_UUID, catalogueItemVariantId: null, quantity: '1' }],
+            amendingOrderId: ORDER_UUID,
+        });
+
+        expect(calls[0]?.body?.['amending_order_id']).toBe(ORDER_UUID);
     });
 });
 
@@ -1305,16 +1375,20 @@ describe('createApiOrderDeskRepository — the fulfilment-type filter', () => {
 describe('createApiOrderDeskRepository — getCashReport', () => {
     const CASH_META = {
         correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4903',
-        date: '2026-05-10',
+        from: '2026-05-10',
+        to: '2026-05-10',
         branch_id: null,
         timezone: 'UTC',
+        branches: [],
         count: 2,
     };
 
     const CASH_BODY = {
         data: {
+            adjustments: [],
             rows: [
                 {
+                    day: '2026-05-10',
                     confirmed_by: DRIVER_UUID,
                     display_name: 'Sara Nasr',
                     method: 'cash_on_delivery',
@@ -1323,6 +1397,7 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
                     amount_minor_sum: 4_000,
                 },
                 {
+                    day: '2026-05-10',
                     confirmed_by: DRIVER_UUID,
                     display_name: null,
                     method: 'cash_on_delivery',
@@ -1349,15 +1424,17 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
         meta: CASH_META,
     };
 
-    it('sends the day and nothing else when no branch is named', async () => {
+    it('sends the window and nothing else when no branch is named', async () => {
         const { repository, calls } = harness([{ status: 200, body: CASH_BODY }]);
 
-        await repository.getCashReport({ date: '2026-05-10' });
+        await repository.getCashReport({ from: '2026-05-10', to: '2026-05-10' });
 
         expect(calls[0]?.method).toBe('GET');
         // No `branch_id=`: omitted is the organisation-wide read, and an empty value would be the
         // client naming a field it has no value for.
-        expect(calls[0]?.path).toBe('/catalogue/order-desk/cash-report?date=2026-05-10');
+        expect(calls[0]?.path).toBe(
+            '/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10',
+        );
     });
 
     it('sends the branch when one is named', async () => {
@@ -1365,20 +1442,25 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
             { status: 200, body: { ...CASH_BODY, meta: { ...CASH_META, branch_id: BRANCH_UUID } } },
         ]);
 
-        await repository.getCashReport({ date: '2026-05-10', branchId: BRANCH_UUID as never });
+        await repository.getCashReport({
+            from: '2026-05-10',
+            to: '2026-05-10',
+            branchId: BRANCH_UUID as never,
+        });
 
         expect(calls[0]?.path).toBe(
-            `/catalogue/order-desk/cash-report?date=2026-05-10&branch_id=${BRANCH_UUID}`,
+            `/catalogue/order-desk/cash-report?from=2026-05-10&to=2026-05-10&branch_id=${BRANCH_UUID}`,
         );
     });
 
     it('keeps the currency on every row and total, and folds nothing', async () => {
         const { repository } = harness([{ status: 200, body: CASH_BODY }]);
 
-        const report = await repository.getCashReport({ date: '2026-05-10' });
+        const report = await repository.getCashReport({ from: '2026-05-10', to: '2026-05-10' });
 
         expect(report.rows).toEqual([
             {
+                day: '2026-05-10',
                 confirmedBy: DRIVER_UUID,
                 displayName: 'Sara Nasr',
                 method: 'cash_on_delivery',
@@ -1387,6 +1469,7 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
                 amountMinorSum: 4_000,
             },
             {
+                day: '2026-05-10',
                 confirmedBy: DRIVER_UUID,
                 // Nameless, and still listed: dropping the row would be losing cash from a
                 // reconciliation to protect a null.
@@ -1407,13 +1490,102 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
     it('carries the clock the day was cut on rather than assuming it', async () => {
         const { repository } = harness([{ status: 200, body: CASH_BODY }]);
 
-        const report = await repository.getCashReport({ date: '2026-05-10' });
+        const report = await repository.getCashReport({ from: '2026-05-10', to: '2026-05-10' });
 
         expect(report.meta).toEqual({
-            date: '2026-05-10',
+            from: '2026-05-10',
+            to: '2026-05-10',
             branchId: null,
             timezone: 'UTC',
+            branches: [],
             count: 2,
         });
+    });
+});
+
+describe('createApiOrderDeskRepository — listPlanMeals', () => {
+    const META = {
+        correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4901',
+        date: '2026-08-17',
+        count: 1,
+    };
+
+    it('asks for one day and maps a subscriber with the dish they picked', async () => {
+        const { repository, calls } = harness([
+            {
+                status: 200,
+                body: {
+                    data: [
+                        {
+                            subscription_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4902',
+                            basis: 'scheduled',
+                            plan: { name_en: 'Lean week', name_ar: null },
+                            meals_per_day: 2,
+                            snacks_per_day: 0,
+                            meals: [
+                                {
+                                    slot: 'lunch',
+                                    sequence: 1,
+                                    catalogue_item_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4903',
+                                    name_en: 'Lentil Soup',
+                                    name_ar: null,
+                                },
+                            ],
+                            customer: { display_name: 'Rania Haddad', phone: '+96170214380' },
+                        },
+                    ],
+                    meta: META,
+                },
+            },
+        ]);
+
+        const rows = await repository.listPlanMeals('2026-08-17');
+
+        expect(calls[0]?.path).toBe('/catalogue/order-desk/plan-meals?date=2026-08-17');
+        expect(rows).toEqual([
+            {
+                subscriptionId: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4902',
+                basis: 'scheduled',
+                plan: { nameEn: 'Lean week', nameAr: null },
+                mealsPerDay: 2,
+                snacksPerDay: 0,
+                meals: [
+                    {
+                        slot: 'lunch',
+                        sequence: 1,
+                        catalogueItemId: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4903',
+                        nameEn: 'Lentil Soup',
+                        nameAr: null,
+                    },
+                ],
+                customer: { displayName: 'Rania Haddad', phone: '+96170214380' },
+            },
+        ]);
+    });
+
+    it('leaves the customer off a row the caller may not see contacts for', async () => {
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: [
+                        {
+                            subscription_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4902',
+                            basis: 'projected',
+                            plan: { name_en: 'Lean week', name_ar: null },
+                            meals_per_day: 1,
+                            snacks_per_day: null,
+                            meals: [],
+                        },
+                    ],
+                    meta: META,
+                },
+            },
+        ]);
+
+        const [row] = await repository.listPlanMeals('2026-08-17');
+
+        expect(row?.customer).toBeUndefined();
+        expect(row?.basis).toBe('projected');
     });
 });

@@ -3,6 +3,7 @@ import {
     Accordion,
     ActionSheet,
     AppShell,
+    RailAccount,
     Avatar,
     Badge,
     BADGE_TONES,
@@ -158,6 +159,7 @@ import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
 import { RecordSummaryAside } from '../features/kitchen-admin/record-summary-aside.tsx';
 import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
 import { KpiTile } from '../features/kitchen-admin/kpi-tile.tsx';
+import { PackCard } from '../features/kitchen-admin/packs-prices-section.tsx';
 import { ListToolbar } from '../features/kitchen-admin/list-toolbar.tsx';
 import { ToolbarRow } from '../features/marketplace/toolbar-row.tsx';
 import { AiBand, AiRailCard } from '../ui/ai-surface.tsx';
@@ -2162,6 +2164,36 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         value="kg"
                         onChange={() => undefined}
                     />
+                    {/* Section headings — the recipe line picker's Raw materials / Preparations. */}
+                    <Select
+                        testID={id('select-sections')}
+                        id={id('select-sections')}
+                        label="Ingredient"
+                        placeholder="Add an ingredient…"
+                        searchable
+                        options={[
+                            {
+                                value: 'burghul',
+                                label: 'Burghul',
+                                description: 'Grains · 1.20 USD',
+                                section: 'Raw materials',
+                            },
+                            {
+                                value: 'sumac',
+                                label: 'Sumac',
+                                description: 'Spices · 9.00 USD',
+                                section: 'Raw materials',
+                            },
+                            {
+                                value: 'tahini-sauce',
+                                label: 'Tahini sauce',
+                                description: 'Preparation · 4.10 USD',
+                                section: 'Preparations',
+                            },
+                        ]}
+                        value={null}
+                        onChange={() => undefined}
+                    />
                     <Select
                         testID={id('select-disabled')}
                         id={id('select-disabled')}
@@ -2696,8 +2728,8 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
             </Stack>
 
             {/*
-             * The workspace sidebar: the module panel filled with the primary green, white items,
-             * and the active item as a white pill in #16A34A text. Framed at a fixed height so the shell
+             * The workspace frame: the floating green module rail with an amber count on a module
+             * holding a queue, the floating white page panel, and the pill top bar. Framed at a fixed height so the shell
              * sits inside the page rather than taking it over; the sidebar itself appears from
              * `lg` up, as it does in the product. The modules and their rail marks are the kitchen's
              * own (`kitchen-chrome.tsx`), so the drawn Lucide set is reviewed here as it ships.
@@ -2714,6 +2746,22 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         testID={id('sidebar-shell')}
                         variant="workspace"
                         title="Kitchen workspace"
+                        sidebarWidth={240}
+                        // The rail's foot, as the staff areas fill it: the avatar alone.
+                        // The whole frame has its own page, `/showcase-admin-frame`.
+                        railEnd={
+                            <>
+                                <RailAccount
+                                    name="Hala"
+                                    detail="Owner · Main kitchen"
+                                    label="Hala, account"
+                                    menuLabel="Account"
+                                    signOutLabel="Sign out"
+                                    onSignOut={() => undefined}
+                                    testID={id('sidebar-account')}
+                                />
+                            </>
+                        }
                         // The workspace switcher: the bottom bar under the page, not a rail module.
                         bottomNavigation={[
                             {
@@ -2762,6 +2810,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                                 label: 'Review',
                                 group: 'Workbench',
                                 groupIcon: 'clipboardCheck',
+                                count: 3,
                                 onPress: () => undefined,
                             },
                             {
@@ -2852,94 +2901,108 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
             {/*
              * The read-only record page behind every kitchen-admin row's View
              * (`IngredientView.dc.html`): a main column of cards beside a status rail, which drops
-             * under the main column below `xl`. Back and Edit are inert here.
+             * under the main column below `xl`. It opens as a pop-up over its list, as every View
+             * does, so here it opens from a press; its actions are inert.
              */}
             <Stack space="xs">
                 <Text variant="section" tone="secondary">
                     Record view page
                 </Text>
-                <RecordViewPage
-                    testID={id('record-view')}
-                    media={
-                        // Public domain, so the card carries no credit; the credited case is below.
-                        <RecordPhoto
-                            assetId="ingredient-tahini"
-                            label="Tahini paste"
-                            shape="square"
-                            testID={id('record-view-photo')}
-                        />
-                    }
-                    onBack={() => undefined}
-                    kind="Ingredient"
-                    reference="ING-0142"
-                    title="Tahini paste"
-                    status={{ label: 'Live', tone: 'success' }}
-                    fieldsTitle="Identification"
-                    fieldsSubtitle="Catalogue record and costing"
-                    fields={[
-                        // The table's own column names — a view names a field what its column does.
-                        { key: 'reference', label: 'Id', value: 'ING-0142', mono: true },
-                        { key: 'name', label: 'Item', value: 'Tahini paste' },
-                        { key: 'category', label: 'Category', value: 'Sauces' },
-                        { key: 'unit', label: 'Unit', value: 'kg' },
-                        { key: 'cost', label: 'Unit price', value: 'AED 4.57', mono: true },
-                        { key: 'sellable', label: 'Available for sale', value: 'No' },
-                    ]}
-                    sections={[
-                        {
-                            key: 'nutrition',
-                            title: 'Nutrition per 100 g',
-                            subtitle: 'Share of the adult reference intake, 2,000 kcal',
-                            content: (
-                                <Stack space="sm">
-                                    <MeterBar
-                                        label="Energy"
-                                        value={595}
-                                        target={2000}
-                                        unit="kcal"
-                                    />
-                                    <MeterBar label="Protein" value={17} target={50} unit="g" />
-                                    <MeterBar label="Fat" value={54} target={70} unit="g" />
-                                </Stack>
-                            ),
-                        },
-                    ]}
-                    statusLines={['Updated 3 days ago by Dina Haddad', 'Version 7']}
-                    // `statusContent` — a node above the action, as the order desk draws its
-                    // driver's word beside Fulfil.
-                    statusContent={
-                        <Text variant="caption" tone="primary">
-                            Two open recipes use this ingredient.
-                        </Text>
-                    }
-                    chipsLabel="Allergens & diets"
-                    chipsSourceBadge="From database"
-                    chipsCaption="Resolved from the ingredient database. Correct it on the record itself, not here."
-                    chips={[
-                        { key: 'sesame', label: 'Sesame', tone: 'danger' },
-                        { key: 'vegan', label: 'Vegan', tone: 'brand' },
-                    ]}
-                    rail={[
-                        {
-                            key: 'sourcing',
-                            title: 'Pack & sourcing',
-                            content: (
-                                <RecordWindowFieldGrid
-                                    fields={[
-                                        { key: 'purchase', label: 'Purchase unit', value: 'Tub' },
-                                        {
-                                            key: 'pack',
-                                            label: 'Pack contents',
-                                            value: '5 kg',
-                                            mono: true,
-                                        },
-                                    ]}
+                <OpenOnPress label="Open the record view" testID={id('record-view-open')}>
+                    {(close) => (
+                        <RecordViewPage
+                            testID={id('record-view')}
+                            media={
+                                // Public domain, so the card carries no credit; the credited case is below.
+                                <RecordPhoto
+                                    assetId="ingredient-tahini"
+                                    label="Tahini paste"
+                                    shape="square"
+                                    testID={id('record-view-photo')}
                                 />
-                            ),
-                        },
-                    ]}
-                    primaryAction={{ label: 'Edit ingredient', onPress: () => undefined }}
-                />
+                            }
+                            onBack={close}
+                            kind="Ingredient"
+                            reference="ING-0142"
+                            title="Tahini paste"
+                            status={{ label: 'Live', tone: 'success' }}
+                            fieldsTitle="Identification"
+                            fieldsSubtitle="Catalogue record and costing"
+                            fields={[
+                                // The table's own column names — a view names a field what its column does.
+                                { key: 'reference', label: 'Id', value: 'ING-0142', mono: true },
+                                { key: 'name', label: 'Item', value: 'Tahini paste' },
+                                { key: 'category', label: 'Category', value: 'Sauces' },
+                                { key: 'unit', label: 'Unit', value: 'kg' },
+                                { key: 'cost', label: 'Unit price', value: 'AED 4.57', mono: true },
+                                { key: 'sellable', label: 'Available for sale', value: 'No' },
+                            ]}
+                            sections={[
+                                {
+                                    key: 'nutrition',
+                                    title: 'Nutrition per 100 g',
+                                    subtitle: 'Share of the adult reference intake, 2,000 kcal',
+                                    content: (
+                                        <Stack space="sm">
+                                            <MeterBar
+                                                label="Energy"
+                                                value={595}
+                                                target={2000}
+                                                unit="kcal"
+                                            />
+                                            <MeterBar
+                                                label="Protein"
+                                                value={17}
+                                                target={50}
+                                                unit="g"
+                                            />
+                                            <MeterBar label="Fat" value={54} target={70} unit="g" />
+                                        </Stack>
+                                    ),
+                                },
+                            ]}
+                            statusLines={['Updated 3 days ago by Dina Haddad', 'Version 7']}
+                            // `statusContent` — a node above the action, as the order desk draws its
+                            // driver's word beside Fulfil.
+                            statusContent={
+                                <Text variant="caption" tone="primary">
+                                    Two open recipes use this ingredient.
+                                </Text>
+                            }
+                            chipsLabel="Allergens & diets"
+                            chipsSourceBadge="From database"
+                            chipsCaption="Resolved from the ingredient database. Correct it on the record itself, not here."
+                            chips={[
+                                { key: 'sesame', label: 'Sesame', tone: 'danger' },
+                                { key: 'vegan', label: 'Vegan', tone: 'brand' },
+                            ]}
+                            rail={[
+                                {
+                                    key: 'sourcing',
+                                    title: 'Pack & sourcing',
+                                    content: (
+                                        <RecordWindowFieldGrid
+                                            fields={[
+                                                {
+                                                    key: 'purchase',
+                                                    label: 'Purchase unit',
+                                                    value: 'Tub',
+                                                },
+                                                {
+                                                    key: 'pack',
+                                                    label: 'Pack contents',
+                                                    value: '5 kg',
+                                                    mono: true,
+                                                },
+                                            ]}
+                                        />
+                                    ),
+                                },
+                            ]}
+                            primaryAction={{ label: 'Edit ingredient', onPress: () => undefined }}
+                        />
+                    )}
+                </OpenOnPress>
             </Stack>
 
             {/*
@@ -5184,6 +5247,45 @@ export function ShowcaseScreen() {
                             nullCaption="The count could not be read."
                         />
                     </View>
+                    {/* Packs & prices — one pack, costed, priced on both places, Counter ticked. */}
+                    <PackCard
+                        testID="showcase-kitchen-pack-card"
+                        pack={{
+                            key: 'showcase-pack',
+                            id: 'showcase-pack',
+                            code: 'PK-05',
+                            name: { en: 'Bottle 0.5 L', ar: 'زجاجة 0.5 لتر' },
+                            fill: '0.46',
+                            fillUnit: 'kg',
+                            components: [
+                                { ingredientId: 'showcase-bottle', quantity: 1, isContainer: true },
+                                { ingredientId: 'showcase-cap', quantity: 1, isContainer: false },
+                            ],
+                            prices: { home: '4.50', business: '' },
+                            inherited: { home: false, business: false },
+                        }}
+                        name="Bottle 0.5 L"
+                        perBatch={4}
+                        container={undefined}
+                        nameOf={(id) => (id === 'showcase-cap' ? 'Cap 38 mm' : 'Bottle 0.5 L')}
+                        amountText={(quantity, unit) => `${String(quantity)} ${unit}`}
+                        library={[]}
+                        containerOptions={[]}
+                        places={{ home: true, business: true, counter: true }}
+                        currencyOf={() => 'USD'}
+                        cost={{
+                            key: 'showcase-pack',
+                            contents: { amount: 1.35, currency: 'USD' },
+                            packaging: { amount: 0.35, currency: 'USD' },
+                            cost: { amount: 1.7, currency: 'USD' },
+                            withheldReason: null,
+                        }}
+                        canManage
+                        attempted={false}
+                        serverError={() => undefined}
+                        onChange={() => undefined}
+                        onRemove={() => undefined}
+                    />
                     <ListToolbar
                         testID="showcase-kitchen-toolbar"
                         query={kitchenQuery}
@@ -5250,5 +5352,38 @@ export function ShowcaseScreen() {
                 </Section>
             </Stack>
         </PageTransition>
+    );
+}
+
+/** A demo that opens as a modal is drawn on a press, never on the page's arrival. */
+function OpenOnPress({
+    label,
+    testID,
+    children,
+}: {
+    readonly label: string;
+    readonly testID: string;
+    readonly children: (close: () => void) => React.ReactNode;
+}) {
+    const [open, setOpen] = useState(false);
+    return (
+        <>
+            <View className="flex-row">
+                <Button
+                    testID={testID}
+                    variant="secondary"
+                    size="sm"
+                    label={label}
+                    onPress={() => {
+                        setOpen(true);
+                    }}
+                />
+            </View>
+            {open
+                ? children(() => {
+                      setOpen(false);
+                  })
+                : null}
+        </>
     );
 }

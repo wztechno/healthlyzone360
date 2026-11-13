@@ -1,19 +1,28 @@
-import type { BranchId } from '@healthy360/domain-types';
+import type { BranchId, CurrencyCode } from '@healthy360/domain-types';
 
+import type { DishChoices, DishOptionDraft, KitchenDishOption } from '../contracts/dish-options.ts';
 import type { ServiceArea } from '../contracts/kitchen-admin.ts';
 import type { KitchenOrder } from '../contracts/kitchen-orders.ts';
 import type {
     AddOrderDeskCustomerAddressRequest,
+    AmendOrderDeskOrderRequest,
     AssignDeliveryJobRequest,
     AssignedDeliveryJob,
     CreateOrderDeskCustomerRequest,
     OrderDeskBasketLine,
     OrderDeskCalendar,
     OrderDeskCalendarFilters,
+    CashSettlementRecord,
+    DailyCloseRecord,
     OrderDeskCashReport,
     OrderDeskCashReportFilters,
+    OrderDeskCloses,
+    OrderDeskSettlements,
+    RecordCashSettlementRequest,
+    RecordDailyCloseRequest,
     OrderDeskCustomerAddress,
     OrderDeskCustomerCreated,
+    OrderDeskCustomerAllergies,
     OrderDeskCustomerSearch,
     OrderDeskDeliveryWindow,
     OrderDeskDrivers,
@@ -25,19 +34,26 @@ import type {
     OrderDeskRequirementsFilters,
     OrderDeskSaleRequest,
     OrderDeskShortfallCount,
+    OrderDeskToday,
     WeeklyStockCheck,
     PlaceOrderDeskSaleRequest,
     UpdateOrderDeskCustomerRequest,
+    OrderDeskPlanMeal,
 } from '../contracts/order-desk.ts';
 import type {
     AdminDeliveryArea,
+    AmendOrderDeskOrderRequest as WireAmendOrderDeskOrderRequest,
     AssignedDeliveryJob as WireAssignedDeliveryJob,
     CustomerAddressEnvelope,
     DeliveryWindow as WireDeliveryWindow,
     KitchenOrder as WireKitchenOrder,
     OrderDeskBasketLine as WireOrderDeskBasketLine,
     OrderDeskCalendarEnvelope,
+    CashSettlementEnvelope,
+    DailyCloseEnvelope,
+    OrderDeskClosesEnvelope,
     OrderDeskCashReportEnvelope,
+    OrderDeskSettlementsEnvelope,
     OrderDeskCustomer as WireOrderDeskCustomer,
     OrderDeskCustomerEnvelope,
     OrderDeskCustomersEnvelope,
@@ -49,18 +65,30 @@ import type {
     OrderDeskRow as WireOrderDeskRow,
     OrderDeskSaleBase,
     OrderDeskShortfallCountEnvelope,
+    OrderDeskTodayEnvelope,
     OrderDeskWeeklyCheckEnvelope,
     PlaceOrderDeskRequest,
+    QuoteOrderDeskRequest,
+    DishOption as WireDishOption,
+    DishPortion as WireDishPortion,
+    KitchenDishOption as WireKitchenDishOption,
+    OrderDeskPlanMealsEnvelope,
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
 import { mapServiceAreaFromDeliveryArea } from './kitchen-admin-mappers.ts';
 import { mapKitchenOrder } from './kitchen-orders-repository.ts';
+import { mapDishOption, mapDishPortion, mapKitchenDishOption } from './marketplace-mappers.ts';
 import {
     mapAssignedDeliveryJob,
     mapCalendarDay,
     mapCalendarMeta,
     mapOrderDeskCashReportMeta,
+    mapCashReportAdjustment,
+    mapCashSettlement,
+    mapDailyClose,
+    mapOrderDeskCloses,
     mapOrderDeskCashReportRow,
+    mapOrderDeskSettlements,
     mapOrderDeskCashReportTotal,
     mapOrderDeskCustomer,
     mapOrderDeskCustomerAddress,
@@ -119,9 +147,9 @@ import type { Transport } from './transport.ts';
  * rows.
  *
  * `getCashReport` is the odd one out and its `meta` is the reason: the day it reports is measured on
- * **UTC**, always, because a receipt carries no branch and the order behind it may carry none
- * either. The clock comes back on the wire rather than being assumed here, so a screen prints which
- * midnight it is showing instead of implying the reader's own. Its `totals` are passed through
+ * the branch's or the organisation's clock, which the client cannot derive. The clock comes back on
+ * the wire rather than being assumed here, so a client can say which midnight it was cut on
+ * instead of implying the reader's own. Its `totals` are passed through
  * untouched for the same reason the calendar's three bases are never added: folding them on the
  * client would mean grouping on `method`, and grouping on `method` across two currencies produces a
  * number in neither.
@@ -184,6 +212,7 @@ function queueQuery(filters?: OrderDeskQueueFilters): string {
     if (filters.query !== undefined && filters.query.trim() !== '') {
         search.set('query', filters.query.trim());
     }
+    if (filters.lens !== undefined) search.set('lens', filters.lens);
 
     const rendered = search.toString();
     return rendered === '' ? '' : `?${rendered}`;
@@ -212,7 +241,7 @@ function calendarQuery(filters: OrderDeskCalendarFilters): string {
  * organisation-wide read.
  */
 function cashReportQuery(filters: OrderDeskCashReportFilters): string {
-    const search = new URLSearchParams({ date: filters.date });
+    const search = new URLSearchParams({ from: filters.from, to: filters.to });
     if (filters.branchId !== undefined) search.set('branch_id', String(filters.branchId));
     return `?${search.toString()}`;
 }
@@ -247,6 +276,10 @@ function wireLine(line: OrderDeskBasketLine): WireOrderDeskBasketLine {
         // a plain article to a default this client does not own.
         catalogue_item_variant_id: line.catalogueItemVariantId,
         quantity: line.quantity,
+        ...(line.optionIds === undefined || line.optionIds.length === 0
+            ? {}
+            : { option_ids: [...line.optionIds] }),
+        ...(line.note == null || line.note.trim() === '' ? {} : { note: line.note }),
     };
 }
 
@@ -309,6 +342,41 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             };
         },
 
+        async listPlanMeals(
+            day: string,
+            branchId?: BranchId,
+        ): Promise<readonly OrderDeskPlanMeal[]> {
+            const query = new URLSearchParams({ date: day });
+            if (branchId !== undefined) query.set('branch_id', branchId);
+            const envelope = await transport.requestEnvelope<OrderDeskPlanMealsEnvelope['data']>({
+                method: 'GET',
+                path: `/catalogue/order-desk/plan-meals?${query.toString()}`,
+            });
+
+            return envelope.data.map((wire) => ({
+                subscriptionId: wire.subscription_id,
+                basis: wire.basis,
+                plan: { nameEn: wire.plan.name_en ?? null, nameAr: wire.plan.name_ar ?? null },
+                mealsPerDay: wire.meals_per_day ?? null,
+                snacksPerDay: wire.snacks_per_day ?? null,
+                meals: wire.meals.map((meal) => ({
+                    slot: meal.slot,
+                    sequence: meal.sequence,
+                    catalogueItemId: meal.catalogue_item_id,
+                    nameEn: meal.name_en ?? null,
+                    nameAr: meal.name_ar ?? null,
+                })),
+                ...(wire.customer === undefined
+                    ? {}
+                    : {
+                          customer: {
+                              displayName: wire.customer.display_name ?? null,
+                              phone: wire.customer.phone ?? null,
+                          },
+                      }),
+            }));
+        },
+
         async listRequirements(
             filters: OrderDeskRequirementsFilters,
         ): Promise<OrderDeskRequirements> {
@@ -345,6 +413,32 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             });
 
             return mapOrderDeskShortfallCount(envelope.data);
+        },
+
+        async getToday(branchId?: BranchId | undefined): Promise<OrderDeskToday> {
+            const query =
+                branchId === undefined ? '' : `?branch_id=${encodeURIComponent(String(branchId))}`;
+            const wire = await transport.request<OrderDeskTodayEnvelope['data']>({
+                method: 'GET',
+                path: `/catalogue/order-desk/today${query}`,
+            });
+            const amounts = (list: OrderDeskTodayEnvelope['data']['sales']) =>
+                list.map((row) => ({
+                    currencyCode: row.currency_code as CurrencyCode,
+                    amountMinor: row.amount_minor,
+                }));
+
+            return {
+                day: wire.day,
+                timezone: wire.timezone,
+                sales: amounts(wire.sales),
+                orders: wire.orders,
+                cashExpected: amounts(wire.cash_expected),
+                cashCounted: amounts(wire.cash_counted),
+                overdue: wire.overdue,
+                pastDue: wire.past_due,
+                cancelled: wire.cancelled,
+            };
         },
 
         async getWeeklyStockCheck(
@@ -399,6 +493,80 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             return areas.map(mapServiceAreaFromDeliveryArea);
         },
 
+        async getCloses(): Promise<OrderDeskCloses> {
+            return mapOrderDeskCloses(
+                await transport.request<OrderDeskClosesEnvelope['data']>({
+                    method: 'GET',
+                    path: '/catalogue/order-desk/closes',
+                }),
+            );
+        },
+
+        async recordClose(request: RecordDailyCloseRequest): Promise<DailyCloseRecord> {
+            const payload = await transport.request<DailyCloseEnvelope['data']>({
+                method: 'POST',
+                path: '/catalogue/order-desk/closes',
+                headers: { 'Idempotency-Key': generateRequestId() },
+                body: {
+                    branch_id: request.branchId,
+                    currency_code: request.currencyCode,
+                    opening_float_minor: request.openingFloatMinor,
+                    counted_minor: request.countedMinor,
+                    ...(request.varianceReason === undefined
+                        ? {}
+                        : { variance_reason: request.varianceReason }),
+                },
+            });
+
+            return mapDailyClose(payload.close);
+        },
+
+        async signOffClose(closeId: string): Promise<DailyCloseRecord> {
+            const payload = await transport.request<DailyCloseEnvelope['data']>({
+                method: 'POST',
+                path: `/catalogue/order-desk/closes/${encodeURIComponent(closeId)}/sign-off`,
+            });
+
+            return mapDailyClose(payload.close);
+        },
+
+        async getSettlements(): Promise<OrderDeskSettlements> {
+            return mapOrderDeskSettlements(
+                await transport.request<OrderDeskSettlementsEnvelope['data']>({
+                    method: 'GET',
+                    path: '/catalogue/order-desk/settlements',
+                }),
+            );
+        },
+
+        async recordSettlement(
+            request: RecordCashSettlementRequest,
+        ): Promise<CashSettlementRecord> {
+            const payload = await transport.request<CashSettlementEnvelope['data']>({
+                method: 'POST',
+                path: '/catalogue/order-desk/settlements',
+                headers: { 'Idempotency-Key': generateRequestId() },
+                body: {
+                    job_ids: request.jobIds,
+                    handed_in_minor: request.handedInMinor,
+                    ...(request.shortReason === undefined
+                        ? {}
+                        : { short_reason: request.shortReason }),
+                },
+            });
+
+            return mapCashSettlement(payload.settlement);
+        },
+
+        async signOffSettlement(settlementId: string): Promise<CashSettlementRecord> {
+            const payload = await transport.request<CashSettlementEnvelope['data']>({
+                method: 'POST',
+                path: `/catalogue/order-desk/settlements/${encodeURIComponent(settlementId)}/sign-off`,
+            });
+
+            return mapCashSettlement(payload.settlement);
+        },
+
         async getCashReport(filters: OrderDeskCashReportFilters): Promise<OrderDeskCashReport> {
             // `data` is an object carrying two arrays rather than the bare array the queue answers
             // — the wire's own shape, left alone here. The envelope is read whole because `meta`
@@ -415,17 +583,72 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 // query so they cannot disagree, and the only way a client-side fold would differ
                 // is by grouping on method alone and adding two currencies together.
                 totals: payload.data.totals.map(mapOrderDeskCashReportTotal),
+                adjustments: payload.data.adjustments.map(mapCashReportAdjustment),
                 meta: mapOrderDeskCashReportMeta(
                     payload.meta as OrderDeskCashReportEnvelope['meta'],
                 ),
             };
         },
 
+        async getDishChoices(itemId: string): Promise<DishChoices> {
+            const payload = await transport.request<{
+                readonly options: readonly WireDishOption[];
+                readonly portions: readonly WireDishPortion[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/order-desk/items/${encodeURIComponent(itemId)}/choices`,
+            });
+            return {
+                options: payload.options.map(mapDishOption),
+                portions: payload.portions.map(mapDishPortion),
+            };
+        },
+
+        async listDishOptions(itemId: string): Promise<readonly KitchenDishOption[]> {
+            const payload = await transport.request<{
+                readonly options: readonly WireKitchenDishOption[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/items/${encodeURIComponent(itemId)}/options`,
+            });
+            return payload.options.map(mapKitchenDishOption);
+        },
+
+        async replaceDishOptions(
+            itemId: string,
+            options: readonly DishOptionDraft[],
+        ): Promise<readonly KitchenDishOption[]> {
+            const payload = await transport.request<{
+                readonly options: readonly WireKitchenDishOption[];
+            }>({
+                method: 'PUT',
+                path: `/catalogue/items/${encodeURIComponent(itemId)}/options`,
+                body: {
+                    options: options.map((option) => ({
+                        id: option.id,
+                        kind: option.kind,
+                        group_en: option.kind === 'choice' ? option.groupEn : null,
+                        group_ar: option.kind === 'choice' ? option.groupAr : null,
+                        name_en: option.nameEn,
+                        name_ar: option.nameAr,
+                        recipe_id: option.kind === 'choice' ? option.recipeId : null,
+                    })),
+                },
+            });
+            return payload.options.map(mapKitchenDishOption);
+        },
+
         async quoteSale(request: OrderDeskSaleRequest): Promise<OrderDeskQuote> {
+            const body: QuoteOrderDeskRequest = {
+                ...saleBody(request),
+                ...(request.amendingOrderId === undefined
+                    ? {}
+                    : { amending_order_id: request.amendingOrderId }),
+            };
             const payload = await transport.request<{ readonly quote: WireOrderDeskQuote }>({
                 method: 'POST',
                 path: '/catalogue/order-desk/quote',
-                body: saleBody(request),
+                body,
             });
             return mapOrderDeskQuote(payload.quote);
         },
@@ -440,6 +663,10 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 ...(request.driverUserId === undefined
                     ? {}
                     : { driver_user_id: request.driverUserId }),
+                ...(request.allergyNote === undefined ? {} : { allergy_note: request.allergyNote }),
+                ...(request.acknowledgeAllergenConflicts === true
+                    ? { acknowledge_allergen_conflicts: true }
+                    : {}),
                 ...(request.payment === undefined
                     ? {}
                     : {
@@ -465,6 +692,38 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             return mapKitchenOrder(payload.order);
         },
 
+        async amendOrder(request: AmendOrderDeskOrderRequest): Promise<KitchenOrder> {
+            // Omitted fields keep what is stored, so nothing is sent as `null` — a `null` date
+            // would read the same, but omission is the one spelling of "unchanged" this client owns.
+            const body: WireAmendOrderDeskOrderRequest = {
+                lines: request.lines.map(wireLine),
+                ...(request.customerAddressId === undefined
+                    ? {}
+                    : { customer_address_id: request.customerAddressId }),
+                ...(request.requestedDeliveryDate === undefined
+                    ? {}
+                    : { requested_delivery_date: request.requestedDeliveryDate }),
+                ...(request.deliveryWindowCode === undefined
+                    ? {}
+                    : { delivery_window_code: request.deliveryWindowCode }),
+                ...(request.paymentMethod === undefined
+                    ? {}
+                    : { payment_method: request.paymentMethod }),
+                ...(request.allergyNote === undefined ? {} : { allergy_note: request.allergyNote }),
+                ...(request.acknowledgeAllergenConflicts === true
+                    ? { acknowledge_allergen_conflicts: true }
+                    : {}),
+            };
+            const payload = await transport.request<{ readonly order: WireKitchenOrder }>({
+                method: 'PATCH',
+                path: `/catalogue/order-desk/orders/${encodeURIComponent(request.id)}`,
+                // No `Idempotency-Key`: `If-Match` is the replay guard — a second send is stale.
+                headers: ifMatch(request.lockVersion),
+                body,
+            });
+            return mapKitchenOrder(payload.order);
+        },
+
         async searchCustomers(query: string): Promise<OrderDeskCustomerSearch> {
             const search = new URLSearchParams({ query: query.trim() });
             const envelope = await transport.requestEnvelope<readonly WireOrderDeskCustomer[]>({
@@ -476,6 +735,35 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
             return {
                 rows: envelope.data.map(mapOrderDeskCustomer),
                 limit: meta.limit,
+            };
+        },
+
+        async setItemOffToday(itemId: string, off: boolean): Promise<void> {
+            await transport.request({
+                method: off ? 'PUT' : 'DELETE',
+                path: `/catalogue/items/${encodeURIComponent(itemId)}/off-today`,
+            });
+        },
+
+        async getCustomerAllergies(customerId: string): Promise<OrderDeskCustomerAllergies> {
+            const payload = await transport.request<{
+                readonly declared: boolean;
+                readonly declares_no_allergens: boolean;
+                readonly allergens: readonly {
+                    readonly allergen_code: string;
+                    readonly severity: OrderDeskCustomerAllergies['allergens'][number]['severity'];
+                }[];
+            }>({
+                method: 'GET',
+                path: `/catalogue/order-desk/customers/${encodeURIComponent(customerId)}/allergies`,
+            });
+            return {
+                declared: payload.declared,
+                declaresNoAllergens: payload.declares_no_allergens,
+                allergens: payload.allergens.map((allergen) => ({
+                    allergenCode: allergen.allergen_code,
+                    severity: allergen.severity,
+                })),
             };
         },
 

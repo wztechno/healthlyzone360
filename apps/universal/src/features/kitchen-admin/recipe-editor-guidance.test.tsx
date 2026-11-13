@@ -13,10 +13,14 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
+import { readActiveProcess, startProcess } from '../../navigation/active-process.ts';
 import { TEST_ORGANISATION_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { focusField } from './field-focus.ts';
+import { EMPTY_PACKS_DRAFT, EMPTY_PACKS_REPORT, packsIssuesOf } from './packs-prices-section.tsx';
+import type { PacksDraft, PacksTab } from './packs-prices-section.tsx';
 import {
     parseStockGapFix,
     stockGapFieldId,
@@ -50,6 +54,9 @@ jest.mock('expo-router', () => {
     const canGoBack = jest.fn(() => true);
     return {
         __esModule: true,
+        useSegments: () => [],
+        useGlobalSearchParams: () => ({}),
+        useNavigation: () => ({}),
         useRouter: () => ({
             push,
             replace,
@@ -209,6 +216,9 @@ function version(overrides: Partial<RecipeVersionAdmin> = {}): RecipeVersionAdmi
         estimatedCost: null,
         derivationStale: false,
         publishedAt: null,
+        reviewReason: null,
+        previousLabel: null,
+        lockVersion: 1,
         ...overrides,
     };
 }
@@ -409,8 +419,17 @@ describe('errors at the field', () => {
         await press('kitchen-recipe-tab-description');
         await press('kitchen-recipe-editor-screen-save');
 
+        // The notice names it; Show me switches to its tab and into the cell.
+        await untilVisible('kitchen-recipe-tray-blocked');
+        expect(screen.getByTestId('kitchen-recipe-tray-blocked-list')).toHaveTextContent(
+            /Raw materials/,
+        );
+        await press('kitchen-recipe-tray-blocked-show-me');
+
         await untilVisible('kitchen-recipe-lines-table-row-line-1-qty-error');
-        expect(isSelected('production')).toBe(true);
+        await waitFor(() => {
+            expect(isSelected('production')).toBe(true);
+        });
         expect(
             screen.getByTestId('kitchen-recipe-lines-table-row-line-1-qty-error'),
         ).toHaveTextContent('Enter a quantity');
@@ -431,7 +450,7 @@ describe('errors at the field', () => {
         expect(tabLabel('production')).toBe('Production, 1 to fix');
     });
 
-    it('leads Publish over a blocked draft to the field, not to a dialog', async () => {
+    it('answers Publish over a blocked draft with a notice whose Show me leads to the field', async () => {
         await renderEditor({}, () => recipe());
 
         await untilVisible('kitchen-recipe-name-en-input');
@@ -439,10 +458,19 @@ describe('errors at the field', () => {
         await press('kitchen-recipe-tab-production');
         await press('kitchen-recipe-publish');
 
-        await untilVisible('kitchen-recipe-name-en-input');
-        expect(isSelected('description')).toBe(true);
-        expect(focusMock).toHaveBeenLastCalledWith('kitchen-recipe-name-en');
+        // Not the publish dialog: a notice naming what stops the save the publish needs first.
+        await untilVisible('kitchen-recipe-tray-blocked');
+        expect(screen.getByTestId('kitchen-recipe-tray-blocked-title')).toHaveTextContent(
+            '1 thing before saving',
+        );
         expect(screen.queryByTestId('kitchen-recipe-publish-consequence')).toBeNull();
+
+        await press('kitchen-recipe-tray-blocked-show-me');
+        await waitFor(() => {
+            expect(focusMock).toHaveBeenLastCalledWith('kitchen-recipe-name-en');
+        });
+        expect(isSelected('description')).toBe(true);
+        expect(screen.queryByTestId('kitchen-recipe-tray-blocked')).toBeNull();
     });
 });
 
@@ -521,7 +549,15 @@ describe('a recipe opened from a stock gap', () => {
         expect(routerMock.__push).not.toHaveBeenCalled();
     });
 
-    it('offers the way back once published, telling Stock gaps the gap was fixed', async () => {
+    it('goes back once published, telling Stock gaps the gap was fixed', async () => {
+        // Sent here by Stock gaps: the fix is the process the top bar's Continue keeps.
+        startProcess({
+            kind: 'stockGapFix',
+            subject: 'Lentil Soup',
+            resumeHref: `/kitchen/recipes/${String(RECIPE_ID)}`,
+            originPath: '/kitchen/consumption-exceptions',
+            stepPaths: [`/kitchen/recipes/${String(RECIPE_ID)}`],
+        });
         let stored = recipe();
         const { repositories } = await renderEditor(
             {
@@ -530,6 +566,10 @@ describe('a recipe opened from a stock gap', () => {
             },
             () => stored,
             {
+                updateRecipe: async () => {
+                    stored = recipe(version({ yieldPieces: 12 }));
+                    return stored;
+                },
                 publishRecipe: async () => {
                     const published = version({
                         status: 'published',
@@ -557,7 +597,21 @@ describe('a recipe opened from a stock gap', () => {
             /Stock gap to fix: Recipe has no pieces produced/,
         );
 
-        // The card's own Publish, through the usual dialog.
+        // Until there is a count, the card points at Pieces produced — from any tab.
+        expect(screen.queryByTestId('kitchen-recipe-stock-gap-publish')).toBeNull();
+        await press('kitchen-recipe-tab-description');
+        expect(isSelected('description')).toBe(true);
+        focusMock.mockClear();
+        await press('kitchen-recipe-stock-gap-field');
+        expect(isSelected('production')).toBe(true);
+        await waitFor(() => {
+            expect(focusMock).toHaveBeenCalledWith('kitchen-recipe-yield-pieces');
+        });
+
+        // Counted: the card's action becomes its own Publish, through the usual dialog.
+        await type('kitchen-recipe-yield-pieces-input', '12');
+        await untilVisible('kitchen-recipe-stock-gap-publish');
+        expect(screen.queryByTestId('kitchen-recipe-stock-gap-field')).toBeNull();
         await press('kitchen-recipe-stock-gap-publish');
         await untilVisible('kitchen-recipe-publish-confirm');
         await press('kitchen-recipe-publish-confirm');
@@ -575,14 +629,15 @@ describe('a recipe opened from a stock gap', () => {
             { timeout: 5000 },
         );
         expect(screen.queryByTestId('kitchen-recipe-stock-gap')).toBeNull();
-        // The toast offers the same way back.
-        await untilVisible('kitchen-recipe-published-back');
+        // Published: nothing is left to lose, so Continue has nothing to keep.
+        expect(readActiveProcess()).toBeNull();
         expect(screen.queryByTestId('kitchen-recipe-yield-pieces-error')).toBeNull();
-
-        await press('kitchen-recipe-stock-gap-back');
+        // Publishing is what it was opened for, so it goes back to Stock gaps by itself, saying
+        // the gap was fixed — and the toast offers the other way, opening the recipe again.
         expect(routerMock.__dismissTo).toHaveBeenCalledWith(
             '/kitchen/consumption-exceptions?reason=unquantified_recipe_line&page=2&fixed=1',
         );
+        await untilVisible('kitchen-recipe-published-toast-reopen');
     });
 
     it('opens a draft from a published version, from the card', async () => {
@@ -621,6 +676,32 @@ describe('a recipe opened from a stock gap', () => {
         // Cancel still goes back to where it came from.
         await press('kitchen-recipe-editor-screen-discard');
         expect(routerMock.__dismissTo).toHaveBeenCalledWith(RETURN_TO);
+    });
+
+    it('takes a refused optional field’s card to its tab, from any other', async () => {
+        const stored = recipe();
+        await renderEditor({}, () => stored, {
+            updateRecipe: async () =>
+                throwFailure(
+                    validationFailure({
+                        yield_piece_count: ['The pieces produced must be at least 1.'],
+                    }),
+                ),
+        });
+
+        await untilVisible('kitchen-recipe-name-en-input');
+        await type('kitchen-recipe-name-en-input', 'Mujadara');
+        await press('kitchen-recipe-editor-screen-save');
+        await untilVisible('kitchen-recipe-yield-pieces-error');
+
+        await press('kitchen-recipe-tab-description');
+        expect(isSelected('description')).toBe(true);
+        focusMock.mockClear();
+        await press('kitchen-recipe-issues-errors-server-yield_piece_count-fix');
+        expect(isSelected('production')).toBe(true);
+        await waitFor(() => {
+            expect(focusMock).toHaveBeenCalledWith('kitchen-recipe-yield-pieces');
+        });
     });
 });
 
@@ -666,5 +747,123 @@ describe('leaving the recipe with unsaved work', () => {
         expect(screen.getByTestId('kitchen-recipe-name-en-input').props.value).not.toBe(
             'Burghul salad, extra lemon',
         );
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * A sold recipe's Packs & prices blockers
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * The tab as a host hands it over, with the section itself left out: what is under test is how the
+ * editor counts, explains and leads to the three blockers the server's `SellingReadiness` names.
+ */
+function packsTab(draft: PacksDraft): PacksTab {
+    return {
+        report: { ...EMPTY_PACKS_REPORT, draft, issues: packsIssuesOf(draft) },
+        save: async () => true,
+        render: () => null,
+    };
+}
+
+const ONE_PACK: PacksDraft['packs'][number] = {
+    key: 'pack-1',
+    id: 'pack-1',
+    code: 'BTL300',
+    name: null,
+    fill: '0.3',
+    fillUnit: 'kg',
+    components: [],
+    prices: { home: '', business: '' },
+    inherited: { home: false, business: false },
+};
+
+describe('a sold recipe’s Packs & prices blockers', () => {
+    it('says no pack and no place, and each Fix lands on Packs & prices', async () => {
+        await withDeskWidth(async () => {
+            await renderEditor({ packs: packsTab(EMPTY_PACKS_DRAFT) }, () => recipe());
+
+            await untilVisible('kitchen-recipe-issues-publish-packs-no_pack');
+            expect(
+                screen.getByTestId('kitchen-recipe-issues-publish-packs-no_pack'),
+            ).toHaveTextContent(/Add a pack/);
+            expect(
+                screen.getByTestId('kitchen-recipe-issues-publish-packs-no_selling_place'),
+            ).toHaveTextContent(/Tick where it sells/);
+            // Counted on the tab's pill, as every publish blocker is on its own tab.
+            expect(String(tabLabel('packaging'))).toMatch(/2/);
+
+            // Publish over them explains rather than opening the dialog.
+            await press('kitchen-recipe-publish');
+            expect(screen.queryByTestId('kitchen-recipe-publish-consequence')).toBeNull();
+
+            focusMock.mockClear();
+            await press('kitchen-recipe-issues-publish-packs-no_pack-fix');
+            expect(isSelected('packaging')).toBe(true);
+            await waitFor(() => {
+                expect(focusMock).toHaveBeenCalledWith('kitchen-packs-add');
+            });
+        });
+    });
+
+    it('asks a price for each ticked place, Counter priced by the Home shop', async () => {
+        await withDeskWidth(async () => {
+            // Counter alone is ticked: it charges the Home shop's price, so that is the one owed.
+            await renderEditor(
+                {
+                    packs: packsTab({
+                        places: { home: false, business: false, counter: true },
+                        packs: [ONE_PACK],
+                    }),
+                },
+                () => recipe(),
+            );
+
+            await untilVisible('kitchen-recipe-issues-publish-packs-place_unpriced-home');
+            expect(
+                screen.queryByTestId('kitchen-recipe-issues-publish-packs-place_unpriced-business'),
+            ).toBeNull();
+            expect(screen.queryByTestId('kitchen-recipe-issues-publish-packs-no_pack')).toBeNull();
+
+            focusMock.mockClear();
+            await press('kitchen-recipe-issues-publish-packs-place_unpriced-home-fix');
+            await waitFor(() => {
+                expect(focusMock).toHaveBeenCalledWith('kitchen-packs-pack-1-price-home');
+            });
+        });
+    });
+
+    it('puts a publish the server refused for an unpriced place on the same card', async () => {
+        await withDeskWidth(async () => {
+            // Priced on the draft, so the card comes from the refusal alone.
+            const priced: PacksDraft = {
+                places: { home: true, business: true, counter: false },
+                packs: [{ ...ONE_PACK, prices: { home: '3.00', business: '9.00' } }],
+            };
+            await renderEditor({ packs: packsTab(priced) }, () => recipe(), {
+                publishRecipe: async () =>
+                    throwFailure(
+                        validationFailure({
+                            form: ['This catalogue item is not ready to be published.'],
+                            'reasons.place_unpriced.business': [
+                                'This catalogue item is not ready to be published.',
+                            ],
+                        }),
+                    ),
+            });
+
+            await untilVisible('kitchen-recipe-publish');
+            expect(
+                screen.queryByTestId('kitchen-recipe-issues-publish-packs-place_unpriced-business'),
+            ).toBeNull();
+            await press('kitchen-recipe-publish');
+            await untilVisible('kitchen-recipe-publish-confirm');
+            await press('kitchen-recipe-publish-confirm');
+
+            await untilVisible('kitchen-recipe-issues-publish-packs-place_unpriced-business');
+            expect(
+                screen.getByTestId('kitchen-recipe-issues-publish-packs-place_unpriced-business'),
+            ).toHaveTextContent(/Price a pack for Business/);
+        });
     });
 });

@@ -1,5 +1,8 @@
+import type { AllergenConflict } from './commerce.ts';
+import type { MealSlot } from './marketplace.ts';
 import type { BranchId, CurrencyCode, IsoDateTime } from '@healthy360/domain-types';
 
+import type { DishChoices, DishOptionDraft, KitchenDishOption } from './dish-options.ts';
 import type { DriverJobStatus, DriverJobTrackingStatus } from './driver-jobs.ts';
 import type { ServiceArea } from './kitchen-admin.ts';
 import type {
@@ -96,6 +99,30 @@ export type OrderDeskQueueStatus = (typeof ORDER_DESK_QUEUE_STATUSES)[number];
  * gave a number has no number. The number is served **verified or not**: a courier ringing about
  * tonight's delivery needs the number the customer gave, not one the platform has proved.
  */
+/** One sitting's dish on a plan day: what the subscriber picked. */
+export interface OrderDeskPlanMealDish {
+    readonly slot: MealSlot;
+    readonly sequence: number;
+    readonly catalogueItemId: string;
+    readonly nameEn: string | null;
+    readonly nameAr: string | null;
+}
+
+/**
+ * A subscriber's plan day that is not an order yet. `scheduled`: the generator has claimed it;
+ * `projected`: the plan's weekdays say it is coming. Fewer `meals` than the servings means the rest
+ * are not chosen yet.
+ */
+export interface OrderDeskPlanMeal {
+    readonly subscriptionId: string;
+    readonly basis: 'scheduled' | 'projected';
+    readonly plan: { readonly nameEn: string | null; readonly nameAr: string | null };
+    readonly mealsPerDay: number | null;
+    readonly snacksPerDay: number | null;
+    readonly meals: readonly OrderDeskPlanMealDish[];
+    readonly customer?: OrderDeskCustomerContact | undefined;
+}
+
 export interface OrderDeskCustomerContact {
     /**
      * The **account's** name, always. There is no snapshot of a name on an order and there should
@@ -266,6 +293,15 @@ export interface OrderDeskQueueMeta {
     readonly today: string;
     /** The IANA zone that day was computed in: the named branch's, or `UTC` when none was named. */
     readonly timezone: string;
+    /**
+     * Open orders past their due time **across all dates**, whatever this view shows and however
+     * many rows it was capped to.
+     */
+    readonly pastDueCount: number;
+    /** Those at least {@link OrderDeskQueueMeta.overdueGraceMinutes} past due. */
+    readonly overdueCount: number;
+    /** The server's rule, read rather than copied, so a red badge and the count cannot disagree. */
+    readonly overdueGraceMinutes: number;
 }
 
 /** One bounded queue read. Not a page — see the file header. */
@@ -306,6 +342,8 @@ export interface OrderDeskQueueFilters {
      * pickups", so an array here would be inventing a question to justify a control.
      */
     readonly fulfilmentType?: OrderDeskFulfilmentType | undefined;
+    /** `past_due` lists every order past its due time, whatever its date, in place of the window. */
+    readonly lens?: 'past_due' | undefined;
     /** One named delivery slot, by the window's own code. */
     readonly deliveryWindowCode?: string | undefined;
     /**
@@ -497,8 +535,8 @@ export interface OrderDeskRequirement {
  * on one Tuesday is one day the buy list is incomplete for. `reasons` counts, per code, the days
  * that code spoiled — so an elaborate recipe failing on one day does not outweigh a simple one.
  *
- * `reasons` is an open map on purpose. The server's vocabulary today is `plan_has_no_menu`,
- * `menu_dish_withdrawn`, `meal_has_no_recipe`, `no_yield_piece_count`, `unquantified_recipe_line`,
+ * `reasons` is an open map on purpose. The server's vocabulary today is `meals_not_chosen`,
+ * `meal_has_no_recipe`, `no_yield_piece_count`, `unquantified_recipe_line`,
  * `no_ingredient_link`, `no_stock_item`, `no_stock_unit` and `unit_conversion_unsupported`; a code
  * added later must reach a screen as data rather than as a parse failure, so a renderer looks its
  * label up with a fallback to the code itself.
@@ -553,6 +591,38 @@ export interface OrderDeskShortfallCount {
     readonly branchId: string | null;
 }
 
+/** A sum of money in one currency. */
+export interface OrderDeskTodayAmount {
+    readonly currencyCode: CurrencyCode;
+    readonly amountMinor: number;
+}
+
+/**
+ * The kitchen home's Today card, on the cash report's local day. Every amount is per currency, and
+ * nothing adds two.
+ */
+export interface OrderDeskToday {
+    /** `YYYY-MM-DD`, today on {@link OrderDeskToday.timezone}. */
+    readonly day: string;
+    readonly timezone: string;
+    /** Orders placed today and not cancelled. */
+    readonly sales: readonly OrderDeskTodayAmount[];
+    readonly orders: number;
+    /** What the open tills should hold now: the float, counter cash and hand-ins, less refunds. */
+    readonly cashExpected: readonly OrderDeskTodayAmount[];
+    /** Each till's last count today. */
+    readonly cashCounted: readonly OrderDeskTodayAmount[];
+    /** Open orders past due by more than the grace. */
+    readonly overdue: number;
+    /** Open orders past due — the desk's `past_due` lens. */
+    readonly pastDue: number;
+    readonly cancelled: {
+        readonly returned: number;
+        readonly wasted: number;
+        readonly other: number;
+    };
+}
+
 /** One item the weekly check found short, as it stood when the check ran. Decimal strings. */
 export interface WeeklyStockShortfall {
     readonly stockItemId: string;
@@ -604,6 +674,8 @@ export interface WeeklyStockCheck {
  * reconciliation is still a later table.
  */
 export interface OrderDeskCashReportRow {
+    /** `YYYY-MM-DD` — the local day, on `meta.timezone`, the receipts were confirmed on. Part of the row's identity. */
+    readonly day: string;
     readonly confirmedBy: string;
     /**
      * **Null for an agent whose profile was never completed.** They still took the money, so they
@@ -635,37 +707,53 @@ export interface OrderDeskCashReportTotal {
 
 /** What the report was measured against, echoed because the client chose only half of it. */
 export interface OrderDeskCashReportMeta {
-    /** `YYYY-MM-DD` — the day reported. */
-    readonly date: string;
+    /** `YYYY-MM-DD` — the first day reported. */
+    readonly from: string;
+    /** `YYYY-MM-DD` — the last day reported, inclusive. */
+    readonly to: string;
     /** The site it was narrowed to, or `null` for the whole organisation. */
     readonly branchId: string | null;
     /**
-     * The clock the day was measured on. **Always `UTC`**, and echoed rather than assumed: a
-     * receipt carries no branch and the order behind it may carry none either, so there is no
-     * timezone true of every receipt in the answer. A screen states this, because otherwise it is
-     * implying the reader's own midnight.
+     * The IANA zone the days were measured on: the branch's when one was named, else the
+     * organisation's. A screen states it, because otherwise it is implying the reader's own midnight.
      */
     readonly timezone: string;
+    /** Every branch, so every till, the kitchen's first branch first. */
+    readonly branches: readonly { readonly id: string; readonly name: string }[];
     /** Rows in this response. Not a count of receipts. */
     readonly count: number;
 }
 
-/** One day's takings, by agent and by method. */
+/** A window's takings, day by day, by agent and by method. */
+/** What came off the takings. Beside the rows, never netted into them. */
+export interface OrderDeskCashReportAdjustment {
+    readonly day: string;
+    /** `courier_expense` is a prepaid run's courier fee: the kitchen paid it, no hand-in carried it. */
+    readonly kind: 'refund' | 'receipt_correction' | 'courier_fee' | 'courier_expense' | 'short';
+    /** Who recorded a refund, the courier, or the driver who was short. */
+    readonly displayName: string | null;
+    readonly currencyCode: CurrencyCode;
+    readonly entryCount: number;
+    readonly amountMinorSum: number;
+}
+
 export interface OrderDeskCashReport {
     readonly rows: readonly OrderDeskCashReportRow[];
     readonly totals: readonly OrderDeskCashReportTotal[];
+    readonly adjustments: readonly OrderDeskCashReportAdjustment[];
     readonly meta: OrderDeskCashReportMeta;
 }
 
 export interface OrderDeskCashReportFilters {
-    /** `YYYY-MM-DD`. **Required** — one day, not a range: reconciling a till is a daily act. */
-    readonly date: string;
     /**
-     * Narrow to the site that cooked it, through the **order** — a receipt has no branch of its own.
-     *
-     * One consequence, and it is the queue's trap restated: an order with no branch is *excluded*
-     * when this is set. Right for "what did the Marina site take?", wrong as a default, which is why
-     * omitting it is the organisation-wide read rather than a guess at the active branch.
+     * `YYYY-MM-DD`, both inclusive, at most 31 days apart. Each day stays on its own rows, so a
+     * week is still read one till-day at a time.
+     */
+    readonly from: string;
+    readonly to: string;
+    /**
+     * Narrow to one branch's till, resolved as the daily close resolves it, and read the days on
+     * that branch's clock. Omitted, the report is organisation-wide on the organisation's clock.
      */
     readonly branchId?: BranchId | undefined;
 }
@@ -756,6 +844,9 @@ export interface OrderDeskBasketLine {
     readonly catalogueItemVariantId: string | null;
     /** A decimal string, never a number — a counter sells 0.35 kg as readily as three coffees. */
     readonly quantity: string;
+    /** The dish's free options chosen. Lines made differently do not merge. */
+    readonly optionIds?: readonly string[] | undefined;
+    readonly note?: string | null | undefined;
 }
 
 /** Everything a quote and a sale share. A sale adds only how the customer is paying. */
@@ -774,6 +865,33 @@ export interface OrderDeskSaleRequest {
     /** `YYYY-MM-DD`. Applies to a pickup as well as a delivery; a counter sale has no day. */
     readonly requestedDeliveryDate?: string | undefined;
     readonly deliveryWindowCode?: string | undefined;
+    /**
+     * Quote an **edit** of this order rather than a new sale: priced on the order's own channel,
+     * customer, branch and fulfilment type, keeping its stored zone and fee unless a new address is
+     * named, and never refused for a passed cut-off. `fulfilmentType` is still sent (the order's).
+     */
+    readonly amendingOrderId?: string | undefined;
+}
+
+/**
+ * The whole basket of an existing order, plus whatever else changed. Every optional field left out
+ * keeps what is stored — customer, fulfilment type and branch are fixed for the life of the order,
+ * and every line is repriced.
+ */
+export interface AmendOrderDeskOrderRequest {
+    readonly id: string;
+    /** The version the screen read — sent as `If-Match`; a stale one is `409 resource.conflict`. */
+    readonly lockVersion: number;
+    readonly lines: readonly OrderDeskBasketLine[];
+    /** A new delivery address, which must belong to the order's customer. */
+    readonly customerAddressId?: string | undefined;
+    readonly requestedDeliveryDate?: string | undefined;
+    readonly deliveryWindowCode?: string | undefined;
+    readonly paymentMethod?: KitchenOrderPaymentMethod | undefined;
+    /** Omitted keeps the stored note; empty clears it. */
+    readonly allergyNote?: string | undefined;
+    /** The customer was told about the new basket's conflicts. Every edit re-checks them. */
+    readonly acknowledgeAllergenConflicts?: boolean | undefined;
 }
 
 /**
@@ -817,11 +935,20 @@ export interface OrderDeskQuoteLine {
     readonly lineTotalMinor: number | null;
     readonly currencyCode: CurrencyCode;
     readonly refusals: readonly OrderDeskRefusal[];
+    /** The options and note this line was quoted with, so a row finds its own quote. */
+    readonly optionIds?: readonly string[] | undefined;
+    readonly note?: string | null | undefined;
     /**
-     * Ingredients this line would draw that have stock on quality hold — a warning the agent
-     * reads before selling, never a refusal. Empty when nothing is held.
+     * Ingredients this line would draw that have stock on quality hold. A warning while free
+     * stock is left; beside a `quality_hold` refusal once nothing else is. Empty when nothing is
+     * held.
      */
     readonly heldStock?: readonly string[];
+    /**
+     * What the line is sold with, never refused for, in the refusal shape. Today only
+     * `stock_short`: the line needs more than the free stock. Absent on older payloads.
+     */
+    readonly warnings?: readonly OrderDeskRefusal[];
 }
 
 /**
@@ -852,6 +979,13 @@ export interface OrderDeskQuote {
      * address resolves to a serving zone; `null` means no filtering applies.
      */
     readonly offeredWindowCodes: readonly string[] | null;
+    /**
+     * The meals that clash with the named customer's allergies. Not refusals, and no part of
+     * `quotable`: the sale goes ahead once the agent says the customer was told.
+     */
+    readonly allergenConflicts: readonly AllergenConflict[];
+    /** `kitchen_paused` and `window_full`: a customer is refused, the desk is told and decides. */
+    readonly serviceWarnings: OrderDeskQuote['refusals'];
 }
 
 /**
@@ -888,6 +1022,10 @@ export interface PlaceOrderDeskSaleRequest extends OrderDeskSaleRequest {
      * it to leave the run in the unassigned pool drivers claim from.
      */
     readonly driverUserId?: string | undefined;
+    /** Any allergy the customer mentioned. How a walk-in with no profile is covered. */
+    readonly allergyNote?: string | undefined;
+    /** The customer was told about the basket's conflicts. Refused `allergen_conflict` without it. */
+    readonly acknowledgeAllergenConflicts?: boolean | undefined;
 }
 
 /** How a customer record came to exist. `staff` is a caller some kitchen wrote down at a desk. */
@@ -929,6 +1067,16 @@ export interface OrderDeskCustomer {
 export interface OrderDeskCustomerSearch {
     readonly rows: readonly OrderDeskCustomer[];
     readonly limit: number;
+}
+
+/** What a chosen customer has declared. `declared: false` is "never asked", not "no allergens". */
+export interface OrderDeskCustomerAllergies {
+    readonly declared: boolean;
+    readonly declaresNoAllergens: boolean;
+    readonly allergens: readonly {
+        readonly allergenCode: string;
+        readonly severity: 'avoidance' | 'intolerance' | 'allergy' | 'anaphylaxis';
+    }[];
 }
 
 export interface CreateOrderDeskCustomerRequest {
@@ -1004,7 +1152,170 @@ export interface OrderDeskCustomerAddress {
     readonly isDeliverable: boolean;
 }
 
+/** One delivered run a hand-in can cover. */
+export interface CashRun {
+    readonly jobId: string;
+    readonly orderId: string;
+    readonly orderNumber: string;
+    readonly deliveredAt: IsoDateTime | null;
+    /** The driver's cash from this run, or what the order still owes on a courier's. */
+    readonly amountMinor: number;
+}
+
+export interface CourierCashRun extends CashRun {
+    readonly feeMinor: number;
+    /** Owed nothing at the door, or paid by Whish: no cash, and the fee is a kitchen expense. */
+    readonly prepaid: boolean;
+    readonly reference: string | null;
+}
+
+/**
+ * The till a sum belongs to, one per branch. Null on a kitchen with no branch, and on rows from
+ * before tills were per branch, which count as the kitchen's first branch.
+ */
+export interface TillBranch {
+    readonly branchId: string | null;
+    readonly branchName: string | null;
+}
+
+export interface DriverCashOwed extends TillBranch {
+    readonly driverUserId: string;
+    readonly displayName: string | null;
+    readonly currencyCode: CurrencyCode;
+    readonly collectedMinor: number;
+    readonly runs: readonly CashRun[];
+}
+
+export interface CourierCashOwed extends TillBranch {
+    readonly courierName: string;
+    readonly currencyCode: CurrencyCode;
+    readonly dueMinor: number;
+    /** Fees on cash-on-delivery runs, netted from the hand-in. */
+    readonly feeMinor: number;
+    /** Fees on prepaid runs, a kitchen expense outside the hand-in. */
+    readonly expenseMinor: number;
+    readonly runs: readonly CourierCashRun[];
+}
+
+export interface CashSettlementRecord extends TillBranch {
+    readonly id: string;
+    readonly kind: 'driver' | 'courier';
+    readonly partyName: string | null;
+    readonly currencyCode: CurrencyCode;
+    readonly expectedMinor: number;
+    readonly feeMinor: number;
+    readonly expenseMinor: number;
+    readonly handedInMinor: number;
+    readonly shortMinor: number;
+    readonly shortReason: string | null;
+    readonly recordedByName: string | null;
+    readonly recordedAt: IsoDateTime;
+    readonly signedOffByName: string | null;
+    readonly signedOffAt: IsoDateTime | null;
+}
+
+export interface OrderDeskSettlements {
+    readonly drivers: readonly DriverCashOwed[];
+    readonly couriers: readonly CourierCashOwed[];
+    /** The last fifty, newest first. */
+    readonly settlements: readonly CashSettlementRecord[];
+}
+
+export interface RecordCashSettlementRequest {
+    readonly jobIds: readonly string[];
+    readonly handedInMinor: number;
+    /** Required when the hand-in is short. */
+    readonly shortReason?: string | undefined;
+}
+
+/** A till, by branch and currency, with cash moving since its last close. */
+export interface OpenDailyClose extends TillBranch {
+    readonly currencyCode: CurrencyCode;
+    /** The kitchen's local day the shift opened on. */
+    readonly businessDate: string;
+    readonly openedAt: IsoDateTime;
+    readonly suggestedFloatMinor: number;
+    readonly counterCashMinor: number;
+    readonly handedInMinor: number;
+    readonly cashRefundsMinor: number;
+}
+
+export interface DailyCloseRecord extends TillBranch {
+    readonly id: string;
+    readonly currencyCode: CurrencyCode;
+    readonly businessDate: string;
+    readonly openedAt: IsoDateTime;
+    readonly closedAt: IsoDateTime;
+    readonly openingFloatMinor: number;
+    readonly counterCashMinor: number;
+    readonly handedInMinor: number;
+    readonly cashRefundsMinor: number;
+    readonly expectedMinor: number;
+    readonly countedMinor: number;
+    /** Counted less expected. Negative is short. */
+    readonly varianceMinor: number;
+    readonly varianceReason: string | null;
+    readonly recordedByName: string | null;
+    readonly signedOffByName: string | null;
+    readonly signedOffAt: IsoDateTime | null;
+}
+
+/**
+ * Every till's closes on one local day, in one currency. Cash moved and variance sum every shift;
+ * counted is each till's last count of the day.
+ */
+export interface DailyCloseTotal {
+    readonly businessDate: string;
+    readonly currencyCode: CurrencyCode;
+    readonly tillCount: number;
+    readonly counterCashMinor: number;
+    readonly handedInMinor: number;
+    readonly cashRefundsMinor: number;
+    readonly countedMinor: number;
+    readonly varianceMinor: number;
+}
+
+export interface OrderDeskCloses {
+    /** The clock the business dates are read on. */
+    readonly timezone: string;
+    /** Every branch, so every till, the kitchen's first branch first. */
+    readonly branches: readonly { readonly id: string; readonly name: string }[];
+    readonly open: readonly OpenDailyClose[];
+    /** The kitchen total per local day, newest first. */
+    readonly totals: readonly DailyCloseTotal[];
+    /** The last fifty, newest first. */
+    readonly closes: readonly DailyCloseRecord[];
+}
+
+export interface RecordDailyCloseRequest {
+    /** The till counted. Null is the kitchen's first branch. */
+    readonly branchId: string | null;
+    readonly currencyCode: CurrencyCode;
+    readonly openingFloatMinor: number;
+    readonly countedMinor: number;
+    /** Required when the count is short. */
+    readonly varianceReason?: string | undefined;
+}
+
 export interface OrderDeskRepository {
+    /** What can be changed about a dish, with its portions at the counter's prices. */
+    getDishChoices(itemId: string): Promise<DishChoices>;
+    /** The kitchen's list of a dish's free options. */
+    listDishOptions(itemId: string): Promise<readonly KitchenDishOption[]>;
+    replaceDishOptions(
+        itemId: string,
+        options: readonly DishOptionDraft[],
+    ): Promise<readonly KitchenDishOption[]>;
+
+    getCloses(): Promise<OrderDeskCloses>;
+    recordClose(request: RecordDailyCloseRequest): Promise<DailyCloseRecord>;
+    /** A manager accepts a short close. */
+    signOffClose(closeId: string): Promise<DailyCloseRecord>;
+    getSettlements(): Promise<OrderDeskSettlements>;
+    recordSettlement(request: RecordCashSettlementRequest): Promise<CashSettlementRecord>;
+    /** A manager accepts a short hand-in. */
+    signOffSettlement(settlementId: string): Promise<CashSettlementRecord>;
+
     /**
      * The open queue in due order, capped, with the day and clock it was measured against.
      *
@@ -1027,6 +1338,14 @@ export interface OrderDeskRepository {
      * screen bound its next request instead of discovering the ceiling by hitting it.
      */
     listCalendar(filters: OrderDeskCalendarFilters): Promise<OrderDeskCalendar>;
+
+    /**
+     * One day's plan meals that are not orders yet, one row per subscriber, with the dishes each
+     * has picked — the calendar's plan-meal count for that day, opened. A day already turned into
+     * an order is absent (its order is on the book). `customer` is present only for a caller who
+     * may see contact details.
+     */
+    listPlanMeals(day: string, branchId?: BranchId): Promise<readonly OrderDeskPlanMeal[]>;
 
     /**
      * What one branch must buy to cook a window, and the part of that window nobody could compute.
@@ -1060,6 +1379,9 @@ export interface OrderDeskRepository {
      */
     countRequirementShortfalls(branchId?: BranchId | undefined): Promise<OrderDeskShortfallCount>;
 
+    /** The kitchen home's Today card. `branchId` narrows to one till. Behind `order.manage_organisation`. */
+    getToday(branchId?: BranchId | undefined): Promise<OrderDeskToday>;
+
     /**
      * The latest weekly stock check for one branch, or `null` when none is named or it has never
      * been checked — and null is not an all-clear.
@@ -1092,7 +1414,7 @@ export interface OrderDeskRepository {
     listDeliveryAreas(): Promise<readonly ServiceArea[]>;
 
     /**
-     * One day's takings, by agent, method and currency — **the till-shift mitigation**.
+     * A window's takings, day by day, by agent, method and currency — **the till-shift mitigation**.
      *
      * The desk takes cash and this platform has no shift table: nothing opens a drawer with a float
      * or closes it against a count, so nothing here can say whether the box balances. What it can
@@ -1100,8 +1422,8 @@ export interface OrderDeskRepository {
      * reconciliation exists.
      *
      * Answers {@link OrderDeskCashReport} rather than a bare array for the calendar's reason plus one
-     * of its own: `meta.timezone` is **always `UTC`** and a screen that did not print it would be
-     * implying the reader's own midnight. `totals` arrives beside the rows rather than being summed
+     * of its own: `meta.timezone` is the clock the days were cut on, which a client cannot derive
+     * and can name rather than imply the reader's own midnight. `totals` arrives beside the rows rather than being summed
      * on the client, because summing per method is only legal inside one currency and a client that
      * did it would eventually add two.
      *
@@ -1130,11 +1452,25 @@ export interface OrderDeskRepository {
     placeSale(request: PlaceOrderDeskSaleRequest): Promise<KitchenOrder>;
 
     /**
+     * Edit a placed order: `PATCH` with `If-Match`, no idempotency key (the validator is the replay
+     * guard). A stale version is `409 resource.conflict`; a refused edit is `409
+     * order.placement_refused` with its reasons, including `order_not_amendable` and
+     * `total_below_paid`.
+     */
+    amendOrder(request: AmendOrderDeskOrderRequest): Promise<KitchenOrder>;
+
+    /**
      * Find the customer this sale is for. **Three characters minimum** — the server refuses less
      * with a `422`, and the screen mirrors the gate so a two-letter query is a hint rather than an
      * error.
      */
     searchCustomers(query: string): Promise<OrderDeskCustomerSearch>;
+
+    /** Take a dish off today, or put it back: one row on the kitchen's calendar. */
+    setItemOffToday(itemId: string, off: boolean): Promise<void>;
+
+    /** What the chosen customer has declared. The server records the read. */
+    getCustomerAllergies(customerId: string): Promise<OrderDeskCustomerAllergies>;
 
     /** Write down a cold caller. Answers the new row **and** who else already has that number. */
     createCustomer(request: CreateOrderDeskCustomerRequest): Promise<OrderDeskCustomerCreated>;

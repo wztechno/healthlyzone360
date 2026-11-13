@@ -13,6 +13,10 @@ import type {
     SubscriptionState,
 } from '@healthy360/domain-types';
 
+import type { DishLineChoices, DishOption } from './dish-options.ts';
+import type { KitchenOrderFulfilmentType as FulfilmentType } from './kitchen-orders.ts';
+
+import type { MealSlot, PlanSitting } from './marketplace.ts';
 import type { CursorPage, CursorPageRequest } from './pagination.ts';
 
 /**
@@ -40,6 +44,9 @@ export interface CartItem {
     readonly allergens: readonly AllergenCode[];
     /** `YYYY-MM-DD`, when the person chose a delivery date for this line. */
     readonly deliveryDate: string | null;
+    /** What this line changes about the dish. Empty on a plain line. */
+    readonly options?: readonly DishOption[] | undefined;
+    readonly note?: string | null | undefined;
 }
 
 export interface Cart {
@@ -58,7 +65,7 @@ export interface Cart {
     readonly updatedAt: IsoDateTime;
 }
 
-export interface AddCartItemRequest {
+export interface AddCartItemRequest extends DishLineChoices {
     readonly mealId: MealId;
     readonly quantity: number;
     readonly deliveryDate?: string | undefined;
@@ -149,14 +156,28 @@ export interface SubscriptionConfiguration {
     readonly slotCode: string;
     readonly address: DeliveryAddress;
     /**
-     * Explicit meal choices, where the plan allows selection.
+     * The customer's meals for every delivery day, chosen before paying. Empty on a subscription
+     * read back from the server — its days are {@link CommerceRepository.listSubscriptionDays}.
      *
      * There is no diet or allergen field here on purpose. Neither is a property of a subscription:
      * a plan's diet classification belongs to the plan, and safety comes from the customer's
-     * dietary profile, which generation applies to every delivery. A per-subscription "leave out"
-     * list used to be collected here and sent nowhere.
+     * dietary profile, which generation applies to every delivery.
      */
-    readonly selectedMealIds: readonly MealId[];
+    readonly days: readonly ChosenDay[];
+}
+
+/** One sitting of one day, filled with a dish. */
+export interface ChosenMeal {
+    readonly slot: MealSlot;
+    readonly sequence: number;
+    readonly mealId: MealId;
+}
+
+/** One delivery day's meals — every sitting the configuration serves. */
+export interface ChosenDay {
+    /** `YYYY-MM-DD`. */
+    readonly date: string;
+    readonly meals: readonly ChosenMeal[];
 }
 
 export interface SubscriptionPreview {
@@ -341,44 +362,13 @@ export interface SubscriptionBalance {
     readonly changeCutoffHours: number;
 }
 
-/**
- * The refund of an unused balance, recorded rather than paid.
- *
- * `settlement: 'manual'` is a literal and not a nullable field on purpose. There is no payments
- * module (PAY1 is discovery-gated), so nothing in this system moves money; the memo is a record
- * somebody settles by hand. A `settledAt: string | null` would read to a screen as "we will pay
- * this automatically, eventually", which is not true and would be the most expensive kind of
- * plausible interface copy.
- */
-export interface CreditMemo {
-    readonly id: string;
-    readonly subscriptionId: SubscriptionId;
-    /** The one reason the backend's CHECK constraint admits. */
-    readonly reason: 'subscription_cancelled';
-    readonly unusedDays: number;
-    /** The effective per-day price paid. `amount = unusedDays × perDayPrice`. */
-    readonly perDayPrice: Money;
-    readonly amount: Money;
-    readonly status: 'recorded' | 'settled';
-    readonly settlement: 'manual';
-    readonly recordedAt: IsoDateTime;
-}
-
 export interface CancelSubscriptionRequest {
     readonly reason?: string | undefined;
 }
 
-/**
- * Cancellation's answer.
- *
- * Both halves, in one shape, because they are one fact. `creditMemo` is `null` when there was no
- * unused balance to refund — a subscription cancelled on its last day owes nothing — and a screen
- * that had to make a second request to find out would render a cancellation dialog that could not
- * state its own consequence.
- */
+/** Cancellation's answer. It is paid per delivery, so no money is held and no credit comes back. */
 export interface SubscriptionCancellation {
     readonly subscription: Subscription;
-    readonly creditMemo: CreditMemo | null;
 }
 
 export interface SetSubscriptionWeekdaysRequest {
@@ -386,17 +376,49 @@ export interface SetSubscriptionWeekdaysRequest {
     readonly deliveryWeekdays: readonly number[];
 }
 
-/** Who chose this meal. `kitchen_default` is the fallback when nobody chose ahead of the cut-off. */
-export const MEAL_CHOICE_SOURCES = ['customer', 'kitchen_default', 'substituted'] as const;
+/**
+ * Who chose this meal. `repeated` is a day nobody chose for (a skip pushed the balance onto it),
+ * filled with the customer's own latest choices for that weekday; `kitchen_default` is a slot the
+ * retired plan menu filled.
+ */
+export const MEAL_CHOICE_SOURCES = [
+    'customer',
+    'kitchen_default',
+    'substituted',
+    'repeated',
+] as const;
 export type MealChoiceSource = (typeof MEAL_CHOICE_SOURCES)[number];
 
 export interface SubscriptionMealChoice {
     /** `YYYY-MM-DD` — the delivery day this choice is for. */
     readonly date: string;
-    readonly slot: string;
+    readonly slot: MealSlot;
+    readonly sequence: number;
     readonly mealId: MealId;
     readonly mealName: string;
     readonly source: MealChoiceSource;
+}
+
+/**
+ * One delivery day of a subscription, from today to the end of the balance, with its meals.
+ *
+ * `basis` says whether the day has a delivery row (`actual`) or is what the weekdays and the
+ * balance say is coming (`projected`). `editable` is the server's answer — the change window is
+ * open and nothing has been generated — so a screen never offers a change the write will refuse.
+ */
+export interface SubscriptionPlanDay {
+    readonly date: string;
+    readonly basis: 'actual' | 'projected';
+    readonly status: string;
+    readonly editable: boolean;
+    readonly changeDeadline: IsoDateTime;
+    readonly meals: readonly SubscriptionMealChoice[];
+}
+
+export interface SubscriptionPlanDays {
+    /** The sittings every day of this subscription fills, as sold. */
+    readonly sittings: readonly PlanSitting[];
+    readonly days: readonly SubscriptionPlanDay[];
 }
 
 /**
@@ -408,7 +430,8 @@ export interface SubscriptionMealChoice {
  */
 export interface SetSubscriptionMealChoicesRequest {
     readonly date: string;
-    readonly choices: readonly { readonly slot: string; readonly mealId: MealId }[];
+    /** Every sitting of the day — the server refuses a partial day as `meals_incomplete`. */
+    readonly choices: readonly ChosenMeal[];
 }
 
 /** Why a plan cannot be quoted. The backend's own refusal vocabulary, verbatim. */
@@ -549,6 +572,14 @@ export interface CommerceRepository {
      */
     getMyOrder(orderId: OrderId): Promise<PlacedOrder>;
 
+    /**
+     * `POST /api/v1/me/orders/{order}/cancel` — the customer calls off their own order, only while
+     * it is still `placed`. Once the kitchen accepts it the server answers `409` with `reason:
+     * order_already_accepted`, and the customer contacts the kitchen instead; an order already
+     * cancelled is `reason: order_already_cancelled`. Nothing was paid.
+     */
+    cancelMyOrder(orderId: OrderId): Promise<PlacedOrder>;
+
     /** `POST /api/v1/subscriptions/preview`. */
     previewSubscription(configuration: SubscriptionConfiguration): Promise<SubscriptionPreview>;
 
@@ -622,15 +653,19 @@ export interface CommerceRepository {
     ): Promise<Subscription>;
 
     /**
-     * `PUT /api/v1/subscriptions/{subscription}/meal-choices` — Free Selection, choosing ahead.
-     *
-     * Answers the day's choices as they now stand, including the `kitchen_default` rows the person
-     * did not override, so the editor can redraw the whole day from one answer.
+     * `PUT /api/v1/me/subscriptions/{subscription}/choices` — change one day's meals before its
+     * cut-off. The whole day, every sitting.
      */
     setSubscriptionMealChoices(
         subscriptionId: SubscriptionId,
         request: SetSubscriptionMealChoicesRequest,
     ): Promise<readonly SubscriptionMealChoice[]>;
+
+    /**
+     * `GET /api/v1/me/subscriptions/{subscription}/days` — the customer's meals, day by day, to
+     * the end of the balance.
+     */
+    listSubscriptionDays(subscriptionId: SubscriptionId): Promise<SubscriptionPlanDays>;
 }
 
 /** Placed orders. Declared for completeness of the identifier vocabulary; not read in Phase 2. */
@@ -683,6 +718,9 @@ export interface PlacedOrderLine {
     readonly quantity: number;
     readonly unitPrice: Money;
     readonly lineTotal: Money;
+    /** What the line changed about the dish, as chosen. Empty on a plain line. */
+    readonly options?: readonly DishOption[] | undefined;
+    readonly note?: string | null | undefined;
 }
 
 /**
@@ -709,4 +747,6 @@ export interface PlacedOrder {
     readonly placedAt: IsoDateTime;
     /** When it reached each later step. Absent on an order built without them (a fixture). */
     readonly stepTimes?: OrderStepTimes | undefined;
+    /** `delivery`, `pickup` or `counter`. Absent on an order built without it (a fixture). */
+    readonly fulfilmentType?: FulfilmentType | undefined;
 }

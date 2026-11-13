@@ -1,11 +1,12 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Text as RNText, View } from 'react-native';
+import { Platform, Text as RNText, View } from 'react-native';
 
 import { Button } from '../actions/button.tsx';
 import { IconButton } from '../actions/icon-button.tsx';
 import { useBreakpoint } from '../hooks/use-breakpoint.ts';
+import { ContentWidthBeside } from '../hooks/use-content-width.tsx';
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
@@ -13,7 +14,10 @@ import { Collapse } from '../motion/collapse.tsx';
 import { SlideIn } from '../motion/slide-in.tsx';
 import { useMotion } from '../motion/use-motion.ts';
 import { Drawer } from '../overlays/drawer.tsx';
-import { useIssueTrayController } from './issue-tray-context.tsx';
+import { Notice } from '../overlays/notice.tsx';
+import { createIssueRegistry, IssueRegistryProvider } from './issue-group.tsx';
+import type { IssueRegistry, RegisteredIssues } from './issue-group.tsx';
+import { IssueTrayFrameControllerProvider, useIssueTrayController } from './issue-tray-context.tsx';
 import type { IssueTone, IssueTrayController, IssueTraySummary } from './issue-tray-context.tsx';
 
 /**
@@ -51,6 +55,12 @@ import type { IssueTone, IssueTrayController, IssueTraySummary } from './issue-t
  * A card's action is the screen's: it switches the tab, scrolls, focuses and spotlights the field,
  * or opens the page the fix is on. The tray only calls it — closing itself first below `lg`, where
  * the sheet would cover the field it is pointing at.
+ *
+ * ## Parts of the page add their own
+ *
+ * A component inside the frame — the shared form opening, a listing embedded in a tab — registers
+ * its cards with `useIssueGroup` rather than drawing a banner. They are drawn after the page's own
+ * groups; a group sharing a key with one of the page's joins it. See `issue-group.tsx`.
  */
 
 export interface IssueAction {
@@ -90,6 +100,16 @@ export interface IssuePassedItem {
     readonly testID?: string | undefined;
 }
 
+export interface IssueNotes {
+    readonly title: string;
+    readonly lines: readonly {
+        readonly key: string;
+        readonly text: string;
+        readonly testID?: string | undefined;
+    }[];
+    readonly testID?: string | undefined;
+}
+
 export interface IssueTrayContent {
     readonly title: string;
     readonly groups: readonly IssueGroup[];
@@ -103,18 +123,19 @@ export interface IssueTrayContent {
         | readonly { readonly key: string; readonly label: string; readonly testID?: string }[]
         | undefined;
     /** Facts with nothing to fix — an import's notes. Never counted, never blocking. */
-    readonly notes?:
-        | {
-              readonly title: string;
-              readonly lines: readonly { readonly key: string; readonly text: string }[];
-          }
-        | undefined;
+    readonly notes?: IssueNotes | undefined;
     /** Whose problems these are, when the page was opened from another — "For Bbq Sauce Dip". */
     readonly context?: { readonly label: string; readonly testID?: string | undefined } | undefined;
     /** Under "All set": what finishing means here — "Ready to publish". */
     readonly doneLabel?: string | undefined;
     /** Under "All set": where to go next — back to the page that sent the reader here. */
     readonly doneAction?: IssueAction | undefined;
+    /**
+     * A list's or a desk's tray, drawn only while it has something to say: an open card, one still
+     * ticking away, a check still running, a note. A form keeps its tray to say "All set"; a list
+     * page has no "done" to show, and a docked panel saying so beside every list is noise.
+     */
+    readonly hideWhenClear?: boolean | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -143,19 +164,107 @@ const TONE_MARK: Readonly<Record<IssueTone, string>> = {
 const TICK_MS = 600;
 const GONE_MS = 1000;
 
+/** The docked panel's column and the gap before it: `w-80` and `gap-6`. */
+const DOCKED_WIDTH = 344;
+
+const NO_GROUPS: readonly IssueGroup[] = [];
+const NO_KEYS: readonly string[] = [];
+
+/** How many of the blocking cards the notice names before "and 2 more". */
+const NOTICE_LINES = 3;
+
 /**
  * The page with its tray: docked beside the content from `lg`, a bottom sheet below. The screen's
  * own root (its `Cascade`) goes inside as `children`, so the page still arrives as it always has.
  */
-export function IssueTrayFrame({ tray, controller, children, testID }: IssueTrayFrameProps) {
+export function IssueTrayFrame(props: IssueTrayFrameProps) {
     const own = useIssueTrayController();
-    const tray$ = controller ?? own;
+    const tray$ = props.controller ?? own;
+    const [registry] = useState(createIssueRegistry);
+    return (
+        <IssueRegistryProvider value={registry}>
+            <IssueTrayFrameControllerProvider value={tray$}>
+                <IssueTrayFrameBody {...props} controller={tray$} registry={registry} />
+            </IssueTrayFrameControllerProvider>
+        </IssueRegistryProvider>
+    );
+}
+
+/** The page's tray as drawn: its own groups, then what the parts inside it registered. */
+interface MergedTray extends Omit<IssueTrayContent, 'notes'> {
+    readonly notes: readonly IssueNotes[];
+    /** The keys of the groups only a registration brought, which leave with it untallied. */
+    readonly registeredKeys: readonly string[];
+}
+
+function mergeTray(tray: IssueTrayContent, registered: readonly RegisteredIssues[]): MergedTray {
+    const groups: IssueGroup[] = [...tray.groups];
+    for (const { group } of registered) {
+        const at = groups.findIndex((entry) => entry.key === group.key);
+        const existing = groups[at];
+        if (existing === undefined) groups.push(group);
+        else
+            groups[at] = {
+                ...existing,
+                items: [...existing.items, ...group.items],
+                testID: existing.testID ?? group.testID,
+            };
+    }
+    return {
+        ...tray,
+        groups,
+        passed: [...(tray.passed ?? []), ...registered.flatMap((entry) => entry.passed ?? [])],
+        notes: [tray.notes, ...registered.map((entry) => entry.notes)].filter(
+            (entry): entry is IssueNotes => entry !== undefined && entry.lines.length > 0,
+        ),
+        registeredKeys: registered
+            .map((entry) => entry.group.key)
+            .filter((key) => !tray.groups.some((group) => group.key === key)),
+    };
+}
+
+function IssueTrayFrameBody({
+    tray: own,
+    controller: tray$,
+    registry,
+    children,
+    testID,
+}: IssueTrayFrameProps & {
+    readonly controller: IssueTrayController;
+    readonly registry: IssueRegistry;
+}) {
+    const registered = useSyncExternalStore(
+        registry.subscribe,
+        registry.snapshot,
+        registry.snapshot,
+    );
+    const tray = useMemo(
+        () => (own === null ? null : mergeTray(own, registered)),
+        [own, registered],
+    );
     const { atLeast } = useBreakpoint();
     const wide = atLeast('lg');
     const base = tray?.testID ?? testID ?? 'issue-tray';
+    const { enabled: motion } = useMotion();
+
+    // Here rather than in the panel, so a tray that hides when clear still waits for its last tick.
+    const leaving = useLeavingCards(
+        tray?.groups ?? NO_GROUPS,
+        tray?.registeredKeys ?? NO_KEYS,
+        tray !== null,
+        tray$.markResolved,
+        motion,
+    );
+    const hidden =
+        tray !== null &&
+        tray.hideWhenClear === true &&
+        tray.groups.every((group) => group.items.length === 0) &&
+        leaving.cards.length === 0 &&
+        (tray.checking ?? []).length === 0 &&
+        tray.notes.length === 0;
 
     const summary = useMemo<IssueTraySummary | null>(() => {
-        if (tray === null) return null;
+        if (tray === null || hidden) return null;
         const blocking = tray.groups.flatMap((group) =>
             group.items.filter((item) => item.tone !== 'info'),
         );
@@ -170,7 +279,7 @@ export function IssueTrayFrame({ tray, controller, children, testID }: IssueTray
                     : 'clear',
             title: tray.title,
         };
-    }, [tray]);
+    }, [tray, hidden]);
 
     const { publish } = tray$;
     useEffect(() => {
@@ -183,61 +292,206 @@ export function IssueTrayFrame({ tray, controller, children, testID }: IssueTray
         [publish],
     );
 
-    if (tray === null) return <>{children}</>;
+    const panel =
+        tray === null ? null : (
+            <IssueTrayPanel
+                tray={tray}
+                leaving={leaving}
+                testID={base}
+                onClose={() => {
+                    tray$.setOpen(false);
+                }}
+                closeBeforeFix={!wide}
+                showClose={wide}
+            />
+        );
 
-    const panel = (
-        <IssueTrayPanel
-            tray={tray}
-            testID={base}
-            onResolved={tray$.markResolved}
-            onClose={() => {
-                tray$.setOpen(false);
-            }}
-            closeBeforeFix={!wide}
-            showClose={wide}
-        />
+    /*
+     * Docked, the panel's column comes out of the page's: `useContentWidth` under it says so, and
+     * the ports that measure their own node (`useCataloguePort`) are told with one `resize`, as the
+     * shell tells them when its own panel settles.
+     */
+    const docked = wide && tray !== null && tray$.open && !hidden;
+    useEffect(() => {
+        if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+        window.dispatchEvent(new Event('resize'));
+    }, [docked]);
+    const page = (
+        <ContentWidthBeside width={docked ? DOCKED_WIDTH : 0}>{children}</ContentWidthBeside>
     );
 
-    if (!wide) {
-        return (
-            <>
-                {children}
+    /*
+     * The same wrapper whether or not there is a tray to draw: a page that passes `null` for a
+     * moment (an older version on screen, a list with nothing to say) must not be remounted —
+     * that would replay its entrance and take the focus out of the box being typed in.
+     */
+    const blocked = (
+        <BlockedNotice tray={tray} controller={tray$} wide={wide} testID={`${base}-blocked`} />
+    );
+
+    /*
+     * And the same place for the page on both sides of `lg`: a page that moved in the tree as the
+     * window crossed it was remounted, dropping every draft in it and any write still in flight —
+     * a refused publish then said nothing at all. Only the tray beside it changes.
+     */
+    return (
+        <>
+            {wide ? blocked : null}
+            <View
+                testID={wide && tray !== null ? `${base}-frame` : undefined}
+                className={wide ? 'z-auto flex-row items-start gap-6' : 'z-auto'}
+            >
+                <View className={wide ? 'z-auto min-w-0 flex-1' : 'z-auto'}>{page}</View>
+                {docked ? (
+                    // Sticky against the shell's scroll port, so the tray stays beside whatever part of
+                    // a long form the reader is on. Its own scroll when it is taller than the window.
+                    <SlideIn
+                        edge="end"
+                        distance="small"
+                        className="w-80 shrink-0 self-start web:sticky web:top-0"
+                    >
+                        <View
+                            role="complementary"
+                            aria-label={tray.title}
+                            className="rounded-lg border border-stroke-subtle bg-surface-raised p-4 web:max-h-[85vh] web:overflow-y-auto"
+                        >
+                            {panel}
+                        </View>
+                    </SlideIn>
+                ) : null}
+            </View>
+            {wide ? null : blocked}
+            {wide || tray === null ? null : (
                 <Drawer
                     testID={`${base}-sheet`}
                     placement="bottom"
                     title={tray.title}
-                    open={tray$.open}
+                    open={tray$.open && !hidden}
                     onClose={() => {
                         tray$.setOpen(false);
                     }}
                 >
                     {panel}
                 </Drawer>
-            </>
-        );
-    }
+            )}
+        </>
+    );
+}
+
+/**
+ * A press that could not go through, answered in the middle of the page: how many things stop it,
+ * named from the tray's own cards so the two never disagree, and "Show me" — the tray opened and
+ * the first card's Fix run, which takes the reader to the field and lights it.
+ *
+ * Below `lg` the tray is a sheet that would cover that field, so there "Show me" runs the Fix alone
+ * and the pill still counts what is left.
+ */
+function BlockedNotice({
+    tray,
+    controller,
+    wide,
+    testID,
+}: {
+    readonly tray: MergedTray | null;
+    readonly controller: IssueTrayController;
+    readonly wide: boolean;
+    readonly testID: string;
+}) {
+    const { t } = useTranslation();
+    const { explaining: press, endExplaining, nudge, setOpen } = controller;
+    const cards = useMemo(
+        () =>
+            press === null || tray === null
+                ? []
+                : tray.groups
+                      .filter((group) => press.groups?.includes(group.key) ?? true)
+                      .flatMap((group) => group.items.filter((item) => item.tone !== 'info')),
+        [press, tray],
+    );
+
+    /*
+     * Nothing to name: a part's cards register a render after the press, so wait that long; a press
+     * still unexplained after it opens the tray, as a refused save did before there was a notice.
+     */
+    const unexplained = press !== null && cards.length === 0;
+    useEffect(() => {
+        if (!unexplained) return undefined;
+        const timer = setTimeout(() => {
+            endExplaining();
+            nudge();
+        }, 0);
+        return () => {
+            clearTimeout(timer);
+        };
+    }, [unexplained, endExplaining, nudge]);
+
+    /*
+     * "Show me" runs its Fix once the notice is down. Its modal hands focus back to the button that
+     * opened it as it unmounts, and a Fix run any earlier lost that race on a heavy page — the field
+     * lit, the cursor on Save. React runs the unmount's cleanup before this effect, so it cannot.
+     */
+    const pendingFix = useRef<IssueAction | null>(null);
+    useEffect(() => {
+        if (press !== null) return;
+        const fix = pendingFix.current;
+        pendingFix.current = null;
+        fix?.onPress();
+    }, [press]);
+
+    const first = cards[0];
+    if (press === null || first === undefined) return null;
+
+    const named = cards.slice(0, NOTICE_LINES);
+    const more = cards.length - named.length;
+    const showMe = () => {
+        pendingFix.current = first.action ?? null;
+        endExplaining();
+        if (wide || first.action === undefined) setOpen(true);
+    };
 
     return (
-        <View testID={`${base}-frame`} className="z-auto flex-row items-start gap-6">
-            <View className="z-auto min-w-0 flex-1">{children}</View>
-            {tray$.open ? (
-                // Sticky against the shell's scroll port, so the tray stays beside whatever part of
-                // a long form the reader is on. Its own scroll when it is taller than the window.
-                <SlideIn
-                    edge="end"
-                    distance="small"
-                    className="w-80 shrink-0 self-start web:sticky web:top-0"
-                >
-                    <View
-                        role="complementary"
-                        aria-label={tray.title}
-                        className="rounded-lg border border-stroke-subtle bg-surface-raised p-4 web:max-h-[85vh] web:overflow-y-auto"
-                    >
-                        {panel}
+        <Notice
+            open
+            testID={testID}
+            tone="warning"
+            title={t(
+                press.action === 'publish'
+                    ? 'designSystem:issueTray.beforePublishing'
+                    : 'designSystem:issueTray.beforeSaving',
+                { count: cards.length },
+            )}
+            onClose={endExplaining}
+            secondary={{
+                label: t('designSystem:issueTray.notNow'),
+                onPress: endExplaining,
+                testID: `${testID}-not-now`,
+            }}
+            primary={{
+                label: t('designSystem:issueTray.showMe'),
+                onPress: showMe,
+                testID: `${testID}-show-me`,
+            }}
+        >
+            <View testID={`${testID}-list`} className="flex-col gap-1.5">
+                {named.map((card) => (
+                    <View key={card.key} className="flex-row items-start gap-2">
+                        <Icon
+                            name={TONE_ICON[card.tone]}
+                            size="sm"
+                            className={cx('mt-0.5', TONE_MARK[card.tone])}
+                        />
+                        <RNText className="min-w-0 flex-1 text-base text-content-primary text-start">
+                            {card.label}
+                        </RNText>
                     </View>
-                </SlideIn>
-            ) : null}
-        </View>
+                ))}
+                {more <= 0 ? null : (
+                    <RNText className="text-sm text-content-secondary text-start">
+                        {t('designSystem:issueTray.andMore', { count: more })}
+                    </RNText>
+                )}
+            </View>
+        </Notice>
     );
 }
 
@@ -248,24 +502,28 @@ interface LeavingCard {
     readonly folding: boolean;
 }
 
+interface LeavingCards {
+    readonly cards: readonly LeavingCard[];
+    /** How many cards have cleared themselves since the tray was opened on this page. */
+    readonly resolved: number;
+}
+
 function IssueTrayPanel({
     tray,
+    leaving,
     testID,
-    onResolved,
     onClose,
     closeBeforeFix,
     showClose,
 }: {
-    readonly tray: IssueTrayContent;
+    readonly tray: MergedTray;
+    readonly leaving: LeavingCards;
     readonly testID: string;
-    readonly onResolved: () => void;
     readonly onClose: () => void;
     readonly closeBeforeFix: boolean;
     readonly showClose: boolean;
 }) {
     const { t } = useTranslation();
-    const { enabled: motion } = useMotion();
-    const leaving = useLeavingCards(tray.groups, onResolved, motion);
 
     // The groups as drawn: today's, then any group whose last card is still on its way out.
     const groups = useMemo(() => {
@@ -463,21 +721,29 @@ function IssueTrayPanel({
                 </View>
             )}
 
-            {tray.notes === undefined || tray.notes.lines.length === 0 ? null : (
+            {tray.notes.map((notes, index) => (
                 <View
-                    testID={`${testID}-notes`}
+                    key={`${String(index)}-${notes.title}`}
+                    testID={
+                        notes.testID ??
+                        (index === 0 ? `${testID}-notes` : `${testID}-notes-${String(index)}`)
+                    }
                     className="flex-col gap-1 border-t border-stroke-subtle pt-3"
                 >
                     <RNText className="text-xs font-semibold text-content-secondary text-start">
-                        {tray.notes.title}
+                        {notes.title}
                     </RNText>
-                    {tray.notes.lines.map((line) => (
-                        <RNText key={line.key} className="text-sm text-content-primary text-start">
+                    {notes.lines.map((line) => (
+                        <RNText
+                            key={line.key}
+                            testID={line.testID}
+                            className="text-sm text-content-primary text-start"
+                        >
                             {line.text}
                         </RNText>
                     ))}
                 </View>
-            )}
+            ))}
         </View>
     );
 }
@@ -604,12 +870,19 @@ function ProgressLine({ done, total }: { readonly done: number; readonly total: 
 /**
  * The cards that were there last render and are not now: each ticks green, then folds, then goes.
  * A card that comes back before it has gone (the field emptied again) is simply open once more.
+ *
+ * Except the cards of a registered group whose part has gone (`registeredKeys`): nothing was fixed,
+ * the part left — a seller switched, a listing unmounted — so they go at once, untallied. And none
+ * while the page has no tray (`active` false — an older version on screen): putting the tray away
+ * fixes nothing, so it starts afresh when it comes back.
  */
 function useLeavingCards(
     groups: readonly IssueGroup[],
+    registeredKeys: readonly string[],
+    active: boolean,
     onResolved: () => void,
     motion: boolean,
-): { readonly cards: readonly LeavingCard[]; readonly resolved: number } {
+): LeavingCards {
     const [cards, setCards] = useState<readonly LeavingCard[]>([]);
     const [resolved, setResolved] = useState(0);
     const previous = useRef(new Map<string, LeavingCard>());
@@ -617,17 +890,27 @@ function useLeavingCards(
     const resolvedRef = useRef(onResolved);
     resolvedRef.current = onResolved;
 
-    const signature = groups
+    const signature = `${String(active)}#${groups
         .map((group) => `${group.key}:${group.items.map((item) => item.key).join(',')}`)
-        .join('|');
+        .join('|')}#${registeredKeys.join(',')}`;
 
     // Read through a ref so the effect keys on the card *set*, not on every new label object.
     const latest = useRef(groups);
     latest.current = groups;
+    const latestRegistered = useRef(registeredKeys);
+    latestRegistered.current = registeredKeys;
+    const previousRegistered = useRef<readonly string[]>([]);
 
     // Before paint: a card that has gone is replaced by its ticked self in the same frame, so the
     // list never shows a frame with the card missing and the next one with it back, green.
     useLayoutEffect(() => {
+        if (!active) {
+            previous.current = new Map();
+            previousRegistered.current = [];
+            setCards((existing) => (existing.length === 0 ? existing : []));
+            setResolved(0);
+            return;
+        }
         const current = new Map<string, LeavingCard>();
         for (const group of latest.current) {
             for (const item of group.items) {
@@ -640,9 +923,14 @@ function useLeavingCards(
             }
         }
 
+        const departed = previousRegistered.current.filter(
+            (key) => !latestRegistered.current.includes(key),
+        );
+        previousRegistered.current = latestRegistered.current;
         const gone = [...previous.current.entries()]
             .filter(([key]) => !current.has(key))
-            .map(([, card]) => card);
+            .map(([, card]) => card)
+            .filter((card) => !departed.includes(card.groupKey));
         previous.current = current;
 
         setCards((existing) =>
@@ -669,7 +957,7 @@ function useLeavingCards(
         );
         timers.current.add(fold);
         timers.current.add(remove);
-    }, [signature, motion]);
+    }, [signature, motion, active]);
 
     useEffect(() => {
         const pending = timers.current;

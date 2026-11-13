@@ -13,15 +13,13 @@ return [
     | authenticated user and falling back to the caller's address (see
     | AppServiceProvider::configureRateLimiting).
     |
-    | Sixty is the shipped default and the number the limiter test pins. It is
-    | configurable because a shared demonstration instance breaks the
-    | assumption the number was chosen under: several testers sign in as the
-    | *same* seeded persona, so they share one bucket, while a single workspace
-    | dashboard costs roughly twenty requests on load. Raise it there; leave it
-    | alone anywhere a caller is a real person with their own account.
+    | A single workspace dashboard costs roughly twenty requests on load, and a
+    | kitchen's shared tablet or a whole office behind one address spends one
+    | bucket, so 600 is the shipped default, the number `deploy.sh` already
+    | runs. The tighter limits on sign-in and the like are their own limiters.
     |
     */
 
-    'rate_limit' => (int) env('API_RATE_LIMIT', 60),
+    'rate_limit' => (int) env('API_RATE_LIMIT', 600),
 
 ];

@@ -75,6 +75,7 @@ export function DietitianProfileScreen({ dietitianId }: DietitianProfileScreenPr
             />
 
             <QueryStates
+                skeleton="page"
                 query={query}
                 isEmpty={query.data === undefined && !query.isPending}
                 emptyTitle={t('marketplace:dietitians.notFoundTitle')}

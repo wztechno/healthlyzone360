@@ -18,6 +18,7 @@ import {
 import type { ProductCategory } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
 import { missingLast } from './catalogue-column-spec.ts';
+import { inStatuses, statusTally, withoutStatuses } from './use-catalogue-filters.ts';
 import { useDestructiveRow } from './use-destructive-row.ts';
 import {
     useListMemory,
@@ -68,6 +69,9 @@ function useProductById(id: string | null) {
  * Shown reads "18 of 240" rather than claiming the three beside it are catalogue-wide.
  */
 
+/** Frozen empty, so "no rows yet" keeps one identity across renders. */
+const NO_ROWS: readonly ProductAdmin[] = [];
+
 export type ProductItemType = 'product' | 'sauce' | 'dressing' | 'frozen_meal';
 
 /**
@@ -112,7 +116,9 @@ export interface ProductListState {
     readonly shown: number;
     /** The whole-set read behind the other cards has not landed yet. */
     readonly countsPending: boolean;
-    readonly draftCount: number;
+    /** Every row in scope, the status aside. */
+    readonly scopeCount: number;
+    readonly statusCounts: Readonly<Record<PublishableStatus, number>>;
     readonly missingArabicCount: number;
     /** Rows with no pack at all, so nothing on them can be priced. */
     readonly noPackCount: number;
@@ -206,9 +212,11 @@ export function useProductList(
     useRestoredPageFallback(memory, page, products.isError, () => {
         setPage(1);
     });
-    // The cards count every page the filters match, not the eighteen rows on this one.
-    const wholeSet = useProductWholeSetQuery(filter);
-    const everyRow = wholeSet.data ?? [];
+    // Without the status, so the figures count every state in scope; `everyRow` re-applies it.
+    const wholeSet = useProductWholeSetQuery(withoutStatuses(filter));
+    const scopeRows = wholeSet.data ?? NO_ROWS;
+    const everyRow = useMemo(() => inStatuses(scopeRows, statuses), [scopeRows, statuses]);
+    const statusCounts = useMemo(() => statusTally(scopeRows), [scopeRows]);
     const archive = useDestructiveRow(useArchiveProductMutation(), (row: ProductAdmin) => ({
         productId: row.id,
         request: { lockVersion: row.meta.lockVersion },
@@ -290,7 +298,8 @@ export function useProductList(
         countsPending: wholeSet.isPending,
         // Rows up to the end of this page: 18 of 306 on the first, 36 on the second.
         shown: Math.min(page * KITCHEN_PAGE_SIZE, products.data?.totalCount ?? sorted.length),
-        draftCount: everyRow.filter((row) => row.meta.status === 'draft').length,
+        scopeCount: scopeRows.length,
+        statusCounts,
         missingArabicCount: everyRow.filter((row) => displayName(row.name, locale).isFallback)
             .length,
         noPackCount: everyRow.filter((row) => row.packVariants.length === 0).length,

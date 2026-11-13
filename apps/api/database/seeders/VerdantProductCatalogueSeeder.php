@@ -7,6 +7,7 @@ namespace Database\Seeders;
 use App\Models\User;
 use Healthy360\Catalogues\Enums\CatalogueItemStatus;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
+use Healthy360\Catalogues\Enums\ProductionMode;
 use Healthy360\Catalogues\Models\Catalogue;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
@@ -36,7 +37,11 @@ use RuntimeException;
  *
  * - targets Verdant's existing `web-shop` / `wholesale` channels;
  * - writes onto **active** public tariffs (demo must be buyable);
- * - publishes every product that passes readiness.
+ * - gives each product its Arabic name, which the sheet does not carry;
+ * - publishes every bought-in (`Supplier`) product that passes readiness,
+ *   assessed by the owner. What the kitchen makes, wholly or in part
+ *   (`Production`, `Supplier & Production`), has a recipe to answer for its
+ *   allergens, so it stays an unassessed draft.
  *
  * The fixture is a committed copy of the Phase-1 product list (names, packs,
  * B2C/B2B amounts) — not recipes or formulations.
@@ -50,6 +55,83 @@ final class VerdantProductCatalogueSeeder extends Seeder
     public const string PRICE_LIST_B2C = 'verdant-products-b2c-usd';
 
     public const string PRICE_LIST_B2B = 'verdant-products-b2b-usd';
+
+    /**
+     * The product sheet is English-only, and the publish gate refuses English
+     * copied into the Arabic column, so the demo carries its own translations:
+     * without them nothing on the sheet could go on sale.
+     *
+     * @var array<string, string> sheet name → Arabic name
+     */
+    private const array ARABIC_NAMES = [
+        'Marinated Chicken Breast' => 'صدر دجاج متبّل',
+        'White Chicken Taouk' => 'طاووق دجاج أبيض',
+        'Red Chicken Taouk' => 'طاووق دجاج أحمر',
+        'Americain Beef Patty' => 'قرص لحم بقر أميركي',
+        'Smash Burger' => 'سماش برغر',
+        'Lebanese Beef Patty' => 'قرص لحم بقر لبناني',
+        'Mozzarella Sticks' => 'أصابع موزاريلا',
+        'Honey Mustard Sauce' => 'صلصة الخردل بالعسل',
+        'Classic Beef Sauce' => 'صلصة اللحم الكلاسيكية',
+        'Mushroom Sauce' => 'صلصة الفطر',
+        'Truffle Sauce' => 'صلصة الكمأة',
+        'Ranch Sauce' => 'صلصة رانش',
+        'Caesar Sauce' => 'صلصة سيزر',
+        'BBq Dip Sauce' => 'صلصة باربيكيو للتغميس',
+        'Buffalo Dip Sauce' => 'صلصة بافالو للتغميس',
+        'Steak Sauce' => 'صلصة الستيك',
+        'Aioli Sauce' => 'صلصة أيولي',
+        'Guacamole' => 'غواكامولي',
+        'Sour Cream' => 'قشدة حامضة',
+        'Sweet & Sour Sauce' => 'صلصة حلوة وحامضة',
+        'Pesto Saue' => 'صلصة بيستو',
+        'Pesto Mayo Sauce' => 'صلصة مايونيز بالبيستو',
+        'Thousand Islands' => 'صلصة ثاوزند آيلاند',
+        'Garlic Mayo Sauce' => 'صلصة مايونيز بالثوم',
+        'Caramelised Onion' => 'بصل مكرمل',
+        'Sunflower Oil' => 'زيت دوار الشمس',
+        'Turkey Bacon' => 'لحم ديك رومي مقدد',
+        'Turkey Breast' => 'صدر ديك رومي',
+        'Filet Steak' => 'ستيك فيليه',
+        'Mozzarella Patty' => 'قرص موزاريلا',
+        'Mozzarella Bricks' => 'قوالب موزاريلا',
+        'Cheddar Patty' => 'قرص شيدر',
+        'Cheese Balls' => 'كرات الجبن',
+        'Jalapenos Bites' => 'لقيمات هالبينو',
+        'Shortening Oil' => 'زيت القلي النباتي',
+        'Olive Oil' => 'زيت زيتون',
+        'Mayonnaise' => 'مايونيز',
+        'Ketchup' => 'كاتشب',
+        'BBq' => 'باربيكيو',
+        'Cheddar Sauce' => 'صلصة شيدر',
+        'Dill Pickles' => 'مخلل الخيار بالشبت',
+        'Jalapenos Pickles' => 'مخلل هالبينو',
+        'Yellow Mustard' => 'خردل أصفر',
+        'Dijon Mustard' => 'خردل ديجون',
+        'Sriracha' => 'سريراتشا',
+        'Worcestershire Sauce' => 'صلصة ورسيستر',
+        'Soy Sauce' => 'صلصة الصويا',
+        'Burger Bun' => 'خبز برغر',
+        'Tortilla bread' => 'خبز تورتيلا',
+        'Cheddar Bloc' => 'قالب شيدر',
+        'Swiss Bloc' => 'قالب جبن سويسري',
+        'Parmesan Cheese' => 'جبن بارميزان',
+        'Mozzarella Shredded' => 'موزاريلا مبشورة',
+        'Fresh Cream' => 'قشدة طازجة',
+        'Butter' => 'زبدة',
+        'Cucumber, Tomato, Onion, carrot, White Cabbage, Red Cabbage…....( All Kinds)' => 'خيار، بندورة، بصل، جزر، ملفوف أبيض، ملفوف أحمر (جميع الأنواع)',
+        'Iceberg, Rocket Leaves, Parsley, Coriander…. (all Kinds)' => 'خس آيسبرغ، جرجير، بقدونس، كزبرة (جميع الأنواع)',
+        'Chicken Crispy' => 'دجاج مقرمش',
+        'Chicken Zinger' => 'دجاج زنجر',
+        'Chicken Wings' => 'أجنحة دجاج',
+        'Chicken Escalope' => 'إسكالوب دجاج',
+        'Chicken Strips' => 'شرائح دجاج',
+        'Chicken Nuggets' => 'ناغتس دجاج',
+        'Chicken Burger' => 'برغر دجاج',
+    ];
+
+    /** The bought-in rows the PHPUnit slice adds to the sheet's first eight. */
+    private const array TEST_BOUGHT_IN = ['Turkey Bacon', 'Turkey Breast'];
 
     public function run(): void
     {
@@ -114,9 +196,17 @@ final class VerdantProductCatalogueSeeder extends Seeder
         // Full sheet in local demos; a short slice under PHPUnit so the suite
         // stays within RefreshDatabase transaction budgets. Gate on
         // runningUnitTests(), not APP_ENV=testing alone — a polluted shell
-        // env must not truncate the demo kitchen catalogue.
+        // env must not truncate the demo kitchen catalogue. The first eight
+        // rows are all made in-house and stay drafts, so two bought-in rows
+        // join them: the demo needs something on sale.
         if (app()->runningUnitTests() && count($parsed['rows']) > 8) {
-            $parsed['rows'] = array_slice($parsed['rows'], 0, 8);
+            $parsed['rows'] = [
+                ...array_slice($parsed['rows'], 0, 8),
+                ...array_values(array_filter(
+                    $parsed['rows'],
+                    static fn (array $row): bool => in_array($row['product'], self::TEST_BOUGHT_IN, true),
+                )),
+            ];
         }
 
         $options = new ImportOptions(
@@ -163,7 +253,7 @@ final class VerdantProductCatalogueSeeder extends Seeder
             );
         });
 
-        $this->publishReadyProducts($organisationId);
+        $this->publishReadyProducts($organisationId, (string) $creator->getKey());
     }
 
     private function activeTariff(
@@ -187,7 +277,7 @@ final class VerdantProductCatalogueSeeder extends Seeder
         );
     }
 
-    private function publishReadyProducts(string $organisationId): void
+    private function publishReadyProducts(string $organisationId, string $ownerId): void
     {
         $readiness = app(CatalogueItemReadiness::class);
 
@@ -201,6 +291,18 @@ final class VerdantProductCatalogueSeeder extends Seeder
         $published = 0;
 
         foreach ($drafts as $item) {
+            if ($item->name_ar === $item->name_en && isset(self::ARABIC_NAMES[$item->name_en])) {
+                $item->forceFill(['name_ar' => self::ARABIC_NAMES[$item->name_en]])->save();
+            }
+
+            if ($item->production_mode !== ProductionMode::Supplier) {
+                // Made here, wholly or in part (`Production`, `Supplier &
+                // Production`), or of a kind the sheet left unclear: its
+                // allergens are its recipe's to answer, and nobody has assessed
+                // it. It stays a draft until a person does.
+                continue;
+            }
+
             $reasons = $readiness->reasons($item);
 
             if ($reasons !== []) {
@@ -209,7 +311,15 @@ final class VerdantProductCatalogueSeeder extends Seeder
                 continue;
             }
 
-            $item->forceFill(['status' => CatalogueItemStatus::Published])->save();
+            // The owner's press of "Assessed: contains none of these". A sheet
+            // of bought-in goods has no recipe to answer for it, and an
+            // unassessed product is off sale. Demo world only: a real import
+            // leaves this for a person, and these rows are not real food data.
+            $item->forceFill([
+                'status' => CatalogueItemStatus::Published,
+                'allergens_assessed_at' => now(),
+                'allergens_assessed_by' => $ownerId,
+            ])->save();
             $published++;
         }
 

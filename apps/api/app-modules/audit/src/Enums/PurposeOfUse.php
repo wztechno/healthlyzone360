@@ -22,6 +22,9 @@ enum PurposeOfUse: string
     /** Operating one's own organisation: workspace, branches, membership administration. */
     case OrganisationAdministration = 'organisation_administration';
 
+    /** Cooking, selling or delivering an order, which needs what the customer can safely eat. */
+    case OrderFulfilment = 'order_fulfilment';
+
     /** Acting on a user's own record — profile, devices, consents. */
     case SelfService = 'self_service';
 

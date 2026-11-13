@@ -1,3 +1,4 @@
+import { isValidationFailure } from '@healthy360/api-client/contracts';
 import type {
     LocalisedText,
     MeasurementUnitOption,
@@ -13,25 +14,32 @@ import {
     Dialog,
     ErrorState,
     FormGrid,
-    FormIssueBanner,
     FormSection,
     FormSkeleton,
     Icon,
     Inline,
+    IssueTrayFrame,
     QuantityInput,
     Select,
     Stack,
     Tag,
     Text,
+    useIssueGroup,
+    useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { FormIssueItem, SelectOption } from '@healthy360/design-system';
+import type {
+    FormIssueItem,
+    IssueCardItem,
+    IssueNotes,
+    IssueTrayContent,
+    SelectOption,
+} from '@healthy360/design-system';
 import { ProductId, SALES_CHANNELS, isCurrencyCode } from '@healthy360/domain-types';
 import type { RecipeId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { ReactElement } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -62,9 +70,11 @@ import {
     useProcurementReferenceQuery,
     useStockItemsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { withReturnTo } from '../../../navigation/return-to.ts';
+import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
+import { AllergenAssessmentCallout, AssessmentBadges } from '../catalogue/allergen-assessment.tsx';
 import { stockBlockersSentence } from '../catalogue/recipe-columns.tsx';
 import {
     ChannelAvailabilityEditor,
@@ -86,7 +96,8 @@ import {
     INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { focusField } from '../field-focus.ts';
+import { focusField, focusSection } from '../field-focus.ts';
+import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useHostSave } from '../host-save.ts';
 import type { RegisterHostArchive, RegisterHostSave } from '../host-save.ts';
 import {
@@ -102,6 +113,13 @@ import {
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
 import { returnCrumbLabel } from '../came-from.ts';
+import { useFinishDetour } from '../finish-detour.ts';
+import { useSaveBar } from '../save-bar.tsx';
+import {
+    PacksHostContext,
+    packsIssueLabel,
+    packsIssuesFromRefusal,
+} from '../packs-prices-section.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusFirstRefusal } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
@@ -109,6 +127,7 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/products/{product}` — the resale item editor, drawn the way `Catalogue Forms.dc.html`
  * draws its siblings. The design has no resale frame of its own, so this is the ingredient editor's
@@ -419,9 +438,12 @@ function ProductEditor({
 }: ProductEditScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
+    const here = useCurrentHref();
     const { locale } = useLocale();
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
+    // The recipe page around an embedded listing: its packs, and the way to Packs & prices.
+    const packsHost = useContext(PacksHostContext);
 
     const isCreating = product === undefined || product === 'new';
     const parsed = isCreating ? null : ProductId.safeParse(product);
@@ -504,6 +526,7 @@ function ProductEditor({
      * list as it was left — and open the list afresh only when nothing is behind this page.
      */
     const back = useReturnTo(returnTo, routeBase);
+    const finishDetour = useFinishDetour(back);
 
     useEffect(() => {
         onDirtyChange?.(guard.isDirty);
@@ -599,6 +622,13 @@ function ProductEditor({
 
     const concurrency = useOptimisticConcurrency({ onReload: reload });
 
+    /*
+     * The page's issue tray, or — embedded — the recipe's, which this listing's cards join under
+     * the tab's name. Either way a refused save opens it (`nudge`).
+     */
+    const issueTray = useIssueTrayController();
+    const { nudge: nudgeTray } = issueTray;
+
     const takePackKey = (): string => {
         const key = `pack-${String(nextPackOrdinal)}`;
         setNextPackOrdinal(nextPackOrdinal + 1);
@@ -690,7 +720,8 @@ function ProductEditor({
     const nameMissing = details.name.en.trim() === '';
     // Embedded, the route has decided the category and the field is not drawn.
     const categoryMissing = !embedded && details.categoryCode.trim() === '';
-    const packsMissing = details.packs.length === 0;
+    // Embedded, the packs are the recipe's Packs & prices tab's and this listing draws none.
+    const packsMissing = !embedded && details.packs.length === 0;
 
     /*
      * A pack row still waiting on its code is a blank, and waits for Save like any other; a row
@@ -759,7 +790,7 @@ function ProductEditor({
                       required: true,
                   },
               ]
-            : firstPackErrorField === undefined
+            : firstPackErrorField === undefined || embedded
               ? []
               : [
                     {
@@ -813,8 +844,9 @@ function ProductEditor({
      * waits for Save, like every other blank on a form nobody has filled in yet.
      */
     const noChannel = !channels.some((row) => row.isAvailable);
+    // Not while the record is still being read: its channels are not here yet, not missing.
     const warnings: readonly FormIssue[] =
-        noChannel && (attempted || !isCreating)
+        noChannel && !embedded && (attempted || (!isCreating && data !== undefined))
             ? [
                   {
                       key: 'channels',
@@ -997,7 +1029,7 @@ function ProductEditor({
     };
 
     const showSaved = () => {
-        toast.show({
+        finishDetour({
             testID: 'kitchen-product-saved-toast',
             tone: 'success',
             message: t('kitchen:editor.savedToast'),
@@ -1044,7 +1076,11 @@ function ProductEditor({
         recipeId: details.recipeId,
         isMarketPriced: details.isMarketPriced,
         isAssorted: details.isAssorted,
-        packVariants: packRequest(details.packs),
+        /*
+         * Not embedded: the Packs & prices tab writes a cooked item's packs, and a variants write
+         * from here would archive every pack it added (`updateProduct` skips the call when absent).
+         */
+        ...(embedded ? {} : { packVariants: packRequest(details.packs) }),
         ...netContentRequest,
     });
 
@@ -1057,7 +1093,11 @@ function ProductEditor({
     useHostSave(onRegisterSave, async () => {
         if (data === undefined || !guard.isDirty) return true;
         setAttempted(true);
-        if (!canManage || blockers.length > 0) return false;
+        if (!canManage) return false;
+        if (blockers.length > 0) {
+            nudgeTray();
+            return false;
+        }
         try {
             let lockVersion = data.meta.lockVersion;
             if (detailsDirty) {
@@ -1067,7 +1107,8 @@ function ProductEditor({
                 });
                 lockVersion = updated.meta.lockVersion;
             }
-            if (channelsDirty) {
+            // Where it sells is the Packs & prices tab's; this listing never writes the channels.
+            if (channelsDirty && !embedded) {
                 await setChannels.mutateAsync({
                     productId: data.id,
                     request: { lockVersion, availability: channelRequest(channels) },
@@ -1090,8 +1131,9 @@ function ProductEditor({
         if (!canManage) return;
         setAttempted(true);
         if (blockers.length > 0) {
-            // The banner names every field; the first one is also where the reader is taken.
+            // The tray names every field; the first one is also where the reader is taken.
             focusField(blockers[0]!.fieldId);
+            nudgeTray();
             return;
         }
 
@@ -1257,6 +1299,221 @@ function ProductEditor({
         [onRegisterArchive],
     );
 
+    /* ── the issue tray ──────────────────────────────────────────────────────────────────────── */
+
+    const saveFailure = toFailure(update.error ?? create.error);
+    // What the server refused, put on the fields it named (BUG-06).
+    const server = serverFieldErrors(saveFailure, serverTargets);
+    const dangerItems: readonly FormIssueItem[] = [...blockerItems, ...server.items];
+    const channelFailure = toFailure(setChannels.error);
+    const status = data?.meta.status ?? 'draft';
+    const quarantined = status === 'review_required';
+    const photoFailure = toFailure(photoSave.error);
+    /*
+     * A refused publish or archive, other than a lock conflict — which opens its own dialog. The
+     * dialog that asked has closed by then, so the tray says it rather than nothing at all.
+     */
+    const actFailure = (error: unknown) => {
+        const failure = toFailure(error);
+        return failure === null || failure.code === 'resource.conflict' ? null : failure;
+    };
+    const publishFailure = actFailure(publish.error);
+    // A publish refused for the item's packs, as the cards the recipe's own Publish draws.
+    const publishPackIssues =
+        publishFailure !== null && isValidationFailure(publishFailure)
+            ? packsIssuesFromRefusal(publishFailure.fields, packsHost?.draft ?? null)
+            : [];
+    const archiveFailure = actFailure(archive.error);
+    useNudgeOnRefusal(
+        update.error ?? create.error ?? setChannels.error ?? photoSave.error ?? publishFailure,
+        nudgeTray,
+    );
+    useNudgeOnRefusal(archiveFailure, nudgeTray);
+
+    /*
+     * What used to stand above the form as strips and notices, as cards. What went wrong keeps the
+     * server's own words under its title; a notice that only named a state is its title alone.
+     */
+    const saveCards: IssueCardItem[] = [
+        ...dangerItems.map((item) => ({
+            key: item.key,
+            tone: 'danger' as const,
+            label: item.label,
+            action: { onPress: item.onPress },
+            testID: `kitchen-product-issues-errors-${item.key}`,
+        })),
+        ...(saveFailure === null || (server.isValidation && server.unplaced === null)
+            ? []
+            : [
+                  {
+                      key: 'save-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:editor.saveError'),
+                      detail: server.unplaced ?? saveFailure.message,
+                      testID: 'kitchen-product-save-error',
+                  },
+              ]),
+        ...(channelFailure === null
+            ? []
+            : [
+                  {
+                      key: 'channels-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:channels.saveError'),
+                      detail: channelFailure.message,
+                      action: {
+                          onPress: () => {
+                              focusSection('kitchen-product-channels');
+                          },
+                      },
+                      testID: 'kitchen-product-channels-error',
+                  },
+              ]),
+        ...(photoFailure === null
+            ? []
+            : [
+                  {
+                      key: 'photo-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:editor.saveError'),
+                      detail: photoFailure.message,
+                      testID: 'kitchen-product-photo-error',
+                  },
+              ]),
+    ];
+    const publishCards: IssueCardItem[] = [
+        /*
+         * A quarantine is stated, never resolved from here: `review_required` blocks publication
+         * structurally (plan §4.7) and is cleared by fixing the allergen determination it came
+         * from, on the ingredient.
+         */
+        ...(quarantined
+            ? [
+                  {
+                      key: 'quarantine',
+                      tone: 'warning' as const,
+                      label: t('kitchen:products.quarantineTitle'),
+                      testID: 'kitchen-product-quarantine',
+                  },
+              ]
+            : []),
+        ...warningItems.map((item) => ({
+            key: item.key,
+            tone: 'warning' as const,
+            // The one warning, said as what is wrong rather than as the section's name.
+            label: item.key === 'channels' ? t('kitchen:tray.noChannel') : item.label,
+            action: { onPress: item.onPress },
+            testID: `kitchen-product-issues-warnings-${item.key}`,
+        })),
+        ...publishPackIssues.map((issue) => ({
+            key: `packs-${issue.key}`,
+            tone: 'warning' as const,
+            label: packsIssueLabel(issue, t),
+            detail: t('kitchen:tray.groupPublish'),
+            action:
+                packsHost === null
+                    ? undefined
+                    : {
+                          onPress: () => {
+                              packsHost.open(issue);
+                          },
+                      },
+            testID: `kitchen-product-packs-${issue.key}`,
+        })),
+        // Said by the cards above when that is all the refusal was about.
+        ...(publishFailure === null || publishPackIssues.length > 0
+            ? []
+            : [
+                  {
+                      key: 'publish-error',
+                      tone: 'danger' as const,
+                      label: t('kitchen:publish.failedTitle'),
+                      detail: publishFailure.message,
+                      testID: 'kitchen-product-publish-error',
+                  },
+              ]),
+    ];
+    const failedCards: IssueCardItem[] =
+        archiveFailure === null
+            ? []
+            : [
+                  {
+                      key: 'archive-error',
+                      tone: 'danger',
+                      label: t('kitchen:products.archiveFailed'),
+                      detail: archiveFailure.message,
+                      testID: 'kitchen-product-archive-error',
+                  },
+              ];
+    // What the import left on the record: facts, nothing to fix here.
+    const importNotes: IssueNotes | undefined =
+        data === undefined || data.dataQualityFlags.length === 0
+            ? undefined
+            : {
+                  title: t('kitchen:products.dataQualityTitle'),
+                  testID: 'kitchen-product-data-quality',
+                  lines: data.dataQualityFlags.map((flag) => ({
+                      key: flag,
+                      text: humaniseCode(flag),
+                      testID: `kitchen-product-flag-${flag}`,
+                  })),
+              };
+
+    // Embedded, one group named after the recipe's tab — the tab is where every card points.
+    const inHostTray = useIssueGroup(
+        embedded
+            ? {
+                  key: 'selling',
+                  title: t('kitchen:recipes.tabSelling'),
+                  items: [...saveCards, ...publishCards, ...failedCards],
+                  testID: 'kitchen-product-issues',
+              }
+            : null,
+        { notes: importNotes },
+    );
+    const trayContent: IssueTrayContent = {
+        title: t('kitchen:tray.title'),
+        testID: 'kitchen-product-tray',
+        groups: [
+            {
+                key: 'save',
+                title: t('kitchen:tray.groupSave'),
+                items: saveCards,
+                testID: 'kitchen-product-issues-errors',
+            },
+            {
+                key: 'publish',
+                title: t('kitchen:tray.groupPublish'),
+                items: publishCards,
+                testID: 'kitchen-product-issues-publish',
+            },
+            { key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards },
+        ],
+        notes: importNotes,
+        // Under "All set", as the board has it: where the record stands.
+        ...(data?.meta.status === 'published' ? { doneLabel: t(statusKey('published')) } : {}),
+    };
+
+    // The save bar takes the unsaved marker and Save — unless a host page saves this listing.
+    const writing =
+        create.isPending || update.isPending || setChannels.isPending || photoSave.isPending;
+    const barDrawn = useSaveBar(
+        onRegisterSave !== undefined
+            ? null
+            : {
+                  dirty: guard.isDirty,
+                  creating: isCreating,
+                  save: {
+                      testID: 'kitchen-product-editor-screen-save',
+                      label: t('kitchen:common.saveDraft'),
+                      loading: writing,
+                      disabled: !canManage || writing,
+                      onPress: save,
+                  },
+                  testID: 'kitchen-product-editor-screen',
+              },
+    );
+
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
 
     if (!isCreating && parsed === null) {
@@ -1268,7 +1525,7 @@ function ProductEditor({
                     tone="warning"
                     title={t('kitchen:products.notFoundTitle')}
                     actions={
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-not-found-back"
                             variant="quiet"
                             size="sm"
@@ -1308,30 +1565,12 @@ function ProductEditor({
         );
     }
 
-    const saveFailure = toFailure(update.error ?? create.error);
-    // What the server refused, put on the fields it named (BUG-06).
-    const server = serverFieldErrors(saveFailure, serverTargets);
     const packFieldError = (row: PackDraft, column: PackColumn): string | undefined => {
         const index = details.packs.findIndex((entry) => entry.key === row.key);
         return index < 0
             ? undefined
             : server.errorFor(`variants.${String(index)}.${PACK_SERVER_FIELD[column]}`);
     };
-    const dangerItems: readonly FormIssueItem[] = [...blockerItems, ...server.items];
-    const channelFailure = toFailure(setChannels.error);
-    const status = data?.meta.status ?? 'draft';
-    const quarantined = status === 'review_required';
-    const photoFailure = toFailure(photoSave.error);
-    /*
-     * A refused publish or archive, other than a lock conflict — which opens its own dialog. The
-     * dialog that asked has closed by then, so the page says it rather than nothing at all.
-     */
-    const actFailure = (error: unknown) => {
-        const failure = toFailure(error);
-        return failure === null || failure.code === 'resource.conflict' ? null : failure;
-    };
-    const publishFailure = actFailure(publish.error);
-    const archiveFailure = actFailure(archive.error);
     const busy =
         create.isPending || update.isPending || setChannels.isPending || photoSave.isPending;
 
@@ -1354,7 +1593,8 @@ function ProductEditor({
     const publishBlocked =
         stockBlockers.length > 0 ||
         blockers.length > 0 ||
-        noChannel ||
+        // Embedded, where it sells is the Packs & prices tab's, and its own checks say so.
+        (noChannel && !embedded) ||
         detailsDirty ||
         channelsDirty ||
         photoDirty ||
@@ -1365,7 +1605,8 @@ function ProductEditor({
         const target = details.recipeId;
         if (target === null) return;
         guard.intercept(() => {
-            router.push(`/kitchen/recipes/${String(target)}` as never);
+            // The product — with its own way back — is where the recipe returns to.
+            router.push(withReturnTo(`/kitchen/recipes/${String(target)}`, here) as never);
         });
     };
 
@@ -1376,20 +1617,28 @@ function ProductEditor({
             variant="caps"
             testID="kitchen-product-editor-screen-status"
             tone={statusTone(status)}
-            icon={null}
             label={t(statusKey(status))}
         />
     );
 
-    const dirtyBadge = guard.isDirty ? (
-        <Badge
-            variant="label"
-            testID="kitchen-product-editor-screen-dirty"
-            tone="warning"
-            icon="warning"
-            label={t('kitchen:editor.unsaved')}
+    const dirtyBadge =
+        guard.isDirty && !barDrawn ? (
+            <Badge
+                variant="label"
+                testID="kitchen-product-editor-screen-dirty"
+                tone="warning"
+                icon="warning"
+                label={t('kitchen:editor.unsaved')}
+            />
+        ) : null;
+
+    const assessmentBadges = (
+        <AssessmentBadges
+            testID="kitchen-product-editor-screen"
+            allergensAssessed={data?.allergensAssessed}
+            onSaleWithoutRecipe={data?.onSaleWithoutRecipe}
         />
-    ) : null;
+    );
 
     /*
      * Archive · Cancel · Save draft · Publish. Archive leads and is quiet: it is the one act here
@@ -1412,7 +1661,7 @@ function ProductEditor({
                 />
             )}
             {embedded ? null : (
-                <Button
+                <DeskButton
                     testID="kitchen-product-editor-screen-back"
                     variant="secondary"
                     label={t('kitchen:editor.cancel')}
@@ -1422,8 +1671,8 @@ function ProductEditor({
                 />
             )}
             {/* Saved by the host page's own Save when it took this listing's (`host-save.ts`). */}
-            {onRegisterSave !== undefined ? null : (
-                <Button
+            {onRegisterSave !== undefined || barDrawn ? null : (
+                <DeskButton
                     testID="kitchen-product-editor-screen-save"
                     variant={offersPublish ? 'secondary' : 'primary'}
                     label={t('kitchen:common.saveDraft')}
@@ -1554,106 +1803,14 @@ function ProductEditor({
      */
     const Page = embedded ? Stack : Cascade;
 
-    /*
-     * The page's notices, one band under the opening rather than a band each: a title on a line
-     * per notice. What went wrong keeps the server's own words, because those are the message; a
-     * notice that only explains is its title alone.
-     */
-    const notices = [
-        /*
-         * A quarantine is rendered, never resolved from here: `review_required` blocks publication
-         * structurally (plan §4.7) and is cleared by fixing the allergen determination it came
-         * from, on the ingredient.
-         */
-        quarantined ? (
-            <Callout
-                key="quarantine"
-                testID="kitchen-product-quarantine"
-                role="alert"
-                tone="warning"
-                title={t('kitchen:products.quarantineTitle')}
-            />
-        ) : null,
-        data === undefined || data.dataQualityFlags.length === 0 ? null : (
-            <Callout
-                key="data-quality"
-                testID="kitchen-product-data-quality"
-                role="note"
-                tone="warning"
-                title={t('kitchen:products.dataQualityTitle')}
-            >
-                <Inline space="xs" wrap>
-                    {data.dataQualityFlags.map((flag) => (
-                        <Badge
-                            key={flag}
-                            variant="label"
-                            testID={`kitchen-product-flag-${flag}`}
-                            tone="warning"
-                            label={humaniseCode(flag)}
-                        />
-                    ))}
-                </Inline>
-            </Callout>
-        ),
-        saveFailure === null || (server.isValidation && server.unplaced === null) ? null : (
-            <Callout
-                key="save-error"
-                testID="kitchen-product-save-error"
-                role="alert"
-                tone="danger"
-                title={t('kitchen:editor.saveError')}
-                body={server.unplaced ?? saveFailure.message}
-            />
-        ),
-        channelFailure === null ? null : (
-            <Callout
-                key="channels-error"
-                testID="kitchen-product-channels-error"
-                role="alert"
-                tone="danger"
-                title={t('kitchen:channels.saveError')}
-                body={channelFailure.message}
-            />
-        ),
-        photoFailure === null ? null : (
-            <Callout
-                key="photo-error"
-                testID="kitchen-product-photo-error"
-                role="alert"
-                tone="danger"
-                title={t('kitchen:editor.saveError')}
-                body={photoFailure.message}
-            />
-        ),
-        publishFailure === null ? null : (
-            <Callout
-                key="publish-error"
-                testID="kitchen-product-publish-error"
-                role="alert"
-                tone="danger"
-                title={t('kitchen:publish.failedTitle')}
-                body={publishFailure.message}
-            />
-        ),
-        archiveFailure === null ? null : (
-            <Callout
-                key="archive-error"
-                testID="kitchen-product-archive-error"
-                role="alert"
-                tone="danger"
-                title={t('kitchen:products.archiveFailed')}
-                body={archiveFailure.message}
-            />
-        ),
-    ].filter((notice): notice is ReactElement => notice !== null);
-
-    return (
+    const page = (
         <Page space="md" testID="kitchen-product-editor-screen">
             {/*
              * The opening: the title with its status and handle beside it, the actions at the
-             * inline end, the banners under it and one rule closing it. No trail here —
-             * `KitchenOpsShell` draws it, and this screen names its last crumb instead. Embedded, the
-             * host page has the title, so the row is this listing's status and its own actions.
+             * inline end and one rule closing it. What is wrong is in the issue tray, not under it.
+             * No trail here — `KitchenOpsShell` draws it, and this screen names its last crumb
+             * instead. Embedded, the host page has the title, so the row is this listing's status
+             * and its own actions.
              */}
             <Stack space="sm">
                 {embedded ? (
@@ -1665,6 +1822,7 @@ function ProductEditor({
                             testID="kitchen-product-editor-screen-meta"
                         >
                             {statusBadge}
+                            {assessmentBadges}
                             {dirtyBadge}
                         </Inline>
                         {actions}
@@ -1682,6 +1840,7 @@ function ProductEditor({
                                 testID="kitchen-product-editor-screen-meta"
                             >
                                 {statusBadge}
+                                {assessmentBadges}
                                 {/*
                                  * Nothing issues a resale reference — `ReferenceSeries` has no
                                  * `RSL-` — so a new record has none to preview, and only a saved one
@@ -1703,51 +1862,21 @@ function ProductEditor({
                     />
                 )}
 
-                {/* One strip above the other, each the full width — never squeezed side by side. */}
-                {dangerItems.length === 0 && warningItems.length === 0 ? null : (
-                    <Stack space="xs" testID="kitchen-product-issues">
-                        {dangerItems.length === 0 ? null : (
-                            <FormIssueBanner
-                                testID="kitchen-product-issues-errors"
-                                tone="danger"
-                                summary={t(
-                                    server.items.length === 0 &&
-                                        shownBlockers.every((entry) => entry.required)
-                                        ? 'kitchen:forms.requiredCount'
-                                        : 'kitchen:forms.toFixCount',
-                                    { count: dangerItems.length },
-                                )}
-                                items={dangerItems}
-                            />
-                        )}
-                        {warningItems.length === 0 ? null : (
-                            <FormIssueBanner
-                                testID="kitchen-product-issues-warnings"
-                                tone="warning"
-                                summary={t('kitchen:forms.warningCount', {
-                                    count: warningItems.length,
-                                })}
-                                items={warningItems}
-                            />
-                        )}
-                    </Stack>
-                )}
-
                 {embedded ? null : <View className="border-b border-stroke" />}
+                {data?.allergensAssessed === false && parsed !== null ? (
+                    <AllergenAssessmentCallout
+                        testID="kitchen-product-allergen-assessment"
+                        itemId={parsed}
+                    />
+                ) : null}
             </Stack>
-
-            {notices.length === 0 ? null : (
-                <Stack space="xs" testID="kitchen-product-notices">
-                    {notices}
-                </Stack>
-            )}
 
             {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
             <View className="z-auto flex-col gap-loose">
                 {/* ── description ──────────────────────────────────────────────────────────── */}
                 <FormSection
                     first
-                    variant="card"
+                    variant="panel"
                     testID="kitchen-product-details"
                     // On a recipe's Selling tab this is the customer-facing listing, not a second
                     // copy of the recipe's own Description tab — so it says so.
@@ -1761,6 +1890,7 @@ function ProductEditor({
                             <ImageSlot
                                 testID="kitchen-product-image"
                                 uri={photo}
+                                size={136}
                                 disabled={!canManage}
                                 onChange={(next) => {
                                     setPhoto(next);
@@ -1775,58 +1905,70 @@ function ProductEditor({
                 </FormSection>
 
                 {/* ── packs ────────────────────────────────────────────────────────────────── */}
-                <FormSection
-                    first
-                    variant="card"
-                    testID="kitchen-product-packs"
-                    title={t('kitchen:products.sectionPacks')}
-                    description={t('kitchen:products.packsCaption')}
-                    actions={
-                        canManage ? (
-                            <Button
-                                testID="kitchen-product-packs-add"
-                                size="sm"
-                                variant="secondary"
-                                label={t('kitchen:products.addPack')}
-                                iconStart={<Icon name="plus" size="sm" />}
-                                onPress={() => {
-                                    edit({ packs: [...details.packs, emptyPack(takePackKey())] });
+                {/*
+                 * Not on a recipe's Selling tab: a cooked item's packs, their prices and where they
+                 * sell are the recipe's Packs & prices tab, which writes all three in one statement.
+                 */}
+                {embedded ? null : (
+                    <FormSection
+                        first
+                        variant="panel"
+                        testID="kitchen-product-packs"
+                        title={t('kitchen:products.sectionPacks')}
+                        actions={
+                            canManage ? (
+                                <DeskButton
+                                    testID="kitchen-product-packs-add"
+                                    size="sm"
+                                    variant="secondary"
+                                    label={t('kitchen:products.addPack')}
+                                    iconStart={<Icon name="plus" size="sm" />}
+                                    onPress={() => {
+                                        edit({
+                                            packs: [...details.packs, emptyPack(takePackKey())],
+                                        });
+                                    }}
+                                />
+                            ) : undefined
+                        }
+                    >
+                        {/*
+                         * The anchor the banner's `Packs` chip scrolls to while there is no row to
+                         * focus. A product with no pack is a record no price list can point at and no
+                         * order line can measure, so the save refuses it.
+                         */}
+                        <Text
+                            variant="body"
+                            tone="secondary"
+                            testID="kitchen-product-packs-caption"
+                        >
+                            {t('kitchen:products.packsCaption')}
+                        </Text>
+                        <View nativeID={PACKS_ANCHOR} className="z-auto gap-tight">
+                            <PackVariantEditor
+                                testID={PACK_EDITOR_TEST_ID}
+                                rows={details.packs}
+                                errors={shownPackErrors}
+                                fieldError={packFieldError}
+                                canManage={canManage}
+                                {...(shows('packs') && packsMissing
+                                    ? {
+                                          emptyError: t('kitchen:forms.required'),
+                                          emptyErrorTestID: 'kitchen-product-packs-required',
+                                      }
+                                    : {})}
+                                onChange={(next) => {
+                                    edit({ packs: next });
                                 }}
                             />
-                        ) : undefined
-                    }
-                >
-                    {/*
-                     * The anchor the banner's `Packs` chip scrolls to while there is no row to
-                     * focus. A product with no pack is a record no price list can point at and no
-                     * order line can measure, so the save refuses it.
-                     */}
-                    <View nativeID={PACKS_ANCHOR} className="z-auto gap-tight">
-                        <PackVariantEditor
-                            testID={PACK_EDITOR_TEST_ID}
-                            rows={details.packs}
-                            errors={shownPackErrors}
-                            fieldError={packFieldError}
-                            canManage={canManage}
-                            onChange={(next) => {
-                                edit({ packs: next });
-                            }}
-                        />
-                        {shows('packs') && packsMissing ? (
-                            <Text
-                                testID="kitchen-product-packs-required"
-                                variant="caption"
-                                tone="danger"
-                            >
-                                {t('kitchen:forms.required')}
-                            </Text>
-                        ) : null}
-                    </View>
-                </FormSection>
+                        </View>
+                    </FormSection>
+                )}
 
                 {/* ── B2B / B2C weight and price ──────────────────────────────────────────── */}
-                {isCreating ? (
+                {embedded ? null : isCreating ? (
                     <ChannelPricesSection
+                        look="panel"
                         itemId={null}
                         draft={{
                             value: channelPriceDraft,
@@ -1841,107 +1983,116 @@ function ProductEditor({
                         }}
                     />
                 ) : data === undefined ? null : (
-                    <ChannelPricesSection itemId={data.id} />
+                    <ChannelPricesSection look="panel" itemId={data.id} />
                 )}
 
                 {/* ── sale ─────────────────────────────────────────────────────────────────── */}
                 <FormSection
                     first
-                    variant="card"
+                    variant="panel"
                     testID="kitchen-product-sale"
                     title={t('kitchen:sale.title')}
                 >
                     <Stack space="sm">
-                        {/*
-                         * Read-only: what the kitchen last paid, per the unit it was bought in, and
-                         * from whom (the hint). Not on a new item, and not for a member who may not
-                         * see costs. Not on a recipe's Selling tab either: a cooked item is made,
-                         * not bought, so its cost is the recipe's Costing tab and its prices are
-                         * the channels' B2B and B2C above — a purchase price there reads as a third.
-                         */}
-                        {isCreating || !canViewCosts || embedded ? null : (
-                            <FormGrid track="half" testID="kitchen-product-last-price-grid">
-                                <QuantityInput
-                                    testID="kitchen-product-unit-price"
-                                    id="kitchen-product-unit-price"
-                                    size="sm"
-                                    readOnly
-                                    label={t('kitchen:fields.unitPrice')}
-                                    placeholder={lastPricePlaceholder}
-                                    value={lastPriceValue}
-                                    {...(latestPurchase === null ||
-                                    latestPurchase.unitPriceAmount === null
-                                        ? {}
-                                        : {
-                                              unit: t('kitchen:fields.unitPricePer', {
-                                                  currency: latestPurchase.costCurrencyCode ?? '',
-                                                  unit: latestPurchase.unitCode ?? '',
-                                              }),
-                                              hint: lastPriceSource,
-                                          })}
-                                    onChangeText={() => {}}
-                                />
-                            </FormGrid>
-                        )}
-
-                        {/*
-                         * What one sold unit takes off the shelf (PROD1), on the half track — a
-                         * figure and its unit, each one cell.
-                         *
-                         * Every family on this screen sells from **finished stock**. Where that
-                         * shelf is counted in kilograms or litres, a sold unit has to say how much
-                         * of it it is, or the sale is refused rather than guessed at. A shelf
-                         * counted in pieces needs none, which is why this is offered rather than
-                         * demanded: this screen holds no ingredient link and so cannot tell which
-                         * kind of shelf it is. The server can, and its refusal names this field.
-                         */}
-                        {canReadUnits ? (
-                            <Stack space="xs">
-                                <FormGrid track="half" testID="kitchen-product-sale-grid">
+                        <View className="z-auto flex-row flex-wrap items-start gap-base">
+                            {/*
+                             * Read-only: what the kitchen last paid, per the unit it was bought in, and
+                             * from whom (the hint). Not on a new item, and not for a member who may not
+                             * see costs. Not on a recipe's Selling tab either: a cooked item is made,
+                             * not bought, so its cost is the recipe's Costing tab and its prices are
+                             * the channels' B2B and B2C above — a purchase price there reads as a third.
+                             */}
+                            {isCreating || !canViewCosts || embedded ? null : (
+                                <FormGrid track="half" testID="kitchen-product-last-price-grid">
                                     <QuantityInput
-                                        testID="kitchen-product-net-content"
-                                        id="kitchen-product-net-content"
+                                        testID="kitchen-product-unit-price"
+                                        id="kitchen-product-unit-price"
                                         size="sm"
-                                        label={t('kitchen:products.netContentLabel')}
-                                        hint={t('kitchen:products.netContentHint')}
-                                        placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                        value={details.netContentQuantity}
-                                        disabled={!canManage}
-                                        {...(shows('net-content')
-                                            ? { error: t('kitchen:products.netContentInvalid') }
-                                            : {})}
-                                        {...server.flag('net_content_quantity')}
-                                        onChangeText={(next) => {
-                                            edit({ netContentQuantity: next });
-                                        }}
-                                    />
-                                    <Select
-                                        testID="kitchen-product-net-content-unit"
-                                        id="kitchen-product-net-content-unit"
-                                        label={t('kitchen:products.netContentUnitLabel')}
-                                        placeholder={t('kitchen:fields.unitPlaceholder')}
-                                        searchable
-                                        disabled={!canManage}
-                                        options={unitOptions}
-                                        value={details.netContentUnitId ?? ''}
-                                        {...(shows('net-content-unit')
-                                            ? { error: t('kitchen:forms.required') }
-                                            : {})}
-                                        {...server.flag('net_content_unit_id')}
-                                        onChange={(next) => {
-                                            edit({ netContentUnitId: next });
-                                        }}
+                                        readOnly
+                                        label={t('kitchen:fields.unitPrice')}
+                                        placeholder={lastPricePlaceholder}
+                                        value={lastPriceValue}
+                                        {...(latestPurchase === null ||
+                                        latestPurchase.unitPriceAmount === null
+                                            ? {}
+                                            : {
+                                                  unit: t('kitchen:fields.unitPricePer', {
+                                                      currency:
+                                                          latestPurchase.costCurrencyCode ?? '',
+                                                      unit:
+                                                          latestPurchase.unitCode === null
+                                                              ? ''
+                                                              : unitCodeLabel(
+                                                                    latestPurchase.unitCode,
+                                                                    t,
+                                                                ),
+                                                  }),
+                                                  hint: lastPriceSource,
+                                              })}
+                                        onChangeText={() => {}}
                                     />
                                 </FormGrid>
-                            </Stack>
-                        ) : details.netContentQuantity === '' ? null : (
-                            <Callout
-                                testID="kitchen-product-net-content-unavailable"
-                                tone="info"
-                                title={t('kitchen:products.netContentLabel')}
-                                body={t('kitchen:products.netContentUnitsForbidden')}
-                            />
-                        )}
+                            )}
+
+                            {/*
+                             * What one sold unit takes off the shelf (PROD1), on the half track — a
+                             * figure and its unit, each one cell.
+                             *
+                             * Every family on this screen sells from **finished stock**. Where that
+                             * shelf is counted in kilograms or litres, a sold unit has to say how much
+                             * of it it is, or the sale is refused rather than guessed at. A shelf
+                             * counted in pieces needs none, which is why this is offered rather than
+                             * demanded: this screen holds no ingredient link and so cannot tell which
+                             * kind of shelf it is. The server can, and its refusal names this field.
+                             */}
+                            {canReadUnits ? (
+                                <Stack space="xs">
+                                    <FormGrid track="half" testID="kitchen-product-sale-grid">
+                                        <QuantityInput
+                                            testID="kitchen-product-net-content"
+                                            id="kitchen-product-net-content"
+                                            size="sm"
+                                            label={t('kitchen:products.netContentLabel')}
+                                            hint={t('kitchen:products.netContentHint')}
+                                            placeholder={t('kitchen:fields.quantityPlaceholder')}
+                                            value={details.netContentQuantity}
+                                            disabled={!canManage}
+                                            {...(shows('net-content')
+                                                ? { error: t('kitchen:products.netContentInvalid') }
+                                                : {})}
+                                            {...server.flag('net_content_quantity')}
+                                            onChangeText={(next) => {
+                                                edit({ netContentQuantity: next });
+                                            }}
+                                        />
+                                        <Select
+                                            testID="kitchen-product-net-content-unit"
+                                            id="kitchen-product-net-content-unit"
+                                            label={t('kitchen:products.netContentUnitLabel')}
+                                            placeholder={t('kitchen:fields.unitPlaceholder')}
+                                            searchable
+                                            disabled={!canManage}
+                                            options={unitOptions}
+                                            value={details.netContentUnitId ?? ''}
+                                            {...(shows('net-content-unit')
+                                                ? { error: t('kitchen:forms.required') }
+                                                : {})}
+                                            {...server.flag('net_content_unit_id')}
+                                            onChange={(next) => {
+                                                edit({ netContentUnitId: next });
+                                            }}
+                                        />
+                                    </FormGrid>
+                                </Stack>
+                            ) : details.netContentQuantity === '' ? null : (
+                                <Callout
+                                    testID="kitchen-product-net-content-unavailable"
+                                    tone="info"
+                                    title={t('kitchen:products.netContentLabel')}
+                                    body={t('kitchen:products.netContentUnitsForbidden')}
+                                />
+                            )}
+                        </View>
 
                         {/*
                          * Two flags, two words each. `isMarketPriced` is not decoration: a product
@@ -1982,29 +2133,33 @@ function ProductEditor({
                 {/*
                  * Ticked before the record exists, not after it. The rows are held in local state
                  * and written by the create the moment the product has an id — see `save`.
+                 * Embedded, where it sells is the Packs & prices tab's.
                  */}
-                <FormSection
-                    first
-                    variant="card"
-                    testID="kitchen-product-channels"
-                    title={t('kitchen:channels.sectionTitle')}
-                >
-                    <ChannelAvailabilityEditor
-                        testID="kitchen-product-channel-editor"
-                        rows={channels}
-                        offered={sellableChannels.data}
-                        canManage={canManage}
-                        onChange={(next) => {
-                            setChannelRows(next);
-                            markChannelsDirty();
-                        }}
-                    />
-                </FormSection>
+                {embedded ? null : (
+                    <FormSection
+                        first
+                        variant="panel"
+                        testID="kitchen-product-channels"
+                        nativeID="kitchen-product-channels"
+                        title={t('kitchen:channels.sectionTitle')}
+                    >
+                        <ChannelAvailabilityEditor
+                            testID="kitchen-product-channel-editor"
+                            rows={channels}
+                            offered={sellableChannels.data}
+                            canManage={canManage}
+                            onChange={(next) => {
+                                setChannelRows(next);
+                                markChannelsDirty();
+                            }}
+                        />
+                    </FormSection>
+                )}
 
                 {/* ── diet classifications, read-only ──────────────────────────────────────── */}
                 <FormSection
                     first
-                    variant="card"
+                    variant="panel"
                     testID="kitchen-product-diets"
                     title={t('kitchen:products.dietsLabel')}
                     aside={
@@ -2016,8 +2171,8 @@ function ProductEditor({
                         />
                     }
                     actions={
-                        embedded || details.recipeId === null ? undefined : (
-                            <Button
+                        details.recipeId === null ? undefined : (
+                            <DeskButton
                                 testID="kitchen-product-recipe-open"
                                 size="sm"
                                 variant="ghost"
@@ -2060,7 +2215,7 @@ function ProductEditor({
                 (data.composition === null && data.kitchenCategory === null) ? null : (
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-product-composition"
                         title={t('kitchen:fields.composition')}
                     >
@@ -2088,6 +2243,7 @@ function ProductEditor({
 
             {/* ── publish ──────────────────────────────────────────────────────────────────── */}
             <Dialog
+                look="card"
                 testID="kitchen-product-publish-dialog"
                 open={showPublish}
                 onClose={() => {
@@ -2097,7 +2253,7 @@ function ProductEditor({
                 description={t('kitchen:products.publishBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-publish-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -2105,7 +2261,7 @@ function ProductEditor({
                                 setShowPublish(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-publish-confirm"
                             label={t('kitchen:publish.action')}
                             loading={publish.isPending}
@@ -2145,6 +2301,7 @@ function ProductEditor({
 
             {/* ── archive ──────────────────────────────────────────────────────────────────── */}
             <Dialog
+                look="card"
                 testID="kitchen-product-archive-dialog"
                 open={showArchive}
                 onClose={() => {
@@ -2154,7 +2311,7 @@ function ProductEditor({
                 description={t('kitchen:products.archiveBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -2162,7 +2319,7 @@ function ProductEditor({
                                 setShowArchive(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-archive-confirm"
                             variant="danger"
                             label={t('kitchen:products.archiveConfirm')}
@@ -2203,6 +2360,7 @@ function ProductEditor({
 
             {/* ── the two guards ───────────────────────────────────────────────────────────── */}
             <Dialog
+                look="card"
                 testID="kitchen-product-editor-screen-unsaved-dialog"
                 open={guard.isPrompting}
                 onClose={guard.cancelDiscard}
@@ -2210,13 +2368,13 @@ function ProductEditor({
                 description={t('kitchen:unsaved.body')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-editor-screen-unsaved-keep"
                             variant="quiet"
                             label={t('kitchen:unsaved.keepEditing')}
                             onPress={guard.cancelDiscard}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-editor-screen-unsaved-discard"
                             variant="danger"
                             label={t('kitchen:unsaved.discard')}
@@ -2227,6 +2385,7 @@ function ProductEditor({
             />
 
             <Dialog
+                look="card"
                 testID="kitchen-product-editor-screen-conflict-dialog"
                 open={concurrency.conflict !== null}
                 onClose={concurrency.keepEditing}
@@ -2235,13 +2394,13 @@ function ProductEditor({
                 description={t('kitchen:conflict.body')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-editor-screen-conflict-keep"
                             variant="quiet"
                             label={t('kitchen:conflict.keepEditing')}
                             onPress={concurrency.keepEditing}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-product-editor-screen-conflict-reload"
                             variant="danger"
                             label={t('kitchen:conflict.reload')}
@@ -2261,5 +2420,14 @@ function ProductEditor({
                 )}
             </Dialog>
         </Page>
+    );
+
+    // Embedded, the cards are in the host page's tray (`useIssueGroup` above) when it has one.
+    return inHostTray ? (
+        page
+    ) : (
+        <IssueTrayFrame tray={trayContent} controller={issueTray}>
+            {page}
+        </IssueTrayFrame>
     );
 }
