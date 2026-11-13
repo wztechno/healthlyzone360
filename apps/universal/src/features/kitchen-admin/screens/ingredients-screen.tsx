@@ -479,12 +479,9 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
 const ALL_SCOPE = '*';
 
 /**
- * The Lens bar's figures: All · Published · Draft, then the two that block publishing.
- *
- * Missing Arabic is read-only: `IngredientAdminFilter` carries no parameter for it, and a figure
- * that looked pressable and did nothing would be worse than one that plainly does not. Uncosted
- * narrows the list on the client (`useIngredientList`), and pressing it again lets go. Both count
- * the rows the list shows — the status included — like the cards did.
+ * The Lens bar's figures: All · Published · Draft, then Uncosted. Uncosted narrows the list on
+ * the client (`useIngredientList`), and pressing it again lets go; it counts the rows the list
+ * shows — the status included — like the cards did.
  */
 function lensFigures(list: IngredientListState, t: TFunction): readonly LensFigure[] {
     const counted = (count: number) => (list.countsPending ? null : count);
@@ -493,15 +490,8 @@ function lensFigures(list: IngredientListState, t: TFunction): readonly LensFigu
             allLabel: t('kitchen:lens.allIngredients'),
         }),
         {
-            key: 'missingArabic',
-            label: t('kitchen:list.statMissingArabic'),
-            value: counted(list.missingArabicCount),
-            tone: 'danger',
-            alarm: true,
-            separated: true,
-        },
-        {
             key: 'uncosted',
+            separated: true,
             label: t('kitchen:list.statUnpriced'),
             value: counted(list.uncostedCount),
             tone: 'warning',

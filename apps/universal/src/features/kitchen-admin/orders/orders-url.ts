@@ -35,7 +35,7 @@ export const ORDERS_HREF = '/kitchen/orders';
 export const ORDERS_TABS = ['today', 'calendar', 'all'] as const;
 export type OrdersTab = (typeof ORDERS_TABS)[number];
 
-export const CALENDAR_MODES = ['month', 'week'] as const;
+export const CALENDAR_MODES = ['month', 'week', 'day'] as const;
 export type CalendarMode = (typeof CALENDAR_MODES)[number];
 
 export interface OrdersQuery {

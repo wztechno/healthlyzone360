@@ -5,11 +5,10 @@ import {
     EmptyState,
     ErrorState,
     Icon,
-    IssueTrayFrame,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { IssueTrayContent, MenuItem } from '@healthy360/design-system';
+import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -35,7 +34,7 @@ import {
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { unitCodeLabel } from '../format.ts';
-import { WeeklyStockCheckBanner } from '../weekly-stock-check.tsx';
+import { PeriodScope } from '../catalogue/period-scope.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { PageBackPill, useAreaTrailDrawn } from '../../../shell/area-trail.tsx';
@@ -439,7 +438,6 @@ function OrderDeskRequirements() {
         },
     });
 
-    // The page's issue tray. Its one card is the weekly check's, which registers itself.
     /** Rows on screen: the toolbar card then runs on into the table rather than closing above it. */
     const joined =
         branchId !== null &&
@@ -447,288 +445,272 @@ function OrderDeskRequirements() {
         !requirements.isPending &&
         failure === null &&
         controls.rows.length > 0;
-    const trayContent: IssueTrayContent = {
-        title: t('kitchen:tray.title'),
-        testID: 'kitchen-order-desk-requirements-tray',
-        // A list page has no "done" to show: the tray appears only while it has something.
-        hideWhenClear: true,
-        groups: [],
-    };
 
     return (
-        <IssueTrayFrame tray={trayContent}>
-            <Cascade space="md" testID="kitchen-order-desk-requirements-screen">
-                {back.returnTo === null || trailDrawn ? null : (
-                    <View className="flex-row">
-                        <PageBackPill
-                            testID="kitchen-order-desk-requirements-back"
-                            label={
-                                pathnameOf(back.returnTo) === ORDERS_HREF
-                                    ? t('kitchen:orders.backToOrders')
-                                    : t('common:returnTo.previous')
-                            }
-                            onPress={back.leave}
-                        />
+        <Cascade space="md" testID="kitchen-order-desk-requirements-screen">
+            {back.returnTo === null || trailDrawn ? null : (
+                <View className="flex-row">
+                    <PageBackPill
+                        testID="kitchen-order-desk-requirements-back"
+                        label={
+                            pathnameOf(back.returnTo) === ORDERS_HREF
+                                ? t('kitchen:orders.backToOrders')
+                                : t('common:returnTo.previous')
+                        }
+                        onPress={back.leave}
+                    />
+                </View>
+            )}
+            {/*
+             * The Lens bar: the window's figures over the window that produces them, as on every
+             * list page. While the window is in flight each figure holds a placeholder — a zero
+             * there would claim an answer the screen does not have yet. The branch is the
+             * workspace's — see the file header.
+             */}
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-order-desk-requirements-toolbar"
+                    layout="split"
+                    compactSearch
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={(() => {
+                        const unknown = branchId === null || filters === null || failure !== null;
+                        const figure = (count: number): Pick<LensFigure, 'value' | 'display'> =>
+                            unknown
+                                ? { value: 0, display: t('kitchen:list.noValue') }
+                                : requirements.isPending
+                                  ? { value: null }
+                                  : { value: count, display: formatter.formatNumber(count) };
+                        const holes = notComputable?.days ?? 0;
+                        return [
+                            {
+                                key: 'ingredients',
+                                label: t('kitchen:ops.requirements.kpiIngredients'),
+                                ...figure(rows.length),
+                            },
+                            {
+                                key: 'short',
+                                label: t('kitchen:ops.requirements.kpiShort'),
+                                ...figure(shortCount),
+                                tone: 'danger',
+                                alarm: true,
+                                separated: true,
+                            },
+                            {
+                                key: 'notComputable',
+                                label: t('kitchen:ops.requirements.kpiNotComputable'),
+                                ...figure(holes),
+                                tone: 'warning',
+                                // Why those days could not be worked out — the one figure whose
+                                // answer needs a sentence.
+                                ...(notComputable !== null && holes > 0
+                                    ? { info: reasonSummary(notComputable.reasons) }
+                                    : {}),
+                            },
+                        ];
+                    })()}
+                    {...(requirements.isPending || rows.length === 0
+                        ? {}
+                        : {
+                              mix: [
+                                  { key: 'short', value: shortCount, tone: 'danger' as const },
+                                  {
+                                      key: 'covered',
+                                      value: rows.length - shortCount,
+                                      tone: 'success' as const,
+                                  },
+                              ],
+                              mixLabel: t('kitchen:lens.requirementsMix', {
+                                  short: shortCount,
+                                  covered: rows.length - shortCount,
+                              }),
+                          })}
+                    scope={
+                        <>
+                            <PeriodScope
+                                look="desk"
+                                unit="ahead"
+                                testID="kitchen-order-desk-requirements-period"
+                                today={today}
+                                value={{ from, to }}
+                                onChange={(next) => {
+                                    // Both ends at once: a shortcut is already a whole window.
+                                    setFromDay(next.from);
+                                    setToDay(next.to);
+                                }}
+                            />
+                            <MiniMonthPicker
+                                testID="kitchen-order-desk-requirements-from"
+                                label={t('kitchen:ops.requirements.filterFrom')}
+                                value={isIsoDate(from) ? from : today}
+                                valueLabel={isIsoDate(from) ? shortDay(from, formatter) : from}
+                                today={today}
+                                onChange={setFrom}
+                            />
+                            <Text variant="caption" tone="secondary" aria-hidden>
+                                {t('kitchen:ops.requirements.windowTo')}
+                            </Text>
+                            <MiniMonthPicker
+                                testID="kitchen-order-desk-requirements-to"
+                                label={t('kitchen:ops.requirements.filterTo')}
+                                value={isIsoDate(to) ? to : today}
+                                valueLabel={isIsoDate(to) ? shortDay(to, formatter) : to}
+                                today={today}
+                                onChange={setTo}
+                            />
+                            <DeskSelect<ShowFilter>
+                                testID="kitchen-order-desk-requirements-show"
+                                label={t('kitchen:ops.requirements.showLabel')}
+                                value={show}
+                                onChange={setShow}
+                                options={[
+                                    {
+                                        value: 'all',
+                                        label: t('kitchen:ops.requirements.showAll'),
+                                    },
+                                    {
+                                        value: 'short',
+                                        label: t('kitchen:ops.requirements.showShort'),
+                                        count: shortCount,
+                                    },
+                                    {
+                                        value: 'covered',
+                                        label: t('kitchen:ops.requirements.showCovered'),
+                                        count: rows.length - shortCount,
+                                    },
+                                ]}
+                            />
+                            <DeskSelect<string>
+                                testID="kitchen-order-desk-requirements-unit"
+                                label={t('kitchen:ops.requirements.columnUnit')}
+                                value={unit}
+                                onChange={setUnit}
+                                options={[
+                                    {
+                                        value: ALL_UNITS,
+                                        label: t('kitchen:ops.requirements.unitAll'),
+                                    },
+                                    ...units.map((code) => ({
+                                        value: code,
+                                        label: code === EM_DASH ? EM_DASH : unitCodeLabel(code, t),
+                                    })),
+                                ]}
+                            />
+                        </>
+                    }
+                    search={query}
+                    onSearchChange={setQuery}
+                    searchLabel={t('kitchen:ops.requirements.searchLabel')}
+                    searchPlaceholder={t('kitchen:ops.requirements.searchPlaceholder')}
+                    result={
+                        requirements.isPending && branchId !== null && filters !== null
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: controls.rows.length,
+                                  total: rows.length,
+                              })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(controls.filtered || toolbarFiltered
+                        ? {
+                              onClear: () => {
+                                  controls.clearFilters();
+                                  setShow('all');
+                                  setUnit(ALL_UNITS);
+                                  setQuery('');
+                                  setFromDay(opening.from);
+                                  setToDay(opening.to);
+                              },
+                          }
+                        : {})}
+                    trailing={<DeskColumnPicker {...controls.picker} />}
+                    {...(canOrder && shortCount > 0
+                        ? {
+                              actions: (
+                                  <DeskButton
+                                      testID="kitchen-order-desk-requirements-create-order"
+                                      label={t('kitchen:ops.requirements.createOrder')}
+                                      iconStart={
+                                          <Icon
+                                              name="plus"
+                                              size="md"
+                                              className="text-content-on-brand"
+                                          />
+                                      }
+                                      onPress={createOrder}
+                                  />
+                              ),
+                          }
+                        : {})}
+                />
+
+                {branchId === null ? (
+                    // Friendly rather than an error: the reader did nothing wrong, the list simply
+                    // needs a shelf to compare against.
+                    <EmptyState
+                        testID="kitchen-order-desk-requirements-branch-required"
+                        title={t('kitchen:ops.requirements.branchRequiredTitle')}
+                        body={t('kitchen:ops.requirements.branchRequiredBody')}
+                    />
+                ) : filters === null ? (
+                    <Callout
+                        testID="kitchen-order-desk-requirements-window-invalid"
+                        tone="info"
+                        title={t('kitchen:ops.requirements.windowInvalidTitle')}
+                        body={t('kitchen:ops.requirements.windowInvalidBody')}
+                    />
+                ) : requirements.isPending ? (
+                    <TableSkeleton testID="kitchen-order-desk-requirements-loading" rows={6} />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-order-desk-requirements-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void requirements.refetch();
+                        }}
+                        retrying={requirements.isFetching}
+                    />
+                ) : (
+                    <View className="flex-col gap-snug">
+                        {rows.length === 0 ? (
+                            <CatalogueList<OrderDeskRequirement>
+                                testID="kitchen-order-desk-requirements-table"
+                                label={t('kitchen:ops.requirements.title')}
+                                columns={controls.columns}
+                                rows={[]}
+                                rowKey={(row) => row.stockItemId}
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                                joined
+                                frameEmpty
+                                emptyState={
+                                    <EmptyState
+                                        testID="kitchen-order-desk-requirements-empty"
+                                        shape="table"
+                                        icon="clipboardCheck"
+                                        title={t('kitchen:ops.requirements.noRowsTitle')}
+                                        body={t('kitchen:ops.requirements.noRowsBody')}
+                                    />
+                                }
+                            />
+                        ) : (
+                            <CatalogueList<OrderDeskRequirement>
+                                testID="kitchen-order-desk-requirements-table"
+                                label={t('kitchen:ops.requirements.title')}
+                                columns={controls.columns}
+                                rows={controls.rows}
+                                rowKey={(row) => row.stockItemId}
+                                rowActions={rowActions}
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                                rowActionsLook="desk"
+                                joined
+                            />
+                        )}
                     </View>
                 )}
-                {/*
-                 * The Lens bar: the window's figures over the window that produces them, as on every
-                 * list page. While the window is in flight each figure holds a placeholder — a zero
-                 * there would claim an answer the screen does not have yet. The branch is the
-                 * workspace's — see the file header.
-                 */}
-                {/* One block, so the toolbar card runs straight on into the table. */}
-                <View className={joined ? 'z-10' : 'z-10 gap-4'}>
-                    <LensBar
-                        testID="kitchen-order-desk-requirements-toolbar"
-                        layout="split"
-                        compactSearch
-                        joined={joined}
-                        label={t('kitchen:lens.label')}
-                        figures={(() => {
-                            const unknown =
-                                branchId === null || filters === null || failure !== null;
-                            const figure = (
-                                count: number,
-                            ): Pick<LensFigure, 'value' | 'display'> =>
-                                unknown
-                                    ? { value: 0, display: t('kitchen:list.noValue') }
-                                    : requirements.isPending
-                                      ? { value: null }
-                                      : { value: count, display: formatter.formatNumber(count) };
-                            const holes = notComputable?.days ?? 0;
-                            return [
-                                {
-                                    key: 'ingredients',
-                                    label: t('kitchen:ops.requirements.kpiIngredients'),
-                                    ...figure(rows.length),
-                                },
-                                {
-                                    key: 'short',
-                                    label: t('kitchen:ops.requirements.kpiShort'),
-                                    ...figure(shortCount),
-                                    tone: 'danger',
-                                    alarm: true,
-                                    separated: true,
-                                },
-                                {
-                                    key: 'notComputable',
-                                    label: t('kitchen:ops.requirements.kpiNotComputable'),
-                                    ...figure(holes),
-                                    tone: 'warning',
-                                    // Why those days could not be worked out — the one figure whose
-                                    // answer needs a sentence.
-                                    ...(notComputable !== null && holes > 0
-                                        ? { info: reasonSummary(notComputable.reasons) }
-                                        : {}),
-                                },
-                            ];
-                        })()}
-                        {...(requirements.isPending || rows.length === 0
-                            ? {}
-                            : {
-                                  mix: [
-                                      { key: 'short', value: shortCount, tone: 'danger' as const },
-                                      {
-                                          key: 'covered',
-                                          value: rows.length - shortCount,
-                                          tone: 'success' as const,
-                                      },
-                                  ],
-                                  mixLabel: t('kitchen:lens.requirementsMix', {
-                                      short: shortCount,
-                                      covered: rows.length - shortCount,
-                                  }),
-                              })}
-                        scope={
-                            <>
-                                <MiniMonthPicker
-                                    testID="kitchen-order-desk-requirements-from"
-                                    label={t('kitchen:ops.requirements.filterFrom')}
-                                    value={isIsoDate(from) ? from : today}
-                                    valueLabel={isIsoDate(from) ? shortDay(from, formatter) : from}
-                                    today={today}
-                                    onChange={setFrom}
-                                />
-                                <Text variant="caption" tone="secondary" aria-hidden>
-                                    {t('kitchen:ops.requirements.windowTo')}
-                                </Text>
-                                <MiniMonthPicker
-                                    testID="kitchen-order-desk-requirements-to"
-                                    label={t('kitchen:ops.requirements.filterTo')}
-                                    value={isIsoDate(to) ? to : today}
-                                    valueLabel={isIsoDate(to) ? shortDay(to, formatter) : to}
-                                    today={today}
-                                    onChange={setTo}
-                                />
-                                <DeskSelect<ShowFilter>
-                                    testID="kitchen-order-desk-requirements-show"
-                                    label={t('kitchen:ops.requirements.showLabel')}
-                                    value={show}
-                                    onChange={setShow}
-                                    options={[
-                                        {
-                                            value: 'all',
-                                            label: t('kitchen:ops.requirements.showAll'),
-                                        },
-                                        {
-                                            value: 'short',
-                                            label: t('kitchen:ops.requirements.showShort'),
-                                            count: shortCount,
-                                        },
-                                        {
-                                            value: 'covered',
-                                            label: t('kitchen:ops.requirements.showCovered'),
-                                            count: rows.length - shortCount,
-                                        },
-                                    ]}
-                                />
-                                <DeskSelect<string>
-                                    testID="kitchen-order-desk-requirements-unit"
-                                    label={t('kitchen:ops.requirements.columnUnit')}
-                                    value={unit}
-                                    onChange={setUnit}
-                                    options={[
-                                        {
-                                            value: ALL_UNITS,
-                                            label: t('kitchen:ops.requirements.unitAll'),
-                                        },
-                                        ...units.map((code) => ({
-                                            value: code,
-                                            label:
-                                                code === EM_DASH ? EM_DASH : unitCodeLabel(code, t),
-                                        })),
-                                    ]}
-                                />
-                            </>
-                        }
-                        search={query}
-                        onSearchChange={setQuery}
-                        searchLabel={t('kitchen:ops.requirements.searchLabel')}
-                        searchPlaceholder={t('kitchen:ops.requirements.searchPlaceholder')}
-                        result={
-                            requirements.isPending && branchId !== null && filters !== null
-                                ? null
-                                : t('kitchen:lens.result', {
-                                      shown: controls.rows.length,
-                                      total: rows.length,
-                                  })
-                        }
-                        clearLabel={t('kitchen:lens.clear')}
-                        {...(controls.filtered || toolbarFiltered
-                            ? {
-                                  onClear: () => {
-                                      controls.clearFilters();
-                                      setShow('all');
-                                      setUnit(ALL_UNITS);
-                                      setQuery('');
-                                      setFromDay(opening.from);
-                                      setToDay(opening.to);
-                                  },
-                              }
-                            : {})}
-                        trailing={<DeskColumnPicker {...controls.picker} />}
-                        {...(canOrder && shortCount > 0
-                            ? {
-                                  actions: (
-                                      <DeskButton
-                                          testID="kitchen-order-desk-requirements-create-order"
-                                          label={t('kitchen:ops.requirements.createOrder')}
-                                          iconStart={
-                                              <Icon
-                                                  name="plus"
-                                                  size="md"
-                                                  className="text-content-on-brand"
-                                              />
-                                          }
-                                          onPress={createOrder}
-                                      />
-                                  ),
-                              }
-                            : {})}
-                    />
-
-                    {/*
-                     * What Monday's check found — the snapshot beside "where we stand" — as a card in the
-                     * page's issue tray, with its way to point the window at that week. Nothing is said
-                     * when the check found nothing short, and nothing is drawn here either way.
-                     */}
-                    <WeeklyStockCheckBanner
-                        branchId={branchId}
-                        onShowWindow={(windowFrom, windowTo) => {
-                            // Both ends at once: the week is already a whole window, and setting
-                            // them one by one would let the first carry the second along.
-                            setFromDay(windowFrom);
-                            setToDay(windowTo);
-                        }}
-                    />
-
-                    {branchId === null ? (
-                        // Friendly rather than an error: the reader did nothing wrong, the list simply
-                        // needs a shelf to compare against.
-                        <EmptyState
-                            testID="kitchen-order-desk-requirements-branch-required"
-                            title={t('kitchen:ops.requirements.branchRequiredTitle')}
-                            body={t('kitchen:ops.requirements.branchRequiredBody')}
-                        />
-                    ) : filters === null ? (
-                        <Callout
-                            testID="kitchen-order-desk-requirements-window-invalid"
-                            tone="info"
-                            title={t('kitchen:ops.requirements.windowInvalidTitle')}
-                            body={t('kitchen:ops.requirements.windowInvalidBody')}
-                        />
-                    ) : requirements.isPending ? (
-                        <TableSkeleton testID="kitchen-order-desk-requirements-loading" rows={6} />
-                    ) : failure !== null ? (
-                        <ErrorState
-                            testID="kitchen-order-desk-requirements-error"
-                            failure={failure}
-                            onRetry={() => {
-                                void requirements.refetch();
-                            }}
-                            retrying={requirements.isFetching}
-                        />
-                    ) : (
-                        <View className="flex-col gap-snug">
-                            {rows.length === 0 ? (
-                                <CatalogueList<OrderDeskRequirement>
-                                    testID="kitchen-order-desk-requirements-table"
-                                    label={t('kitchen:ops.requirements.title')}
-                                    columns={controls.columns}
-                                    rows={[]}
-                                    rowKey={(row) => row.stockItemId}
-                                    rowActionsLabel={t('kitchen:list.rowActions')}
-                                    joined
-                                    frameEmpty
-                                    emptyState={
-                                        <EmptyState
-                                            testID="kitchen-order-desk-requirements-empty"
-                                            shape="table"
-                                            icon="clipboardCheck"
-                                            title={t('kitchen:ops.requirements.noRowsTitle')}
-                                            body={t('kitchen:ops.requirements.noRowsBody')}
-                                        />
-                                    }
-                                />
-                            ) : (
-                                <CatalogueList<OrderDeskRequirement>
-                                    testID="kitchen-order-desk-requirements-table"
-                                    label={t('kitchen:ops.requirements.title')}
-                                    columns={controls.columns}
-                                    rows={controls.rows}
-                                    rowKey={(row) => row.stockItemId}
-                                    rowActions={rowActions}
-                                    rowActionsLabel={t('kitchen:list.rowActions')}
-                                    rowActionsLook="desk"
-                                    joined
-                                />
-                            )}
-                        </View>
-                    )}
-                </View>
-            </Cascade>
-        </IssueTrayFrame>
+            </View>
+        </Cascade>
     );
 }
 

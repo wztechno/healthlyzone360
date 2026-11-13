@@ -21,7 +21,6 @@ import { windowCodesOfMeal } from '../order-desk-calendar.ts';
 import type { CalendarMeal } from '../order-desk-calendar.ts';
 import { longDay, orderStatusLabel, orderStatusTone, shortDay } from './order-columns.tsx';
 import {
-    cookList,
     daysBetween,
     firstOfMonth,
     groupBySlot,
@@ -48,7 +47,7 @@ import {
 /**
  * The Calendar tab: a month or a week of days, each with how many orders it holds, its plan meals,
  * and what on it still needs somebody — and, beside the grid, the chosen day opened up: its orders
- * by slot, what to cook, and the ways on to that day.
+ * by slot, and the ways on to that day.
  *
  * The counts are the order-desk calendar's (every order but a cancelled one, on its requested day
  * or the day it was placed), and the day's list is read on the same rule, so the two agree. Plan
@@ -96,7 +95,6 @@ export function CalendarTab({
     actions,
     onOpenOrder,
     onNewOrder,
-    onOpenRequirements,
 }: {
     readonly query: OrdersQuery;
     readonly update: (patch: Partial<OrdersQuery>) => void;
@@ -106,7 +104,6 @@ export function CalendarTab({
     readonly actions?: ReactNode;
     readonly onOpenOrder: (order: BookRow, list?: readonly BookRow[]) => void;
     readonly onNewOrder: (day: string) => void;
-    readonly onOpenRequirements: (day: string) => void;
 }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
@@ -117,8 +114,13 @@ export function CalendarTab({
 
     const grid = useMemo(() => monthGrid(month), [month]);
     const week = useMemo(() => weekDates(mondayOf(sel)), [sel]);
-    const from = mode === 'month' ? (grid[0] ?? firstOfMonth(month)) : (week[0] ?? sel);
-    const to = mode === 'month' ? (grid[grid.length - 1] ?? lastOfMonth(month)) : (week[6] ?? sel);
+    // Today view: one day, the selected one, drawn as a single wide column.
+    const shown = useMemo(() => (mode === 'day' ? [sel] : week), [mode, sel, week]);
+    const from = mode === 'month' ? (grid[0] ?? firstOfMonth(month)) : (shown[0] ?? sel);
+    const to =
+        mode === 'month'
+            ? (grid[grid.length - 1] ?? lastOfMonth(month))
+            : (shown[shown.length - 1] ?? sel);
 
     /*
      * The counts are always read for a whole month's grid — in Week view, the grid of the month
@@ -127,8 +129,8 @@ export function CalendarTab({
      * different numbers for the same day than the month around it.
      */
     const countsGrid = useMemo(
-        () => (mode === 'month' ? grid : monthGrid(monthOf(week[0] ?? sel))),
-        [mode, grid, week, sel],
+        () => (mode === 'month' ? grid : monthGrid(monthOf(shown[0] ?? sel))),
+        [mode, grid, shown, sel],
     );
     const calendarFilters = useMemo(
         () => ({
@@ -139,7 +141,7 @@ export function CalendarTab({
     );
     const calendar = useOrderDeskCalendarQuery(calendarFilters);
     const open = useOpenOrdersBetween(from, to);
-    const weekOrders = useOrdersBetween(from, to, mode === 'week');
+    const weekOrders = useOrdersBetween(from, to, mode !== 'month');
     const windows = useDeliveryWindows();
 
     const days = calendar.data?.days ?? null;
@@ -159,7 +161,7 @@ export function CalendarTab({
         return byDay;
     }, [open.rows, query.slot, now, windows]);
 
-    const shownDays = mode === 'month' ? grid.filter((day) => monthOf(day) === month) : week;
+    const shownDays = mode === 'month' ? grid.filter((day) => monthOf(day) === month) : shown;
     const shownCount =
         days === null
             ? null
@@ -175,16 +177,18 @@ export function CalendarTab({
                   month: 'long',
                   year: 'numeric',
               })
-            : t('kitchen:orders.calendar.weekRange', {
-                  from: shortDay(week[0] ?? sel, formatter),
-                  to: shortDay(week[6] ?? sel, formatter),
-              });
+            : mode === 'day'
+              ? longDay(sel, formatter)
+              : t('kitchen:orders.calendar.weekRange', {
+                    from: shortDay(week[0] ?? sel, formatter),
+                    to: shortDay(week[6] ?? sel, formatter),
+                });
 
     function step(delta: number) {
         if (mode === 'month') {
             update({ month: shiftMonth(month, delta) });
         } else {
-            const next = addDays(sel, delta * 7);
+            const next = addDays(sel, delta * (mode === 'day' ? 1 : 7));
             update({ sel: next, month: monthOf(next) });
         }
     }
@@ -208,7 +212,9 @@ export function CalendarTab({
                                 label={t(
                                     mode === 'month'
                                         ? 'kitchen:orders.calendar.previousMonth'
-                                        : 'kitchen:orders.calendar.previousWeek',
+                                        : mode === 'day'
+                                          ? 'kitchen:orders.day.previous'
+                                          : 'kitchen:orders.calendar.previousWeek',
                                 )}
                                 icon={<Icon name="chevronBackward" size="md" />}
                                 onPress={() => {
@@ -228,7 +234,9 @@ export function CalendarTab({
                                 label={t(
                                     mode === 'month'
                                         ? 'kitchen:orders.calendar.nextMonth'
-                                        : 'kitchen:orders.calendar.nextWeek',
+                                        : mode === 'day'
+                                          ? 'kitchen:orders.day.next'
+                                          : 'kitchen:orders.calendar.nextWeek',
                                 )}
                                 icon={<Icon name="chevronForward" size="md" />}
                                 onPress={() => {
@@ -236,20 +244,17 @@ export function CalendarTab({
                                 }}
                             />
                         </View>
-                        <DeskButton
-                            testID="kitchen-orders-calendar-today"
-                            variant="secondary"
-                            label={t('kitchen:orders.day.today')}
-                            onPress={() => {
-                                update({ sel: null, month: null });
-                            }}
-                        />
                         <DeskTabs<CalendarMode>
                             testID="kitchen-orders-calendar-mode"
                             size="sm"
                             label={t('kitchen:orders.calendar.modeLabel')}
                             value={mode}
                             onChange={(next) => {
+                                if (next === 'day') {
+                                    // Today opens on today, whichever day was chosen before.
+                                    update({ mode: next, sel: null, month: null });
+                                    return;
+                                }
                                 update({
                                     mode: next,
                                     month: next === 'month' ? monthOf(sel) : month,
@@ -265,6 +270,11 @@ export function CalendarTab({
                                     value: 'week',
                                     label: t('kitchen:orders.calendar.week'),
                                     testID: 'kitchen-orders-calendar-mode-week',
+                                },
+                                {
+                                    value: 'day',
+                                    label: t('kitchen:orders.day.today'),
+                                    testID: 'kitchen-orders-calendar-mode-day',
                                 },
                             ]}
                         />
@@ -284,7 +294,9 @@ export function CalendarTab({
                         : t(
                               mode === 'month'
                                   ? 'kitchen:orders.calendar.monthCount'
-                                  : 'kitchen:orders.calendar.weekCount',
+                                  : mode === 'day'
+                                    ? 'kitchen:orders.count'
+                                    : 'kitchen:orders.calendar.weekCount',
                               { count: shownCount },
                           )
                 }
@@ -328,7 +340,7 @@ export function CalendarTab({
                         />
                     ) : (
                         <WeekColumns
-                            days={week}
+                            days={shown}
                             today={today}
                             sel={sel}
                             slot={query.slot}
@@ -355,7 +367,6 @@ export function CalendarTab({
                     formatter={formatter}
                     onOpenOrder={onOpenOrder}
                     onNewOrder={onNewOrder}
-                    onOpenRequirements={onOpenRequirements}
                     onOpenDay={() => {
                         update({ tab: 'today', day: sel === today ? null : sel });
                     }}
@@ -756,7 +767,6 @@ function DayPanel({
     formatter,
     onOpenOrder,
     onNewOrder,
-    onOpenRequirements,
     onOpenDay,
 }: {
     readonly day: string;
@@ -769,11 +779,9 @@ function DayPanel({
     readonly formatter: Formatter;
     readonly onOpenOrder: (order: BookRow, list?: readonly BookRow[]) => void;
     readonly onNewOrder: (day: string) => void;
-    readonly onOpenRequirements: (day: string) => void;
     readonly onOpenDay: () => void;
 }) {
     const { t } = useTranslation();
-    const { locale } = useLocale();
     const read = useDayOrders(day);
     const windows = useDeliveryWindows();
     const slotName = useSlotName();
@@ -782,7 +790,6 @@ function DayPanel({
     const rows = read.rows.filter((row) => row.status !== 'cancelled' && matchesSlot(row, slot));
     const groups = groupBySlot(rows);
     const plan = planMeals(calendarDay, slot);
-    const cook = cookList(rows);
     const sales = rows.reduce((sum, row) => sum + row.totalMinor, 0);
     const currency = rows[0]?.currencyCode ?? null;
     const confirm = rows.filter((row) => row.status === 'placed').length;
@@ -1012,54 +1019,6 @@ function DayPanel({
                             {t('kitchen:orders.calendar.noOrdersOnDay')}
                         </Text>
                     ) : null}
-
-                    {cook.length === 0 ? null : (
-                        <View testID="kitchen-orders-day-panel-cook" className="flex-col gap-0.5">
-                            <View className="min-h-8 flex-row items-center gap-2 px-1">
-                                <Text variant="strong" className="!text-sm !font-bold">
-                                    {t('kitchen:orders.panel.cook')}
-                                </Text>
-                                <DeskButton
-                                    testID="kitchen-orders-day-panel-requirements"
-                                    variant="quiet"
-                                    className="ms-auto"
-                                    label={t('kitchen:orders.panel.requirements')}
-                                    onPress={() => {
-                                        onOpenRequirements(day);
-                                    }}
-                                />
-                            </View>
-                            {cook.map((line) => (
-                                <View
-                                    key={line.key}
-                                    className="min-h-[34px] flex-row items-center gap-3 px-1"
-                                >
-                                    {}
-                                    <Text
-                                        variant="label"
-                                        tone="secondary"
-                                        numberOfLines={1}
-                                        className="min-w-0 flex-1 !text-sm"
-                                    >
-                                        {locale === 'ar' && line.nameAr !== ''
-                                            ? line.nameAr
-                                            : line.nameEn}
-                                        {line.variantLabel === null
-                                            ? ''
-                                            : ` · ${line.variantLabel}`}
-                                    </Text>
-                                    <Text
-                                        variant="strong"
-                                        className="!text-sm !font-bold tabular-nums"
-                                    >
-                                        {t('kitchen:orders.panel.times', {
-                                            count: formatter.formatNumber(line.quantity),
-                                        })}
-                                    </Text>
-                                </View>
-                            ))}
-                        </View>
-                    )}
                 </ScrollView>
             )}
 

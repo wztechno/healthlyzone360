@@ -17,17 +17,23 @@ import { LensScope } from './lens-bar.tsx';
  * `unit="month"` is for a report that reads whole months (the cost report): Today and Yesterday
  * would all land on the same month there, so its shortcuts are This month, Last month, Last 3 months
  * and This year instead. The window is still two days; the report reads the months they fall in.
+ *
+ * `unit="ahead"` is for a window that looks forward (the order desk's requirements): Today,
+ * Tomorrow, This week (to Sunday), Next week and Next 2 weeks.
  */
 
 const DAY_PRESETS = ['today', 'yesterday', 'week', 'month'] as const;
 const MONTH_PRESETS = ['month', 'lastMonth', 'quarter', 'year'] as const;
-type Preset = (typeof DAY_PRESETS)[number] | (typeof MONTH_PRESETS)[number];
+const AHEAD_PRESETS = ['today', 'tomorrow', 'restOfWeek', 'nextWeek', 'twoWeeks'] as const;
+type Preset =
+    (typeof DAY_PRESETS)[number] | (typeof MONTH_PRESETS)[number] | (typeof AHEAD_PRESETS)[number];
 export type Period = Preset | 'all' | 'custom';
-export type PeriodUnit = 'day' | 'month';
+export type PeriodUnit = 'day' | 'month' | 'ahead';
 
 const PRESETS: Readonly<Record<PeriodUnit, readonly Preset[]>> = {
     day: DAY_PRESETS,
     month: MONTH_PRESETS,
+    ahead: AHEAD_PRESETS,
 };
 
 export interface PeriodWindow {
@@ -44,6 +50,10 @@ const PERIOD_LABELS = {
     lastMonth: 'kitchen:lens.period.lastMonth',
     quarter: 'kitchen:lens.period.quarter',
     year: 'kitchen:lens.period.year',
+    tomorrow: 'kitchen:lens.period.tomorrow',
+    restOfWeek: 'kitchen:lens.period.week',
+    nextWeek: 'kitchen:lens.period.nextWeek',
+    twoWeeks: 'kitchen:lens.period.twoWeeks',
     custom: 'kitchen:lens.period.custom',
 } as const satisfies Record<Period, string>;
 
@@ -56,13 +66,16 @@ function firstOfMonth(today: string, months: number): string {
 }
 
 /**
- * The window each shortcut stands for, ending today. The week starts on Monday, as every weekday
- * row in the workspace does; the month on the first. Last month is the whole of it.
+ * The window each shortcut stands for — the looking-back ones ending today, the looking-ahead ones
+ * starting from it. The week starts on Monday, as every weekday row in the workspace does; the
+ * month on the first. Last month and Next week are the whole of them.
  */
 export function periodWindows(today: string): Record<Preset, PeriodWindow> {
     const yesterday = addDays(today, -1) ?? today;
     const monday = addDays(today, 1 - (isoWeekday(today) ?? 1)) ?? today;
     const thisMonth = firstOfMonth(today, 0);
+    const sunday = addDays(monday, 6) ?? today;
+    const nextMonday = addDays(monday, 7) ?? today;
     return {
         today: { from: today, to: today },
         yesterday: { from: yesterday, to: yesterday },
@@ -71,6 +84,10 @@ export function periodWindows(today: string): Record<Preset, PeriodWindow> {
         lastMonth: { from: firstOfMonth(today, -1), to: addDays(thisMonth, -1) ?? today },
         quarter: { from: firstOfMonth(today, -2), to: today },
         year: { from: `${today.slice(0, 4)}-01-01`, to: today },
+        tomorrow: { from: addDays(today, 1) ?? today, to: addDays(today, 1) ?? today },
+        restOfWeek: { from: today, to: sunday },
+        nextWeek: { from: nextMonday, to: addDays(nextMonday, 6) ?? nextMonday },
+        twoWeeks: { from: today, to: addDays(today, 13) ?? today },
     };
 }
 

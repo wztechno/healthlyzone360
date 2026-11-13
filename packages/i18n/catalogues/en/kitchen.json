@@ -5445,6 +5445,9 @@
             "lastMonth": "Last month",
             "quarter": "Last 3 months",
             "year": "This year",
+            "tomorrow": "Tomorrow",
+            "nextWeek": "Next week",
+            "twoWeeks": "Next 2 weeks",
             "custom": "Custom"
         }
     },
