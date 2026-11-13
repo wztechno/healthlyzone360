@@ -163,18 +163,19 @@ final readonly class DishMargins
 
         // Formulation only: a pack brings its own packaging, never the version's — PackCost::forVersion's call.
         $production = $this->costing->cost($organisationId, $version, null, new EloquentCollection)->production;
-        $costs = collect($this->packCost->of($organisationId, $production, array_map(static fn (array $pack): array => [
+        // A plain array, not a collection: a collection widens the amounts from numeric-string to string.
+        $costs = array_column($this->packCost->of($organisationId, $production, array_map(static fn (array $pack): array => [
             'key' => $pack['id'],
             'fill_quantity' => $pack['fill']['quantity'],
             'fill_unit' => $pack['fill']['unit'],
             'components' => $pack['components'],
-        ], $packs)))->keyBy('key');
+        ], $packs)), null, 'key');
 
         $figures = [];
 
         foreach ($packs as $pack) {
             $label = $pack['name_en'] ?? $pack['code'];
-            $cost = $costs->get($pack['id']);
+            $cost = $costs[$pack['id']] ?? null;
 
             foreach (self::PLACES as $place) {
                 $price = $pack['prices'][$place];

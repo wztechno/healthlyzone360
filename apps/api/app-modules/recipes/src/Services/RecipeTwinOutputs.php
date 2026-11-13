@@ -179,12 +179,14 @@ final readonly class RecipeTwinOutputs
         }
 
         $current = $outputs->first();
+        /** @var numeric-string $stated a `decimal:4` column */
+        $stated = (string) $current?->output_quantity;
 
         if ($outputs->count() === 1
             && $current instanceof RecipeVersionOutput
             && $current->ingredient_id === $twinId
             && $current->unit_id === $unitId
-            && bccomp((string) $current->output_quantity, $quantity, 4) === 0
+            && bccomp($stated, $quantity, 4) === 0
         ) {
             return false;
         }

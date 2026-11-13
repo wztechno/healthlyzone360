@@ -300,7 +300,7 @@ final readonly class DuplicatePacks
      */
     private function components(CatalogueItemVariant $pack): array
     {
-        return CatalogueItemPackComponent::withoutTenancy()
+        return array_values(CatalogueItemPackComponent::withoutTenancy()
             ->where('catalogue_item_variant_id', $pack->getKey())
             ->get()
             ->map(static fn (CatalogueItemPackComponent $row): string => implode('|', [
@@ -309,8 +309,7 @@ final readonly class DuplicatePacks
                 $row->is_container ? '1' : '0',
             ]))
             ->sort()
-            ->values()
-            ->all();
+            ->all());
     }
 
     /**
@@ -318,7 +317,7 @@ final readonly class DuplicatePacks
      */
     private function offers(CatalogueItemVariant $pack): array
     {
-        return ChannelCatalogueItem::withoutTenancy()
+        return array_values(ChannelCatalogueItem::withoutTenancy()
             ->where('catalogue_item_variant_id', $pack->getKey())
             ->get()
             ->map(static fn (ChannelCatalogueItem $row): string => implode('|', [
@@ -328,8 +327,7 @@ final readonly class DuplicatePacks
                 $row->available_to?->toDateString() ?? '',
             ]))
             ->sort()
-            ->values()
-            ->all();
+            ->all());
     }
 
     /**

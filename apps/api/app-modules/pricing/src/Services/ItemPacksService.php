@@ -392,7 +392,7 @@ final readonly class ItemPacksService implements PackPriceRegistry, SellingPlace
         $out = [];
 
         foreach ($read['packs'] as $pack) {
-            $prices = [];
+            $prices = ['home' => null, 'business' => null];
 
             foreach (self::PRICED_PLACES as $place => $kind) {
                 $price = $pack['prices'][$place];
@@ -534,7 +534,7 @@ final readonly class ItemPacksService implements PackPriceRegistry, SellingPlace
      */
     private function activePacks(CatalogueItem $item): array
     {
-        return CatalogueItemVariant::withoutTenancy()
+        return array_values(CatalogueItemVariant::withoutTenancy()
             ->where('catalogue_item_id', $item->getKey())
             ->where('variant_type', VariantType::Pack->value)
             ->where('status', VariantStatus::Active->value)
@@ -542,7 +542,7 @@ final readonly class ItemPacksService implements PackPriceRegistry, SellingPlace
             ->orderBy('created_at')
             ->orderBy('id')
             ->get()
-            ->all();
+            ->all());
     }
 
     /**
@@ -719,8 +719,10 @@ final readonly class ItemPacksService implements PackPriceRegistry, SellingPlace
             $row = new CatalogueItemPackComponent;
             $row->organisation_id = $item->organisation_id;
             $row->catalogue_item_variant_id = (string) $variant->getKey();
+            /** @var numeric-string $quantity the request validates it as a number */
+            $quantity = $component['quantity'];
             $row->ingredient_id = $component['ingredient_id'];
-            $row->quantity = $component['quantity'];
+            $row->quantity = $quantity;
             $row->is_container = $component['is_container'];
             $row->save();
         }
