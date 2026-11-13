@@ -104,16 +104,23 @@ export function ChoiceRow({
                     {leading}
                 </View>
             )}
+            {/*
+             * In a narrow row the label keeps its longest word whole and the quiet words at the
+             * end give way with an ellipsis — never "Bu / s…" beside an untouched caption.
+             */}
             <RNText
                 numberOfLines={2}
-                className={`min-w-0 flex-1 text-sm font-semibold ${
+                className={`flex-1 text-sm font-semibold web:min-w-min ${
                     selected ? 'text-content-on-brand-subtle' : 'text-content-primary'
                 }`}
             >
                 {label}
             </RNText>
             {meta === undefined ? null : (
-                <RNText className="text-role-strong tabular-nums text-content-secondary">
+                <RNText
+                    numberOfLines={1}
+                    className="min-w-0 shrink text-role-strong tabular-nums text-content-secondary"
+                >
                     {meta}
                 </RNText>
             )}
