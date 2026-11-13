@@ -329,7 +329,8 @@ function OrdersPage() {
     return (
         <IssueTrayFrame tray={tray}>
             <Cascade space="md" testID="kitchen-orders-screen">
-                <View className="z-20 flex-row flex-wrap items-center gap-3">
+                {/* The three tabs stand centred; the page's actions sit at the end of the chips. */}
+                <View className="z-20 flex-row flex-wrap items-center justify-center gap-3">
                     <DeskTabs<OrdersTab>
                         testID="kitchen-orders-tabs"
                         label={t('kitchen:orders.tab.label')}
@@ -339,7 +340,6 @@ function OrdersPage() {
                         }}
                         items={tabs}
                     />
-                    <View className="z-auto ms-auto">{actions}</View>
                 </View>
                 <KitchenPauseBanner />
 
@@ -354,6 +354,7 @@ function OrdersPage() {
                         figures={figures}
                         columns={columnContext}
                         canSell={canSell}
+                        actions={actions}
                         onOpenOrder={openOrder}
                         onNewOrder={newOrder}
                     />
@@ -364,6 +365,7 @@ function OrdersPage() {
                         today={today}
                         now={now}
                         figures={figures}
+                        actions={actions}
                         onOpenOrder={openOrder}
                         onNewOrder={newOrder}
                     />
@@ -381,6 +383,7 @@ function OrdersPage() {
                             driver: driverRead,
                             collect: collectRead,
                         }}
+                        actions={actions}
                         onOpenOrder={openOrder}
                     />
                 )}
@@ -571,6 +574,7 @@ function TodayTab({
     figures,
     columns,
     canSell,
+    actions,
     onOpenOrder,
     onNewOrder,
 }: {
@@ -583,6 +587,7 @@ function TodayTab({
     readonly figures: readonly LensFigure[];
     readonly columns: OrderColumnContext;
     readonly canSell: boolean;
+    readonly actions: ReactNode;
     readonly onOpenOrder: (order: BookRow, list?: readonly BookRow[]) => void;
     readonly onNewOrder: (day: string | null) => void;
 }) {
@@ -634,6 +639,7 @@ function TodayTab({
                 joined={!dayRead.pending && dayRead.failure === null}
                 label={t('kitchen:orders.tab.today')}
                 figures={figures}
+                actions={actions}
                 scope={
                     <>
                         <DayStepper
@@ -774,6 +780,7 @@ function AllOrdersTab({
     figures,
     columns,
     quickReads,
+    actions,
     onOpenOrder,
 }: {
     readonly query: OrdersQuery;
@@ -783,6 +790,7 @@ function AllOrdersTab({
     readonly figures: readonly LensFigure[];
     readonly columns: OrderColumnContext;
     readonly quickReads: Readonly<Record<QuickFilter, BookRead>>;
+    readonly actions: ReactNode;
     readonly onOpenOrder: (order: BookRow, list?: readonly BookRow[]) => void;
 }) {
     const { t } = useTranslation();
@@ -863,6 +871,7 @@ function AllOrdersTab({
                 joined={!read.pending && read.failure === null}
                 label={t('kitchen:orders.tab.all')}
                 figures={figures}
+                actions={actions}
                 scope={
                     <>
                         <DeskSelect<DatesFilter>

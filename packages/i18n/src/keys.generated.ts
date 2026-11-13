@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10719 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10722 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4782,8 +4782,11 @@ export interface NamespaceKeys {
     | 'lens.period.custom'
     | 'lens.period.lastMonth'
     | 'lens.period.month'
+    | 'lens.period.nextWeek'
     | 'lens.period.quarter'
     | 'lens.period.today'
+    | 'lens.period.tomorrow'
+    | 'lens.period.twoWeeks'
     | 'lens.period.week'
     | 'lens.period.year'
     | 'lens.period.yesterday'
@@ -15519,8 +15522,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.period.custom',
   'kitchen:lens.period.lastMonth',
   'kitchen:lens.period.month',
+  'kitchen:lens.period.nextWeek',
   'kitchen:lens.period.quarter',
   'kitchen:lens.period.today',
+  'kitchen:lens.period.tomorrow',
+  'kitchen:lens.period.twoWeeks',
   'kitchen:lens.period.week',
   'kitchen:lens.period.year',
   'kitchen:lens.period.yesterday',

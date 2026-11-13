@@ -386,9 +386,9 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
 
 /**
  * The Lens bar's figures, named and ordered as every catalogue page's: All · Published · Draft ·
- * Awaiting review, then Missing Arabic and Unpriced — what this page exists to chase, since a
- * recipe's technical sheet withholds its total while any packaging line has no price. Those two
- * count the rows the list shows, the status included.
+ * Awaiting review, then Unpriced — what this page exists to chase, since a recipe's technical
+ * sheet withholds its total while any packaging line has no price. It counts the rows the list
+ * shows, the status included.
  */
 function lensFigures(list: PackagingListState, t: TFunction): readonly LensFigure[] {
     const counted = (count: number) => (list.countsPending ? null : count);
@@ -396,15 +396,8 @@ function lensFigures(list: PackagingListState, t: TFunction): readonly LensFigur
         // Published, Draft and Awaiting review, as every catalogue page names them.
         ...statusLensFigures(list, t, { allLabel: t('kitchen:lens.allPackaging') }),
         {
-            key: 'missingArabic',
-            label: t('kitchen:list.statMissingArabic'),
-            value: counted(list.missingArabicCount),
-            tone: 'danger',
-            alarm: true,
-            separated: true,
-        },
-        {
             key: 'unpriced',
+            separated: true,
             label: t('kitchen:list.statUnpriced'),
             value: counted(list.unpricedCount),
             tone: 'warning',

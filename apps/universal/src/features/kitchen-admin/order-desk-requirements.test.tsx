@@ -4,12 +4,12 @@ import type {
     OrderDeskRequirements,
     OrderDeskRequirementsFilters,
 } from '@healthy360/api-client/contracts';
-import type { BranchId } from '@healthy360/domain-types';
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { kitchenManagerSession, testActiveContext } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
+import { addDays, todayIso } from '../commerce/dates.ts';
 import { OrderDeskRequirementsScreen } from './screens/order-desk-requirements-screen.tsx';
 import { Dimensions } from 'react-native';
 
@@ -400,58 +400,30 @@ describe('order desk requirements — what the rows say', () => {
     });
 });
 
-describe('order desk requirements — the weekly check', () => {
-    it("puts Monday's shortfalls in the tray, and points the window at that week from there", async () => {
+describe('order desk requirements — the period', () => {
+    it('opens on the next two weeks, and writes both days when a period is picked', async () => {
         const listRequirements = jest.fn(async () => answer([requirement()]));
         await renderStubScreen(<OrderDeskRequirementsScreen />, {
             session: kitchenManagerSession(),
-            repositories: {
-                orderDesk: {
-                    listRequirements,
-                    getWeeklyStockCheck: async () => ({
-                        id: 'check-0001',
-                        branchId: 'test-0000-branch-0001' as BranchId,
-                        windowFrom: '2026-10-19',
-                        windowTo: '2026-10-25',
-                        checkedAt: '2026-10-19T04:00:00Z',
-                        requirementCount: 12,
-                        shortCount: 1,
-                        notComputableDays: 0,
-                        shortfalls: [
-                            {
-                                stockItemId: SHELF_ID,
-                                code: 'sku-flour',
-                                name: 'Flour',
-                                unitCode: 'kg',
-                                required: '10',
-                                available: '2',
-                                short: '8',
-                                suggestedBuy: '8',
-                            },
-                        ],
-                    }),
-                },
-            },
+            repositories: { orderDesk: { listRequirements } },
         });
         await settled();
+        const today = todayIso();
 
-        // A card in the docked tray, not a band over the list.
-        await waitFor(() => {
-            expect(screen.getByTestId('kitchen-weekly-check')).toBeTruthy();
-        });
-        expect(screen.getByTestId('kitchen-weekly-check')).toHaveTextContent(/Flour/);
         expect(
-            within(screen.getByTestId('kitchen-order-desk-requirements-tray')).getByTestId(
-                'kitchen-weekly-check',
-            ),
-        ).toBeTruthy();
+            screen.getByTestId('kitchen-order-desk-requirements-period-trigger'),
+        ).toHaveTextContent(/Next 2 weeks/);
+        // No issue tray on this page.
+        expect(screen.queryByTestId('kitchen-order-desk-requirements-tray')).toBeNull();
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-weekly-check-show-window'));
-        });
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-requirements-period-trigger'));
+        fireEvent.press(
+            await screen.findByTestId('kitchen-order-desk-requirements-period-tomorrow'),
+        );
+        const tomorrow = addDays(today, 1);
         await waitFor(() => {
             expect(listRequirements).toHaveBeenLastCalledWith(
-                expect.objectContaining({ from: '2026-10-19', to: '2026-10-25' }),
+                expect.objectContaining({ from: tomorrow, to: tomorrow }),
             );
         });
     });

@@ -114,8 +114,13 @@ export function CalendarTab({
 
     const grid = useMemo(() => monthGrid(month), [month]);
     const week = useMemo(() => weekDates(mondayOf(sel)), [sel]);
-    const from = mode === 'month' ? (grid[0] ?? firstOfMonth(month)) : (week[0] ?? sel);
-    const to = mode === 'month' ? (grid[grid.length - 1] ?? lastOfMonth(month)) : (week[6] ?? sel);
+    // Today view: one day, the selected one, drawn as a single wide column.
+    const shown = useMemo(() => (mode === 'day' ? [sel] : week), [mode, sel, week]);
+    const from = mode === 'month' ? (grid[0] ?? firstOfMonth(month)) : (shown[0] ?? sel);
+    const to =
+        mode === 'month'
+            ? (grid[grid.length - 1] ?? lastOfMonth(month))
+            : (shown[shown.length - 1] ?? sel);
 
     /*
      * The counts are always read for a whole month's grid — in Week view, the grid of the month
@@ -124,8 +129,8 @@ export function CalendarTab({
      * different numbers for the same day than the month around it.
      */
     const countsGrid = useMemo(
-        () => (mode === 'month' ? grid : monthGrid(monthOf(week[0] ?? sel))),
-        [mode, grid, week, sel],
+        () => (mode === 'month' ? grid : monthGrid(monthOf(shown[0] ?? sel))),
+        [mode, grid, shown, sel],
     );
     const calendarFilters = useMemo(
         () => ({
@@ -136,7 +141,7 @@ export function CalendarTab({
     );
     const calendar = useOrderDeskCalendarQuery(calendarFilters);
     const open = useOpenOrdersBetween(from, to);
-    const weekOrders = useOrdersBetween(from, to, mode === 'week');
+    const weekOrders = useOrdersBetween(from, to, mode !== 'month');
     const windows = useDeliveryWindows();
 
     const days = calendar.data?.days ?? null;
@@ -156,7 +161,7 @@ export function CalendarTab({
         return byDay;
     }, [open.rows, query.slot, now, windows]);
 
-    const shownDays = mode === 'month' ? grid.filter((day) => monthOf(day) === month) : week;
+    const shownDays = mode === 'month' ? grid.filter((day) => monthOf(day) === month) : shown;
     const shownCount =
         days === null
             ? null
@@ -172,16 +177,18 @@ export function CalendarTab({
                   month: 'long',
                   year: 'numeric',
               })
-            : t('kitchen:orders.calendar.weekRange', {
-                  from: shortDay(week[0] ?? sel, formatter),
-                  to: shortDay(week[6] ?? sel, formatter),
-              });
+            : mode === 'day'
+              ? longDay(sel, formatter)
+              : t('kitchen:orders.calendar.weekRange', {
+                    from: shortDay(week[0] ?? sel, formatter),
+                    to: shortDay(week[6] ?? sel, formatter),
+                });
 
     function step(delta: number) {
         if (mode === 'month') {
             update({ month: shiftMonth(month, delta) });
         } else {
-            const next = addDays(sel, delta * 7);
+            const next = addDays(sel, delta * (mode === 'day' ? 1 : 7));
             update({ sel: next, month: monthOf(next) });
         }
     }
@@ -205,7 +212,9 @@ export function CalendarTab({
                                 label={t(
                                     mode === 'month'
                                         ? 'kitchen:orders.calendar.previousMonth'
-                                        : 'kitchen:orders.calendar.previousWeek',
+                                        : mode === 'day'
+                                          ? 'kitchen:orders.day.previous'
+                                          : 'kitchen:orders.calendar.previousWeek',
                                 )}
                                 icon={<Icon name="chevronBackward" size="md" />}
                                 onPress={() => {
@@ -225,7 +234,9 @@ export function CalendarTab({
                                 label={t(
                                     mode === 'month'
                                         ? 'kitchen:orders.calendar.nextMonth'
-                                        : 'kitchen:orders.calendar.nextWeek',
+                                        : mode === 'day'
+                                          ? 'kitchen:orders.day.next'
+                                          : 'kitchen:orders.calendar.nextWeek',
                                 )}
                                 icon={<Icon name="chevronForward" size="md" />}
                                 onPress={() => {
@@ -233,20 +244,17 @@ export function CalendarTab({
                                 }}
                             />
                         </View>
-                        <DeskButton
-                            testID="kitchen-orders-calendar-today"
-                            variant="secondary"
-                            label={t('kitchen:orders.day.today')}
-                            onPress={() => {
-                                update({ sel: null, month: null });
-                            }}
-                        />
                         <DeskTabs<CalendarMode>
                             testID="kitchen-orders-calendar-mode"
                             size="sm"
                             label={t('kitchen:orders.calendar.modeLabel')}
                             value={mode}
                             onChange={(next) => {
+                                if (next === 'day') {
+                                    // Today opens on today, whichever day was chosen before.
+                                    update({ mode: next, sel: null, month: null });
+                                    return;
+                                }
                                 update({
                                     mode: next,
                                     month: next === 'month' ? monthOf(sel) : month,
@@ -262,6 +270,11 @@ export function CalendarTab({
                                     value: 'week',
                                     label: t('kitchen:orders.calendar.week'),
                                     testID: 'kitchen-orders-calendar-mode-week',
+                                },
+                                {
+                                    value: 'day',
+                                    label: t('kitchen:orders.day.today'),
+                                    testID: 'kitchen-orders-calendar-mode-day',
                                 },
                             ]}
                         />
@@ -281,7 +294,9 @@ export function CalendarTab({
                         : t(
                               mode === 'month'
                                   ? 'kitchen:orders.calendar.monthCount'
-                                  : 'kitchen:orders.calendar.weekCount',
+                                  : mode === 'day'
+                                    ? 'kitchen:orders.count'
+                                    : 'kitchen:orders.calendar.weekCount',
                               { count: shownCount },
                           )
                 }
@@ -325,7 +340,7 @@ export function CalendarTab({
                         />
                     ) : (
                         <WeekColumns
-                            days={week}
+                            days={shown}
                             today={today}
                             sel={sel}
                             slot={query.slot}

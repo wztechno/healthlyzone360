@@ -408,8 +408,8 @@ function ProductsList({
 }
 
 /**
- * The Lens bar's figures: All · Published · Draft · Awaiting review, then the two that block
- * publishing. Missing Arabic and No pack count the rows the list shows, the status included.
+ * The Lens bar's figures: All · Published · Draft · Awaiting review, then No pack, which counts
+ * the rows the list shows, the status included.
  */
 function lensFigures(
     list: ProductListState,
@@ -422,15 +422,8 @@ function lensFigures(
             allLabel,
         }),
         {
-            key: 'missingArabic',
-            label: t('kitchen:list.statMissingArabic'),
-            value: counted(list.missingArabicCount),
-            tone: 'danger',
-            alarm: true,
-            separated: true,
-        },
-        {
             key: 'noPack',
+            separated: true,
             label: t('kitchen:products.statNoPack'),
             value: counted(list.noPackCount),
             tone: 'warning',
