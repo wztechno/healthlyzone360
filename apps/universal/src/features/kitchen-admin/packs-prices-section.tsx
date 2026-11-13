@@ -170,8 +170,8 @@ export function fillFromCapacity(capacity: {
     return { quantity: capacity.quantity, unit };
 }
 
-/** A fill in kilograms, or `null` for a piece (or a unit with no weight). */
-function fillKg(quantity: number, unit: MeasureUnit): number | null {
+/** A fill or a yield in kilograms (1 L = 1 kg), or `null` for a piece or a unit with no weight. */
+export function massKg(quantity: number, unit: MeasureUnit): number | null {
     if (unit === 'kg' || unit === 'l') return quantity;
     if (unit === 'g' || unit === 'ml') return quantity / 1000;
     return null;
@@ -190,7 +190,7 @@ export function packsPerBatch(
             ? null
             : Math.floor(piecesPerBatch / fill + 1e-9);
     }
-    const kg = fillKg(fill, pack.fillUnit);
+    const kg = massKg(fill, pack.fillUnit);
     return kg === null || yieldKg === null || yieldKg <= 0 ? null : Math.floor(yieldKg / kg + 1e-9);
 }
 

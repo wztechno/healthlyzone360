@@ -13,7 +13,7 @@ import { TEST_ORGANISATION_ID, kitchenManagerSession } from '../../testing/sessi
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import type { HostSave } from './host-save.ts';
-import { PacksPricesSection, packMargin, packsPerBatch } from './packs-prices-section.tsx';
+import { PacksPricesSection, massKg, packMargin, packsPerBatch } from './packs-prices-section.tsx';
 import type { PacksRecipeFacts, PacksReport } from './packs-prices-section.tsx';
 
 /**
@@ -227,6 +227,10 @@ describe('the arithmetic', () => {
         expect(packsPerBatch({ fill: '500', fillUnit: 'g' }, 2, null)).toBe(4);
         expect(packsPerBatch({ fill: '2', fillUnit: 'piece' }, 2, null)).toBeNull();
         expect(packsPerBatch({ fill: '2', fillUnit: 'piece' }, null, 12)).toBe(6);
+        // A yield typed in grams is that many thousandths of a kilo; a piece has no weight.
+        expect(massKg(500, 'g')).toBe(0.5);
+        expect(massKg(2, 'l')).toBe(2);
+        expect(massKg(4, 'piece')).toBeNull();
     });
 });
 
