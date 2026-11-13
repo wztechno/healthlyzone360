@@ -462,7 +462,7 @@ it('brings a dish current when a new version of its recipe is published, with no
 
     try {
         $versions = app(RecipeVersionService::class);
-        $draft = $versions->newDraft(Recipe::withoutTenancy()->whereKey($this->item->recipe_id)->sole(), $this->version);
+        $draft = $versions->newDraft(Recipe::withoutTenancy()->whereKey($this->item->recipe_id)->sole(), $this->version->refresh());
         $versions->publish($draft, $draft->lock_version, applySellingRule: false);
     } finally {
         app(DatabaseTenantContext::class)->reset();

@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
@@ -138,14 +139,11 @@ it('refuses a frozen meal on a weighed shelf until it says how much one sale tak
 it('takes a sized pack as how much one sale of a weighed shelf takes', function (): void {
     $item = frozenMealOn($this->a, 'kg');
 
-    $variant = $item->variants()->create([
-        'organisation_id' => $this->a->organisation->getKey(),
-        'variant_type' => 'pack',
-        'code' => 'b2c',
-        'is_default' => true,
-        'status' => 'active',
-        'lock_version' => 0,
-    ]);
+    // The pack the fixture made buyable; this test states its size.
+    $variant = CatalogueItemVariant::withoutTenancy()
+        ->where('catalogue_item_id', $item->getKey())
+        ->where('variant_type', 'pack')
+        ->sole();
 
     $variant->pack()->create([
         'organisation_id' => $this->a->organisation->getKey(),

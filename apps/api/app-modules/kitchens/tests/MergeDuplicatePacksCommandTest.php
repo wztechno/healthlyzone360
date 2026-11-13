@@ -13,6 +13,7 @@ use Healthy360\Catalogues\Models\CatalogueItemPackComponent;
 use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
 use Healthy360\Catalogues\Models\ChannelCatalogueItem;
+use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
 use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
 use Healthy360\Pricing\Models\PriceList;
@@ -299,7 +300,11 @@ it('skips a pair whose other pack sits in an open cart', function (): void {
 
 it('skips a pair whose other pack is on an open quotation line', function (): void {
     $pair = ($this->pair)($this->a, 'Frozen lasagne');
-    $programme = CorporateProgramme::factory()->create(['kitchen_organisation_id' => $this->a->organisation->getKey()]);
+    // The buyer is built on the seeded country: the bare factory invents an ISO code that can collide with one.
+    $programme = CorporateProgramme::factory()->create([
+        'organisation_id' => CatalogueWorld::organisation()->getKey(),
+        'kitchen_organisation_id' => $this->a->organisation->getKey(),
+    ]);
     $quotation = Quotation::factory()->submitted()->create(['corporate_programme_id' => $programme->getKey()]);
     QuotationLine::factory()->create([
         'quotation_id' => $quotation->getKey(),
