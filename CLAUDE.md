@@ -4,11 +4,24 @@ Monorepo. `apps/universal` is the product (Expo SDK 57, NativeWind 4, Tailwind 3
 `apps/api` is the backend; everything shared lives in `packages/*`.
 
 ```
-pnpm check          lint + typecheck + test (run before calling anything done)
-pnpm build:tokens   regenerate the token preset after editing packages/design-tokens
-pnpm gen:i18n-keys  regenerate keys.generated.ts after adding catalogue strings
-pnpm i18n:check     assert en / ar / en-XA catalogues agree
+bash scripts/test-changed.sh   targeted tests for this branch's changes (run before every push)
+pnpm build:tokens              regenerate the token preset after editing packages/design-tokens
+pnpm gen:i18n-keys             regenerate keys.generated.ts after adding catalogue strings
+pnpm i18n:check                assert en / ar / en-XA catalogues agree
 ```
+
+### Testing — targeted here, full suite in the cloud
+
+- **Never run the full suite on this machine**: no `pnpm check`, no `pnpm test`, no bare
+  `php artisan test`. It runs once per PR in a Claude cloud session (`scripts/cloud-ci.sh`, driven
+  by the "Healthy360 CI" scheduled task, `scripts/cloud-ci-task.md`). GitHub Actions no longer runs
+  it.
+- **Before every push**: `bash scripts/test-changed.sh`, then `git pull --rebase` (the cloud run may
+  have pushed a fix to the branch), then push.
+- **PRs go into `dev` as drafts** (`gh pr create --draft --base dev`) while work continues. When
+  the branch is done, `gh pr ready <n>` starts the cloud run. It fixes what it can on the branch
+  and comments a ✅/❌ table on the PR. Adding the `run-tests` label reruns it.
+- Merging into `dev` and `dev → main` run no tests, only `deploy.yml`.
 
 ---
 
