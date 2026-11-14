@@ -643,6 +643,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-receive-tray',
+        placement: 'inline',
         groups: [
             { key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards },
             { key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards },

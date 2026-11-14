@@ -525,6 +525,7 @@ function ProductionBatchNew() {
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-production-batch-new-tray',
+        placement: 'inline',
         groups: [
             { key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards },
             { key: 'check', title: t('kitchen:tray.groupCheck'), items: checkCards },

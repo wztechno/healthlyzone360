@@ -19,6 +19,7 @@ import {
     Icon,
     Inline,
     IssueTrayFrame,
+    IssueUnanchored,
     QuantityInput,
     Select,
     Stack,
@@ -120,6 +121,7 @@ import {
     packsIssueLabel,
     packsIssuesFromRefusal,
 } from '../packs-prices-section.tsx';
+import { InlineChecksButton } from '../inline-checks-button.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusFirstRefusal } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
@@ -1465,7 +1467,10 @@ function ProductEditor({
             ? {
                   key: 'selling',
                   title: t('kitchen:recipes.tabSelling'),
-                  items: [...saveCards, ...publishCards, ...failedCards],
+                  items: [...saveCards, ...publishCards, ...failedCards].map((item) => ({
+                      ...item,
+                      anchor: productIssueAnchor(item.key, packsHost !== null),
+                  })),
                   testID: 'kitchen-product-issues',
               }
             : null,
@@ -1474,6 +1479,9 @@ function ProductEditor({
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-product-tray',
+        // Inline, as the recipe editor: each card beside the section it is about, the checks in
+        // one pill in the header.
+        placement: 'inline',
         groups: [
             {
                 key: 'save',
@@ -1488,7 +1496,14 @@ function ProductEditor({
                 testID: 'kitchen-product-issues-publish',
             },
             { key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards },
-        ],
+        ].map((group) => ({
+            ...group,
+            items: group.items.map((item) => ({
+                ...item,
+                key: `${group.key}-${item.key}`,
+                anchor: productIssueAnchor(item.key, packsHost !== null),
+            })),
+        })),
         notes: importNotes,
         // Under "All set", as the board has it: where the record stands.
         ...(data?.meta.status === 'published' ? { doneLabel: t(statusKey('published')) } : {}),
@@ -1648,6 +1663,7 @@ function ProductEditor({
      */
     const actions = (
         <Inline space="xs" align="center" wrap justify="end">
+            {embedded ? null : <InlineChecksButton testID="kitchen-product-checks" />}
             {onRegisterArchive !== undefined ? null : (
                 <Button
                     testID="kitchen-product-archive"
@@ -1870,6 +1886,7 @@ function ProductEditor({
                         itemId={parsed}
                     />
                 ) : null}
+                {embedded ? null : <IssueUnanchored testID="kitchen-product-issues-loose" />}
             </Stack>
 
             {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
@@ -2431,4 +2448,25 @@ function ProductEditor({
             {page}
         </IssueTrayFrame>
     );
+}
+
+/**
+ * Which section a tray card belongs to, by its key: the editor's tray is inline, so each card is
+ * drawn beside that section's title (the FormSection whose testID this is). A card no section
+ * claims — a refused write, the quarantine notice — goes to the row under the header.
+ */
+function productIssueAnchor(key: string, packsHosted: boolean): string | undefined {
+    if (key === 'name' || key === 'category') return 'kitchen-product-details';
+    if (key === 'channels' || key === 'channels-error') return 'kitchen-product-channels';
+    // The shared packs section's own sections, where a host page draws it; else the item's packs.
+    if (packsHosted && key === 'packs-no_selling_place') return 'kitchen-packs-places';
+    if (packsHosted && key.startsWith('packs-')) return 'kitchen-packs-packs';
+    if (
+        key === 'packs' ||
+        key === 'net-content' ||
+        key === 'net-content-unit' ||
+        key.startsWith('packs-')
+    )
+        return 'kitchen-product-packs';
+    return undefined;
 }

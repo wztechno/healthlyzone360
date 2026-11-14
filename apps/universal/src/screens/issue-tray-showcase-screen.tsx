@@ -7,6 +7,7 @@ import {
     Inline,
     IssueRevealScope,
     IssueTrayFrame,
+    IssueUnanchored,
     Tabs,
     Text,
     TextInputField,
@@ -18,12 +19,16 @@ import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
 import { focusField } from '../features/kitchen-admin/field-focus.ts';
+import { InlineChecksButton } from '../features/kitchen-admin/inline-checks-button.tsx';
 
 type DemoTab = 'details' | 'ingredients' | 'yield' | 'selling';
 
 /**
  * `/showcase-issue-tray` — the issue tray on its own page, as the user asked for redesign parts
- * (2026-10-24): a small recipe form whose problems live in the tray rather than on the page.
+ * (2026-10-24): a small recipe form and its problems. Laid inline since 2026-11-15, as every
+ * kitchen admin page now is: each card is a chip beside the title of the section it names, the
+ * checks are one pill in the header ("Next fix"), and a card no section claims — a refusal — is a
+ * chip under the tabs that says its detail too. There is no panel and no top-bar pill any more.
  *
  * Every card here is derived from the fields on every render, exactly as a real editor does it:
  * fill a field and its card ticks and leaves by itself; empty it again and the card comes back.
@@ -65,6 +70,7 @@ export function IssueTrayShowcaseScreen() {
                   tone: 'danger',
                   label: 'Portions per batch is missing',
                   detail: 'Yield',
+                  anchor: 'showcase-section-yield',
                   action: {
                       onPress: () => {
                           goTo('yield', 'showcase-portions');
@@ -82,6 +88,7 @@ export function IssueTrayShowcaseScreen() {
                       tone: 'warning' as const,
                       label: 'Chickpeas have no cost',
                       detail: 'Ingredients',
+                      anchor: 'showcase-section-ingredients',
                       action: {
                           onPress: () => {
                               goTo('ingredients', 'showcase-cost');
@@ -98,6 +105,7 @@ export function IssueTrayShowcaseScreen() {
                       tone: 'warning' as const,
                       label: 'No Arabic name',
                       detail: 'Details',
+                      anchor: 'showcase-section-details',
                       action: {
                           onPress: () => {
                               goTo('details', 'showcase-arabic');
@@ -111,6 +119,7 @@ export function IssueTrayShowcaseScreen() {
     const content: IssueTrayContent = {
         title: 'Publish checks',
         testID: 'showcase-tray',
+        placement: 'inline',
         groups: [
             { key: 'save', title: 'Blocks save', items: save },
             { key: 'publish', title: 'Blocks publish', items: publish },
@@ -122,7 +131,7 @@ export function IssueTrayShowcaseScreen() {
                         key: 'stock',
                         tone: 'info',
                         label: 'Stock is short for 12 portions',
-                        detail: 'Stock gaps',
+                        detail: 'Lentils, 2.4 Kg short',
                     },
                 ],
             },
@@ -149,6 +158,7 @@ export function IssueTrayShowcaseScreen() {
                         <Inline space="sm" align="center" justify="between" wrap>
                             <Text variant="title">Lentil soup</Text>
                             <Inline space="xs" align="center">
+                                <InlineChecksButton testID="showcase-checks" />
                                 <Button
                                     variant="secondary"
                                     label="Save draft"
@@ -184,13 +194,19 @@ export function IssueTrayShowcaseScreen() {
                                 { value: 'selling', label: 'Selling' },
                             ]}
                         />
+                        <IssueUnanchored testID="showcase-issues-loose" />
                         <IssueRevealScope reveal={revealSelling}>
                             <View className={tab === 'selling' ? 'flex-col' : 'hidden'}>
                                 <ShowcaseSelling />
                             </View>
                         </IssueRevealScope>
                         {tab === 'selling' ? null : (
-                            <FormSection variant="card" first title={tabTitle(tab)}>
+                            <FormSection
+                                variant="card"
+                                first
+                                testID={`showcase-section-${tab}`}
+                                title={tabTitle(tab)}
+                            >
                                 <FormGrid>
                                     {tab === 'details' ? (
                                         <TextInputField
@@ -247,6 +263,7 @@ function ShowcaseSelling() {
                           tone: 'warning',
                           label: 'No price for the 300 g pack',
                           detail: 'Selling',
+                          anchor: 'showcase-section-selling',
                           action: {
                               onPress: () => {
                                   focusField('showcase-price');
@@ -261,7 +278,7 @@ function ShowcaseSelling() {
         },
     );
     return (
-        <FormSection variant="card" first title="Selling">
+        <FormSection variant="card" first testID="showcase-section-selling" title="Selling">
             <FormGrid>
                 <TextInputField
                     id="showcase-price"

@@ -5,6 +5,7 @@ import type {
     AllergenReferenceSelection,
 } from '@healthy360/api-client/contracts';
 import { NutritionReferencePicker } from '../nutrition-reference-picker.tsx';
+import { InlineChecksButton } from '../inline-checks-button.tsx';
 import type {
     AllergenClass,
     CostAmount,
@@ -30,6 +31,7 @@ import {
     Icon,
     Inline,
     IssueTrayFrame,
+    IssueUnanchored,
     QuantityInput,
     Select,
     Stack,
@@ -2681,7 +2683,17 @@ function IngredientEditor({
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-ingredient-tray',
-        groups: trayGroups,
+        // Inline, as the recipe editor: each card beside the section it is about, the checks in
+        // one pill in the header.
+        placement: 'inline',
+        groups: trayGroups.map((group) => ({
+            ...group,
+            items: group.items.map((item) => ({
+                ...item,
+                key: `${group.key}-${item.key}`,
+                anchor: ingredientIssueAnchor(item.key, family.food),
+            })),
+        })),
         passed: passedChecks,
         ...(cameFromRecipe
             ? {
@@ -2832,6 +2844,7 @@ function IngredientEditor({
                                 </Text>
                             </View>
                         ) : null}
+                        <InlineChecksButton testID="kitchen-ingredient-checks" />
                         <DeskButton
                             testID="kitchen-ingredient-editor-screen-back"
                             variant="secondary"
@@ -2855,6 +2868,8 @@ function IngredientEditor({
                         )}
                     </Inline>
                 </View>
+
+                <IssueUnanchored testID="kitchen-ingredient-issues-loose" />
 
                 {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
                 <View className={sectionsClass}>
@@ -3727,4 +3742,23 @@ function NeedLine({
             </Text>
         </View>
     );
+}
+
+/**
+ * Which section a tray card belongs to, by its key: the editor's tray is inline, so each card is
+ * drawn beside that section's title (the FormSection whose testID this is). A card no section
+ * claims — a refused save, the platform notice — goes to the row under the header.
+ */
+function ingredientIssueAnchor(key: string, food: boolean): string | undefined {
+    if (key === 'name' || key === 'category' || key === 'reference')
+        return 'kitchen-ingredient-identity';
+    // Food's price is read off receipts and shown with its units; only packaging has a Cost section.
+    if (key === 'price')
+        return food ? 'kitchen-ingredient-measurement' : 'kitchen-ingredient-cost';
+    if (key === 'pack-price' || key === 'waste') return 'kitchen-ingredient-cost';
+    if (key === 'b2b-price' || key === 'b2c-price' || key === 'currency')
+        return 'kitchen-ingredient-sale';
+    if (key === 'nutrition' || key === 'pending-nutrition') return 'kitchen-ingredient-nutrition';
+    if (key === 'allergens' || key === 'quarantine') return 'kitchen-ingredient-allergens';
+    return undefined;
 }

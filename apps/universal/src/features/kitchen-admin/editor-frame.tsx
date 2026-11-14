@@ -1,5 +1,13 @@
 import type { AdminEntityMeta, AdminRecordMeta } from '@healthy360/api-client/contracts';
-import { Cascade, Dialog, Inline, Stack, Text, useContentWidth } from '@healthy360/design-system';
+import {
+    Cascade,
+    Dialog,
+    Inline,
+    IssueUnanchored,
+    Stack,
+    Text,
+    useContentWidth,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -335,6 +343,12 @@ export function EditorFrame({
             )}
 
             {banner}
+
+            {/*
+             * Inside an inline tray: what is wrong, as chips, only while something is. An embedded
+             * editor leaves it to its host, which draws one row for the whole page.
+             */}
+            {embedded ? null : <IssueUnanchored testID={`${testID}-issues-loose`} />}
 
             {/*
              * The form sits on the page, not in a panel: sections carry their own hairlines

@@ -11,12 +11,13 @@ import {
     ErrorState,
     FormSection,
     IssueTrayFrame,
-    RecordSkeleton,
+    IssueUnanchored,
     QuantityInput,
+    RecordSkeleton,
     Text,
+    useContentWidth,
     useIssueTrayController,
     useToast,
-    useContentWidth,
 } from '@healthy360/design-system';
 import type {
     DataListColumn,
@@ -325,6 +326,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-unpriced-receipt-tray',
+        placement: 'inline',
         groups: [{ key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards }],
         notes: {
             title: t('kitchen:tray.groupNote'),
@@ -380,6 +382,8 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                         </View>
                     }
                 />
+
+                <IssueUnanchored testID="kitchen-unpriced-receipt-issues-loose" />
 
                 <CatalogueStatCards
                     testID="kitchen-unpriced-receipt-facts"

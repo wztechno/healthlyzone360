@@ -5,7 +5,6 @@ import {
     Icon,
     IconButton,
     Inline,
-    IssueTrayButton,
     OfflineIndicator,
     RailAccount,
     useBreakpoint,
@@ -208,12 +207,11 @@ function GuardedAreaShell({
             <Inline space="xs" wrap={false}>
                 {/*
                  * The way back into unfinished work — a process stepped out of, editors kept for
-                 * later — when its card at the bottom of the page is minimised (`kept-work-dock.tsx`),
-                 * then the page's issue tray: what is left to fix here, from anywhere on the page.
-                 * Each is drawn only when it has something to hold.
+                 * later — when its card at the bottom of the page is minimised (`kept-work-dock.tsx`).
+                 * Drawn only when it has something to hold. No issue-tray pill: every page's problems
+                 * are drawn inline, beside the sections they are in.
                  */}
                 <KeptWorkButton />
-                <IssueTrayButton />
                 {topbarActions}
                 <LocaleToggle round={WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant)} />
                 {/*

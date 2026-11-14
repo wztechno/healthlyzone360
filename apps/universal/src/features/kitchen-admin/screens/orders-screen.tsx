@@ -5,6 +5,7 @@ import {
     ErrorState,
     Icon,
     IssueTrayFrame,
+    IssueUnanchored,
     TableSkeleton,
 } from '@healthy360/design-system';
 import type { IssueTrayContent } from '@healthy360/design-system';
@@ -322,6 +323,7 @@ function OrdersPage() {
     const tray: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-orders-tray',
+        placement: 'inline',
         hideWhenClear: true,
         groups: [],
     };
@@ -342,6 +344,7 @@ function OrdersPage() {
                     />
                 </View>
                 <KitchenPauseBanner />
+                <IssueUnanchored testID="kitchen-orders-issues-loose" />
 
                 {tab === 'today' ? (
                     <TodayTab

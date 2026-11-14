@@ -779,6 +779,7 @@ function PriceListEditor({ priceList, returnTo }: PriceListEditScreenProps) {
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: `${PAGE_ID}-tray`,
+        placement: 'inline',
         groups: [
             { key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards },
             {

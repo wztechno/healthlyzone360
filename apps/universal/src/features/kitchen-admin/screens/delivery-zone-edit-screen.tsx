@@ -818,6 +818,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-zone-tray',
+        placement: 'inline',
         groups: [{ key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards }],
     };
 

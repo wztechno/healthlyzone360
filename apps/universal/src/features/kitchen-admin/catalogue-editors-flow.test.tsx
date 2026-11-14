@@ -544,7 +544,7 @@ describe('the ingredient editor', () => {
         expect(routerMock.__replace).toHaveBeenCalledWith('/kitchen/ingredients');
     });
 
-    it('gathers the notices into the issue tray', async () => {
+    it('gathers the notices into the inline checks', async () => {
         const record = ingredient({ meta: meta({ status: 'review_required' }) });
         await renderStubScreen(<IngredientEditScreen ingredient={String(record.id)} />, {
             session: kitchenManagerSession(),
@@ -552,7 +552,7 @@ describe('the ingredient editor', () => {
         });
         await untilVisible('kitchen-ingredient-quarantine');
 
-        expect(screen.getByTestId('kitchen-ingredient-tray')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-ingredient-checks')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-ingredient-notices')).toBeNull();
         expect(screen.getByTestId('kitchen-ingredient-quarantine')).not.toHaveTextContent(
             /contradicts a published label/,
@@ -736,21 +736,17 @@ describe('the price list editor', () => {
         });
     });
 
-    it('says what the list is in the tray’s notes, by title alone', async () => {
+    it('draws no notes about the list: an inline tray says only what is wrong', async () => {
         await renderStubScreen(<PriceListEditScreen priceList={String(PRICE_LIST.id)} />, {
             session: kitchenManagerSession(),
             repositories: { kitchenAdmin: priceListReads() },
         });
         await withDeskWidth(async () => {
-            await untilVisible('kitchen-price-list-draft-note');
+            await untilVisible('kitchen-price-list-editor-screen-title');
 
-            expect(screen.getByTestId('kitchen-price-list-draft-note')).not.toHaveTextContent(
-                /Nobody is charged/,
-            );
-            expect(screen.getByTestId('kitchen-price-list-confidential')).not.toHaveTextContent(
-                /buyer relationship/,
-            );
-            expect(screen.queryByTestId('kitchen-price-list-offline')).toBeNull();
+            expect(screen.queryByTestId('kitchen-price-list-draft-note')).toBeNull();
+            expect(screen.queryByTestId('kitchen-price-list-confidential')).toBeNull();
+            expect(screen.queryByTestId('kitchen-price-list-editor-screen-issues-loose')).toBeNull();
         });
     });
 });

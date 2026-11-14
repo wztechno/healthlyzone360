@@ -542,6 +542,7 @@ function RoleEditor() {
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-role-editor-tray',
+        placement: 'inline',
         groups: [
             {
                 key: 'save',

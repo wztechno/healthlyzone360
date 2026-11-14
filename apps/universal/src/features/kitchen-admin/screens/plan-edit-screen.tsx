@@ -13,6 +13,7 @@ import {
     Icon,
     Inline,
     IssueTrayFrame,
+    IssueUnanchored,
     Stack,
     Tabs,
     Text,
@@ -1265,6 +1266,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-plan-tray',
+        placement: 'inline',
         groups: [
             {
                 key: 'save',
@@ -1370,6 +1372,8 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                             </Inline>
                         }
                     />
+
+                    <IssueUnanchored testID="kitchen-plan-issues-loose" />
 
                     <Tabs<PlanStep>
                         testID="kitchen-plan-steps"

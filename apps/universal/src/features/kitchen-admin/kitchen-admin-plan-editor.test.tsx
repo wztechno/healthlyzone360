@@ -178,10 +178,10 @@ describe('the plan editor leads the reader', () => {
         expect(screen.getByTestId('kitchen-plan-editor-screen-save')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-plan-steps-nav')).toBeNull();
         expect(screen.queryByTestId('kitchen-plan-steps-nav-next')).toBeNull();
-        // No banner of issues over the steps: the steps' own counts and the tray tell problems,
-        // and a form nobody has typed in yet has none — its blanks wait for Save.
+        // No banner of issues over the steps, and no chips either: a form nobody has typed in yet
+        // has nothing wrong — its blanks wait for Save — and an inline tray says nothing then.
         expect(screen.queryByTestId('kitchen-plan-issues')).toBeNull();
-        expect(screen.getByTestId('kitchen-plan-tray-clear')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-plan-issues-loose')).toBeNull();
     });
 
     it('opens the first step that stops a new plan, and names the blank under its field', async () => {
