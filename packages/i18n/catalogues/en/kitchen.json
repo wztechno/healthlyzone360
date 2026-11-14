@@ -984,7 +984,7 @@
             "unpricedReceipts": "Prices to finish",
             "fieldInvoiceRef": "Invoice number",
             "fieldReceivedOn": "Date received",
-            "searchPlaceholder": "Search by supplier or document reference",
+            "searchPlaceholder": "Search by supplier, reference or lot",
             "columnRefs": "References",
             "filteredEmptyBody": "Try a shorter search, or choose another price state.",
             "listFoot": "Stock rises the moment a receipt is posted; prices can be added afterwards.",

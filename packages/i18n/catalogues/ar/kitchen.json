@@ -1115,7 +1115,7 @@
             "unpricedReceipts": "أسعار غير مكتملة",
             "fieldInvoiceRef": "رقم الفاتورة",
             "fieldReceivedOn": "تاريخ الاستلام",
-            "searchPlaceholder": "ابحث بالمورّد أو مرجع المستند",
+            "searchPlaceholder": "ابحث بالمورّد أو المرجع أو رقم التشغيلة",
             "columnRefs": "المراجع",
             "filteredEmptyBody": "جرّب بحثًا أقصر، أو اختر حالة تسعير أخرى.",
             "listFoot": "يرتفع المخزون لحظة ترحيل الاستلام؛ ويمكن إضافة الأسعار لاحقًا.",

@@ -2037,6 +2037,18 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         items={[{ key: 'ref', label: 'ING-307', onPress: () => undefined }]}
                     />
                 </Stack>
+                {/* Untitled: the page's own title already names the one section on it. */}
+                <FormSection
+                    testID={id('form-section-untitled')}
+                    first
+                    variant="panel"
+                    description="Each window is a day and a time range a delivery can arrive in."
+                    printDescription
+                >
+                    <Text variant="caption" tone="secondary">
+                        Mon–Fri · 10:00–14:00
+                    </Text>
+                </FormSection>
                 <FormSection
                     testID={id('form-section-underlined')}
                     first

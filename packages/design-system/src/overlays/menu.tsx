@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
-import { Pressable, Text as RNText, View } from 'react-native';
+import { Pressable, ScrollView, Text as RNText, View } from 'react-native';
 
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
@@ -269,6 +269,35 @@ export function Menu({
             }
         >
             {(state: DropdownRenderState) => {
+                const rows = sections.map((section, sectionIndex) => (
+                    <View key={section.label ?? `section-${String(sectionIndex)}`}>
+                        {sectionIndex > 0 ? (
+                            <View className="my-1 border-b border-stroke-subtle" />
+                        ) : null}
+                        {section.label === undefined ? null : (
+                            <RNText className="px-control-sm py-1 text-role-micro text-content-secondary text-start">
+                                {section.label}
+                            </RNText>
+                        )}
+                        {section.items.map((item) => {
+                            const index = flat.indexOf(item);
+                            return (
+                                <MenuRow
+                                    key={item.key}
+                                    item={item}
+                                    active={index === active}
+                                    onHover={() => {
+                                        setActive(index);
+                                    }}
+                                    onClose={state.close}
+                                    card={card}
+                                    closeOnSelect={closeOnSelect}
+                                    testID={item.testID ?? `${base}-item-${item.key}`}
+                                />
+                            );
+                        })}
+                    </View>
+                ));
                 const list = (
                     <View
                         {...keyDownProps((event: WebKeyEvent) => {
@@ -290,38 +319,20 @@ export function Menu({
                                 if (item.selected === undefined || closeOnSelect) state.close();
                             }
                         })}
-                        style={maxHeight === undefined ? undefined : { maxHeight }}
                         className="flex-col"
                     >
-                        {sections.map((section, sectionIndex) => (
-                            <View key={section.label ?? `section-${String(sectionIndex)}`}>
-                                {sectionIndex > 0 ? (
-                                    <View className="my-1 border-b border-stroke-subtle" />
-                                ) : null}
-                                {section.label === undefined ? null : (
-                                    <RNText className="px-control-sm py-1 text-role-micro text-content-secondary text-start">
-                                        {section.label}
-                                    </RNText>
-                                )}
-                                {section.items.map((item) => {
-                                    const index = flat.indexOf(item);
-                                    return (
-                                        <MenuRow
-                                            key={item.key}
-                                            item={item}
-                                            active={index === active}
-                                            onHover={() => {
-                                                setActive(index);
-                                            }}
-                                            onClose={state.close}
-                                            card={card}
-                                            closeOnSelect={closeOnSelect}
-                                            testID={item.testID ?? `${base}-item-${item.key}`}
-                                        />
-                                    );
-                                })}
-                            </View>
-                        ))}
+                        {/*
+                         * Capped, the rows scroll inside the card. The cap used to sit on a plain
+                         * View, which stopped the card at it and painted the rest of a long list
+                         * (sixteen categories) past its border, over the page.
+                         */}
+                        {maxHeight === undefined ? (
+                            rows
+                        ) : (
+                            <ScrollView style={{ maxHeight }} nestedScrollEnabled>
+                                {rows}
+                            </ScrollView>
+                        )}
 
                         {footer === undefined ? null : (
                             <View className="mt-1 border-t border-stroke-subtle px-control-sm pt-1">

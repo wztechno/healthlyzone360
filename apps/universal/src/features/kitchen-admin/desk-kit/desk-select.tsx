@@ -92,8 +92,11 @@ export function DeskSelect<T extends string>({
     );
 }
 
-/** Tall enough for the four slots and a kitchen's longer lists without leaving a laptop screen. */
-const MENU_MAX_HEIGHT = 360;
+/**
+ * Tall enough for the four slots and a kitchen's longer lists without leaving a laptop screen. A
+ * longer list scrolls inside the menu. The table headers' filter menus share it.
+ */
+export const MENU_MAX_HEIGHT = 360;
 
 /**
  * The pill itself — shared with the mini month's day button, which opens a calendar instead of a

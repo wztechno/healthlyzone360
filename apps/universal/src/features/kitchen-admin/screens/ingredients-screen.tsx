@@ -259,11 +259,13 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                             : t('kitchen:lens.result', { shown: list.shown, total: list.total })
                     }
                     clearLabel={t('kitchen:lens.clear')}
-                    // The category is the scope the reader stands in, so Clear leaves it.
+                    // A chosen category counts too: Clear takes it back to All, as Quality
+                    // control and Supply orders reset their own scope.
                     {...(list.trimmed === '' &&
                     list.statuses.length === 0 &&
                     list.allergen === null &&
-                    !list.uncosted
+                    !list.uncosted &&
+                    list.category === null
                         ? {}
                         : {
                               onClear: () => {
@@ -271,6 +273,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                                   list.setStatuses([]);
                                   list.setAllergen(null);
                                   list.setUncosted(false);
+                                  list.setCategory(null);
                               },
                           })}
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}

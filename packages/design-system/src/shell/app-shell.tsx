@@ -815,7 +815,8 @@ function AppShellLayout({
                 testID={testID === undefined ? undefined : `${testID}-navigation`}
                 role="navigation"
                 aria-label={t('designSystem:shell.primaryNavigation')}
-                className={panel ? 'flex-col px-1.5' : 'flex-col gap-1 p-2'}
+                // A gap in the panel too: the active pill and a hovered one beside it touched.
+                className={panel ? 'flex-col gap-1 px-1.5' : 'flex-col gap-1 p-2'}
             >
                 {showGroups
                     ? ungrouped.map(renderItem)

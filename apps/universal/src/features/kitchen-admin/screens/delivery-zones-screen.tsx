@@ -41,7 +41,7 @@ import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import type { StatusLensSource } from '../catalogue/lens-status.ts';
-import { inStatuses, statusTally, withoutStatuses } from '../catalogue/use-catalogue-filters.ts';
+import { statusTally, withoutStatuses } from '../catalogue/use-catalogue-filters.ts';
 import {
     compareNumber,
     compareText,
@@ -146,14 +146,13 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
     useRestoredPageFallback(memory, page, zones.isError, () => {
         setPage(1);
     });
-    // Without the status, so the figures count every state in scope; `everyZone` re-applies it.
+    // Without the status, so the figures count every state in scope.
     const wholeSet = useDeliveryZoneWholeSetQuery(withoutStatuses(filter));
     const scopeZones = wholeSet.data ?? NO_ZONES;
     const statuses = useMemo(
         (): readonly PublishableStatus[] => (status === 'all' ? [] : [status]),
         [status],
     );
-    const everyZone = useMemo(() => inStatuses(scopeZones, statuses), [scopeZones, statuses]);
     const statusCounts = useMemo(() => statusTally(scopeZones), [scopeZones]);
     // A zone carries window identifiers; the windows themselves are the kitchen's list.
     const kitchenWindows = useDeliveryWindowsQuery();
@@ -381,9 +380,6 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
     const failure = toFailure(zones.error);
     const unfiltered = trimmed === '' && status === 'all';
 
-    // Counted over every page the filters match, not the eighteen rows on this one.
-    const noAreas = everyZone.filter((row) => areaCountOf(row) === 0).length;
-    const noWindows = everyZone.filter((row) => coverageOf(row).weekdays.length === 0).length;
     const lens: StatusLensSource = {
         total,
         scopeCount: scopeZones.length,
@@ -395,11 +391,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
             setViewing(null);
         },
     };
-    const figures = lensFigures(lens, t, {
-        noAreas,
-        noWindows,
-        pending: wholeSet.isPending || kitchenWindows.isPending,
-    });
+    const figures = lensFigures(lens, t);
 
     // The list carries a count of areas; the board names them, so the open zone is read on its own.
     const viewedZone = useAdminZoneQuery(viewing?.id ?? null);
@@ -701,16 +693,10 @@ function estimatedText(row: DeliveryZoneAdmin, t: TFunction, formatter: Formatte
 }
 
 /**
- * The Lens bar's figures: All · Published · Draft · Archived — the zone lifecycle has no review —
- * then the two gaps that keep a zone from taking an order, counted over every page the filters
- * match, the status included.
+ * The Lens bar's figures: All · Published · Draft · Archived — the zone lifecycle has no review.
+ * A zone's missing areas or windows are said on its own row, not counted up here.
  */
-function lensFigures(
-    lens: StatusLensSource,
-    t: TFunction,
-    gaps: { readonly noAreas: number; readonly noWindows: number; readonly pending: boolean },
-): readonly LensFigure[] {
-    const counted = (count: number) => (gaps.pending ? null : count);
+function lensFigures(lens: StatusLensSource, t: TFunction): readonly LensFigure[] {
     return [
         ...statusLensFigures(lens, t, { allLabel: t('kitchen:lens.allZones') }),
         {
@@ -723,19 +709,6 @@ function lensFigures(
                 lens.setStatuses(['retired']);
             },
             accessibilityLabel: t('kitchen:lens.archivedAction'),
-        },
-        {
-            key: 'noAreas',
-            label: t('kitchen:zones.noAreas'),
-            value: counted(gaps.noAreas),
-            tone: 'warning',
-            separated: true,
-        },
-        {
-            key: 'noWindows',
-            label: t('kitchen:zones.noActiveWindows'),
-            value: counted(gaps.noWindows),
-            tone: 'warning',
         },
     ];
 }

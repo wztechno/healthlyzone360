@@ -7,7 +7,6 @@ import {
     Stack,
     TableSkeleton,
     Text,
-    TextInputField,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
@@ -59,7 +58,7 @@ import { DeskChip } from '../desk-kit/desk-chip.tsx';
  *
  * ```
  * (All receipts 50) │ ● No prices 4  ● Some prices 2  ● Priced 44              [Post receipt]
- * [Period ▾] [From – To] [ lot ]  [ ⌕ supplier or reference ]  [Prices: No prices ×]  4 of 50  Clear
+ * [Period ▾] [From – To]  [ ⌕ supplier, reference or lot ]  [Lot: L-22 ×]  4 of 50  Clear
  * RECEIVED      SUPPLIER      LINES  REFERENCES        TOTAL   PRICES      ⋯
  * ```
  *
@@ -98,11 +97,10 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
     const canViewCosts = useCan(INVENTORY_VIEW_COSTS_PERMISSION);
 
     /**
-     * The recall question (ingredient barcodes): which deliveries brought a lot. Asked of the server,
-     * on Enter — the list in hand is only the latest fifty, and a recall is exactly the case where
-     * the delivery is older than that.
+     * The recall question (ingredient barcodes): which deliveries brought a lot. Asked of the server
+     * from the one search box, on Enter when nothing in hand matches — the list in hand is only the
+     * latest fifty, and a recall is exactly the case where the delivery is older than that.
      */
-    const [lot, setLot] = useState('');
     const [appliedLot, setAppliedLot] = useState('');
     /**
      * The days received, asked of the server for the same reason as the lot: a window reaching
@@ -354,7 +352,6 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
         },
     );
     const clearLot = () => {
-        setLot('');
         setAppliedLot('');
         setViewing(null);
     };
@@ -561,33 +558,6 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                     }}
                                 />
                             </View>
-                            {/*
-                             * A fixed width: in the scope row the field has no width of its own and
-                             * collapsed to an empty sliver beside the search.
-                             */}
-                            <View className="w-40">
-                                <TextInputField
-                                    testID="kitchen-procurement-lot-filter"
-                                    id="kitchen-procurement-lot-filter"
-                                    size="sm"
-                                    label={t('kitchen:barcodes.lotFilterLabel')}
-                                    labelHidden
-                                    placeholder={t('kitchen:barcodes.lotFilterPlaceholder')}
-                                    value={lot}
-                                    maxLength={20}
-                                    autoCorrect={false}
-                                    autoCapitalize="none"
-                                    onChangeText={(next) => {
-                                        setLot(next);
-                                        // Emptied, the list goes back to the latest fifty at once.
-                                        if (next.trim() === '') setAppliedLot('');
-                                    }}
-                                    onSubmitEditing={() => {
-                                        setAppliedLot(lot.trim());
-                                        setViewing(null);
-                                    }}
-                                />
-                            </View>
                         </>
                     }
                     search={query}
@@ -597,6 +567,15 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                     }}
                     searchLabel={t('kitchen:toolbar.searchLabel')}
                     searchPlaceholder={t('kitchen:ops.procurement.searchPlaceholder')}
+                    // Enter with nothing in hand matching asks the server for a supplier lot —
+                    // the recall question, across every receipt, not only the latest fifty.
+                    onSearchSubmit={() => {
+                        const typed = query.trim();
+                        if (typed === '' || searchedReceipts.length > 0) return;
+                        setAppliedLot(typed);
+                        setQuery('');
+                        setViewing(null);
+                    }}
                     tokens={[...lens.tokens, ...lotTokens]}
                     result={
                         receipts.isPending || failure !== null
