@@ -446,7 +446,7 @@ describe('a cooked item’s page', () => {
         expect(screen.queryByTestId('kitchen-recipe-selling-seller')).toBeNull();
     });
 
-    it('draws the listing’s Archive in the header row beside Cancel, on Selling only', async () => {
+    it('draws the listing’s Archive in the header row beside Save, on Selling only', async () => {
         await renderSauceRecipe(sauce());
 
         await untilVisible('kitchen-recipe-editor-screen-header');
@@ -455,11 +455,11 @@ describe('a cooked item’s page', () => {
         await press('kitchen-recipe-tab-selling');
         await untilVisible('kitchen-product-archive');
 
-        // One Archive, and it is the header's: inside the same row as Cancel.
+        // One Archive, and it is the header's: inside the same row as Save.
         expect(screen.getAllByTestId('kitchen-product-archive')).toHaveLength(1);
         const header = screen.getByTestId('kitchen-recipe-editor-screen-header');
         expect(within(header).getByTestId('kitchen-product-archive')).toBeTruthy();
-        expect(within(header).getByTestId('kitchen-recipe-editor-screen-discard')).toBeTruthy();
+        expect(within(header).getByTestId('kitchen-recipe-editor-screen-save')).toBeTruthy();
 
         await press('kitchen-product-archive');
         await untilVisible('kitchen-product-archive-dialog');
@@ -603,7 +603,7 @@ describe('a cooked item’s page', () => {
         });
     });
 
-    it('keeps a half-typed listing through a tab switch, and asks before leaving with it', async () => {
+    it('keeps a half-typed listing through a tab switch, and marks the page unsaved', async () => {
         await renderSauceRecipe(sauce());
 
         await untilVisible('kitchen-recipe-editor-screen-header');
@@ -617,9 +617,8 @@ describe('a cooked item’s page', () => {
         await press('kitchen-recipe-tab-selling');
         expect(screen.getByTestId(DESCRIPTION).props.value).toBe('Toum, whi');
 
-        // The recipe is untouched; the listing is not, and that is enough to ask.
-        await press('kitchen-recipe-editor-screen-discard');
-        await untilVisible('kitchen-recipe-editor-screen-unsaved-dialog');
+        // The recipe is untouched; the listing is not, and that is enough to mark it unsaved.
+        expect(screen.getByTestId('kitchen-recipe-editor-screen-dirty')).toBeTruthy();
         expect(routerMock.__push).not.toHaveBeenCalled();
     });
 
@@ -634,33 +633,25 @@ describe('a cooked item’s page', () => {
         expect(screen.queryByTestId('kitchen-recipe-tab-selling')).toBeNull();
     });
 
-    it('asks for the pieces produced before a meal’s recipe is published, and only a meal’s', async () => {
-        // At a desk's width, where the issue tray is docked and open beside the page.
-        await withDeskWidth(askForPieces);
-    });
-
-    async function askForPieces() {
-        await renderStubScreen(<RecipeBookEditScreen recipe={String(RECIPE_ID)} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    ...pageReads(sauce(), soldAs(seller(), MEAL_SELLER)),
-                    getMeal: async () => mealItem(),
+    it('asks for no pieces produced, even on a meal’s recipe — the field is optional', async () => {
+        await withDeskWidth(async () => {
+            await renderStubScreen(<RecipeBookEditScreen recipe={String(RECIPE_ID)} />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...pageReads(sauce(), soldAs(seller(), MEAL_SELLER)),
+                        getMeal: async () => mealItem(),
+                    },
                 },
-            },
-        });
+            });
 
-        // A card in the tray from the start, with the Production tab counting it.
-        await untilVisible('kitchen-recipe-issues-publish-pieces');
-        await press('kitchen-recipe-issues-publish-pieces-fix');
-        await untilVisible('kitchen-recipe-yield-pieces-input');
-
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-recipe-yield-pieces-input'), '8');
+            await untilVisible('kitchen-recipe-editor-screen-header');
+            await press('kitchen-recipe-tab-production');
+            await untilVisible('kitchen-recipe-yield-pieces-input');
+            expect(screen.queryByTestId('kitchen-recipe-issues-publish-pieces')).toBeNull();
+            expect(screen.queryByTestId('kitchen-recipe-check-pieces')).toBeNull();
         });
-        // Filled in, the card clears itself.
-        expect(screen.queryByTestId('kitchen-recipe-issues-publish-pieces')).toBeNull();
-    }
+    });
 
     it('owes no piece count on a recipe only a sauce sells', async () => {
         await renderSauceRecipe(sauce());

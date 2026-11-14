@@ -1290,6 +1290,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                  */}
                 <Stack space="sm">
                     <CataloguePageHeader
+                        titleLook="board"
                         testID="kitchen-plan-editor-screen-header"
                         titleTestID="kitchen-plan-editor-screen-title"
                         title={title}
@@ -1376,7 +1377,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                         items={tabItems}
                         value={form.current}
                         onChange={form.goTo}
-                        variant="steps"
+                        variant="pills"
                     />
                 </Stack>
 

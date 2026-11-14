@@ -275,6 +275,7 @@ export function EditorFrame({
             ) : (
                 <Stack space="xs">
                     <CataloguePageHeader
+                        titleLook="board"
                         testID={`${testID}-header`}
                         titleTestID={`${testID}-title`}
                         // A stepped form draws no heading: the top bar's trail already names

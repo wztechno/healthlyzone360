@@ -15,6 +15,7 @@ import { SlideIn } from '../motion/slide-in.tsx';
 import { useMotion } from '../motion/use-motion.ts';
 import { Drawer } from '../overlays/drawer.tsx';
 import { Notice } from '../overlays/notice.tsx';
+import { InlineIssuesProvider } from './issue-anchor.tsx';
 import { createIssueRegistry, IssueRegistryProvider } from './issue-group.tsx';
 import type { IssueRegistry, RegisteredIssues } from './issue-group.tsx';
 import { IssueTrayFrameControllerProvider, useIssueTrayController } from './issue-tray-context.tsx';
@@ -82,6 +83,11 @@ export interface IssueCardItem {
     readonly action?: IssueAction | undefined;
     /** A second, quieter way out — "Back to stock gaps" beside "Publish". */
     readonly secondaryAction?: IssueAction | undefined;
+    /**
+     * The section the problem lives in — on an inline page the card is drawn beside that
+     * section's title (`IssueAnchor`). Ignored by the panel.
+     */
+    readonly anchor?: string | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -136,6 +142,12 @@ export interface IssueTrayContent {
      * page has no "done" to show, and a docked panel saying so beside every list is noise.
      */
     readonly hideWhenClear?: boolean | undefined;
+    /**
+     * `inline` draws no panel and no sheet: each card is drawn beside the section it names
+     * (`IssueAnchor`, `IssueUnanchored`), and the shell's "To fix" pill stays away. A press that
+     * cannot go through still says so in the middle of the page. Defaults to `tray`.
+     */
+    readonly placement?: 'tray' | 'inline' | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -263,8 +275,9 @@ function IssueTrayFrameBody({
         (tray.checking ?? []).length === 0 &&
         tray.notes.length === 0;
 
+    const inline = tray?.placement === 'inline';
     const summary = useMemo<IssueTraySummary | null>(() => {
-        if (tray === null || hidden) return null;
+        if (tray === null || hidden || inline) return null;
         const blocking = tray.groups.flatMap((group) =>
             group.items.filter((item) => item.tone !== 'info'),
         );
@@ -279,7 +292,7 @@ function IssueTrayFrameBody({
                     : 'clear',
             title: tray.title,
         };
-    }, [tray, hidden]);
+    }, [tray, hidden, inline]);
 
     const { publish } = tray$;
     useEffect(() => {
@@ -311,13 +324,22 @@ function IssueTrayFrameBody({
      * the ports that measure their own node (`useCataloguePort`) are told with one `resize`, as the
      * shell tells them when its own panel settles.
      */
-    const docked = wide && tray !== null && tray$.open && !hidden;
+    const docked = wide && tray !== null && tray$.open && !hidden && !inline;
     useEffect(() => {
         if (Platform.OS !== 'web' || typeof window === 'undefined') return;
         window.dispatchEvent(new Event('resize'));
     }, [docked]);
+    const inlineIssues = useMemo(
+        () =>
+            tray !== null && inline
+                ? { groups: tray.groups, passed: tray.passed ?? [], doneAction: tray.doneAction }
+                : null,
+        [tray, inline],
+    );
     const page = (
-        <ContentWidthBeside width={docked ? DOCKED_WIDTH : 0}>{children}</ContentWidthBeside>
+        <InlineIssuesProvider value={inlineIssues}>
+            <ContentWidthBeside width={docked ? DOCKED_WIDTH : 0}>{children}</ContentWidthBeside>
+        </InlineIssuesProvider>
     );
 
     /*
@@ -361,7 +383,7 @@ function IssueTrayFrameBody({
                 ) : null}
             </View>
             {wide ? null : blocked}
-            {wide || tray === null ? null : (
+            {wide || tray === null || inline ? null : (
                 <Drawer
                     testID={`${base}-sheet`}
                     placement="bottom"

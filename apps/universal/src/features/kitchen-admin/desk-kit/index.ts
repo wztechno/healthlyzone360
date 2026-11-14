@@ -34,3 +34,4 @@ export type { DeskCrumb } from './desk-trail.tsx';
 export type { DeskTabItem } from './desk-tabs.tsx';
 export { ListGroupRow } from './list-group-row.tsx';
 export { DeskDateButton, MiniMonthPicker } from './mini-month.tsx';
+export { DeskPicker } from './desk-picker.tsx';
