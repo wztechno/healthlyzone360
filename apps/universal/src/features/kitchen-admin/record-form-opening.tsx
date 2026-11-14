@@ -149,6 +149,7 @@ export function RecordFormOpening<Step extends string>({
     return (
         <Stack space="sm">
             <CataloguePageHeader
+                titleLook="board"
                 testID={`${testID}-header`}
                 titleTestID={`${testID}-title`}
                 title={title}
@@ -226,7 +227,7 @@ export function RecordFormOpening<Step extends string>({
                     items={steps.items}
                     value={steps.value}
                     onChange={steps.onChange}
-                    variant="steps"
+                    variant="pills"
                 />
             )}
         </Stack>

@@ -869,7 +869,7 @@ describe('supply order builder', () => {
             repositories: builderOverrides([LOW_ONLY]),
         });
 
-        await untilVisible('kitchen-supply-order-add-select');
+        await untilVisible('kitchen-supply-order-add-select-trigger');
 
         // Items are named, never coded: the catalogue code is a slug of the name beside it.
         expect(screen.queryByText(LOW_ONLY.itemCode)).toBeNull();
@@ -1102,7 +1102,7 @@ describe('purchase order detail', () => {
         expect(
             screen.queryByTestId(`${purchaseOrderLineTestId(String(itemId(1)))}-quantity-input`),
         ).toBeNull();
-        expect(screen.queryByTestId('kitchen-supply-order-detail-add-line')).toBeNull();
+        expect(screen.queryByTestId('kitchen-supply-order-detail-add-line-trigger')).toBeNull();
         expect(screen.queryByTestId('kitchen-supply-order-detail-issue')).toBeNull();
         expect(screen.getByTestId('kitchen-supply-order-detail-cancel')).toBeTruthy();
     });

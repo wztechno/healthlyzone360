@@ -44,6 +44,7 @@ import {
 import type { RecipeVersionId } from '@healthy360/domain-types';
 import type { NutritionFacts } from '@healthy360/nutrition';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { DiscardBoundary } from './save-bar.tsx';
 import { Dimensions } from 'react-native';
 import type { ReactNode } from 'react';
 
@@ -2194,7 +2195,7 @@ describe('the recipe list at desk width', () => {
         expect(screen.getByTestId(`${stub}-not-formulated`)).toHaveAccessibleName(/Not formulated/);
     });
 
-    it('marks a row whose sale lowers no stock, and lists the items no recipe sells (HA-44/45)', async () => {
+    it('marks a row whose sale lowers no stock (HA-44/45), and lists no items without a recipe', async () => {
         rememberColumnChoice('kitchen-recipes.v2', ['reference', 'name', 'kind', 'status']);
         const sauce = recipe({
             ordinal: 1,
@@ -2258,17 +2259,12 @@ describe('the recipe list at desk width', () => {
             /doesn't lower stock: no pack weight or amount per sale/,
         );
 
-        // A card in the page's tray, under a group that counts them.
+        // The book no longer lists the items on the menu with no recipe (no "To fix" here since
+        // 2026-11-14), so it never asks for them.
         await withDeskWidth(async () => {
-            await untilVisible(`kitchen-recipes-unformulated-${String(MEAL_ID)}`);
-            expect(screen.getByTestId('kitchen-recipes-unformulated')).toHaveTextContent(
-                /On the menu without a recipe · 1 item/,
-            );
-            expect(
-                screen.getByTestId(`kitchen-recipes-unformulated-${String(MEAL_ID)}`),
-            ).toHaveTextContent(/Tiramisu/);
+            expect(screen.queryByTestId('kitchen-recipes-unformulated')).toBeNull();
         });
-        expect(asked).toContainEqual({ withoutRecipe: true });
+        expect(asked).not.toContainEqual({ withoutRecipe: true });
     });
 
     it('narrows the book by its own filing word, through the request', async () => {
@@ -2684,7 +2680,7 @@ describe('creating a recipe', () => {
  * ---------------------------------------------------------------------------------------------- */
 
 describe('versions', () => {
-    it('renders a published version read-only and opens a draft that copies its lines', async () => {
+    it('opens a published version editable, and its first change opens a draft that copies its lines', async () => {
         const publishedVersion = recipeVersion({
             recipeOrdinal: 3,
             overrides: { status: 'published', publishedAt: '2026-08-02T09:00:00.000Z' },
@@ -2731,29 +2727,20 @@ describe('versions', () => {
             },
         );
 
-        // Read only, said in the header, and the one control offered is the successor draft.
-        await untilVisible('kitchen-recipe-read-only');
-        expect(screen.getByTestId('kitchen-recipe-new-draft')).toBeTruthy();
+        // Open to edit (board v2): no lock, no New draft, and nothing to publish yet.
+        await untilVisible('kitchen-recipe-name-en-input');
+        expect(screen.queryByTestId('kitchen-recipe-read-only')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-new-draft')).toBeNull();
         expect(screen.queryByTestId('kitchen-recipe-publish')).toBeNull();
 
-        /*
-         * "No way to add a line" is now the *absence of the picker*, not a missing Add button. The
-         * table itself still draws — a published version is read, constantly — and what it withholds
-         * is the field that would append to it. `RecipeLineTable` renders the picker only when it
-         * may write, so this is the same claim against the control that replaced the button.
-         */
-        await openTab('production');
-        await untilVisible('kitchen-recipe-lines-table');
-        expect(screen.queryByTestId(LINE_PICKER_TRIGGER)).toBeNull();
-
-        await openTab('description');
+        // The first change opens the successor draft, copied from the version on screen. Nothing
+        // is written to the frozen one: the server refuses that write.
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-new-draft'));
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-recipe-name-en-input'),
+                'Freekeh bowls',
+            );
         });
-
-        // The successor is asked for, copied from the version on screen. Nothing is written to the
-        // frozen one: the server refuses that write, and a write with no fields is never sent at
-        // all — which is how this button used to announce a draft that did not exist.
         await waitFor(() => {
             expect(repositories.kitchenAdmin.createRecipeVersion).toHaveBeenCalledWith(
                 stored.id,
@@ -2768,12 +2755,14 @@ describe('versions', () => {
             new RegExp(`Draft version ${String(publishedVersion.versionNumber + 1)} is open\\.`),
         );
 
-        // …and the editor rebases onto it: no longer frozen, and editable — the picker is back.
+        // …the editor rebases onto it, and the change carries on into the draft.
         await waitFor(() => {
-            expect(screen.queryByTestId('kitchen-recipe-read-only')).toBeNull();
+            expect(screen.getByTestId('kitchen-recipe-editor-screen-status')).toHaveTextContent(
+                /Draft/,
+            );
         });
-        expect(screen.getByTestId('kitchen-recipe-editor-screen-status')).toHaveTextContent(
-            /Draft/,
+        expect(screen.getByTestId('kitchen-recipe-name-en-input').props.value).toBe(
+            'Freekeh bowls',
         );
         await openTab('production');
         await untilVisible(LINE_PICKER_TRIGGER);
@@ -3328,7 +3317,7 @@ describe('the steps', () => {
         expect(screen.queryByTestId('kitchen-recipe-packaging-coefficients')).toBeNull();
     });
 
-    it('checks the draft in the issue tray before anything is saved', async () => {
+    it('checks the draft beside its sections before anything is saved', async () => {
         await withDeskWidth(async () => {
             await renderStubScreen(<RecipeEditScreen recipe="new" />, {
                 session: kitchenManagerSession(),
@@ -3350,26 +3339,26 @@ describe('the steps', () => {
                 fireEvent.changeText(screen.getByTestId('kitchen-recipe-name-en-input'), 'Hummus');
             });
 
-            await openTab('sheet');
-            await untilVisible('kitchen-recipe-tray');
-
             /*
              * Read off the draft: an English-only name, no lines, and the default one-kilogram yield.
-             * What fails is said quietly in the tray — heads-up, not counted — since nobody has tried
-             * to publish a recipe that does not exist yet; what passes is listed as passed.
+             * What fails is said quietly beside the section it is in — heads-up, since nobody has
+             * tried to publish a recipe that does not exist yet — and counted in the header's checks.
              */
+            await untilVisible('kitchen-recipe-check-languages');
+            expect(screen.getByTestId('kitchen-recipe-check-languages')).toHaveTextContent(
+                /Add the item name in both English and Arabic/,
+            );
+            expect(screen.getByTestId('kitchen-recipe-checks')).toHaveTextContent(/checks/);
+            await openTab('production');
+            await untilVisible('kitchen-recipe-check-costed');
+            expect(screen.getByTestId('kitchen-recipe-check-costed')).toHaveTextContent(
+                /Add at least one raw material on the Production step/,
+            );
+
+            await openTab('sheet');
             expect(
                 screen.getByTestId('kitchen-recipe-sheet-summary-designation-value'),
             ).toHaveTextContent('Hummus');
-            expect(screen.getByTestId('kitchen-recipe-check-languages-label')).toHaveTextContent(
-                'Add the item name in both English and Arabic',
-            );
-            expect(screen.getByTestId('kitchen-recipe-check-costed-label')).toHaveTextContent(
-                'Add at least one raw material on the Production step',
-            );
-            expect(screen.getByTestId('kitchen-recipe-check-yield')).toHaveTextContent(
-                /1 Kg per batch/,
-            );
 
             // Nothing to publish before the first save makes a version: Save draft is the commit.
             expect(screen.queryByTestId('kitchen-recipe-publish')).toBeNull();
@@ -3676,12 +3665,12 @@ describe('costing', () => {
         await openTab('costing');
         await untilVisible('kitchen-recipe-cost-cards');
         expect(screen.getByTestId('kitchen-recipe-cost-cards-production')).toHaveTextContent(
-            /\$2\.0600/,
+            /\$2\.06(?!\d)/,
         );
 
-        // Production is the one card: the Packaging and Total cards went with the per-batch
-        // packaging table. The line keeping the cost back is named — in the issue tray, docked
-        // beside the page at a desk's width, as what stands between this draft and Publish.
+        // The Packaging and Total cards went with the per-batch packaging table. The line keeping
+        // the cost back is named beside the Cost section, as what stands between this draft and
+        // Publish.
         expect(screen.queryByTestId('kitchen-recipe-cost-cards-total')).toBeNull();
         expect(screen.queryByTestId('kitchen-recipe-cost-cards-packaging')).toBeNull();
         await withDeskWidth(async () => {
@@ -3729,11 +3718,15 @@ describe('costing', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await withDeskWidth(async () => {
+            // Beside Raw materials, where the line is — and the header does not say all is well.
+            await openTab('production');
             await untilVisible('kitchen-recipe-issues-uncosted');
             expect(screen.getByTestId('kitchen-recipe-issues-uncosted')).toHaveTextContent(
                 /Not costed: Olive oil/,
             );
-            expect(screen.queryByTestId('kitchen-recipe-tray-clear')).toBeNull();
+            expect(screen.getByTestId('kitchen-recipe-checks')).not.toHaveTextContent(
+                /All checks pass/,
+            );
         });
     });
 
@@ -3868,7 +3861,7 @@ describe('the shelf life', () => {
         });
     });
 
-    it('writes it alone on a published recipe, and keeps the version fields closed', async () => {
+    it('writes it alone on a published recipe, without opening a draft', async () => {
         const publishedVersion = recipeVersion({
             recipeOrdinal: 3,
             overrides: { status: 'published', publishedAt: '2026-08-02T09:00:00.000Z' },
@@ -3895,14 +3888,14 @@ describe('the shelf life', () => {
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         const save = () => screen.getByTestId('kitchen-recipe-editor-screen-save');
-        // Nothing to write yet, and every version field is closed. Save is in the header.
+        // Nothing to write yet. Save is in the header.
         expect(save().props.accessibilityState.disabled).toBe(true);
 
-        // On Production, beside the yield: the version's waste is closed, the recipe's shelf life
-        // is not.
+        // On Production, beside the yield: a published version opens editable (board v2), and the
+        // recipe's own shelf life is one more field there.
         await openTab('production');
         await untilVisible('kitchen-recipe-waste-input');
-        expect(screen.getByTestId('kitchen-recipe-waste-input').props.editable).toBe(false);
+        expect(screen.getByTestId('kitchen-recipe-waste-input').props.editable).toBe(true);
 
         await untilVisible('kitchen-recipe-expiry-input');
         expect(screen.getByTestId('kitchen-recipe-expiry-input').props.editable).toBe(true);
@@ -3917,13 +3910,15 @@ describe('the shelf life', () => {
             fireEvent.press(save());
         });
 
-        // The recipe's field and its lock version, and nothing that would reach the version.
+        // The recipe's field and its lock version, and nothing that would reach the version — the
+        // shelf life is the recipe's, so changing it alone opens no draft.
         await waitFor(() => {
             expect(repositories.kitchenAdmin.updateRecipe).toHaveBeenCalledWith(stored.id, {
                 lockVersion: 4,
                 shelfLifeDays: 7,
             });
         });
+        expect(repositories.kitchenAdmin.createRecipeVersion).not.toHaveBeenCalled();
     });
 
     it('flags a value that is not a whole number of days the recipe can hold', async () => {
@@ -4391,10 +4386,13 @@ describe('publishing', () => {
             });
         });
 
-        // …and the editor rebases onto the answer: a published version is immutable, so the header
-        // says it is read only and the only control left is the successor draft.
-        await untilVisible('kitchen-recipe-read-only');
-        expect(screen.getByTestId('kitchen-recipe-new-draft')).toBeTruthy();
+        // …and the editor rebases onto the answer: published, nothing left to publish, and still
+        // open to edit — the next change opens the next draft (board v2).
+        await waitFor(() => {
+            expect(screen.queryByTestId('kitchen-recipe-publish')).toBeNull();
+        });
+        expect(screen.queryByTestId('kitchen-recipe-read-only')).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-new-draft')).toBeNull();
         await waitFor(() => {
             // The editor's header badge takes the Catalogue's short status vocabulary, the same
             // one its lists use — which now reads "Published" on both.
@@ -4804,37 +4802,42 @@ describe('safety', () => {
         });
     });
 
-    it('asks before throwing away an unsaved line', async () => {
+    it('asks before throwing away an unsaved line, and stays on the page', async () => {
         const stored = recipe({ ordinal: 7, name: 'Discard me' });
 
-        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
-            session: kitchenManagerSession(),
-            repositories: { kitchenAdmin: editorReads(() => stored) },
-        });
+        await renderStubScreen(
+            <DiscardBoundary>
+                <RecipeEditScreen recipe={String(stored.id)} />
+            </DiscardBoundary>,
+            {
+                session: kitchenManagerSession(),
+                repositories: { kitchenAdmin: editorReads(() => stored) },
+            },
+        );
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
         await untilVisible(LINE_PICKER_TRIGGER);
-        // An unsaved *line*, specifically: the guard has to fire for a section the header's own
-        // fields know nothing about, which is exactly the edit a person is most likely to lose.
+        const before = screen.queryAllByTestId(LINE_ROWS).length;
+        // An unsaved *line*, specifically: Discard has to see a section the header's own fields
+        // know nothing about, which is exactly the edit a person is most likely to lose.
         await addLine(String(UNMAPPED_INGREDIENT.id));
 
-        // Cancel is the way out now — the header is the design's Cancel, and Back went with the
-        // two-pane frame. It routes through the same guard.
+        // Discard sits beside Save and Publish (board v2), and asks first.
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-discard'));
         });
+        await untilVisible('kitchen-recipe-editor-screen-discard-dialog');
 
-        await untilVisible('kitchen-recipe-editor-screen-unsaved-dialog');
-        expect(routerMock.__back).not.toHaveBeenCalled();
-
-        // Back a step, like the browser's own arrow — to the list as it was left, not a fresh one.
+        // Back to the saved version, on the same page — nothing navigates.
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-unsaved-discard'));
+            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-discard-confirm'));
         });
+        await openTab('production');
         await waitFor(() => {
-            expect(routerMock.__back).toHaveBeenCalledTimes(1);
+            expect(screen.queryAllByTestId(LINE_ROWS)).toHaveLength(before);
         });
+        expect(routerMock.__back).not.toHaveBeenCalled();
         expect(routerMock.__push).not.toHaveBeenCalled();
     });
 });
@@ -5420,29 +5423,23 @@ describe('adding an ingredient from the line picker', () => {
             },
             { timeout: 10000 },
         );
-        // Even then, what the draft owes is gathered a render after the read lands, and a press
-        // before that opens the publish dialog as for a draft that owes nothing. Such a press is
-        // closed and made again until the notice answers it.
+        // Owed by the draft on screen: Publish stays off, and what it owes is named beside Raw
+        // materials, where the line is (board v2).
         await waitFor(
             () => {
-                if (screen.queryByTestId('kitchen-recipe-publish-dialog') !== null) {
-                    fireEvent.press(screen.getByTestId('kitchen-recipe-publish-cancel'));
-                }
-                if (screen.queryByTestId('kitchen-recipe-tray-blocked') === null) {
-                    fireEvent.press(screen.getByTestId('kitchen-recipe-publish'));
-                }
-                expect(screen.getByTestId('kitchen-recipe-tray-blocked')).toBeTruthy();
+                expect(
+                    screen.getByTestId('kitchen-recipe-publish').props.accessibilityState.disabled,
+                ).toBe(true);
             },
             { timeout: 10000 },
         );
-
-        // Owed by the draft on screen, so the notice says it rather than the publish dialog.
-        expect(screen.getByTestId('kitchen-recipe-tray-blocked-title')).toHaveTextContent(
-            '1 thing before publishing',
-        );
-        expect(screen.getByTestId('kitchen-recipe-tray-blocked-list')).toHaveTextContent(
-            /Sumac needs its nutrition confirmed/,
-        );
+        await openTab('production');
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-recipe-lines-fixes')).toHaveTextContent(
+                /Sumac needs its nutrition confirmed/,
+            );
+        });
+        fireEvent.press(screen.getByTestId('kitchen-recipe-publish'));
         expect(screen.queryByTestId('kitchen-recipe-publish-dialog')).toBeNull();
     });
 });

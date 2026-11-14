@@ -1829,6 +1829,7 @@ function ProductEditor({
                     </Inline>
                 ) : (
                     <CataloguePageHeader
+                        titleLook="board"
                         testID="kitchen-product-editor-screen-header"
                         titleTestID="kitchen-product-editor-screen-title"
                         title={title}

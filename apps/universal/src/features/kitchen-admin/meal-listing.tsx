@@ -982,7 +982,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
     const listingGroup = {
         key: 'selling',
         title: t('kitchen:recipes.tabSelling'),
-        items: listingCards,
+        items: listingCards.map((card) => ({ ...card, anchor: listingIssueAnchor(card.key) })),
         testID: 'kitchen-meal-issues',
     };
     const inHostTray = useIssueGroup(listingGroup, { passed: listingPassed });
@@ -1758,4 +1758,16 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
             {editor}
         </IssueTrayFrame>
     );
+}
+
+/** The listing section a card belongs to, for a host whose issue tray is inline. */
+function listingIssueAnchor(key: string): string | undefined {
+    if (key === 'gate-name') return 'kitchen-meal-details';
+    if (key === 'gate-serviceDays' || key === 'availability-error')
+        return 'kitchen-meal-availability';
+    if (key === 'gate-stock') return 'kitchen-meal-production';
+    if (key.startsWith('diet-clash-')) return 'kitchen-meal-types-section';
+    if (key === 'packs-no_selling_place') return 'kitchen-packs-places';
+    if (key.startsWith('packs-')) return 'kitchen-packs-packs';
+    return undefined;
 }

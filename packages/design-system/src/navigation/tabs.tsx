@@ -10,7 +10,7 @@ import { cx } from '../internal/class-names.ts';
 import { KEYS, keyDownProps } from '../internal/web-props.ts';
 import type { WebKeyEvent } from '../internal/web-props.ts';
 
-export const TABS_VARIANTS = ['underline', 'segmented', 'steps', 'strip'] as const;
+export const TABS_VARIANTS = ['underline', 'segmented', 'steps', 'strip', 'pills'] as const;
 export type TabsVariant = (typeof TABS_VARIANTS)[number];
 
 export interface TabItem<T extends string = string> {
@@ -70,11 +70,21 @@ export interface TabsProps<T extends string = string> {
     readonly testID?: string | undefined;
 }
 
+/**
+ * `pills` is the recipe editor's opening as its board draws it (v2): a raised track with a hairline,
+ * equal 40px tabs with a 12px corner, the open one on the brand's subtle fill. Numbered like
+ * `steps`, and its problem count is an amber pill rather than a solid one.
+ */
+const PILLS_LIST =
+    'flex-row items-stretch gap-1 rounded-2xl border border-stroke-subtle bg-surface-raised p-1';
+const PILLS_TAB = 'h-10 min-w-0 flex-row items-center justify-center gap-1.5 rounded-xl px-3';
+
 const COMFORTABLE_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
     underline: 'flex-row flex-wrap items-end gap-1 border-b border-stroke-subtle',
     segmented: 'flex-row flex-wrap items-stretch gap-1 rounded-lg bg-surface-sunken p-1',
     steps: 'flex-row flex-wrap items-stretch gap-1 rounded-lg border border-stroke-subtle bg-surface-sunken p-1',
     strip: 'flex-row flex-wrap items-stretch gap-1 self-start rounded-2xl bg-surface-sunken p-1',
+    pills: PILLS_LIST,
 };
 
 /**
@@ -97,6 +107,7 @@ const COMPACT_LIST_VARIANT: Readonly<Record<TabsVariant, string>> = {
      */
     steps: 'flex-row flex-wrap items-stretch gap-hair rounded-md border border-stroke-subtle bg-surface-sunken p-hair',
     strip: 'flex-row flex-wrap items-stretch gap-1 self-start rounded-2xl bg-surface-sunken p-1',
+    pills: PILLS_LIST,
 };
 
 const LIST_VARIANT: Readonly<Record<Density, Readonly<Record<TabsVariant, string>>>> = {
@@ -109,6 +120,7 @@ const COMFORTABLE_TAB_VARIANT: Readonly<Record<TabsVariant, string>> = {
     segmented: 'min-h-touch flex-row items-center justify-center gap-2 rounded-md px-3 py-2',
     steps: 'min-h-touch min-w-0 flex-row items-center justify-start gap-2 rounded-md px-3 py-2',
     strip: 'h-10 flex-row items-center justify-center gap-2 rounded-xl px-[18px]',
+    pills: PILLS_TAB,
 };
 
 const COMPACT_TAB_VARIANT: Readonly<Record<TabsVariant, string>> = {
@@ -117,6 +129,7 @@ const COMPACT_TAB_VARIANT: Readonly<Record<TabsVariant, string>> = {
     segmented: 'h-7 flex-row items-center justify-center gap-control-sm rounded-[9px] px-[11px]',
     steps: 'h-control-lg min-w-0 flex-row items-center justify-start gap-control-sm rounded px-control-sm',
     strip: 'h-10 flex-row items-center justify-center gap-2 rounded-xl px-[18px]',
+    pills: PILLS_TAB,
 };
 
 const TAB_VARIANT: Readonly<Record<Density, Readonly<Record<TabsVariant, string>>>> = {
@@ -132,6 +145,7 @@ const TAB_SELECTED: Readonly<Record<TabsVariant, string>> = {
     // The open step is a raised card on the sunken track; the numbered dot carries the brand.
     steps: 'border border-stroke bg-surface-raised shadow-elevation-card',
     strip: 'border border-transparent bg-surface-raised shadow-elevation-1',
+    pills: 'border border-transparent bg-surface-brand-subtle',
 };
 
 const TAB_UNSELECTED: Readonly<Record<TabsVariant, string>> = {
@@ -141,6 +155,7 @@ const TAB_UNSELECTED: Readonly<Record<TabsVariant, string>> = {
     segmented: 'border border-transparent bg-transparent',
     steps: 'border border-transparent bg-transparent',
     strip: 'border border-transparent bg-transparent',
+    pills: 'border border-transparent bg-transparent',
 };
 
 /**
@@ -228,7 +243,8 @@ export function Tabs<T extends string = string>({
             {items.map((item, index) => {
                 const selected = item.value === value;
                 const disabled = item.disabled === true;
-                const steps = variant === 'steps';
+                const pills = variant === 'pills';
+                const steps = variant === 'steps' || pills;
                 const issues =
                     steps && item.issues !== undefined && item.issues.count > 0
                         ? item.issues
@@ -272,7 +288,9 @@ export function Tabs<T extends string = string>({
                                     'h-5 w-5 shrink-0 items-center justify-center rounded-full border',
                                     selected
                                         ? 'border-transparent bg-surface-brand'
-                                        : 'border-stroke-subtle bg-surface-raised',
+                                        : pills
+                                          ? 'border-transparent bg-surface-sunken'
+                                          : 'border-stroke-subtle bg-surface-raised',
                                 )}
                             >
                                 <RNText
@@ -303,14 +321,20 @@ export function Tabs<T extends string = string>({
                         <RNText
                             numberOfLines={1}
                             className={cx(
-                                steps ? 'min-w-0 flex-1 text-start' : 'text-center',
-                                density === 'compact'
-                                    ? variant === 'segmented' || variant === 'strip'
-                                        ? 'text-[13px] font-semibold'
-                                        : 'text-role-label'
-                                    : 'text-sm',
+                                pills
+                                    ? 'shrink text-center'
+                                    : steps
+                                      ? 'min-w-0 flex-1 text-start'
+                                      : 'text-center',
+                                pills
+                                    ? 'text-sm font-semibold'
+                                    : density === 'compact'
+                                      ? variant === 'segmented' || variant === 'strip'
+                                          ? 'text-[13px] font-semibold'
+                                          : 'text-role-label'
+                                      : 'text-sm',
                                 selected
-                                    ? variant === 'segmented'
+                                    ? variant === 'segmented' || pills
                                         ? 'font-semibold text-content-on-brand-subtle'
                                         : 'font-semibold text-content-primary'
                                     : 'text-content-secondary',
@@ -358,18 +382,30 @@ export function Tabs<T extends string = string>({
                                     item.testID === undefined ? undefined : `${item.testID}-issues`
                                 }
                                 className={cx(
-                                    'h-4 min-w-4 items-center justify-center rounded-full px-1',
-                                    issues.tone === 'danger'
-                                        ? 'bg-danger-strong'
-                                        : 'bg-warning-strong',
+                                    pills
+                                        ? 'h-[18px] min-w-[18px] items-center justify-center rounded-full px-[5px]'
+                                        : 'h-4 min-w-4 items-center justify-center rounded-full px-1',
+                                    pills
+                                        ? issues.tone === 'danger'
+                                            ? 'bg-danger-subtle'
+                                            : 'bg-warning-subtle'
+                                        : issues.tone === 'danger'
+                                          ? 'bg-danger-strong'
+                                          : 'bg-warning-strong',
                                 )}
                             >
                                 <RNText
                                     className={cx(
-                                        'tabular-nums text-role-micro',
-                                        issues.tone === 'danger'
-                                            ? 'text-danger-on-strong'
-                                            : 'text-warning-on-strong',
+                                        pills
+                                            ? 'text-[11px] font-bold tabular-nums'
+                                            : 'tabular-nums text-role-micro',
+                                        pills
+                                            ? issues.tone === 'danger'
+                                                ? 'text-danger-on-subtle'
+                                                : 'text-warning-on-subtle'
+                                            : issues.tone === 'danger'
+                                              ? 'text-danger-on-strong'
+                                              : 'text-warning-on-strong',
                                     )}
                                 >
                                     {String(issues.count)}

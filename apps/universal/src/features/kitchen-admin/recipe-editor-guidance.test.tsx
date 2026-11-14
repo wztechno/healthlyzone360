@@ -9,6 +9,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { IngredientId, KitchenId, RecipeId } from '@healthy360/domain-types';
 import type { RecipeVersionId } from '@healthy360/domain-types';
+import { FormSection } from '@healthy360/design-system';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
@@ -19,6 +20,7 @@ import { withDeskWidth } from '../../testing/desk-width.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { focusField } from './field-focus.ts';
+import { DiscardBoundary } from './save-bar.tsx';
 import { EMPTY_PACKS_DRAFT, EMPTY_PACKS_REPORT, packsIssuesOf } from './packs-prices-section.tsx';
 import type { PacksDraft, PacksTab } from './packs-prices-section.tsx';
 import {
@@ -284,10 +286,15 @@ function renderEditor(
     record: () => RecipeAdmin,
     writes: Record<string, unknown> = {},
 ) {
-    return renderStubScreen(<RecipeEditScreen recipe={String(RECIPE_ID)} {...props} />, {
-        session: kitchenManagerSession(),
-        repositories: { kitchenAdmin: { ...reads(record), ...writes } },
-    });
+    return renderStubScreen(
+        <DiscardBoundary>
+            <RecipeEditScreen recipe={String(RECIPE_ID)} {...props} />
+        </DiscardBoundary>,
+        {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: { ...reads(record), ...writes } },
+        },
+    );
 }
 
 const RETURN_TO = '/kitchen/consumption-exceptions?reason=unquantified_recipe_line&page=2';
@@ -619,16 +626,13 @@ describe('a recipe opened from a stock gap', () => {
             expect(repositories.kitchenAdmin.publishRecipe).toHaveBeenCalledTimes(1);
         });
 
-        // The card ticks and goes; the tray says it is done and offers the way back.
+        // The card ticks and goes.
         await waitFor(
             () => {
-                expect(screen.getByTestId('kitchen-recipe-tray-clear')).toHaveTextContent(
-                    /Fixed and published\. Retry the stock gap next\./,
-                );
+                expect(screen.queryByTestId('kitchen-recipe-stock-gap')).toBeNull();
             },
             { timeout: 5000 },
         );
-        expect(screen.queryByTestId('kitchen-recipe-stock-gap')).toBeNull();
         // Published: nothing is left to lose, so Continue has nothing to keep.
         expect(readActiveProcess()).toBeNull();
         expect(screen.queryByTestId('kitchen-recipe-yield-pieces-error')).toBeNull();
@@ -640,7 +644,7 @@ describe('a recipe opened from a stock gap', () => {
         await untilVisible('kitchen-recipe-published-toast-reopen');
     });
 
-    it('opens a draft from a published version, from the card', async () => {
+    it('opens a draft once a published version is changed, from the card', async () => {
         const published = version({
             status: 'published',
             publishedAt: '2026-08-03T09:00:00.000Z',
@@ -655,9 +659,14 @@ describe('a recipe opened from a stock gap', () => {
             { createRecipeVersion: async () => stored },
         );
 
-        await untilVisible('kitchen-recipe-stock-gap-new-draft');
+        // A published version opens editable (board v2): the card takes the reader to the field,
+        // and the first change opens the next draft from the live one.
+        await untilVisible('kitchen-recipe-stock-gap-field');
+        expect(screen.queryByTestId('kitchen-recipe-stock-gap-new-draft')).toBeNull();
         expect(screen.queryByTestId('kitchen-recipe-stock-gap-publish')).toBeNull();
-        await press('kitchen-recipe-stock-gap-new-draft');
+        await press('kitchen-recipe-stock-gap-field');
+        expect(isSelected('production')).toBe(true);
+        await type('kitchen-recipe-yield-pieces-input', '12');
         await waitFor(() => {
             expect(repositories.kitchenAdmin.createRecipeVersion).toHaveBeenCalledWith(
                 RECIPE_ID,
@@ -673,9 +682,8 @@ describe('a recipe opened from a stock gap', () => {
         expect(isSelected('description')).toBe(true);
         expect(screen.queryByTestId('kitchen-recipe-stock-gap')).toBeNull();
 
-        // Cancel still goes back to where it came from.
-        await press('kitchen-recipe-editor-screen-discard');
-        expect(routerMock.__dismissTo).toHaveBeenCalledWith(RETURN_TO);
+        // Nothing to throw away, so no Discard; the trail is the way back.
+        expect(screen.queryByTestId('kitchen-recipe-editor-screen-discard')).toBeNull();
     });
 
     it('takes a refused optional field’s card to its tab, from any other', async () => {
@@ -728,15 +736,15 @@ describe('leaving the recipe with unsaved work', () => {
         );
     });
 
-    it('keeps nothing once the reader discards it with Cancel', async () => {
+    it('keeps nothing once the reader discards it', async () => {
         const stored = recipe();
         const first = await renderEditor({ returnTo: RETURN_TO }, () => stored);
 
         await untilVisible('kitchen-recipe-name-en-input');
         await type('kitchen-recipe-name-en-input', 'Burghul salad, extra lemon');
         await press('kitchen-recipe-editor-screen-discard');
-        await untilVisible('kitchen-recipe-editor-screen-unsaved-dialog');
-        await press('kitchen-recipe-editor-screen-unsaved-discard');
+        await untilVisible('kitchen-recipe-editor-screen-discard-dialog');
+        await press('kitchen-recipe-editor-screen-discard-confirm');
         await act(async () => {
             first.view.unmount();
         });
@@ -762,7 +770,17 @@ function packsTab(draft: PacksDraft): PacksTab {
     return {
         report: { ...EMPTY_PACKS_REPORT, draft, issues: packsIssuesOf(draft) },
         save: async () => true,
-        render: () => null,
+        // The two sections the inline checks sit beside, and nothing else of the real section.
+        render: () => (
+            <>
+                <FormSection testID="kitchen-packs-places" title="Where it sells">
+                    {null}
+                </FormSection>
+                <FormSection testID="kitchen-packs-packs" title="Packs">
+                    {null}
+                </FormSection>
+            </>
+        ),
     };
 }
 

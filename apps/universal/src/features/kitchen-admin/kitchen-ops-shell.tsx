@@ -1,4 +1,4 @@
-import { DensityProvider } from '@healthy360/design-system';
+import { DensityProvider, SectionLook } from '@healthy360/design-system';
 import type { MenuItem, NavigationItem } from '@healthy360/design-system';
 import { useGlobalSearchParams, usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
@@ -324,14 +324,17 @@ export function KitchenTrail({ crumbs }: { readonly crumbs: readonly KitchenCrum
 export function KitchenOpsShell({ children }: KitchenOpsShellProps) {
     return (
         <DensityProvider value="compact">
-            <View testID="kitchen-ops-shell" className="min-h-0 flex-1">
-                <View testID="kitchen-ops-content" className="min-h-0 min-w-0 flex-1">
-                    {/* The save bar's Discard draws the page afresh from its saved record. */}
-                    <DiscardBoundary>{children}</DiscardBoundary>
+            {/* Every kitchen page draws its cards, chips and pickers as the recipe board does. */}
+            <SectionLook look="board">
+                <View testID="kitchen-ops-shell" className="min-h-0 flex-1">
+                    <View testID="kitchen-ops-content" className="min-h-0 min-w-0 flex-1">
+                        {/* The save bar's Discard draws the page afresh from its saved record. */}
+                        <DiscardBoundary>{children}</DiscardBoundary>
+                    </View>
+                    {/* Last in the content, so it can stick to the foot of the scroll port. */}
+                    <SaveBarSlot />
                 </View>
-                {/* Last in the content, so it can stick to the foot of the scroll port. */}
-                <SaveBarSlot />
-            </View>
+            </SectionLook>
         </DensityProvider>
     );
 }

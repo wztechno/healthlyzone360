@@ -20,6 +20,7 @@ import {
     DeskCheckbox,
     DeskColumnPicker,
     DeskDateButton,
+    DeskPicker,
     DeskRowMenu,
     DeskSelect,
     DeskTabs,
@@ -407,6 +408,41 @@ export function OrdersShowcaseScreen() {
                                 { value: 'lunch', label: 'Lunch' },
                                 { value: 'dinner', label: 'Dinner' },
                             ]}
+                        />
+                        {/* The add picker: a long list you pick from, filtered, with "add it" when nothing matches. */}
+                        <DeskPicker
+                            testID="showcase-orders-add-picker"
+                            label="Add an ingredient"
+                            placeholder="Add an ingredient…"
+                            options={[
+                                {
+                                    value: 'burghul',
+                                    label: 'Burghul',
+                                    description: 'Grains · 2.40 USD',
+                                    section: 'Raw materials',
+                                },
+                                {
+                                    value: 'sumac',
+                                    label: 'Sumac',
+                                    description: 'Spices · 9.00 USD',
+                                    section: 'Raw materials',
+                                },
+                                {
+                                    value: 'tahini-sauce',
+                                    label: 'Tahini sauce',
+                                    description: 'Preparation · 4.10 USD',
+                                    section: 'Preparations',
+                                },
+                            ]}
+                            onChange={() => undefined}
+                            noResultsAction={(typed, close) => (
+                                <DeskButton
+                                    testID="showcase-orders-add-picker-new"
+                                    variant="quiet"
+                                    label={`Add "${typed}" as new`}
+                                    onPress={close}
+                                />
+                            )}
                         />
                         <MiniMonthPicker
                             testID="showcase-orders-month"

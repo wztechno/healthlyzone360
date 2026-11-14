@@ -1,7 +1,9 @@
+import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { Text as RNText, View } from 'react-native';
 
 import { InfoTip } from '../overlays/info-tip.tsx';
+import { IssueAnchor } from '../issues/issue-anchor.tsx';
 import { Separator } from '../primitives/separator.tsx';
 import { cx } from '../internal/class-names.ts';
 
@@ -69,6 +71,39 @@ export interface FormSectionProps {
     readonly testID?: string | undefined;
 }
 
+/**
+ * A screen that is drawn from its own board can ask every card section inside it to take the
+ * board's look — `board`: an 18px corner, a hairline and no cast, a 15px bold title with no rule
+ * under it, and 14px before the content — without the parts it hosts (a listing, the packs) having
+ * to know. Only `card` and `panel` sections change; everywhere else nothing does.
+ */
+const SectionLookContext = createContext<'board' | null>(null);
+
+/**
+ * True inside a board section's title row: a `label` badge there is drawn as the board's title
+ * chip (26px, round, 12px bold) rather than the 16px tag it is in a table.
+ */
+const TitleAsideContext = createContext(false);
+
+export function useInTitleAside(): boolean {
+    return useContext(TitleAsideContext);
+}
+
+/** The look the surrounding screen asked for, or `null`. */
+export function useSectionLook(): 'board' | null {
+    return useContext(SectionLookContext);
+}
+
+export function SectionLook({
+    look,
+    children,
+}: {
+    readonly look: 'board';
+    readonly children: ReactNode;
+}) {
+    return <SectionLookContext.Provider value={look}>{children}</SectionLookContext.Provider>;
+}
+
 export function FormSection({
     title,
     description,
@@ -82,9 +117,11 @@ export function FormSection({
     nativeID,
     testID,
 }: FormSectionProps) {
-    const card = variant === 'card';
+    const board =
+        useContext(SectionLookContext) === 'board' && (variant === 'card' || variant === 'panel');
+    const card = variant === 'card' && !board;
     // The admin canvas's flat card: no cast, no rule under the title, a heavier title.
-    const panel = variant === 'panel';
+    const panel = variant === 'panel' && !board;
     const ruled = variant === 'ruled';
     const underlined = variant === 'underlined' || card;
 
@@ -98,6 +135,9 @@ export function FormSection({
             className={cx(
                 'z-auto flex-col',
                 panel ? 'rounded-[18px] border border-stroke-subtle bg-surface-raised p-4' : null,
+                board
+                    ? 'rounded-[18px] border border-stroke-subtle bg-surface-raised px-[18px] py-4'
+                    : null,
                 card
                     ? 'rounded border border-stroke-subtle bg-surface-raised p-base shadow-elevation-card'
                     : null,
@@ -106,11 +146,13 @@ export function FormSection({
                 className,
             )}
         >
-            {first || underlined || panel || ruled ? null : <Separator className="mb-loose" />}
+            {first || underlined || panel || ruled || board ? null : (
+                <Separator className="mb-loose" />
+            )}
 
             <View
                 className={cx(
-                    'mb-snug flex-col gap-hair',
+                    board ? 'mb-[14px] flex-col gap-hair' : 'mb-snug flex-col gap-hair',
                     underlined ? 'border-b border-stroke-subtle pb-1.5' : null,
                 )}
             >
@@ -126,8 +168,11 @@ export function FormSection({
                             testID={testID === undefined ? undefined : `${testID}-title`}
                             accessibilityRole="header"
                             aria-level={3}
+                            {...(board ? { dataSet: { face: 'body' } } : {})}
                             className={cx(
-                                panel || ruled ? 'text-[15px] font-bold' : 'text-role-section',
+                                panel || ruled || board
+                                    ? 'text-[15px] font-bold'
+                                    : 'text-role-section',
                                 'text-content-primary text-start',
                             )}
                         >
@@ -147,7 +192,20 @@ export function FormSection({
                                 />
                             </View>
                         )}
-                        {aside}
+                        {board ? (
+                            <TitleAsideContext.Provider value={true}>
+                                {aside}
+                            </TitleAsideContext.Provider>
+                        ) : (
+                            aside
+                        )}
+                        {/*
+                         * On a page whose issue tray is inline, the problems this section holds
+                         * are drawn here, beside its title — matched on the section's testID.
+                         */}
+                        {testID === undefined ? null : (
+                            <IssueAnchor anchor={testID} testID={`${testID}-fixes`} />
+                        )}
                     </View>
                     {actions}
                 </View>

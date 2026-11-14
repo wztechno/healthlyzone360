@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10764 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10773 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -7595,6 +7595,10 @@ export interface NamespaceKeys {
     | 'recipes.checkYield'
     | 'recipes.checkYieldMissing'
     | 'recipes.checkYieldOk'
+    | 'recipes.checksAllPass'
+    | 'recipes.checksCount'
+    | 'recipes.checksNextFix'
+    | 'recipes.checksNextFixLabel'
     | 'recipes.coefficientsHint'
     | 'recipes.columnAllergens'
     | 'recipes.columnKind'
@@ -7609,11 +7613,15 @@ export interface NamespaceKeys {
     | 'recipes.compositionHint'
     | 'recipes.confidential'
     | 'recipes.confidentialHint'
+    | 'recipes.costBatchTitle'
     | 'recipes.costCascadeHint'
+    | 'recipes.costPackTitle'
     | 'recipes.costPerPieceWithWaste'
     | 'recipes.costPerUnit'
     | 'recipes.costProduction'
+    | 'recipes.costRawMaterials'
     | 'recipes.costTotal'
+    | 'recipes.costUnitTitle'
     | 'recipes.costWithWaste'
     | 'recipes.create'
     | 'recipes.createAction'
@@ -7641,6 +7649,7 @@ export interface NamespaceKeys {
     | 'recipes.kindPreparations'
     | 'recipes.kitchenFilterAll'
     | 'recipes.kitchenFilterLabel'
+    | 'recipes.kitchenNameLabel'
     | 'recipes.kitchenOnly'
     | 'recipes.kitchenOnlyHint'
     | 'recipes.lineCount'
@@ -18377,6 +18386,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.checkYield',
   'kitchen:recipes.checkYieldMissing',
   'kitchen:recipes.checkYieldOk',
+  'kitchen:recipes.checksAllPass',
+  'kitchen:recipes.checksCount',
+  'kitchen:recipes.checksNextFix',
+  'kitchen:recipes.checksNextFixLabel',
   'kitchen:recipes.coefficientsHint',
   'kitchen:recipes.columnAllergens',
   'kitchen:recipes.columnKind',
@@ -18391,11 +18404,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.compositionHint',
   'kitchen:recipes.confidential',
   'kitchen:recipes.confidentialHint',
+  'kitchen:recipes.costBatchTitle',
   'kitchen:recipes.costCascadeHint',
+  'kitchen:recipes.costPackTitle',
   'kitchen:recipes.costPerPieceWithWaste',
   'kitchen:recipes.costPerUnit',
   'kitchen:recipes.costProduction',
+  'kitchen:recipes.costRawMaterials',
   'kitchen:recipes.costTotal',
+  'kitchen:recipes.costUnitTitle',
   'kitchen:recipes.costWithWaste',
   'kitchen:recipes.create',
   'kitchen:recipes.createAction',
@@ -18423,6 +18440,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.kindPreparations',
   'kitchen:recipes.kitchenFilterAll',
   'kitchen:recipes.kitchenFilterLabel',
+  'kitchen:recipes.kitchenNameLabel',
   'kitchen:recipes.kitchenOnly',
   'kitchen:recipes.kitchenOnlyHint',
   'kitchen:recipes.lineCount',

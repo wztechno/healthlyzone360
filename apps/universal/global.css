@@ -100,6 +100,16 @@ html:lang(en-XA) .font-display * {
     font-family: var(--h360-font-family-display);
 }
 
+/* A heading the board sets in the body face (Inter) — a card's title is an h3 for the reader of
+   the page, but the board draws it like the rest of the card. Outranks the rule above; Arabic keeps
+   its own face. */
+html:lang(en) [data-face='body'],
+html:lang(en) [data-face='body'] *,
+html:lang(en-XA) [data-face='body'],
+html:lang(en-XA) [data-face='body'] * {
+    font-family: var(--h360-font-family-latin);
+}
+
 html:lang(ar) * {
     font-family: var(--h360-font-family-arabic);
 }

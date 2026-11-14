@@ -9,7 +9,7 @@ import {
     Text,
     useToast,
 } from '@healthy360/design-system';
-import type { IssueTrayContent, MenuItem } from '@healthy360/design-system';
+import type { MenuItem } from '@healthy360/design-system';
 import { RECIPE_KINDS } from '@healthy360/api-client/contracts';
 import type {
     PublishableStatus,
@@ -73,7 +73,6 @@ import {
 } from '../catalogue/recipe-columns.tsx';
 import type { RecipeListState, RecipeSortKey } from '../catalogue/use-recipe-list.ts';
 import { useRecipeList } from '../catalogue/use-recipe-list.ts';
-import { UnformulatedItems } from '../catalogue/unformulated-items.tsx';
 import {
     RECIPE_STATUS_FILTERS,
     channelKey,
@@ -421,26 +420,16 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
     // The empty state offers the tab's own kind, and a preparation on All.
     const emptyKind = list.kind ?? 'preparation';
 
-    // The book's issue tray. What it holds — the items on the menu with no recipe — registers itself.
-    const trayContent: IssueTrayContent = {
-        title: t('kitchen:tray.title'),
-        testID: 'kitchen-recipes-tray',
-        // A list page has no "done" to show: the tray appears only while it has something.
-        hideWhenClear: true,
-        groups: [],
-    };
-
     return (
-        <IssueTrayFrame tray={trayContent}>
+        // No "To fix" on the recipe book (2026-11-14): the items on the menu with no recipe are not
+        // listed here any more.
+        <IssueTrayFrame tray={null}>
             <Cascade space="md" testID="kitchen-recipes-screen">
                 {/*
                  * The Lens bar — figures, mix, query row and actions as one object directly over the
                  * list it narrows (`lens-bar.tsx`). It replaced the stat cards, the toolbar and the
                  * kind strip; the kind is now the query row's scope picker.
                  */}
-                {list.sells ? (
-                    <UnformulatedItems testID="kitchen-recipes-unformulated" kind={list.kind} />
-                ) : null}
 
                 {/* One block, so the toolbar card runs straight on into the table. */}
                 <View className={joined ? 'z-10' : 'z-10 gap-4'}>

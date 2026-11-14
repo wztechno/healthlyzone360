@@ -258,7 +258,7 @@ export function SaveBarSlot() {
             {discard === undefined ? null : (
                 <DeskButton
                     testID={discard.testID}
-                    variant="secondary"
+                    variant="danger"
                     label={discard.label}
                     loading={discard.loading}
                     disabled={discard.disabled}
@@ -309,5 +309,66 @@ export function SaveBarSlot() {
                 }
             />
         </View>
+    );
+}
+
+/**
+ * Discard as a header button, for an editor that keeps its save in its own header instead of the
+ * bar (the recipe editor): the same confirm, the same redraw. Nothing outside a DiscardBoundary.
+ */
+export function DiscardButton({
+    testID,
+    className,
+}: {
+    readonly testID: string;
+    readonly className?: string | undefined;
+}) {
+    const { t } = useTranslation();
+    const discarding = useContext(DiscardContext);
+    const [confirming, setConfirming] = useState(false);
+    if (discarding === undefined) return null;
+    return (
+        <>
+            <DeskButton
+                testID={testID}
+                variant="danger"
+                className={className}
+                label={t('kitchen:saveBar.discard')}
+                onPress={() => {
+                    setConfirming(true);
+                }}
+            />
+            <Dialog
+                look="card"
+                testID={`${testID}-dialog`}
+                open={confirming}
+                onClose={() => {
+                    setConfirming(false);
+                }}
+                title={t('kitchen:saveBar.discardTitle')}
+                description={t('kitchen:saveBar.discardBody')}
+                actions={
+                    <>
+                        <DeskButton
+                            testID={`${testID}-keep`}
+                            variant="secondary"
+                            label={t('kitchen:saveBar.keepEditing')}
+                            onPress={() => {
+                                setConfirming(false);
+                            }}
+                        />
+                        <DeskButton
+                            testID={`${testID}-confirm`}
+                            variant="danger"
+                            label={t('kitchen:saveBar.discard')}
+                            onPress={() => {
+                                setConfirming(false);
+                                discarding.discard();
+                            }}
+                        />
+                    </>
+                }
+            />
+        </>
     );
 }

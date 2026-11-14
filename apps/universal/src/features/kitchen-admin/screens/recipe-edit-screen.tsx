@@ -7,6 +7,7 @@ import type {
     LocalisedText,
     RecipeAdmin,
     RecipeComputedCost,
+    RecipePackCost,
     RecipeLineInput,
     RecipeRollupDraft,
     RecipeVersionAdmin,
@@ -29,6 +30,8 @@ import {
     Inline,
     IssueRevealScope,
     IssueTrayFrame,
+    IssueUnanchored,
+    SectionLook,
     QuantityInput,
     Select,
     Stack,
@@ -56,7 +59,7 @@ import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
 import type { MeasureUnit, NutritionFacts } from '@healthy360/nutrition';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -119,13 +122,14 @@ import { ingredientFixHref, ingredientNeedsById } from '../ingredient-fix.ts';
 import type { HostArchive } from '../host-save.ts';
 import type { IngredientNeed } from '../ingredient-fix.ts';
 import { useFinishDetour } from '../finish-detour.ts';
-import { useBeforeDiscard, useSaveBar } from '../save-bar.tsx';
+import { DiscardButton, useBeforeDiscard } from '../save-bar.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { CostCard } from '../cost-card.tsx';
 import {
     PackCostTable,
     PacksHostContext,
     massKg,
+    packCostRows,
     packsIssueLabel,
     packsIssuesFromRefusal,
 } from '../packs-prices-section.tsx';
@@ -147,6 +151,7 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { UnsavedDialog } from '../record-form-opening.tsx';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { InlineChecksButton } from '../inline-checks-button.tsx';
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/recipes/{recipe}` — the recipe editor, as `Catalogue.dc.html` draws it (`isRecipeEdit`,
@@ -586,7 +591,10 @@ export interface RecipeEditScreenProps {
      * language of notes at most, which is why it is not read back off `recipe`.
      */
     readonly onCreated?:
-        | ((recipe: RecipeAdmin, listing: { readonly description: LocalisedText }) => void)
+        | ((
+              recipe: RecipeAdmin,
+              listing: { readonly description: LocalisedText; readonly name: LocalisedText },
+          ) => void)
         | undefined;
     /**
      * Which reference series this record numbers in. The recipe library's unless a route says
@@ -615,6 +623,8 @@ export interface RecipeEditScreenProps {
         | {
               readonly label: string;
               readonly content: ReactNode;
+              /** The selling item's handle — `SAC-045` — shown as the recipe's ID once it exists. */
+              readonly reference?: string | null | undefined;
               readonly isDirty?: boolean;
               readonly save?: (() => Promise<boolean>) | undefined;
               /** The listing's Archive, drawn in the header's action row while Selling is open. */
@@ -1044,7 +1054,8 @@ function RecipeEditor({
      * is no non-current version to be looking at, so a new recipe is editable on every tab. Its
      * lines are drafted in state and written straight after `createRecipe` answers.
      */
-    const editable = canManage && isEditable;
+    const livePublished = isViewingCurrent && versionStatus === 'published';
+    const editable = canManage && (isEditable || livePublished);
 
     const title = isCreating
         ? initialName === undefined
@@ -1137,16 +1148,6 @@ function RecipeEditor({
     const yieldMass = parseQuantity(details.yieldQuantity);
     const yieldPieces = parseQuantity(details.yieldPieces);
     const rollupPacks = packs?.report.rollup;
-    /*
-     * A meal's sale takes stock off per piece: one portion sold is the recipe divided by its pieces
-     * produced (`MealExplosion`). A recipe sold as a meal with no count turns every order for it into
-     * a stock gap, so the count is owed before it is published — and said from the moment it is
-     * missing, not after the first order fails.
-     */
-    const soldAsMeal =
-        data?.soldAs?.some((seller) => seller.itemType === 'meal') === true ||
-        (isCreating && kind === 'meal');
-    const piecesOwed = soldAsMeal && !(yieldPieces !== null && yieldPieces > 0);
 
     const rollupDraft: RecipeRollupDraft | null = useMemo(
         () =>
@@ -1606,12 +1607,16 @@ function RecipeEditor({
     };
     const serverTargets: Readonly<Record<string, ServerTarget>> = {
         name_en: {
-            label: t('kitchen:bilingual.englishShort', { field: t('kitchen:recipes.columnName') }),
+            label: t('kitchen:bilingual.englishShort', {
+                field: t('kitchen:recipes.kitchenNameLabel'),
+            }),
             fieldId: 'kitchen-recipe-name-en',
             tab: 'description',
         },
         name_ar: {
-            label: t('kitchen:bilingual.arabicShort', { field: t('kitchen:recipes.columnName') }),
+            label: t('kitchen:bilingual.arabicShort', {
+                field: t('kitchen:recipes.kitchenNameLabel'),
+            }),
             fieldId: 'kitchen-recipe-name-ar',
             tab: 'description',
         },
@@ -1813,11 +1818,6 @@ function RecipeEditor({
         }
         if (isTranslationIncomplete(data.name))
             reasons.push({ text: t('kitchen:publish.blockName') });
-        // Read off the saved version, which is what Publish publishes — see `soldAsMeal`.
-        const savedPieces = data.currentVersion.yieldPieces;
-        if (soldAsMeal && !(savedPieces !== null && savedPieces > 0)) {
-            reasons.push({ text: t('kitchen:publish.blockNoPieces') });
-        }
         // The description is no longer edited here (see the docblock), so it is no longer gated on:
         // a blocker with no control on the screen to clear it is a recipe that can never publish.
         if (anyDirty || packsDirty) reasons.push({ text: t('kitchen:publish.blockUnsaved') });
@@ -1862,7 +1862,7 @@ function RecipeEditor({
             });
         }
         return reasons;
-    }, [data, anyDirty, packsDirty, soldAsMeal, ingredients, library, locale, t]);
+    }, [data, anyDirty, packsDirty, ingredients, library, locale, t]);
 
     const unmappedIngredients = useMemo(() => {
         if (data === null || data === undefined) return [] as readonly IngredientAdmin[];
@@ -2024,7 +2024,10 @@ function RecipeEditor({
                         photoSave.reset();
                     }
                     if (onCreated !== undefined) {
-                        onCreated(created, { description: details.description });
+                        onCreated(created, {
+                            description: details.description,
+                            name: created.name,
+                        });
                         return;
                     }
                     router.replace(`/kitchen/recipes/${String(created.id)}` as never);
@@ -2184,6 +2187,37 @@ function RecipeEditor({
         );
     };
 
+    /*
+     * A published recipe opens editable (board v2): the first change to the recipe itself opens
+     * the next draft, which copies the live version, and the change carries on into it — the form
+     * keeps its own state while anything is unsaved, so the refetch does not take the edit back.
+     * Asked once per published version; a refusal says so through the conflict handler.
+     */
+    /*
+     * What belongs to the version, changed: the shelf life is the recipe's own (see the module
+     * note), so a change to it alone is written straight to the recipe and opens no draft.
+     */
+    const versionDirty =
+        linesDirty ||
+        photoDirty ||
+        (detailsDirty &&
+            (data === undefined ||
+                JSON.stringify({ ...details, shelfLifeDays: '' }) !==
+                    JSON.stringify({ ...detailsFrom(data), shelfLifeDays: '' })));
+    const draftAsked = useRef(false);
+    const askForDraft = useEffectEvent(() => {
+        openNewDraft();
+    });
+    useEffect(() => {
+        if (!livePublished) {
+            draftAsked.current = false;
+            return;
+        }
+        if (!canManage || !versionDirty || draftAsked.current || openDraft.isPending) return;
+        draftAsked.current = true;
+        askForDraft();
+    }, [livePublished, canManage, versionDirty, openDraft.isPending]);
+
     /** Back to Stock gaps once the fix is published, telling it the gap was fixed. */
     const finishFix = () => {
         guard.intercept(() => {
@@ -2201,18 +2235,6 @@ function RecipeEditor({
         photoSave.isPending ||
         listingSaving ||
         packsSaving;
-    const barDrawn = useSaveBar({
-        dirty: guard.isDirty,
-        creating: isCreating,
-        save: {
-            testID: 'kitchen-recipe-editor-screen-save',
-            label: t(isEditable ? 'kitchen:common.saveDraft' : 'kitchen:common.save'),
-            loading: recipeWriting,
-            disabled: creatingNow || !canManage || (!isEditable && !shelfLifeChanged && !sideDirty),
-            onPress: attemptSave,
-        },
-        testID: 'kitchen-recipe-editor-screen',
-    });
 
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
 
@@ -2274,7 +2296,9 @@ function RecipeEditor({
      * is about to take. It replaces the summary line that stood under the title: the design keeps
      * the opening to one row, and every figure that line carried is now on the tab that owns it.
      */
-    const headerReference = isCreating ? (nextReference.data ?? '') : (data?.reference ?? '');
+    const headerReference = isCreating
+        ? (nextReference.data ?? '')
+        : (sellsAs?.reference ?? data?.reference ?? '');
     const referenceParts = splitReference(headerReference);
 
     /*
@@ -2298,7 +2322,7 @@ function RecipeEditor({
                 label:
                     entry.key === 'name'
                         ? t('kitchen:bilingual.englishShort', {
-                              field: t('kitchen:recipes.columnName'),
+                              field: t('kitchen:recipes.kitchenNameLabel'),
                           })
                         : entry.key === 'yield'
                           ? t('kitchen:recipes.yieldQuantity')
@@ -2366,7 +2390,7 @@ function RecipeEditor({
                                 key: 'name-ar',
                                 tab: 'description' as const,
                                 label: t('kitchen:bilingual.arabicShort', {
-                                    field: t('kitchen:recipes.columnName'),
+                                    field: t('kitchen:recipes.kitchenNameLabel'),
                                 }),
                                 fieldId: 'kitchen-recipe-name-ar',
                                 onPress: () => {
@@ -2383,19 +2407,6 @@ function RecipeEditor({
                                 label: t('kitchen:recipes.sectionRawMaterials'),
                                 onPress: () => {
                                     goToSection('production', 'kitchen-recipe-lines');
-                                },
-                            },
-                        ]
-                      : []),
-                  ...(piecesOwed
-                      ? [
-                            {
-                                key: 'pieces',
-                                tab: 'production' as const,
-                                label: t('kitchen:recipes.yieldPieces'),
-                                fieldId: 'kitchen-recipe-yield-pieces',
-                                onPress: () => {
-                                    goTo('production', 'kitchen-recipe-yield-pieces');
                                 },
                             },
                         ]
@@ -2490,7 +2501,9 @@ function RecipeEditor({
         {
             key: 'reference',
             label: t('kitchen:list.columnReference'),
-            value: (isCreating ? nextReference.data : data?.reference) ?? noValue,
+            value:
+                (isCreating ? nextReference.data : (sellsAs?.reference ?? data?.reference)) ??
+                noValue,
             mono: true,
         },
         {
@@ -2630,7 +2643,7 @@ function RecipeEditor({
         if (target === 'production') return t('kitchen:recipes.tabProduction');
         if (target === 'packaging') return t('kitchen:packs.tabLabel');
         if (target === 'costing') return t('kitchen:recipes.tabCosting');
-        if (target === 'selling') return sellsAs?.label;
+        if (target === 'selling') return sellsAs?.label ?? t('kitchen:recipes.tabSelling');
         if (target === 'sheet') return t('kitchen:recipes.tabSheet');
         return undefined;
     };
@@ -2839,24 +2852,8 @@ function RecipeEditor({
      * The optional field the page still has an opinion on: a new meal's piece count, which the
      * publish strip says once the recipe exists.
      */
-    const optionalFieldCards: IssueCardItem[] = [
-        ...(isCreating && piecesOwed
-            ? [
-                  {
-                      key: 'check-pieces',
-                      tone: 'info' as const,
-                      label: t('kitchen:publish.blockNoPieces'),
-                      detail: t('kitchen:recipes.tabProduction'),
-                      action: {
-                          onPress: () => {
-                              goTo('production', 'kitchen-recipe-yield-pieces');
-                          },
-                      },
-                      testID: 'kitchen-recipe-check-pieces',
-                  },
-              ]
-            : []),
-    ];
+    // Pieces produced is optional (board v2): nothing on the page asks for it.
+    const optionalFieldCards: IssueCardItem[] = [];
 
     const firstUnmapped = unmappedDraftEntries[0];
     const headsUpCards: IssueCardItem[] = [
@@ -2964,7 +2961,11 @@ function RecipeEditor({
     const trayContent: IssueTrayContent = {
         title: t('kitchen:recipes.publishChecksTitle'),
         testID: 'kitchen-recipe-tray',
-        groups: trayGroups,
+        placement: 'inline',
+        groups: trayGroups.map((group) => ({
+            ...group,
+            items: group.items.map((item) => ({ ...item, anchor: recipeIssueAnchor(item.key) })),
+        })),
         // The cost check while the server is still costing the draft: neither passed nor failed.
         checking:
             lines.length > 0 && canViewCosts && computed === null && rollup.isFetching
@@ -3012,7 +3013,6 @@ function RecipeEditor({
         {
             value: 'production' as const,
             label: t('kitchen:recipes.tabProduction'),
-            count: lines.length,
             issues: tabIssues('production'),
             testID: 'kitchen-recipe-tab-production',
         },
@@ -3024,7 +3024,6 @@ function RecipeEditor({
                   {
                       value: 'packaging' as const,
                       label: t('kitchen:packs.tabLabel'),
-                      count: packs.report.draft.packs.length,
                       issues: tabIssues('packaging'),
                       testID: 'kitchen-recipe-tab-packaging',
                   },
@@ -3041,7 +3040,7 @@ function RecipeEditor({
             : [
                   {
                       value: 'selling' as const,
-                      label: sellsAs.label,
+                      label: sellsAs?.label ?? t('kitchen:recipes.tabSelling'),
                       testID: 'kitchen-recipe-tab-selling',
                   },
               ]),
@@ -3058,1295 +3057,1370 @@ function RecipeEditor({
          * worked on, and switching away is not fixing anything — the cards must not tick off.
          */
         <IssueTrayFrame tray={isViewingCurrent ? trayContent : null} controller={issueTray}>
-            <Cascade space="md" testID="kitchen-recipe-editor-screen">
-                {/*
-                 * The opening — title, badges, actions, the meta line and the tab row — is one 4px block
-                 * inside the page's 16px rhythm, exactly as the ingredient editor and the two lists
-                 * tighten theirs. No trail here: `KitchenOpsShell` draws it and this screen names its
-                 * last crumb through `useKitchenTrailLeaf`.
-                 */}
-                <Stack space="sm">
-                    <CataloguePageHeader
-                        testID="kitchen-recipe-editor-screen-header"
-                        titleTestID="kitchen-recipe-editor-screen-title"
-                        title={title}
-                        titleAside={
-                            <Inline space="xs" align="center" wrap>
-                                {/*
-                                 * The status, as one chip that opens the versions; then the lock that
-                                 * says every recipe is kitchen-only. Each is a fact the old row spelled
-                                 * out in capitals, with the import's file id beside them.
-                                 */}
-                                <RecipeVersionMenu
-                                    versions={versions}
-                                    selected={isCreating ? null : selected}
-                                    onSelect={setSelectedVersionId}
-                                    onRetire={
-                                        data?.meta.status === 'published' && canManage
-                                            ? () => {
-                                                  setShowRetire(true);
-                                              }
-                                            : undefined
-                                    }
-                                />
-                                <KitchenOnlyMark />
-                                {/*
-                                 * While creating, the handle the save is about to take. A saved
-                                 * recipe's own is in its ID field, not up here.
-                                 */}
-                                {isCreating && headerReference !== '' ? (
-                                    <Text
-                                        testID="kitchen-recipe-editor-screen-reference"
-                                        variant="mono"
-                                        tone="secondary"
-                                    >
-                                        {headerReference}
-                                    </Text>
-                                ) : null}
-                                {guard.isDirty && barDrawn ? null : guard.isDirty ? (
-                                    <Badge
-                                        variant="label"
-                                        testID="kitchen-recipe-editor-screen-dirty"
-                                        tone="warning"
-                                        label={t('kitchen:editor.unsaved')}
+            <SectionLook look="board">
+                <Cascade space="md" testID="kitchen-recipe-editor-screen">
+                    {/*
+                     * The opening — title, badges, actions, the meta line and the tab row — is one 4px block
+                     * inside the page's 16px rhythm, exactly as the ingredient editor and the two lists
+                     * tighten theirs. No trail here: `KitchenOpsShell` draws it and this screen names its
+                     * last crumb through `useKitchenTrailLeaf`.
+                     */}
+                    <Stack space="sm">
+                        <CataloguePageHeader
+                            testID="kitchen-recipe-editor-screen-header"
+                            titleTestID="kitchen-recipe-editor-screen-title"
+                            titleLook="board"
+                            title={title}
+                            titleAside={
+                                <Inline space="xs" align="center" wrap>
+                                    {/*
+                                     * The status, as one chip that opens the versions; then the lock that
+                                     * says every recipe is kitchen-only. Each is a fact the old row spelled
+                                     * out in capitals, with the import's file id beside them.
+                                     */}
+                                    <RecipeVersionMenu
+                                        versions={versions}
+                                        selected={isCreating ? null : selected}
+                                        onSelect={setSelectedVersionId}
+                                        onRetire={
+                                            data?.meta.status === 'published' && canManage
+                                                ? () => {
+                                                      setShowRetire(true);
+                                                  }
+                                                : undefined
+                                        }
                                     />
-                                ) : allSaved ? (
-                                    // What the last Save did, said where the unsaved flag was, until
-                                    // the next edit: every tab, the listing included, is on the server.
-                                    <Badge
-                                        variant="label"
-                                        testID="kitchen-recipe-editor-screen-saved"
-                                        tone="success"
-                                        label={t('kitchen:recipes.allSavedBadge')}
-                                    />
-                                ) : null}
-                            </Inline>
-                        }
-                        primaryAction={
-                            <Inline space="xs" align="center">
-                                {/*
-                                 * Cancel, Save draft and Publish, at the header's one `md` — Save on
-                                 * every tab, so nobody has to find the last one to keep their work.
-                                 * One of the two commits is filled, the one that comes next: Save while
-                                 * there is something unsaved (or nothing to publish), Publish once the
-                                 * draft on screen is the saved one.
-                                 *
-                                 * On Selling the listing's Archive leads the row, quiet, as it does on
-                                 * a resale item's own page — not on a row of its own under the header.
-                                 */}
-                                {tab !== 'selling' ||
-                                sellsAs?.archive === undefined ||
-                                sellsAs.archive === null ? null : (
-                                    <Button
-                                        testID="kitchen-product-archive"
-                                        variant="quiet"
-                                        label={t('kitchen:list.archive')}
-                                        disabled={sellsAs.archive.disabled}
-                                        hint={sellsAs.archive.hint}
-                                        onPress={sellsAs.archive.open}
-                                    />
-                                )}
-                                {/*
-                                 * A version that cannot be written says so once, here, instead of a
-                                 * strip on the Description tab.
-                                 */}
-                                {isCreating || isEditable ? null : (
-                                    <Inline space="xs" align="center">
-                                        <Icon
-                                            name="lock"
-                                            size="sm"
-                                            className="text-content-secondary"
-                                        />
+                                    <KitchenOnlyMark />
+                                    {/*
+                                     * While creating, the handle the save is about to take. A saved
+                                     * recipe's own is in its ID field, not up here.
+                                     */}
+                                    {isCreating && headerReference !== '' ? (
                                         <Text
-                                            testID="kitchen-recipe-read-only"
-                                            variant="caption"
+                                            testID="kitchen-recipe-editor-screen-reference"
+                                            variant="mono"
                                             tone="secondary"
                                         >
-                                            {t('kitchen:recipes.readOnly')}
+                                            {headerReference}
                                         </Text>
-                                    </Inline>
-                                )}
-                                <DeskButton
-                                    testID="kitchen-recipe-editor-screen-discard"
-                                    variant="secondary"
-                                    label={t('kitchen:editor.cancel')}
-                                    onPress={() => {
-                                        leaveWithoutKeeping(back.leave);
-                                    }}
-                                />
-                                {/*
-                                 * On a published version only the shelf life can be written (it is the
-                                 * recipe's), so Save lights for that change alone and stops calling
-                                 * the write a draft.
-                                 */}
-                                {barDrawn ? null : (
-                                    <DeskButton
-                                        testID="kitchen-recipe-editor-screen-save"
-                                        variant={
-                                            publishLeads || !isEditable ? 'secondary' : 'primary'
-                                        }
-                                        label={t(
-                                            isEditable
-                                                ? 'kitchen:common.saveDraft'
-                                                : 'kitchen:common.save',
-                                        )}
-                                        loading={recipeWriting}
-                                        disabled={
-                                            creatingNow ||
-                                            !canManage ||
-                                            (!isEditable && !shelfLifeChanged && !sideDirty)
-                                        }
-                                        onPress={attemptSave}
-                                    />
-                                )}
-                                {!publishShown || !isEditable || !canPublish ? null : (
-                                    <DeskButton
-                                        testID="kitchen-recipe-publish"
-                                        // What a stock gap's `no_recipe_version` focuses.
-                                        nativeID="kitchen-recipe-publish"
-                                        variant={publishLeads ? 'primary' : 'secondary'}
-                                        label={t('kitchen:publish.action')}
-                                        onPress={savePublish}
-                                    />
-                                )}
-                                {/*
-                                 * An older version on screen: the way back to the one being worked on.
-                                 * The current one published or withdrawn: the successor draft, which
-                                 * copies it — `createRecipeVersion`.
-                                 */}
-                                {isCreating ? null : !isViewingCurrent ? (
-                                    <DeskButton
-                                        testID="kitchen-recipe-version-back-to-current"
-                                        label={t('kitchen:recipes.backToCurrentVersion')}
-                                        onPress={() => {
-                                            setSelectedVersionId(null);
-                                        }}
-                                    />
-                                ) : !isEditable && canManage ? (
-                                    <DeskButton
-                                        testID="kitchen-recipe-new-draft"
-                                        label={t('kitchen:recipes.newDraft')}
-                                        loading={openDraft.isPending}
-                                        onPress={openNewDraft}
-                                    />
-                                ) : null}
-                            </Inline>
-                        }
-                    />
-
-                    <Tabs<RecipeTab>
-                        testID="kitchen-recipe-tabs"
-                        label={t('kitchen:recipes.tabsLabel')}
-                        items={tabItems}
-                        value={tab}
-                        onChange={setTab}
-                        variant="steps"
-                    />
-
-                    {/*
-                     * An older version, chosen from the status chip: `RecipeAdmin` carries only the
-                     * current version in full, so what the tabs show is not it. Said once, here; the
-                     * way back is the header's.
-                     */}
-                    {isViewingCurrent ? null : (
-                        <Callout
-                            testID="kitchen-recipe-version-unavailable"
-                            role="note"
-                            size="compact"
-                            tone="info"
-                            title={t('kitchen:recipes.versionUnavailableTitle')}
+                                    ) : null}
+                                    {guard.isDirty ? (
+                                        <Badge
+                                            variant="label"
+                                            testID="kitchen-recipe-editor-screen-dirty"
+                                            tone="warning"
+                                            label={t('kitchen:editor.unsaved')}
+                                        />
+                                    ) : allSaved ? (
+                                        // What the last Save did, said where the unsaved flag was, until
+                                        // the next edit: every tab, the listing included, is on the server.
+                                        <Badge
+                                            variant="label"
+                                            testID="kitchen-recipe-editor-screen-saved"
+                                            tone="success"
+                                            label={t('kitchen:recipes.allSavedBadge')}
+                                        />
+                                    ) : null}
+                                </Inline>
+                            }
+                            primaryAction={
+                                <Inline space="xs" align="center">
+                                    <InlineChecksButton testID="kitchen-recipe-checks" />
+                                    {/*
+                                     * Cancel, Save draft and Publish, at the header's one `md` — Save on
+                                     * every tab, so nobody has to find the last one to keep their work.
+                                     * One of the two commits is filled, the one that comes next: Save while
+                                     * there is something unsaved (or nothing to publish), Publish once the
+                                     * draft on screen is the saved one.
+                                     *
+                                     * On Selling the listing's Archive leads the row, quiet, as it does on
+                                     * a resale item's own page — not on a row of its own under the header.
+                                     */}
+                                    {tab !== 'selling' ||
+                                    sellsAs?.archive === undefined ||
+                                    sellsAs.archive === null ? null : (
+                                        <Button
+                                            testID="kitchen-product-archive"
+                                            variant="quiet"
+                                            label={t('kitchen:list.archive')}
+                                            disabled={sellsAs.archive.disabled}
+                                            hint={sellsAs.archive.hint}
+                                            onPress={sellsAs.archive.open}
+                                        />
+                                    )}
+                                    {/*
+                                     * A version that cannot be written says so once, here, instead of a
+                                     * strip on the Description tab.
+                                     */}
+                                    {isCreating ||
+                                    isEditable ||
+                                    (livePublished && canManage) ? null : (
+                                        <Inline space="xs" align="center">
+                                            <Icon
+                                                name="lock"
+                                                size="sm"
+                                                className="text-content-secondary"
+                                            />
+                                            <Text
+                                                testID="kitchen-recipe-read-only"
+                                                variant="caption"
+                                                tone="secondary"
+                                            >
+                                                {t('kitchen:recipes.readOnly')}
+                                            </Text>
+                                        </Inline>
+                                    )}
+                                    {guard.isDirty && canManage ? (
+                                        <DiscardButton
+                                            testID="kitchen-recipe-editor-screen-discard"
+                                            className="!h-10 !px-4"
+                                        />
+                                    ) : null}
+                                    {/*
+                                     * On a published version only the shelf life can be written (it is the
+                                     * recipe's), so Save lights for that change alone and stops calling
+                                     * the write a draft.
+                                     */}
+                                    {
+                                        <DeskButton
+                                            testID="kitchen-recipe-editor-screen-save"
+                                            className="!h-10 !px-4"
+                                            variant={
+                                                publishLeads || !isEditable
+                                                    ? 'secondary'
+                                                    : 'primary'
+                                            }
+                                            label={t(
+                                                isEditable
+                                                    ? 'kitchen:common.saveDraft'
+                                                    : 'kitchen:common.save',
+                                            )}
+                                            loading={recipeWriting}
+                                            disabled={
+                                                creatingNow ||
+                                                !canManage ||
+                                                openDraft.isPending ||
+                                                (livePublished && versionDirty) ||
+                                                (!isEditable && !shelfLifeChanged && !sideDirty)
+                                            }
+                                            onPress={attemptSave}
+                                        />
+                                    }
+                                    {!publishShown || !isEditable || !canPublish ? null : (
+                                        <DeskButton
+                                            testID="kitchen-recipe-publish"
+                                            className="!h-10 !px-4"
+                                            // What a stock gap's `no_recipe_version` focuses.
+                                            nativeID="kitchen-recipe-publish"
+                                            variant={publishLeads ? 'primary' : 'secondary'}
+                                            label={t('kitchen:publish.action')}
+                                            disabled={
+                                                saveItems.length > 0 || publishItems.length > 0
+                                            }
+                                            onPress={savePublish}
+                                        />
+                                    )}
+                                    {/*
+                                     * An older version on screen: the way back to the one being worked on.
+                                     * The current one published or withdrawn: the successor draft, which
+                                     * copies it — `createRecipeVersion`.
+                                     */}
+                                    {isCreating ? null : !isViewingCurrent ? (
+                                        <DeskButton
+                                            testID="kitchen-recipe-version-back-to-current"
+                                            className="!h-10 !px-4"
+                                            label={t('kitchen:recipes.backToCurrentVersion')}
+                                            onPress={() => {
+                                                setSelectedVersionId(null);
+                                            }}
+                                        />
+                                    ) : !isEditable && !livePublished && canManage ? (
+                                        <DeskButton
+                                            testID="kitchen-recipe-new-draft"
+                                            className="!h-10 !px-4"
+                                            label={t('kitchen:recipes.newDraft')}
+                                            loading={openDraft.isPending}
+                                            onPress={openNewDraft}
+                                        />
+                                    ) : null}
+                                </Inline>
+                            }
                         />
-                    )}
-                </Stack>
 
-                {/* ── Description ──────────────────────────────────────────────────────────────── */}
-                {tab !== 'description' ? null : (
-                    <View className="relative z-raised flex-col gap-loose">
+                        <Tabs<RecipeTab>
+                            testID="kitchen-recipe-tabs"
+                            label={t('kitchen:recipes.tabsLabel')}
+                            items={tabItems}
+                            value={tab}
+                            onChange={setTab}
+                            variant="pills"
+                        />
+                        <IssueUnanchored testID="kitchen-recipe-issues-loose" />
+
                         {/*
-                         * Every tab body is one raised layer, and the same is true of the four below.
-                         *
-                         * react-native-web gives every `View` `position: relative; z-index: 0`, so a
-                         * subtree paints as one layer, in source order among its siblings, whatever its
-                         * descendants set on themselves. Anything drawn *after* the tab body would paint
-                         * over whatever hangs out of it — the ingredient picker, the packaging picker,
-                         * the sub-category select — exactly where a panel opens downward. Raising the
-                         * body keeps those panels on top; their own z-indexes keep ordering its insides.
+                         * An older version, chosen from the status chip: `RecipeAdmin` carries only the
+                         * current version in full, so what the tabs show is not it. Said once, here; the
+                         * way back is the header's.
                          */}
-                        <FormSection
-                            first
-                            variant="panel"
-                            testID="kitchen-recipe-identity"
-                            title={t('kitchen:recipes.sectionIdentity')}
-                        >
-                            <View className="z-auto flex-row flex-wrap items-start gap-base">
-                                <ImageSlot
-                                    testID="kitchen-recipe-image"
-                                    uri={photo}
-                                    disabled={!editable}
-                                    onChange={(next) => {
-                                        setPhoto(next);
-                                        const changed = next !== (photoKey ?? null);
-                                        setPhotoDirty(changed);
-                                        if (changed) guard.markDirty();
-                                    }}
-                                />
-                                {/*
-                                 * Four half tracks beside the photo — two 280px fields: the designation
-                                 * pair on the first row, the filing and the handle under it.
-                                 *
-                                 * The classification cells are two children of the grid, never one
-                                 * wrapper around both: `FormGrid` gives each *element* child its own
-                                 * cell, and a fragment is one child. Drawn only where the route knows
-                                 * the vocabulary — the category is stated, not asked, because a form
-                                 * reached through Sauces & marinades cannot be filed anywhere else.
-                                 */}
-                                <FormGrid
-                                    track="half"
-                                    maxColumns={4}
-                                    testID="kitchen-recipe-identity-grid"
-                                >
-                                    <BilingualField
-                                        span={4}
-                                        layout="row"
-                                        testID="kitchen-recipe-name"
-                                        fieldLabel={t('kitchen:recipes.columnName')}
-                                        placeholder={{
-                                            en: t('kitchen:fields.recipeNamePlaceholderEn'),
-                                            ar: t('kitchen:fields.recipeNamePlaceholderAr'),
-                                        }}
-                                        value={details.name}
-                                        requiredEnglish
+                        {isViewingCurrent ? null : (
+                            <Callout
+                                testID="kitchen-recipe-version-unavailable"
+                                role="note"
+                                size="compact"
+                                tone="info"
+                                title={t('kitchen:recipes.versionUnavailableTitle')}
+                            />
+                        )}
+                    </Stack>
+
+                    {/* ── Description ──────────────────────────────────────────────────────────────── */}
+                    {tab !== 'description' ? null : (
+                        <View className="relative z-raised flex-col gap-loose">
+                            {/*
+                             * Every tab body is one raised layer, and the same is true of the four below.
+                             *
+                             * react-native-web gives every `View` `position: relative; z-index: 0`, so a
+                             * subtree paints as one layer, in source order among its siblings, whatever its
+                             * descendants set on themselves. Anything drawn *after* the tab body would paint
+                             * over whatever hangs out of it — the ingredient picker, the packaging picker,
+                             * the sub-category select — exactly where a panel opens downward. Raising the
+                             * body keeps those panels on top; their own z-indexes keep ordering its insides.
+                             */}
+                            <FormSection
+                                first
+                                variant="panel"
+                                testID="kitchen-recipe-identity"
+                                title={t('kitchen:recipes.sectionIdentity')}
+                            >
+                                <View className="z-auto flex-row flex-wrap items-start gap-base">
+                                    <ImageSlot
+                                        testID="kitchen-recipe-image"
+                                        uri={photo}
                                         disabled={!editable}
-                                        {...(shows('name')
-                                            ? { englishError: t('kitchen:forms.required') }
-                                            : server.errorFor('name_en') === undefined
-                                              ? {}
-                                              : { englishError: server.errorFor('name_en') })}
-                                        {...(server.errorFor('name_ar') === undefined
-                                            ? {}
-                                            : { arabicError: server.errorFor('name_ar') })}
                                         onChange={(next) => {
-                                            setDetails({ ...details, name: next });
+                                            setPhoto(next);
+                                            const changed = next !== (photoKey ?? null);
+                                            setPhotoDirty(changed);
+                                            if (changed) guard.markDirty();
+                                        }}
+                                    />
+                                    {/*
+                                     * Four half tracks beside the photo — two 280px fields: the designation
+                                     * pair on the first row, the filing and the handle under it.
+                                     *
+                                     * The classification cells are two children of the grid, never one
+                                     * wrapper around both: `FormGrid` gives each *element* child its own
+                                     * cell, and a fragment is one child. Drawn only where the route knows
+                                     * the vocabulary — the category is stated, not asked, because a form
+                                     * reached through Sauces & marinades cannot be filed anywhere else.
+                                     */}
+                                    <FormGrid
+                                        track="half"
+                                        maxColumns={4}
+                                        testID="kitchen-recipe-identity-grid"
+                                    >
+                                        <BilingualField
+                                            span={4}
+                                            layout="row"
+                                            testID="kitchen-recipe-name"
+                                            fieldLabel={t('kitchen:recipes.kitchenNameLabel')}
+                                            placeholder={{
+                                                en: t('kitchen:fields.recipeNamePlaceholderEn'),
+                                                ar: t('kitchen:fields.recipeNamePlaceholderAr'),
+                                            }}
+                                            value={details.name}
+                                            requiredEnglish
+                                            disabled={!editable}
+                                            {...(shows('name')
+                                                ? { englishError: t('kitchen:forms.required') }
+                                                : server.errorFor('name_en') === undefined
+                                                  ? {}
+                                                  : { englishError: server.errorFor('name_en') })}
+                                            {...(server.errorFor('name_ar') === undefined
+                                                ? {}
+                                                : { arabicError: server.errorFor('name_ar') })}
+                                            onChange={(next) => {
+                                                setDetails({ ...details, name: next });
+                                                markDirty('details');
+                                            }}
+                                        />
+                                        {/*
+                                         * Only when creating something sold: the description is its catalogue item's,
+                                         * written with it on the first save; once the item exists it is edited on the
+                                         * Selling tab with the rest of the listing.
+                                         */}
+                                        {!isCreating ||
+                                        onCreated === undefined ||
+                                        sellsAs !== undefined ? null : (
+                                            <BilingualField
+                                                span={4}
+                                                layout="row"
+                                                multiline
+                                                testID="kitchen-recipe-description"
+                                                fieldLabel={t('kitchen:products.descriptionLabel')}
+                                                placeholder={{
+                                                    en: t(
+                                                        'kitchen:fields.descriptionPlaceholderEn',
+                                                    ),
+                                                    ar: t(
+                                                        'kitchen:fields.descriptionPlaceholderAr',
+                                                    ),
+                                                }}
+                                                value={details.description}
+                                                disabled={!editable}
+                                                {...(server.errorFor('notes') === undefined
+                                                    ? {}
+                                                    : { englishError: server.errorFor('notes') })}
+                                                onChange={(next) => {
+                                                    setDetails({ ...details, description: next });
+                                                    markDirty('details');
+                                                }}
+                                            />
+                                        )}
+                                        {classification === undefined ? null : (
+                                            <TextInputField
+                                                span={2}
+                                                testID="kitchen-recipe-category"
+                                                id="kitchen-recipe-category"
+                                                label={t('kitchen:fields.category')}
+                                                size="sm"
+                                                value={classification.categoryLabel}
+                                                disabled
+                                                onChangeText={() => undefined}
+                                            />
+                                        )}
+                                        {/*
+                                         * Beside the category. A frozen meal passes no options, so it
+                                         * draws none; a dressing's one option is drawn chosen and fixed.
+                                         */}
+                                        {classification === undefined ||
+                                        classification.options.length === 0 ? null : (
+                                            <Select
+                                                span={2}
+                                                testID="kitchen-recipe-subcategory"
+                                                id="kitchen-recipe-subcategory"
+                                                label={classification.subcategoryLabel}
+                                                placeholder={classification.subcategoryPlaceholder}
+                                                disabled={!editable || fixedSubcategory !== null}
+                                                options={classification.options}
+                                                value={
+                                                    recipeCategory === '' ? null : recipeCategory
+                                                }
+                                                {...server.flag('recipe_category')}
+                                                onChange={(next) => {
+                                                    setDetails({
+                                                        ...details,
+                                                        recipeCategory: next,
+                                                    });
+                                                    markDirty('details');
+                                                }}
+                                            />
+                                        )}
+                                        {/*
+                                         * Read, never written: the series is the server's to issue — and
+                                         * not drawn on a new record, where it could only preview a number
+                                         * the save has not taken yet. The preview stays beside the title.
+                                         * The record's own `RC-0001`, not its slug: a slug follows the name.
+                                         */}
+                                        {isCreating ? null : (
+                                            <TextInputField
+                                                span={2}
+                                                testID="kitchen-recipe-reference"
+                                                id="kitchen-recipe-reference"
+                                                label={t('kitchen:list.columnReference')}
+                                                size="sm"
+                                                placeholder={t(
+                                                    'kitchen:fields.referencePlaceholder',
+                                                )}
+                                                value={referenceParts.id}
+                                                {...(referenceParts.source === null
+                                                    ? {}
+                                                    : {
+                                                          hint: t(
+                                                              'kitchen:recipes.referenceSource',
+                                                              {
+                                                                  source: referenceParts.source,
+                                                              },
+                                                          ),
+                                                      })}
+                                                disabled
+                                                onChangeText={() => undefined}
+                                            />
+                                        )}
+                                    </FormGrid>
+                                </View>
+                            </FormSection>
+                        </View>
+                    )}
+
+                    {/* ── Production ───────────────────────────────────────────────────────────────── */}
+                    {tab !== 'production' ? null : (
+                        <View className="relative z-raised flex-col gap-loose">
+                            {/*
+                             * Yield & waste above the formulation, as one reading: a yield is only
+                             * meaningful beside the lines it is divided into — "1.7 kg from these nine
+                             * rows" — and the production loss is a property of the same pan. The packaging
+                             * loss sits above the packaging lines the same way.
+                             */}
+                            <FormSection
+                                first
+                                variant="panel"
+                                testID="kitchen-recipe-yield"
+                                title={t('kitchen:forms.yieldAndWaste')}
+                            >
+                                <FormGrid track="half" testID="kitchen-recipe-yield-grid">
+                                    {/*
+                                     * The unit rides on the field as a suffix rather than sitting in a
+                                     * picker beside it. Every recipe in this kitchen yields a mass, the cost
+                                     * cascade divides by kilograms, and a unit selector whose other options
+                                     * all produce a cost per portion the costing tab cannot read is a choice
+                                     * offered only to be wrong. `kg` is stated, not chosen.
+                                     */}
+                                    <QuantityInput
+                                        testID="kitchen-recipe-yield-quantity"
+                                        id="kitchen-recipe-yield-quantity"
+                                        label={t('kitchen:recipes.yieldQuantity')}
+                                        placeholder={t('kitchen:fields.quantityPlaceholder')}
+                                        size="sm"
+                                        required
+                                        unit={t(unitShortKey('kg'))}
+                                        value={details.yieldQuantity}
+                                        disabled={!editable}
+                                        {...(shows('yield')
+                                            ? {
+                                                  error:
+                                                      details.yieldQuantity.trim() === ''
+                                                          ? t('kitchen:forms.required')
+                                                          : t('kitchen:recipes.yieldRequired'),
+                                              }
+                                            : {})}
+                                        {...server.flag('yield_quantity')}
+                                        {...server.flag('yield_unit_id')}
+                                        onChangeText={(next) => {
+                                            setDetails({ ...details, yieldQuantity: next });
+                                            markDirty('details');
+                                        }}
+                                    />
+                                    <QuantityInput
+                                        testID="kitchen-recipe-yield-pieces"
+                                        id="kitchen-recipe-yield-pieces"
+                                        label={t('kitchen:recipes.yieldPieces')}
+                                        placeholder={t('kitchen:fields.quantityPlaceholder')}
+                                        size="sm"
+                                        value={details.yieldPieces}
+                                        disabled={!editable}
+                                        // What a stock gap opened this page for, until there is a count.
+                                        // Otherwise the field is optional (board v2) and says nothing.
+                                        {...(piecesFixMessage !== undefined
+                                            ? { error: piecesFixMessage }
+                                            : {})}
+                                        {...server.flag('yield_piece_count')}
+                                        onChangeText={(next) => {
+                                            setDetails({ ...details, yieldPieces: next });
+                                            markDirty('details');
+                                        }}
+                                    />
+                                    <QuantityInput
+                                        testID="kitchen-recipe-waste"
+                                        id="kitchen-recipe-waste"
+                                        label={t('kitchen:recipes.productionWastePercent')}
+                                        placeholder={t('kitchen:fields.percentPlaceholder')}
+                                        size="sm"
+                                        unit="%"
+                                        value={details.wastePercent}
+                                        disabled={!editable}
+                                        {...server.flag('waste_coefficient_percent')}
+                                        onChangeText={(next) => {
+                                            setDetails({
+                                                ...details,
+                                                wastePercent: withoutMinus(next),
+                                            });
                                             markDirty('details');
                                         }}
                                     />
                                     {/*
-                                     * Only when creating something sold — a sauce, a dressing, a
-                                     * frozen meal, a meal: the description is its catalogue item's, and
-                                     * once it exists it is edited on the Selling tab with the rest of
-                                     * the listing. A library recipe sells nothing and draws none.
+                                     * How long a batch keeps. The recipe's, not the version's, so it
+                                     * stays open on a published version (see the docblock).
                                      */}
-                                    {!isCreating ||
-                                    onCreated === undefined ||
-                                    sellsAs !== undefined ? null : (
-                                        <BilingualField
-                                            span={4}
-                                            layout="row"
-                                            multiline
-                                            testID="kitchen-recipe-description"
-                                            fieldLabel={t('kitchen:products.descriptionLabel')}
-                                            placeholder={{
-                                                en: t('kitchen:fields.descriptionPlaceholderEn'),
-                                                ar: t('kitchen:fields.descriptionPlaceholderAr'),
-                                            }}
-                                            value={details.description}
-                                            disabled={!editable}
-                                            {...(server.errorFor('notes') === undefined
-                                                ? {}
-                                                : { englishError: server.errorFor('notes') })}
-                                            onChange={(next) => {
-                                                setDetails({ ...details, description: next });
-                                                markDirty('details');
-                                            }}
-                                        />
-                                    )}
-                                    {classification === undefined ? null : (
-                                        <TextInputField
-                                            span={2}
-                                            testID="kitchen-recipe-category"
-                                            id="kitchen-recipe-category"
-                                            label={t('kitchen:fields.category')}
-                                            size="sm"
-                                            value={classification.categoryLabel}
-                                            disabled
-                                            onChangeText={() => undefined}
-                                        />
-                                    )}
-                                    {/*
-                                     * Beside the category. A frozen meal passes no options, so it
-                                     * draws none; a dressing's one option is drawn chosen and fixed.
-                                     */}
-                                    {classification === undefined ||
-                                    classification.options.length === 0 ? null : (
-                                        <Select
-                                            span={2}
-                                            testID="kitchen-recipe-subcategory"
-                                            id="kitchen-recipe-subcategory"
-                                            label={classification.subcategoryLabel}
-                                            placeholder={classification.subcategoryPlaceholder}
-                                            disabled={!editable || fixedSubcategory !== null}
-                                            options={classification.options}
-                                            value={recipeCategory === '' ? null : recipeCategory}
-                                            {...server.flag('recipe_category')}
-                                            onChange={(next) => {
-                                                setDetails({ ...details, recipeCategory: next });
-                                                markDirty('details');
-                                            }}
-                                        />
-                                    )}
-                                    {/*
-                                     * Read, never written: the series is the server's to issue — and
-                                     * not drawn on a new record, where it could only preview a number
-                                     * the save has not taken yet. The preview stays beside the title.
-                                     * The record's own `RC-0001`, not its slug: a slug follows the name.
-                                     */}
-                                    {isCreating ? null : (
-                                        <TextInputField
-                                            span={2}
-                                            testID="kitchen-recipe-reference"
-                                            id="kitchen-recipe-reference"
-                                            label={t('kitchen:list.columnReference')}
-                                            size="sm"
-                                            placeholder={t('kitchen:fields.referencePlaceholder')}
-                                            value={referenceParts.id}
-                                            {...(referenceParts.source === null
-                                                ? {}
-                                                : {
-                                                      hint: t('kitchen:recipes.referenceSource', {
-                                                          source: referenceParts.source,
-                                                      }),
-                                                  })}
-                                            disabled
-                                            onChangeText={() => undefined}
-                                        />
-                                    )}
-                                </FormGrid>
-                            </View>
-                        </FormSection>
-                    </View>
-                )}
-
-                {/* ── Production ───────────────────────────────────────────────────────────────── */}
-                {tab !== 'production' ? null : (
-                    <View className="relative z-raised flex-col gap-loose">
-                        {/*
-                         * Yield & waste above the formulation, as one reading: a yield is only
-                         * meaningful beside the lines it is divided into — "1.7 kg from these nine
-                         * rows" — and the production loss is a property of the same pan. The packaging
-                         * loss sits above the packaging lines the same way.
-                         */}
-                        <FormSection
-                            first
-                            variant="panel"
-                            testID="kitchen-recipe-yield"
-                            title={t('kitchen:forms.yieldAndWaste')}
-                        >
-                            <FormGrid track="half" testID="kitchen-recipe-yield-grid">
-                                {/*
-                                 * The unit rides on the field as a suffix rather than sitting in a
-                                 * picker beside it. Every recipe in this kitchen yields a mass, the cost
-                                 * cascade divides by kilograms, and a unit selector whose other options
-                                 * all produce a cost per portion the costing tab cannot read is a choice
-                                 * offered only to be wrong. `kg` is stated, not chosen.
-                                 */}
-                                <QuantityInput
-                                    testID="kitchen-recipe-yield-quantity"
-                                    id="kitchen-recipe-yield-quantity"
-                                    label={t('kitchen:recipes.yieldQuantity')}
-                                    placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                    size="sm"
-                                    required
-                                    unit={t(unitShortKey('kg'))}
-                                    value={details.yieldQuantity}
-                                    disabled={!editable}
-                                    {...(shows('yield')
-                                        ? {
-                                              error:
-                                                  details.yieldQuantity.trim() === ''
-                                                      ? t('kitchen:forms.required')
-                                                      : t('kitchen:recipes.yieldRequired'),
-                                          }
-                                        : {})}
-                                    {...server.flag('yield_quantity')}
-                                    {...server.flag('yield_unit_id')}
-                                    onChangeText={(next) => {
-                                        setDetails({ ...details, yieldQuantity: next });
-                                        markDirty('details');
-                                    }}
-                                />
-                                <QuantityInput
-                                    testID="kitchen-recipe-yield-pieces"
-                                    id="kitchen-recipe-yield-pieces"
-                                    label={t('kitchen:recipes.yieldPieces')}
-                                    placeholder={t('kitchen:fields.quantityPlaceholder')}
-                                    size="sm"
-                                    value={details.yieldPieces}
-                                    disabled={!editable}
-                                    // What a stock gap opened this page for, until there is a count;
-                                    // otherwise, on a meal, the count Publish is waiting for.
-                                    {...(piecesFixMessage !== undefined
-                                        ? { error: piecesFixMessage }
-                                        : piecesOwed && publishShown && isEditable
-                                          ? { warning: t('kitchen:publish.blockNoPieces') }
-                                          : {})}
-                                    {...server.flag('yield_piece_count')}
-                                    onChangeText={(next) => {
-                                        setDetails({ ...details, yieldPieces: next });
-                                        markDirty('details');
-                                    }}
-                                />
-                                <QuantityInput
-                                    testID="kitchen-recipe-waste"
-                                    id="kitchen-recipe-waste"
-                                    label={t('kitchen:recipes.productionWastePercent')}
-                                    placeholder={t('kitchen:fields.percentPlaceholder')}
-                                    size="sm"
-                                    unit="%"
-                                    value={details.wastePercent}
-                                    disabled={!editable}
-                                    {...server.flag('waste_coefficient_percent')}
-                                    onChangeText={(next) => {
-                                        setDetails({
-                                            ...details,
-                                            wastePercent: withoutMinus(next),
-                                        });
-                                        markDirty('details');
-                                    }}
-                                />
-                                {/*
-                                 * How long a batch keeps. The recipe's, not the version's, so it
-                                 * stays open on a published version (see the docblock).
-                                 */}
-                                <QuantityInput
-                                    testID="kitchen-recipe-expiry"
-                                    id="kitchen-recipe-expiry"
-                                    size="sm"
-                                    label={t('kitchen:forms.expiryPeriod')}
-                                    placeholder={t('kitchen:fields.daysPlaceholder')}
-                                    unit={t('kitchen:forms.days')}
-                                    value={details.shelfLifeDays}
-                                    disabled={!canManage}
-                                    {...(shows('shelf-life')
-                                        ? { error: t('kitchen:forms.shelfLifeInvalid') }
-                                        : {})}
-                                    {...server.flag('shelf_life_days')}
-                                    onChangeText={(next) => {
-                                        setDetails({ ...details, shelfLifeDays: next });
-                                        markDirty('details');
-                                    }}
-                                />
-                            </FormGrid>
-                        </FormSection>
-
-                        <FormSection
-                            variant="panel"
-                            testID="kitchen-recipe-lines"
-                            nativeID="kitchen-recipe-lines"
-                            title={t('kitchen:recipes.sectionRawMaterials')}
-                        >
-                            <RecipeLineTable
-                                testID={LINES_TABLE}
-                                rows={lines}
-                                ingredients={libraryEntries}
-                                flaggedIngredientIds={flaggedIngredientIds}
-                                costs={computed?.production ?? null}
-                                fieldError={lineFieldError}
-                                quantityMessage={(row) =>
-                                    incompleteLineMessage(row) ?? fixLineMessage(row)
-                                }
-                                ingredientIssue={(row) =>
-                                    row.ingredientId === null
-                                        ? undefined
-                                        : needsText(needsById.get(row.ingredientId))
-                                }
-                                onOpenIngredient={(row) => {
-                                    if (row.ingredientId !== null) {
-                                        openIngredient(row.ingredientId, 'ingredients');
-                                    }
-                                }}
-                                onOpenRecipe={openRecipe}
-                                canManage={editable}
-                                nextKey={nextKey}
-                                pickerPlaceholder={t('kitchen:recipes.addIngredientPlaceholder')}
-                                onChange={(next) => {
-                                    setLinesDraft(next);
-                                    markDirty('lines');
-                                }}
-                                onIngredientCreated={(ingredient, needsDetails) => {
-                                    const name = displayName(ingredient.name, locale).value;
-                                    // Not blocking, and kept until dismissed: its link is the route to
-                                    // the confirmation this recipe's publication now waits on, and a
-                                    // timed toast was gone before a cook had read it.
-                                    toast.show({
-                                        testID: 'kitchen-recipe-quick-add-toast',
-                                        tone: needsDetails ? 'warning' : 'info',
-                                        durationMs: 0,
-                                        message: t(
-                                            needsDetails
-                                                ? 'kitchen:recipes.quickAddNeedsDetailsToast'
-                                                : 'kitchen:recipes.quickAddCreatedToast',
-                                            { name },
-                                        ),
-                                        action: {
-                                            testID: 'kitchen-recipe-quick-add-review',
-                                            label: t('kitchen:recipes.quickAddReview'),
-                                            // Opened to fix, with the way back to this tab — and
-                                            // what is typed here kept for the trip.
-                                            onPress: () => {
-                                                openIngredient(
-                                                    String(ingredient.id),
-                                                    'ingredients',
-                                                    needsDetails ? ['nutrition'] : [],
-                                                );
-                                            },
-                                        },
-                                    });
-                                }}
-                            />
-                        </FormSection>
-                    </View>
-                )}
-
-                {/* ── Packs & prices ───────────────────────────────────────────────────────────── */}
-                {/*
-                 * Mounted whenever the recipe is sold, and hidden rather than unmounted on the other
-                 * tabs, as the listing is: its draft lives inside it, and a tab switch must not throw
-                 * a half-typed price away. The host owns the section; this page feeds it the recipe's
-                 * yield and the live `computed.packs`.
-                 */}
-                {packs === undefined ? null : (
-                    <CascadeItem index={0} className={tab === 'packaging' ? undefined : 'hidden'}>
-                        <View className="relative z-raised" testID="kitchen-recipe-packs">
-                            {packs.render({
-                                // In kilograms whatever unit the yield is typed in: a 500 g batch is
-                                // half a kilo of packs, not five hundred.
-                                yieldKg:
-                                    yieldMass !== null && yieldMass > 0
-                                        ? massKg(yieldMass, details.yieldUnit)
-                                        : null,
-                                piecesPerBatch:
-                                    yieldPieces !== null && yieldPieces > 0 ? yieldPieces : null,
-                                computed: computed?.packs ?? null,
-                                canViewCosts,
-                            })}
-                        </View>
-                    </CascadeItem>
-                )}
-
-                {/* ── Costing ──────────────────────────────────────────────────────────────────── */}
-                {tab !== 'costing' ? null : (
-                    <View className="relative z-raised flex-col gap-loose">
-                        <FormSection
-                            first
-                            variant="panel"
-                            testID="kitchen-recipe-cost-cascade"
-                            nativeID="kitchen-recipe-cost-cascade"
-                            title={t('kitchen:recipes.sectionCostCascade')}
-                            aside={
-                                <Badge
-                                    variant="label"
-                                    tone="danger"
-                                    label={t('kitchen:recipes.confidential')}
-                                />
-                            }
-                        >
-                            {/* Printed, as the board has it: it says which price the figures are
-                                built on, so a number that moves tomorrow can be traced. */}
-                            <Text
-                                variant="body"
-                                tone="secondary"
-                                testID="kitchen-recipe-cost-cascade-note"
-                            >
-                                {t('kitchen:recipes.costCascadeHint')}
-                            </Text>
-                            {canViewCosts ? (
-                                <Stack space="sm">
-                                    <CostCascade
-                                        testID="kitchen-recipe-cost-cards"
-                                        computed={computed}
-                                        yieldUnit={t(unitShortKey(details.yieldUnit))}
-                                        productionWaste={details.wastePercent}
-                                        t={t}
-                                        formatter={formatter}
+                                    <QuantityInput
+                                        testID="kitchen-recipe-expiry"
+                                        id="kitchen-recipe-expiry"
+                                        size="sm"
+                                        label={t('kitchen:forms.expiryPeriod')}
+                                        placeholder={t('kitchen:fields.daysPlaceholder')}
+                                        unit={t('kitchen:forms.days')}
+                                        value={details.shelfLifeDays}
+                                        disabled={!canManage}
+                                        {...(shows('shelf-life')
+                                            ? { error: t('kitchen:forms.shelfLifeInvalid') }
+                                            : {})}
+                                        {...server.flag('shelf_life_days')}
+                                        onChangeText={(next) => {
+                                            setDetails({ ...details, shelfLifeDays: next });
+                                            markDirty('details');
+                                        }}
                                     />
-                                </Stack>
-                            ) : (
-                                // Said, rather than drawn as a grid of dashes nobody can explain.
-                                <Text
-                                    testID="kitchen-recipe-costs-hidden"
-                                    variant="caption"
-                                    tone="secondary"
-                                >
-                                    {t('kitchen:recipes.sheetCostHidden')}
-                                </Text>
-                            )}
-                        </FormSection>
+                                </FormGrid>
+                            </FormSection>
 
-                        {/*
-                         * After the cascade, because that is the order the question is asked in: what
-                         * does a kilogram cost, what does one of the things we actually sell cost, what
-                         * do we charge for it and what does that leave. One row per pack Packs & prices
-                         * holds, priced off the draft; no Counter column — it charges the Home shop's.
-                         */}
-                        {!canViewCosts || packs === undefined ? null : (
                             <FormSection
                                 variant="panel"
-                                testID="kitchen-recipe-pack-costs"
-                                title={t('kitchen:packs.costingTitle')}
+                                testID="kitchen-recipe-lines"
+                                nativeID="kitchen-recipe-lines"
+                                title={t('kitchen:recipes.sectionRawMaterials')}
                             >
-                                <PackCostTable
-                                    testID="kitchen-recipe-pack-costs-table"
-                                    report={packs.report}
-                                    computed={computed?.packs ?? null}
+                                <RecipeLineTable
+                                    testID={LINES_TABLE}
+                                    excludeRecipeId={
+                                        data === undefined ? undefined : String(data.id)
+                                    }
+                                    rows={lines}
+                                    ingredients={libraryEntries}
+                                    flaggedIngredientIds={flaggedIngredientIds}
+                                    costs={computed?.production ?? null}
+                                    fieldError={lineFieldError}
+                                    quantityMessage={(row) =>
+                                        incompleteLineMessage(row) ?? fixLineMessage(row)
+                                    }
+                                    ingredientIssue={(row) =>
+                                        row.ingredientId === null
+                                            ? undefined
+                                            : needsText(needsById.get(row.ingredientId))
+                                    }
+                                    onOpenIngredient={(row) => {
+                                        if (row.ingredientId !== null) {
+                                            openIngredient(row.ingredientId, 'ingredients');
+                                        }
+                                    }}
+                                    onOpenRecipe={openRecipe}
+                                    canManage={editable}
+                                    nextKey={nextKey}
+                                    pickerPlaceholder={t(
+                                        'kitchen:recipes.addIngredientPlaceholder',
+                                    )}
+                                    onChange={(next) => {
+                                        setLinesDraft(next);
+                                        markDirty('lines');
+                                    }}
+                                    onIngredientCreated={(ingredient, needsDetails) => {
+                                        const name = displayName(ingredient.name, locale).value;
+                                        // Not blocking, and kept until dismissed: its link is the route to
+                                        // the confirmation this recipe's publication now waits on, and a
+                                        // timed toast was gone before a cook had read it.
+                                        toast.show({
+                                            testID: 'kitchen-recipe-quick-add-toast',
+                                            tone: needsDetails ? 'warning' : 'info',
+                                            durationMs: 0,
+                                            message: t(
+                                                needsDetails
+                                                    ? 'kitchen:recipes.quickAddNeedsDetailsToast'
+                                                    : 'kitchen:recipes.quickAddCreatedToast',
+                                                { name },
+                                            ),
+                                            action: {
+                                                testID: 'kitchen-recipe-quick-add-review',
+                                                label: t('kitchen:recipes.quickAddReview'),
+                                                // Opened to fix, with the way back to this tab — and
+                                                // what is typed here kept for the trip.
+                                                onPress: () => {
+                                                    openIngredient(
+                                                        String(ingredient.id),
+                                                        'ingredients',
+                                                        needsDetails ? ['nutrition'] : [],
+                                                    );
+                                                },
+                                            },
+                                        });
+                                    }}
                                 />
                             </FormSection>
-                        )}
-                    </View>
-                )}
-
-                {/* ── Selling ──────────────────────────────────────────────────────────────────── */}
-                {/*
-                 * Mounted whenever there is a listing, and hidden rather than unmounted on the other tabs.
-                 * Its drafts live inside it, so unmounting it on a tab switch would throw away a pack
-                 * somebody had half typed — the recipe's own drafts survive a switch because they live on
-                 * this screen, and the listing's have to as well.
-                 *
-                 * It is its own `CascadeItem` so that `hidden` lands on the band's box: hidden one level
-                 * further in, the band would still stand in the page and take a gap on every other tab.
-                 */}
-                {/*
-                 * The listing's problems are cards in this page's tray (`useIssueGroup`), under the
-                 * tab's name and on every tab; each one's Fix switches here first.
-                 */}
-                {sellsAs === undefined ? null : (
-                    <CascadeItem index={0} className={tab === 'selling' ? undefined : 'hidden'}>
-                        <View className="relative z-raised" testID="kitchen-recipe-selling">
-                            <IssueRevealScope reveal={revealSelling}>
-                                <PacksHostContext.Provider value={packsHost}>
-                                    {sellsAs.content}
-                                </PacksHostContext.Provider>
-                            </IssueRevealScope>
                         </View>
-                    </CascadeItem>
-                )}
+                    )}
 
-                {/* ── Technical sheet ──────────────────────────────────────────────────────────── */}
-                {tab !== 'sheet' ? null : (
-                    <View className="relative z-raised flex-col gap-loose">
-                        <View className="min-w-0 flex-1 flex-col gap-loose">
-                            {/*
-                             * The sheet as a reader checks it before publishing: one ledger of the figures
-                             * the other steps produced, from the draft rather than the saved version, so it
-                             * answers while a recipe is still being written.
-                             */}
+                    {/* ── Packs & prices ───────────────────────────────────────────────────────────── */}
+                    {/*
+                     * Mounted whenever the recipe is sold, and hidden rather than unmounted on the other
+                     * tabs, as the listing is: its draft lives inside it, and a tab switch must not throw
+                     * a half-typed price away. The host owns the section; this page feeds it the recipe's
+                     * yield and the live `computed.packs`.
+                     */}
+                    {packs === undefined ? null : (
+                        <CascadeItem
+                            index={0}
+                            className={tab === 'packaging' ? undefined : 'hidden'}
+                        >
+                            <View className="relative z-raised" testID="kitchen-recipe-packs">
+                                {packs.render({
+                                    // In kilograms whatever unit the yield is typed in: a 500 g batch is
+                                    // half a kilo of packs, not five hundred.
+                                    yieldKg:
+                                        yieldMass !== null && yieldMass > 0
+                                            ? massKg(yieldMass, details.yieldUnit)
+                                            : null,
+                                    piecesPerBatch:
+                                        yieldPieces !== null && yieldPieces > 0
+                                            ? yieldPieces
+                                            : null,
+                                    computed: computed?.packs ?? null,
+                                    canViewCosts,
+                                })}
+                            </View>
+                        </CascadeItem>
+                    )}
+
+                    {/* ── Costing ──────────────────────────────────────────────────────────────────── */}
+                    {tab !== 'costing' ? null : (
+                        <View className="relative z-raised flex-col gap-loose">
                             <FormSection
                                 first
                                 variant="panel"
-                                testID="kitchen-recipe-sheet-summary"
-                                title={t('kitchen:recipes.sheetTitle')}
+                                testID="kitchen-recipe-cost-cascade"
+                                nativeID="kitchen-recipe-cost-cascade"
+                                title={t('kitchen:recipes.sectionCostCascade')}
+                                aside={
+                                    <Badge
+                                        variant="label"
+                                        tone="danger"
+                                        label={t('kitchen:recipes.confidential')}
+                                    />
+                                }
                             >
-                                <View className="flex-col">
-                                    {sheetRows.map((row) => (
-                                        <View
-                                            key={row.key}
-                                            testID={`kitchen-recipe-sheet-summary-${row.key}`}
-                                            className="min-h-8 flex-row items-baseline gap-snug border-b border-stroke-subtle py-hair"
-                                        >
-                                            <View className="w-44 shrink-0">
-                                                <Text variant="caption" tone="secondary">
-                                                    {row.label}
+                                {/* Printed, as the board has it: it says which price the figures are
+                                built on, so a number that moves tomorrow can be traced. */}
+                                <Text
+                                    variant="body"
+                                    tone="secondary"
+                                    testID="kitchen-recipe-cost-cascade-note"
+                                >
+                                    {t('kitchen:recipes.costCascadeHint')}
+                                </Text>
+                                {canViewCosts ? (
+                                    <Stack space="sm">
+                                        <CostCascade
+                                            testID="kitchen-recipe-cost-cards"
+                                            computed={computed}
+                                            yieldUnit={t(unitShortKey(details.yieldUnit))}
+                                            productionWaste={details.wastePercent}
+                                            lineCount={lines.length}
+                                            firstPack={
+                                                packs === undefined ||
+                                                packs.report.summary[0] === undefined
+                                                    ? null
+                                                    : {
+                                                          name: packs.report.summary[0].name,
+                                                          cost:
+                                                              computed?.packs?.find(
+                                                                  (entry) =>
+                                                                      entry.key ===
+                                                                      packs.report.summary[0]?.key,
+                                                              ) ?? null,
+                                                      }
+                                            }
+                                            t={t}
+                                            formatter={formatter}
+                                        />
+                                    </Stack>
+                                ) : (
+                                    // Said, rather than drawn as a grid of dashes nobody can explain.
+                                    <Text
+                                        testID="kitchen-recipe-costs-hidden"
+                                        variant="caption"
+                                        tone="secondary"
+                                    >
+                                        {t('kitchen:recipes.sheetCostHidden')}
+                                    </Text>
+                                )}
+                            </FormSection>
+
+                            {/*
+                             * After the cascade, because that is the order the question is asked in: what
+                             * does a kilogram cost, what does one of the things we actually sell cost, what
+                             * do we charge for it and what does that leave. One row per pack Packs & prices
+                             * holds, priced off the draft; no Counter column — it charges the Home shop's.
+                             */}
+                            {!canViewCosts || packs === undefined ? null : (
+                                <FormSection
+                                    variant="panel"
+                                    testID="kitchen-recipe-pack-costs"
+                                    title={t('kitchen:packs.costingTitle')}
+                                >
+                                    <PackCostTable
+                                        testID="kitchen-recipe-pack-costs-table"
+                                        report={packs.report}
+                                        computed={computed?.packs ?? null}
+                                    />
+                                </FormSection>
+                            )}
+                        </View>
+                    )}
+
+                    {/* ── Selling ──────────────────────────────────────────────────────────────────── */}
+                    {/*
+                     * Mounted whenever there is a listing, and hidden rather than unmounted on the other tabs.
+                     * Its drafts live inside it, so unmounting it on a tab switch would throw away a pack
+                     * somebody had half typed — the recipe's own drafts survive a switch because they live on
+                     * this screen, and the listing's have to as well.
+                     *
+                     * It is its own `CascadeItem` so that `hidden` lands on the band's box: hidden one level
+                     * further in, the band would still stand in the page and take a gap on every other tab.
+                     */}
+                    {/*
+                     * The listing's problems are cards in this page's tray (`useIssueGroup`), under the
+                     * tab's name and on every tab; each one's Fix switches here first.
+                     */}
+                    {sellsAs === undefined ? null : (
+                        <CascadeItem index={0} className={tab === 'selling' ? undefined : 'hidden'}>
+                            <View className="relative z-raised" testID="kitchen-recipe-selling">
+                                <IssueRevealScope reveal={revealSelling}>
+                                    <PacksHostContext.Provider value={packsHost}>
+                                        {sellsAs.content}
+                                    </PacksHostContext.Provider>
+                                </IssueRevealScope>
+                            </View>
+                        </CascadeItem>
+                    )}
+
+                    {/* ── Technical sheet ──────────────────────────────────────────────────────────── */}
+                    {tab !== 'sheet' ? null : (
+                        <View className="relative z-raised flex-col gap-loose">
+                            <View className="min-w-0 flex-1 flex-col gap-loose">
+                                {/*
+                                 * The sheet as a reader checks it before publishing: one ledger of the figures
+                                 * the other steps produced, from the draft rather than the saved version, so it
+                                 * answers while a recipe is still being written.
+                                 */}
+                                <FormSection
+                                    first
+                                    variant="panel"
+                                    testID="kitchen-recipe-sheet-summary"
+                                    title={t('kitchen:recipes.sheetTitle')}
+                                >
+                                    <View className="flex-col">
+                                        {sheetRows.map((row) => (
+                                            <View
+                                                key={row.key}
+                                                testID={`kitchen-recipe-sheet-summary-${row.key}`}
+                                                className="min-h-8 flex-row items-baseline gap-snug border-b border-stroke-subtle py-hair"
+                                            >
+                                                <View className="w-44 shrink-0">
+                                                    <Text variant="caption" tone="secondary">
+                                                        {row.label}
+                                                    </Text>
+                                                </View>
+                                                <Text
+                                                    testID={`kitchen-recipe-sheet-summary-${row.key}-value`}
+                                                    variant={row.mono ? 'mono' : 'label'}
+                                                >
+                                                    {row.value}
                                                 </Text>
                                             </View>
-                                            <Text
-                                                testID={`kitchen-recipe-sheet-summary-${row.key}-value`}
-                                                variant={row.mono ? 'mono' : 'label'}
-                                            >
-                                                {row.value}
-                                            </Text>
-                                        </View>
-                                    ))}
-                                </View>
-                            </FormSection>
+                                        ))}
+                                    </View>
+                                </FormSection>
 
-                            <FormSection
-                                first
-                                variant="panel"
-                                testID="kitchen-recipe-composition"
-                                title={t('kitchen:forms.nutritionTitle')}
-                                aside={
-                                    <Badge
-                                        variant="label"
-                                        tone="info"
-                                        label={t('kitchen:composition.fromDatabase')}
+                                <FormSection
+                                    first
+                                    variant="panel"
+                                    testID="kitchen-recipe-composition"
+                                    title={t('kitchen:forms.nutritionTitle')}
+                                    aside={
+                                        <Badge
+                                            variant="label"
+                                            tone="info"
+                                            label={t('kitchen:composition.fromDatabase')}
+                                        />
+                                    }
+                                >
+                                    <DerivedPanel
+                                        testID="kitchen-recipe-composition-panel"
+                                        variant="outline"
+                                        figures={nutrientFigures(
+                                            rollup.data?.per100g ?? null,
+                                            t,
+                                            formatter,
+                                        )}
+                                        emptyValue={t('kitchen:list.noValue')}
                                     />
-                                }
-                            >
-                                <DerivedPanel
-                                    testID="kitchen-recipe-composition-panel"
-                                    variant="outline"
-                                    figures={nutrientFigures(
-                                        rollup.data?.per100g ?? null,
-                                        t,
-                                        formatter,
+
+                                    {/*
+                                     * Why the tiles are dashes, in the reader's language and naming the row.
+                                     * The panel above withholds every figure the moment one line cannot be
+                                     * resolved, and a panel of dashes with no reason beside it is the version
+                                     * of this screen a kitchen files a bug against.
+                                     */}
+                                    {warningNotices.length === 0 ? null : (
+                                        <Stack
+                                            space="xs"
+                                            testID="kitchen-recipe-composition-warnings"
+                                        >
+                                            {warningNotices.map((notice) => (
+                                                <Text
+                                                    key={notice.code}
+                                                    testID={`kitchen-recipe-composition-warnings-warning-${notice.code}`}
+                                                    variant="caption"
+                                                    tone="warning"
+                                                >
+                                                    {notice.text}
+                                                </Text>
+                                            ))}
+                                        </Stack>
                                     )}
-                                    emptyValue={t('kitchen:list.noValue')}
-                                />
+                                </FormSection>
 
                                 {/*
-                                 * Why the tiles are dashes, in the reader's language and naming the row.
-                                 * The panel above withholds every figure the moment one line cannot be
-                                 * resolved, and a panel of dashes with no reason beside it is the version
-                                 * of this screen a kitchen files a bug against.
+                                 * The chips come from the *roll-up*, not from the saved version, which is what
+                                 * lets this tab answer while a recipe is still being written: the roll-up is
+                                 * computed from the draft lines. `origin` is not on `AllergenSource` — it is a
+                                 * derivation by definition — so nothing here claims a hand-declared entry.
                                  */}
-                                {warningNotices.length === 0 ? null : (
-                                    <Stack space="xs" testID="kitchen-recipe-composition-warnings">
-                                        {warningNotices.map((notice) => (
-                                            <Text
-                                                key={notice.code}
-                                                testID={`kitchen-recipe-composition-warnings-warning-${notice.code}`}
-                                                variant="caption"
-                                                tone="warning"
+                                <FormSection
+                                    variant="panel"
+                                    testID="kitchen-recipe-allergens"
+                                    title={t('kitchen:forms.allergensTitle')}
+                                    aside={
+                                        <Badge
+                                            variant="label"
+                                            tone="info"
+                                            label={t('kitchen:composition.fromDatabase')}
+                                        />
+                                    }
+                                >
+                                    {allergenSources.length === 0 ? (
+                                        <Text
+                                            testID="kitchen-recipe-allergens-none"
+                                            tone="secondary"
+                                            variant="caption"
+                                        >
+                                            {t('kitchen:recipes.noAllergens')}
+                                        </Text>
+                                    ) : (
+                                        <Inline
+                                            space="xs"
+                                            wrap
+                                            testID="kitchen-recipe-allergen-chips"
+                                        >
+                                            {allergenSources.map((source) => {
+                                                const code = String(source.allergenCode);
+                                                // `contains` and `may_contain` are two different claims and
+                                                // never one colour: the tone separates them, the label carries
+                                                // the rest, and the source names the line that put it there.
+                                                const tone: TagTone =
+                                                    source.containment === 'contains'
+                                                        ? 'danger'
+                                                        : 'warning';
+                                                const via = source.ingredientIds
+                                                    .map((id) => {
+                                                        const found = ingredients.find(
+                                                            (entry) => entry.id === id,
+                                                        );
+                                                        return found === undefined
+                                                            ? null
+                                                            : displayName(found.name, locale).value;
+                                                    })
+                                                    .filter(
+                                                        (name): name is string => name !== null,
+                                                    );
+
+                                                return (
+                                                    <Tag
+                                                        key={code}
+                                                        testID={`kitchen-recipe-allergen-${code}`}
+                                                        tone={tone}
+                                                        label={
+                                                            via.length === 0
+                                                                ? code
+                                                                : t('kitchen:recipes.allergenVia', {
+                                                                      code,
+                                                                      name: via[0],
+                                                                  })
+                                                        }
+                                                    />
+                                                );
+                                            })}
+                                        </Inline>
+                                    )}
+                                </FormSection>
+
+                                {/*
+                                 * The print view is the one thing here that genuinely needs a saved record: a
+                                 * technical sheet is a snapshot of a version, with its number on it, and there
+                                 * is no version to snapshot until the recipe exists.
+                                 */}
+                                <FormSection
+                                    variant="panel"
+                                    testID="kitchen-recipe-sheet"
+                                    title={t('kitchen:recipes.sheetPrintTitle')}
+                                >
+                                    {data === undefined ? (
+                                        <Text
+                                            testID="kitchen-recipe-sheet-unsaved"
+                                            tone="secondary"
+                                            variant="caption"
+                                        >
+                                            {t('kitchen:recipes.sheetAfterSave')}
+                                        </Text>
+                                    ) : (
+                                        <TechnicalSheetPanel
+                                            testID="kitchen-recipe-technical-sheet"
+                                            recipe={data}
+                                            version={data.currentVersion}
+                                            sheet={technicalSheet.data}
+                                            isLoading={technicalSheet.isPending}
+                                        />
+                                    )}
+                                </FormSection>
+                            </View>
+                        </View>
+                    )}
+
+                    {/* ── publish ──────────────────────────────────────────────────────────────────── */}
+                    <Dialog
+                        look="card"
+                        testID="kitchen-recipe-publish-dialog"
+                        open={showPublish}
+                        onClose={() => {
+                            setShowPublish(false);
+                        }}
+                        title={t('kitchen:publish.titleVersion', {
+                            number: currentVersion?.versionNumber ?? 1,
+                        })}
+                        actions={
+                            <>
+                                <DeskButton
+                                    testID="kitchen-recipe-publish-cancel"
+                                    variant="quiet"
+                                    label={t('kitchen:common.cancel')}
+                                    onPress={() => {
+                                        setShowPublish(false);
+                                    }}
+                                />
+                                <DeskButton
+                                    testID="kitchen-recipe-publish-confirm"
+                                    label={t('kitchen:publish.confirm')}
+                                    loading={publish.isPending}
+                                    disabled={publishBlockers.length > 0 || quarantined}
+                                    onPress={() => {
+                                        if (data === undefined) return;
+                                        publish.mutate(
+                                            {
+                                                recipeId: data.id,
+                                                request: { lockVersion: data.meta.lockVersion },
+                                            },
+                                            {
+                                                onSuccess: (published) => {
+                                                    setShowPublish(false);
+                                                    setSelectedVersionId(null);
+                                                    if (fix !== null) setFixPublished(true);
+                                                    endProcessSavedOn(ownPath);
+                                                    // Opened from somewhere — a stock gap, Review, Dish
+                                                    // margins: publishing is what it was opened for, so
+                                                    // the reader goes back there (`finish-detour.ts`).
+                                                    finishDetour({
+                                                        testID: 'kitchen-recipe-published-toast',
+                                                        tone: 'success',
+                                                        message: t(
+                                                            'kitchen:publish.publishedToast',
+                                                            {
+                                                                number: published.currentVersion
+                                                                    .versionNumber,
+                                                            },
+                                                        ),
+                                                    });
+                                                },
+                                                onError: (error) => {
+                                                    concurrency.capture(error);
+                                                },
+                                            },
+                                        );
+                                    }}
+                                />
+                            </>
+                        }
+                    >
+                        {/*
+                         * Short and in full ink: one sentence on what publishing does, the label as chips,
+                         * then only what still stands in the way — each with the way to fix it. Grey caption
+                         * text made the old dialog hard to read, and every paragraph it dropped was saying
+                         * something the reader did not need in order to press Publish.
+                         */}
+                        <Stack space="md">
+                            <Text testID="kitchen-recipe-publish-consequence">
+                                {t('kitchen:publish.consequence')}
+                            </Text>
+
+                            {/*
+                             * `contains` and `may contain` are two claims, never one colour — and the
+                             * words say which, not the colour alone.
+                             */}
+                            <AllergenLabelRow
+                                title={t('kitchen:publish.allergenRowsTitle')}
+                                entries={(currentVersion?.allergens ?? []).map((declaration) => ({
+                                    code: String(declaration.allergenCode),
+                                    containment: declaration.containment,
+                                }))}
+                                testID="kitchen-recipe-publish-allergens"
+                                tagTestID="kitchen-recipe-publish-allergen"
+                            />
+
+                            {quarantined ? (
+                                <Callout
+                                    testID="kitchen-recipe-publish-quarantine"
+                                    role="alert"
+                                    tone="warning"
+                                    title={t('kitchen:publish.quarantineTitle')}
+                                    body={t('kitchen:publish.quarantineBody')}
+                                />
+                            ) : null}
+
+                            {publishBlockers.length === 0 ? null : (
+                                <Callout
+                                    testID="kitchen-recipe-publish-blocked"
+                                    role="alert"
+                                    tone="danger"
+                                    title={t('kitchen:publish.blockedTitle')}
+                                >
+                                    <Stack space="xs">
+                                        {publishBlockers.map((reason) => (
+                                            <Inline
+                                                key={reason.text}
+                                                space="sm"
+                                                align="center"
+                                                justify="between"
+                                                wrap
                                             >
-                                                {notice.text}
-                                            </Text>
+                                                <Text>{reason.text}</Text>
+                                                {reason.fix === undefined ? null : (
+                                                    <DeskButton
+                                                        testID={`kitchen-recipe-publish-fix-${reason.fix.id}`}
+                                                        size="sm"
+                                                        variant="secondary"
+                                                        label={t('kitchen:publish.fixIt')}
+                                                        onPress={() => {
+                                                            if (reason.fix === undefined) return;
+                                                            setShowPublish(false);
+                                                            openIngredient(
+                                                                reason.fix.id,
+                                                                'ingredients',
+                                                                [reason.fix.need],
+                                                            );
+                                                        }}
+                                                    />
+                                                )}
+                                            </Inline>
                                         ))}
                                     </Stack>
-                                )}
-                            </FormSection>
+                                </Callout>
+                            )}
 
                             {/*
-                             * The chips come from the *roll-up*, not from the saved version, which is what
-                             * lets this tab answer while a recipe is still being written: the roll-up is
-                             * computed from the draft lines. `origin` is not on `AllergenSource` — it is a
-                             * derivation by definition — so nothing here claims a hand-declared entry.
+                             * Each unchecked ingredient is its own button, opening its form on the allergen
+                             * section with the way back to this recipe — the fix, not just the name.
                              */}
-                            <FormSection
-                                variant="panel"
-                                testID="kitchen-recipe-allergens"
-                                title={t('kitchen:forms.allergensTitle')}
-                                aside={
-                                    <Badge
-                                        variant="label"
-                                        tone="info"
-                                        label={t('kitchen:composition.fromDatabase')}
-                                    />
-                                }
-                            >
-                                {allergenSources.length === 0 ? (
-                                    <Text
-                                        testID="kitchen-recipe-allergens-none"
-                                        tone="secondary"
-                                        variant="caption"
-                                    >
-                                        {t('kitchen:recipes.noAllergens')}
-                                    </Text>
-                                ) : (
-                                    <Inline space="xs" wrap testID="kitchen-recipe-allergen-chips">
-                                        {allergenSources.map((source) => {
-                                            const code = String(source.allergenCode);
-                                            // `contains` and `may_contain` are two different claims and
-                                            // never one colour: the tone separates them, the label carries
-                                            // the rest, and the source names the line that put it there.
-                                            const tone: TagTone =
-                                                source.containment === 'contains'
-                                                    ? 'danger'
-                                                    : 'warning';
-                                            const via = source.ingredientIds
-                                                .map((id) => {
-                                                    const found = ingredients.find(
-                                                        (entry) => entry.id === id,
+                            {unmappedIngredients.length === 0 ? null : (
+                                <Callout
+                                    testID="kitchen-recipe-publish-allergen-unmapped"
+                                    role="alert"
+                                    tone="warning"
+                                    title={t('kitchen:publish.unmappedTitle')}
+                                    body={t('kitchen:publish.unmappedBody')}
+                                >
+                                    <Inline space="xs" wrap>
+                                        {unmappedIngredients.map((entry) => (
+                                            <DeskButton
+                                                key={String(entry.id)}
+                                                testID={`kitchen-recipe-publish-unmapped-${String(entry.id)}`}
+                                                size="sm"
+                                                variant="secondary"
+                                                label={displayName(entry.name, locale).value}
+                                                onPress={() => {
+                                                    setShowPublish(false);
+                                                    openIngredient(
+                                                        String(entry.id),
+                                                        'ingredients',
+                                                        ['allergens'],
                                                     );
-                                                    return found === undefined
-                                                        ? null
-                                                        : displayName(found.name, locale).value;
-                                                })
-                                                .filter((name): name is string => name !== null);
-
-                                            return (
-                                                <Tag
-                                                    key={code}
-                                                    testID={`kitchen-recipe-allergen-${code}`}
-                                                    tone={tone}
-                                                    label={
-                                                        via.length === 0
-                                                            ? code
-                                                            : t('kitchen:recipes.allergenVia', {
-                                                                  code,
-                                                                  name: via[0],
-                                                              })
-                                                    }
-                                                />
-                                            );
-                                        })}
-                                    </Inline>
-                                )}
-                            </FormSection>
-
-                            {/*
-                             * The print view is the one thing here that genuinely needs a saved record: a
-                             * technical sheet is a snapshot of a version, with its number on it, and there
-                             * is no version to snapshot until the recipe exists.
-                             */}
-                            <FormSection
-                                variant="panel"
-                                testID="kitchen-recipe-sheet"
-                                title={t('kitchen:recipes.sheetPrintTitle')}
-                            >
-                                {data === undefined ? (
-                                    <Text
-                                        testID="kitchen-recipe-sheet-unsaved"
-                                        tone="secondary"
-                                        variant="caption"
-                                    >
-                                        {t('kitchen:recipes.sheetAfterSave')}
-                                    </Text>
-                                ) : (
-                                    <TechnicalSheetPanel
-                                        testID="kitchen-recipe-technical-sheet"
-                                        recipe={data}
-                                        version={data.currentVersion}
-                                        sheet={technicalSheet.data}
-                                        isLoading={technicalSheet.isPending}
-                                    />
-                                )}
-                            </FormSection>
-                        </View>
-                    </View>
-                )}
-
-                {/* ── publish ──────────────────────────────────────────────────────────────────── */}
-                <Dialog
-                    look="card"
-                    testID="kitchen-recipe-publish-dialog"
-                    open={showPublish}
-                    onClose={() => {
-                        setShowPublish(false);
-                    }}
-                    title={t('kitchen:publish.titleVersion', {
-                        number: currentVersion?.versionNumber ?? 1,
-                    })}
-                    actions={
-                        <>
-                            <DeskButton
-                                testID="kitchen-recipe-publish-cancel"
-                                variant="quiet"
-                                label={t('kitchen:common.cancel')}
-                                onPress={() => {
-                                    setShowPublish(false);
-                                }}
-                            />
-                            <DeskButton
-                                testID="kitchen-recipe-publish-confirm"
-                                label={t('kitchen:publish.confirm')}
-                                loading={publish.isPending}
-                                disabled={publishBlockers.length > 0 || quarantined}
-                                onPress={() => {
-                                    if (data === undefined) return;
-                                    publish.mutate(
-                                        {
-                                            recipeId: data.id,
-                                            request: { lockVersion: data.meta.lockVersion },
-                                        },
-                                        {
-                                            onSuccess: (published) => {
-                                                setShowPublish(false);
-                                                setSelectedVersionId(null);
-                                                if (fix !== null) setFixPublished(true);
-                                                endProcessSavedOn(ownPath);
-                                                // Opened from somewhere — a stock gap, Review, Dish
-                                                // margins: publishing is what it was opened for, so
-                                                // the reader goes back there (`finish-detour.ts`).
-                                                finishDetour({
-                                                    testID: 'kitchen-recipe-published-toast',
-                                                    tone: 'success',
-                                                    message: t('kitchen:publish.publishedToast', {
-                                                        number: published.currentVersion
-                                                            .versionNumber,
-                                                    }),
-                                                });
-                                            },
-                                            onError: (error) => {
-                                                concurrency.capture(error);
-                                            },
-                                        },
-                                    );
-                                }}
-                            />
-                        </>
-                    }
-                >
-                    {/*
-                     * Short and in full ink: one sentence on what publishing does, the label as chips,
-                     * then only what still stands in the way — each with the way to fix it. Grey caption
-                     * text made the old dialog hard to read, and every paragraph it dropped was saying
-                     * something the reader did not need in order to press Publish.
-                     */}
-                    <Stack space="md">
-                        <Text testID="kitchen-recipe-publish-consequence">
-                            {t('kitchen:publish.consequence')}
-                        </Text>
-
-                        {/*
-                         * `contains` and `may contain` are two claims, never one colour — and the
-                         * words say which, not the colour alone.
-                         */}
-                        <AllergenLabelRow
-                            title={t('kitchen:publish.allergenRowsTitle')}
-                            entries={(currentVersion?.allergens ?? []).map((declaration) => ({
-                                code: String(declaration.allergenCode),
-                                containment: declaration.containment,
-                            }))}
-                            testID="kitchen-recipe-publish-allergens"
-                            tagTestID="kitchen-recipe-publish-allergen"
-                        />
-
-                        {quarantined ? (
-                            <Callout
-                                testID="kitchen-recipe-publish-quarantine"
-                                role="alert"
-                                tone="warning"
-                                title={t('kitchen:publish.quarantineTitle')}
-                                body={t('kitchen:publish.quarantineBody')}
-                            />
-                        ) : null}
-
-                        {publishBlockers.length === 0 ? null : (
-                            <Callout
-                                testID="kitchen-recipe-publish-blocked"
-                                role="alert"
-                                tone="danger"
-                                title={t('kitchen:publish.blockedTitle')}
-                            >
-                                <Stack space="xs">
-                                    {publishBlockers.map((reason) => (
-                                        <Inline
-                                            key={reason.text}
-                                            space="sm"
-                                            align="center"
-                                            justify="between"
-                                            wrap
-                                        >
-                                            <Text>{reason.text}</Text>
-                                            {reason.fix === undefined ? null : (
-                                                <DeskButton
-                                                    testID={`kitchen-recipe-publish-fix-${reason.fix.id}`}
-                                                    size="sm"
-                                                    variant="secondary"
-                                                    label={t('kitchen:publish.fixIt')}
-                                                    onPress={() => {
-                                                        if (reason.fix === undefined) return;
-                                                        setShowPublish(false);
-                                                        openIngredient(
-                                                            reason.fix.id,
-                                                            'ingredients',
-                                                            [reason.fix.need],
-                                                        );
-                                                    }}
-                                                />
-                                            )}
-                                        </Inline>
-                                    ))}
-                                </Stack>
-                            </Callout>
-                        )}
-
-                        {/*
-                         * Each unchecked ingredient is its own button, opening its form on the allergen
-                         * section with the way back to this recipe — the fix, not just the name.
-                         */}
-                        {unmappedIngredients.length === 0 ? null : (
-                            <Callout
-                                testID="kitchen-recipe-publish-allergen-unmapped"
-                                role="alert"
-                                tone="warning"
-                                title={t('kitchen:publish.unmappedTitle')}
-                                body={t('kitchen:publish.unmappedBody')}
-                            >
-                                <Inline space="xs" wrap>
-                                    {unmappedIngredients.map((entry) => (
-                                        <DeskButton
-                                            key={String(entry.id)}
-                                            testID={`kitchen-recipe-publish-unmapped-${String(entry.id)}`}
-                                            size="sm"
-                                            variant="secondary"
-                                            label={displayName(entry.name, locale).value}
-                                            onPress={() => {
-                                                setShowPublish(false);
-                                                openIngredient(String(entry.id), 'ingredients', [
-                                                    'allergens',
-                                                ]);
-                                            }}
-                                        />
-                                    ))}
-                                </Inline>
-                            </Callout>
-                        )}
-
-                        {publishFailure === null ? null : publishQuarantined ? (
-                            <Callout
-                                testID="kitchen-recipe-publish-refused-quarantine"
-                                role="alert"
-                                tone="warning"
-                                title={t('kitchen:publish.quarantineTitle')}
-                                body={(publishFields.status ?? []).join(' ')}
-                            />
-                        ) : (
-                            <Callout
-                                testID="kitchen-recipe-publish-error"
-                                role="alert"
-                                tone="danger"
-                                title={t('kitchen:publish.failedTitle')}
-                                body={publishFailure.message}
-                            >
-                                <Stack space="none">
-                                    {/*
-                                     * A catalogue refusal reaches the client as a validation failure
-                                     * whose one field repeats the message; only lines that add
-                                     * something are drawn, or the callout says it twice.
-                                     */}
-                                    {Object.entries(publishFields)
-                                        .filter(
-                                            ([, messages]) =>
-                                                messages.join(' ') !== publishFailure.message,
-                                        )
-                                        .map(([field, messages]) => (
-                                            <Text
-                                                key={field}
-                                                testID={`kitchen-recipe-publish-field-${field}`}
-                                                variant="caption"
-                                            >
-                                                {messages.join(' ')}
-                                            </Text>
+                                                }}
+                                            />
                                         ))}
+                                    </Inline>
+                                </Callout>
+                            )}
+
+                            {publishFailure === null ? null : publishQuarantined ? (
+                                <Callout
+                                    testID="kitchen-recipe-publish-refused-quarantine"
+                                    role="alert"
+                                    tone="warning"
+                                    title={t('kitchen:publish.quarantineTitle')}
+                                    body={(publishFields.status ?? []).join(' ')}
+                                />
+                            ) : (
+                                <Callout
+                                    testID="kitchen-recipe-publish-error"
+                                    role="alert"
+                                    tone="danger"
+                                    title={t('kitchen:publish.failedTitle')}
+                                    body={publishFailure.message}
+                                >
+                                    <Stack space="none">
+                                        {/*
+                                         * A catalogue refusal reaches the client as a validation failure
+                                         * whose one field repeats the message; only lines that add
+                                         * something are drawn, or the callout says it twice.
+                                         */}
+                                        {Object.entries(publishFields)
+                                            .filter(
+                                                ([, messages]) =>
+                                                    messages.join(' ') !== publishFailure.message,
+                                            )
+                                            .map(([field, messages]) => (
+                                                <Text
+                                                    key={field}
+                                                    testID={`kitchen-recipe-publish-field-${field}`}
+                                                    variant="caption"
+                                                >
+                                                    {messages.join(' ')}
+                                                </Text>
+                                            ))}
+                                    </Stack>
+                                </Callout>
+                            )}
+                        </Stack>
+                    </Dialog>
+
+                    {/* ── release a quarantine ─────────────────────────────────────────────────────── */}
+                    {/*
+                     * The over-receipt confirmation's shape (`receive-delivery-screen.tsx`): what changes,
+                     * then a tick the reader gives before the irreversible button works. Old and new
+                     * labels side by side, as the publish dialog draws a label.
+                     */}
+                    <Dialog
+                        look="card"
+                        testID="kitchen-recipe-release-dialog"
+                        open={showRelease}
+                        onClose={() => {
+                            setShowRelease(false);
+                        }}
+                        title={t('kitchen:publish.releaseTitle', {
+                            number: currentVersion?.versionNumber ?? 1,
+                        })}
+                        actions={
+                            <>
+                                <DeskButton
+                                    testID="kitchen-recipe-release-cancel"
+                                    variant="quiet"
+                                    label={t('kitchen:common.cancel')}
+                                    onPress={() => {
+                                        setShowRelease(false);
+                                    }}
+                                />
+                                <DeskButton
+                                    testID="kitchen-recipe-release-confirm"
+                                    label={t('kitchen:publish.releaseConfirm')}
+                                    loading={release.isPending}
+                                    disabled={
+                                        !releaseChecked ||
+                                        anyDirty ||
+                                        currentVersion?.derivationStale !== false
+                                    }
+                                    onPress={() => {
+                                        if (data === undefined || currentVersion === null) return;
+                                        release.mutate(
+                                            {
+                                                recipeId: data.id,
+                                                versionId: currentVersion.id,
+                                                lockVersion: currentVersion.lockVersion,
+                                            },
+                                            {
+                                                onSuccess: () => {
+                                                    toast.show({
+                                                        testID: 'kitchen-recipe-released-toast',
+                                                        tone: 'success',
+                                                        message: t(
+                                                            'kitchen:publish.releasedToast',
+                                                            {
+                                                                number: currentVersion.versionNumber,
+                                                            },
+                                                        ),
+                                                    });
+                                                },
+                                                onError: (error) => {
+                                                    // A recompute moves the version's lock and label:
+                                                    // never retry on the lock this dialog was shown.
+                                                    if (
+                                                        toFailure(error)?.code ===
+                                                        'resource.conflict'
+                                                    ) {
+                                                        void record.refetch();
+                                                    }
+                                                    nudgeTray();
+                                                },
+                                                onSettled: () => {
+                                                    setShowRelease(false);
+                                                },
+                                            },
+                                        );
+                                    }}
+                                />
+                            </>
+                        }
+                    >
+                        <Stack space="md">
+                            <Text testID="kitchen-recipe-release-consequence">
+                                {t('kitchen:publish.releaseBody')}
+                            </Text>
+                            {currentVersion?.previousLabel == null ? (
+                                <Stack space="xs" testID="kitchen-recipe-release-reason">
+                                    <Text variant="label">
+                                        {t('kitchen:publish.releaseReasonTitle')}
+                                    </Text>
+                                    <Text>{currentVersion?.reviewReason ?? ''}</Text>
                                 </Stack>
-                            </Callout>
-                        )}
-                    </Stack>
-                </Dialog>
-
-                {/* ── release a quarantine ─────────────────────────────────────────────────────── */}
-                {/*
-                 * The over-receipt confirmation's shape (`receive-delivery-screen.tsx`): what changes,
-                 * then a tick the reader gives before the irreversible button works. Old and new
-                 * labels side by side, as the publish dialog draws a label.
-                 */}
-                <Dialog
-                    look="card"
-                    testID="kitchen-recipe-release-dialog"
-                    open={showRelease}
-                    onClose={() => {
-                        setShowRelease(false);
-                    }}
-                    title={t('kitchen:publish.releaseTitle', {
-                        number: currentVersion?.versionNumber ?? 1,
-                    })}
-                    actions={
-                        <>
-                            <DeskButton
-                                testID="kitchen-recipe-release-cancel"
-                                variant="quiet"
-                                label={t('kitchen:common.cancel')}
-                                onPress={() => {
-                                    setShowRelease(false);
-                                }}
-                            />
-                            <DeskButton
-                                testID="kitchen-recipe-release-confirm"
-                                label={t('kitchen:publish.releaseConfirm')}
-                                loading={release.isPending}
-                                disabled={
-                                    !releaseChecked ||
-                                    anyDirty ||
-                                    currentVersion?.derivationStale !== false
-                                }
-                                onPress={() => {
-                                    if (data === undefined || currentVersion === null) return;
-                                    release.mutate(
-                                        {
-                                            recipeId: data.id,
-                                            versionId: currentVersion.id,
-                                            lockVersion: currentVersion.lockVersion,
-                                        },
-                                        {
-                                            onSuccess: () => {
-                                                toast.show({
-                                                    testID: 'kitchen-recipe-released-toast',
-                                                    tone: 'success',
-                                                    message: t('kitchen:publish.releasedToast', {
-                                                        number: currentVersion.versionNumber,
-                                                    }),
-                                                });
-                                            },
-                                            onError: (error) => {
-                                                // A recompute moves the version's lock and label:
-                                                // never retry on the lock this dialog was shown.
-                                                if (
-                                                    toFailure(error)?.code === 'resource.conflict'
-                                                ) {
-                                                    void record.refetch();
-                                                }
-                                                nudgeTray();
-                                            },
-                                            onSettled: () => {
-                                                setShowRelease(false);
-                                            },
-                                        },
-                                    );
-                                }}
-                            />
-                        </>
-                    }
-                >
-                    <Stack space="md">
-                        <Text testID="kitchen-recipe-release-consequence">
-                            {t('kitchen:publish.releaseBody')}
-                        </Text>
-                        {currentVersion?.previousLabel == null ? (
-                            <Stack space="xs" testID="kitchen-recipe-release-reason">
-                                <Text variant="label">
-                                    {t('kitchen:publish.releaseReasonTitle')}
-                                </Text>
-                                <Text>{currentVersion?.reviewReason ?? ''}</Text>
-                            </Stack>
-                        ) : (
+                            ) : (
+                                <AllergenLabelRow
+                                    title={t('kitchen:publish.releaseOldLabel')}
+                                    entries={Object.entries(currentVersion.previousLabel).map(
+                                        ([code, containment]) => ({ code, containment }),
+                                    )}
+                                    testID="kitchen-recipe-release-old"
+                                />
+                            )}
                             <AllergenLabelRow
-                                title={t('kitchen:publish.releaseOldLabel')}
-                                entries={Object.entries(currentVersion.previousLabel).map(
-                                    ([code, containment]) => ({ code, containment }),
-                                )}
-                                testID="kitchen-recipe-release-old"
+                                title={t('kitchen:publish.releaseNewLabel')}
+                                entries={(currentVersion?.allergens ?? []).map((declaration) => ({
+                                    code: String(declaration.allergenCode),
+                                    containment: declaration.containment,
+                                }))}
+                                testID="kitchen-recipe-release-new"
                             />
+                            {/*
+                             * A release puts the saved version live: unsaved edits would be refused on
+                             * their next save. A label still being recomputed is one nobody compared.
+                             */}
+                            {anyDirty ? (
+                                <Text testID="kitchen-recipe-release-unsaved" tone="danger">
+                                    {t('kitchen:publish.blockUnsaved')}
+                                </Text>
+                            ) : null}
+                            {currentVersion?.derivationStale === true ? (
+                                <Text testID="kitchen-recipe-release-recomputing" tone="danger">
+                                    {t('kitchen:publish.releaseStale')}
+                                </Text>
+                            ) : null}
+                            <Checkbox
+                                testID="kitchen-recipe-release-check"
+                                checked={releaseChecked}
+                                label={t('kitchen:publish.releaseCheck')}
+                                onChange={setReleaseChecked}
+                            />
+                        </Stack>
+                    </Dialog>
+
+                    {/* ── retire ───────────────────────────────────────────────────────────────────── */}
+                    <Dialog
+                        look="card"
+                        testID="kitchen-recipe-retire-dialog"
+                        open={showRetire}
+                        onClose={() => {
+                            setShowRetire(false);
+                        }}
+                        title={t('kitchen:recipes.archiveTitle')}
+                        description={t('kitchen:recipes.archiveBody')}
+                        actions={
+                            <>
+                                <DeskButton
+                                    testID="kitchen-recipe-retire-cancel"
+                                    variant="quiet"
+                                    label={t('kitchen:common.cancel')}
+                                    onPress={() => {
+                                        setShowRetire(false);
+                                    }}
+                                />
+                                <DeskButton
+                                    testID="kitchen-recipe-retire-confirm"
+                                    variant="danger"
+                                    label={t('kitchen:recipes.archiveConfirm')}
+                                    loading={retire.isPending}
+                                    onPress={() => {
+                                        if (data === undefined) return;
+                                        retire.mutate(
+                                            {
+                                                recipeId: data.id,
+                                                request: { lockVersion: data.meta.lockVersion },
+                                            },
+                                            {
+                                                onSuccess: () => {
+                                                    setShowRetire(false);
+                                                    toast.show({
+                                                        testID: 'kitchen-recipe-retired-toast',
+                                                        tone: 'success',
+                                                        message: t(
+                                                            'kitchen:recipes.archivedToast',
+                                                            {
+                                                                name: displayName(data.name, locale)
+                                                                    .value,
+                                                            },
+                                                        ),
+                                                    });
+                                                },
+                                                onError: (error) => {
+                                                    concurrency.capture(error);
+                                                },
+                                            },
+                                        );
+                                    }}
+                                />
+                            </>
+                        }
+                    >
+                        {retire.error === null ? null : (
+                            <Text testID="kitchen-recipe-retire-error" tone="danger">
+                                {toFailure(retire.error)?.message ??
+                                    t('kitchen:recipes.archiveFailed')}
+                            </Text>
                         )}
-                        <AllergenLabelRow
-                            title={t('kitchen:publish.releaseNewLabel')}
-                            entries={(currentVersion?.allergens ?? []).map((declaration) => ({
-                                code: String(declaration.allergenCode),
-                                containment: declaration.containment,
-                            }))}
-                            testID="kitchen-recipe-release-new"
-                        />
-                        {/*
-                         * A release puts the saved version live: unsaved edits would be refused on
-                         * their next save. A label still being recomputed is one nobody compared.
-                         */}
-                        {anyDirty ? (
-                            <Text testID="kitchen-recipe-release-unsaved" tone="danger">
-                                {t('kitchen:publish.blockUnsaved')}
+                    </Dialog>
+
+                    {/* ── the two safety dialogs ───────────────────────────────────────────────────── */}
+                    <UnsavedDialog guard={guard} testID="kitchen-recipe-editor-screen" />
+
+                    <Dialog
+                        look="card"
+                        testID="kitchen-recipe-editor-screen-conflict-dialog"
+                        open={concurrency.conflict !== null}
+                        onClose={concurrency.keepEditing}
+                        dismissOnBackdrop={false}
+                        title={t('kitchen:conflict.title')}
+                        description={t('kitchen:conflict.body')}
+                        actions={
+                            <>
+                                <DeskButton
+                                    testID="kitchen-recipe-editor-screen-conflict-keep"
+                                    variant="quiet"
+                                    label={t('kitchen:conflict.keepEditing')}
+                                    onPress={concurrency.keepEditing}
+                                />
+                                <DeskButton
+                                    testID="kitchen-recipe-editor-screen-conflict-reload"
+                                    variant="danger"
+                                    label={t('kitchen:conflict.reload')}
+                                    onPress={concurrency.reload}
+                                />
+                            </>
+                        }
+                    >
+                        {concurrency.conflict === null ? null : (
+                            <Text
+                                testID="kitchen-recipe-editor-screen-conflict-detail"
+                                tone="secondary"
+                                variant="caption"
+                            >
+                                {concurrency.conflict.failure.message}
                             </Text>
-                        ) : null}
-                        {currentVersion?.derivationStale === true ? (
-                            <Text testID="kitchen-recipe-release-recomputing" tone="danger">
-                                {t('kitchen:publish.releaseStale')}
-                            </Text>
-                        ) : null}
-                        <Checkbox
-                            testID="kitchen-recipe-release-check"
-                            checked={releaseChecked}
-                            label={t('kitchen:publish.releaseCheck')}
-                            onChange={setReleaseChecked}
-                        />
-                    </Stack>
-                </Dialog>
-
-                {/* ── retire ───────────────────────────────────────────────────────────────────── */}
-                <Dialog
-                    look="card"
-                    testID="kitchen-recipe-retire-dialog"
-                    open={showRetire}
-                    onClose={() => {
-                        setShowRetire(false);
-                    }}
-                    title={t('kitchen:recipes.archiveTitle')}
-                    description={t('kitchen:recipes.archiveBody')}
-                    actions={
-                        <>
-                            <DeskButton
-                                testID="kitchen-recipe-retire-cancel"
-                                variant="quiet"
-                                label={t('kitchen:common.cancel')}
-                                onPress={() => {
-                                    setShowRetire(false);
-                                }}
-                            />
-                            <DeskButton
-                                testID="kitchen-recipe-retire-confirm"
-                                variant="danger"
-                                label={t('kitchen:recipes.archiveConfirm')}
-                                loading={retire.isPending}
-                                onPress={() => {
-                                    if (data === undefined) return;
-                                    retire.mutate(
-                                        {
-                                            recipeId: data.id,
-                                            request: { lockVersion: data.meta.lockVersion },
-                                        },
-                                        {
-                                            onSuccess: () => {
-                                                setShowRetire(false);
-                                                toast.show({
-                                                    testID: 'kitchen-recipe-retired-toast',
-                                                    tone: 'success',
-                                                    message: t('kitchen:recipes.archivedToast', {
-                                                        name: displayName(data.name, locale).value,
-                                                    }),
-                                                });
-                                            },
-                                            onError: (error) => {
-                                                concurrency.capture(error);
-                                            },
-                                        },
-                                    );
-                                }}
-                            />
-                        </>
-                    }
-                >
-                    {retire.error === null ? null : (
-                        <Text testID="kitchen-recipe-retire-error" tone="danger">
-                            {toFailure(retire.error)?.message ?? t('kitchen:recipes.archiveFailed')}
-                        </Text>
-                    )}
-                </Dialog>
-
-                {/* ── the two safety dialogs ───────────────────────────────────────────────────── */}
-                <UnsavedDialog guard={guard} testID="kitchen-recipe-editor-screen" />
-
-                <Dialog
-                    look="card"
-                    testID="kitchen-recipe-editor-screen-conflict-dialog"
-                    open={concurrency.conflict !== null}
-                    onClose={concurrency.keepEditing}
-                    dismissOnBackdrop={false}
-                    title={t('kitchen:conflict.title')}
-                    description={t('kitchen:conflict.body')}
-                    actions={
-                        <>
-                            <DeskButton
-                                testID="kitchen-recipe-editor-screen-conflict-keep"
-                                variant="quiet"
-                                label={t('kitchen:conflict.keepEditing')}
-                                onPress={concurrency.keepEditing}
-                            />
-                            <DeskButton
-                                testID="kitchen-recipe-editor-screen-conflict-reload"
-                                variant="danger"
-                                label={t('kitchen:conflict.reload')}
-                                onPress={concurrency.reload}
-                            />
-                        </>
-                    }
-                >
-                    {concurrency.conflict === null ? null : (
-                        <Text
-                            testID="kitchen-recipe-editor-screen-conflict-detail"
-                            tone="secondary"
-                            variant="caption"
-                        >
-                            {concurrency.conflict.failure.message}
-                        </Text>
-                    )}
-                </Dialog>
-            </Cascade>
+                        )}
+                    </Dialog>
+                </Cascade>
+            </SectionLook>
         </IssueTrayFrame>
     );
 }
@@ -4359,13 +4433,14 @@ const YIELD_DIGITS: Intl.NumberFormatOptions = {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
 };
+/** Money is shown to the cent everywhere on the page (board v2): the server keeps the precision. */
 const CASCADE_DIGITS: Intl.NumberFormatOptions = {
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 3,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
 };
 const PER_UNIT_DIGITS: Intl.NumberFormatOptions = {
-    minimumFractionDigits: 4,
-    maximumFractionDigits: 4,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
 };
 
 /**
@@ -4379,12 +4454,18 @@ function CostCascade({
     computed,
     yieldUnit,
     productionWaste,
+    lineCount,
+    firstPack,
     t,
     formatter,
     testID,
 }: {
     /** `null` draws every figure as a dash — see `computed` in the editor for when that is. */
     readonly computed: RecipeComputedCost | null;
+    /** How many raw-material lines the batch total adds up. */
+    readonly lineCount: number;
+    /** The first pack and its cost, for the Per pack card; `null` with no pack. */
+    readonly firstPack: { readonly name: string; readonly cost: RecipePackCost | null } | null;
     readonly yieldUnit: string;
     /** The rate as typed, for the labels. The figures carry the rate the server applied. */
     readonly productionWaste: string;
@@ -4401,17 +4482,31 @@ function CostCascade({
     const production = computed?.production;
 
     return (
-        <FormGrid testID={testID}>
+        <View testID={testID} className="flex-row gap-2.5">
             <CostCard
-                testID={`${testID}-production`}
-                title={t('kitchen:recipes.costProduction')}
+                className="min-w-0 flex-1"
+                testID={`${testID}-batch`}
+                title={t('kitchen:recipes.costBatchTitle')}
                 tone="raised"
                 rows={[
                     {
-                        label: t('kitchen:recipes.costTotal'),
+                        label: t('kitchen:recipes.costRawMaterials', { count: lineCount }),
                         value: money(production?.total, CASCADE_DIGITS),
                         lead: false,
                     },
+                    {
+                        label: t('kitchen:recipes.costTotal'),
+                        value: money(production?.total, CASCADE_DIGITS),
+                        lead: true,
+                    },
+                ]}
+            />
+            <CostCard
+                className="min-w-0 flex-1"
+                testID={`${testID}-production`}
+                title={t('kitchen:recipes.costUnitTitle', { unit: yieldUnit })}
+                tone="raised"
+                rows={[
                     {
                         label: t('kitchen:recipes.costPerUnit', { unit: yieldUnit }),
                         value: money(production?.costPerYieldUnit, PER_UNIT_DIGITS),
@@ -4434,12 +4529,21 @@ function CostCascade({
                                       percent: productionWaste,
                                   }),
                                   value: money(production.costPerPieceWithWaste, PER_UNIT_DIGITS),
-                                  lead: true,
+                                  lead: false,
                               },
                           ]),
                 ]}
             />
-        </FormGrid>
+            {firstPack === null ? null : (
+                <CostCard
+                    className="min-w-0 flex-1"
+                    testID={`${testID}-pack`}
+                    title={t('kitchen:recipes.costPackTitle', { name: firstPack.name })}
+                    tone="brand"
+                    rows={packCostRows(firstPack.cost, t, formatter)}
+                />
+            )}
+        </View>
     );
 }
 
@@ -4577,4 +4681,36 @@ function AllergenLabelRow({
             )}
         </Stack>
     );
+}
+
+/**
+ * Which section a tray card belongs to, by its key: the editor's tray is inline, so each card is
+ * drawn beside that section's title (the FormSection whose testID this is). A card no section
+ * claims — the stock gap, a refused write — goes to the row under the tabs.
+ */
+function recipeIssueAnchor(key: string): string | undefined {
+    if (key === 'name' || key === 'name-ar' || key === 'check-languages')
+        return 'kitchen-recipe-identity';
+    if (
+        key === 'yield' ||
+        key === 'shelf-life' ||
+        key === 'pieces' ||
+        key === 'check-yield' ||
+        key === 'check-pieces'
+    )
+        return 'kitchen-recipe-yield';
+    if (
+        key === 'lines' ||
+        key.startsWith('line-') ||
+        key.startsWith('ingredient-') ||
+        key === 'check-lines' ||
+        key === 'check-costed' ||
+        key === 'uncosted' ||
+        key === 'allergens'
+    )
+        return 'kitchen-recipe-lines';
+    if (key === 'costs') return 'kitchen-recipe-cost-cascade';
+    if (key === 'packs-no_selling_place') return 'kitchen-packs-places';
+    if (key.startsWith('packs-')) return 'kitchen-packs-packs';
+    return undefined;
 }

@@ -132,7 +132,7 @@ export {
     inputFrameClassName,
 } from './forms/text-input.tsx';
 export type { InputSize, TextInputFieldProps } from './forms/text-input.tsx';
-export { FormSection } from './forms/form-section.tsx';
+export { FormSection, SectionLook, useSectionLook } from './forms/form-section.tsx';
 export type { FormSectionProps } from './forms/form-section.tsx';
 export {
     FormIssueScope,
@@ -159,6 +159,7 @@ export type {
     IssueTraySummary,
 } from './issues/issue-tray-context.tsx';
 export { IssueTrayFrame } from './issues/issue-tray.tsx';
+export { IssueAnchor, IssueUnanchored, useInlineIssues } from './issues/issue-anchor.tsx';
 export { IssueRevealScope, useIssueGroup } from './issues/issue-group.tsx';
 export type { RegisteredIssues } from './issues/issue-group.tsx';
 export type {

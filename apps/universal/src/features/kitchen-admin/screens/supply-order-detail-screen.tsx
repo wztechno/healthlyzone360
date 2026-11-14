@@ -11,7 +11,6 @@ import {
     FormSkeleton,
     Icon,
     QuantityInput,
-    Select,
     Stack,
     Text,
     TextInputField,
@@ -64,6 +63,7 @@ import { trimDecimal, unitCodeLabel } from '../format.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskPicker } from '../desk-kit/desk-picker.tsx';
 /**
  * `/kitchen/supply-orders/{order}` — one purchase order (SUP4).
  *
@@ -1008,15 +1008,11 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                                  * Under the rows it joins, as the builder's "Add something else".
                                  */}
                                 {editable ? (
-                                    <View className="z-tooltip w-full max-w-field">
-                                        <Select
+                                    <View className="z-tooltip self-start">
+                                        <DeskPicker
                                             testID="kitchen-supply-order-detail-add-line"
                                             label={t('kitchen:ops.supplyOrders.addLineLabel')}
-                                            labelHidden
-                                            size="sm"
                                             options={addOptions}
-                                            searchable
-                                            value={null}
                                             placeholder={t(
                                                 'kitchen:ops.supplyOrders.addLinePlaceholder',
                                             )}

@@ -11,7 +11,6 @@ import {
     DataList,
     Icon,
     IconButton,
-    Select,
     Text,
     UNDROPPABLE_PRIORITY,
     growWeights,
@@ -28,6 +27,7 @@ import { Pressable, Text as RNText, TextInput, View } from 'react-native';
 
 import { useIngredientWholeSetQuery } from '../../data/kitchen-admin-hooks.ts';
 import { DeskChip } from './desk-kit/desk-chip.tsx';
+import { DeskPicker } from './desk-kit/desk-picker.tsx';
 import { displayName, formatMoney, humaniseCode, parseQuantity, unitShortKey } from './format.ts';
 import { useIngredientQuickAdd } from './ingredient-quick-add.tsx';
 
@@ -121,12 +121,12 @@ export interface LineDraft {
  * only its title, its hint and its picker placeholder. Two copies would be two chances for the Qty
  * column to drift by a pixel.
  *
- * ## The picker is the admin's `Select searchable`
+ * ## The picker is the desk's `DeskPicker`
  *
- * "Type to add — the picker stays inline, no modal" is written on the section itself, and the web
- * `Select` is that: a 320px field with a panel hanging under it and the filter box inside the panel —
- * the control every other line editor in the admin adds rows with. It holds no value and always reads
- * as its placeholder, because picking from it is an action: it adds a row.
+ * "Type to add — the picker stays inline, no modal" is written on the section itself: a pill that
+ * opens a floating card with the filter box inside it — the control every add picker in the kitchen
+ * admin uses. It holds no value and always reads as its placeholder, because picking from it is an
+ * action: it adds a row.
  *
  * It filters the catalogue half in hand (`useIngredientWholeSetQuery`) instead of asking the server
  * per keystroke. The bespoke picker it replaced debounced a request per word and re-rendered a
@@ -184,6 +184,8 @@ export function isSendableLine(
 
 export interface RecipeLineTableProps {
     readonly rows: readonly LineDraft[];
+    /** The recipe being edited: what it makes is never offered as one of its own ingredients. */
+    readonly excludeRecipeId?: string | undefined;
     /**
      * The pool a *drawn row* resolves its designation and unit price from.
      *
@@ -338,6 +340,7 @@ export function packagingEntry(entry: IngredientAdmin): PickerEntry {
 
 export function RecipeLineTable({
     rows,
+    excludeRecipeId,
     ingredients,
     source = 'ingredients',
     flaggedIngredientIds = [],
@@ -390,6 +393,7 @@ export function RecipeLineTable({
         for (const row of catalogue.data ?? []) {
             const entry = wantsIngredients ? ingredientEntry(row) : packagingEntry(row);
             byOption.set(entry.id, entry);
+            if (excludeRecipeId !== undefined && entry.producedBy?.id === excludeRecipeId) continue;
             const price =
                 entry.unitPrice === null
                     ? ''
@@ -421,7 +425,7 @@ export function RecipeLineTable({
             });
         }
         return { options: [...raw, ...preparations], byOption };
-    }, [catalogue.data, wantsIngredients, formatter, locale, t]);
+    }, [catalogue.data, wantsIngredients, formatter, locale, t, excludeRecipeId]);
 
     /*
      * Each row's figures, matched by line number *and* ingredient.
@@ -800,52 +804,43 @@ export function RecipeLineTable({
         },
     });
     const offersQuickAdd = onIngredientCreated !== undefined && wantsIngredients;
+    const pickOption = (id: string) => {
+        const entry = offered.byOption.get(id);
+        if (entry !== undefined) add(entry);
+    };
+    // A typed name the library does not have: create it from the panel.
+    const noResultsAction = offersQuickAdd
+        ? (typed: string, close: () => void) => (
+              <Button
+                  testID={`${testID}-quick-add`}
+                  size="sm"
+                  variant="secondary"
+                  label={t('kitchen:recipes.quickAddNamed', { name: typed })}
+                  hint={t('kitchen:recipes.quickAddHint', { name: typed })}
+                  iconStart={<Icon name="plus" size="sm" />}
+                  disabled={quickAdd.busy}
+                  onPress={() => {
+                      close();
+                      quickAdd.start(typed);
+                  }}
+              />
+          )
+        : undefined;
 
     return (
         <View className="flex-col gap-tight">
             {canManage ? (
                 // It wraps, so the quick add's answer sits beneath the picker.
                 <View className="flex-row flex-wrap items-center gap-tight">
-                    <View style={{ width: PICKER_WIDTH }}>
-                        <Select
-                            testID={`${testID}-picker`}
-                            label={pickerPlaceholder}
-                            labelHidden
-                            placeholder={pickerPlaceholder}
-                            searchable
-                            loading={catalogue.isPending}
-                            options={offered.options}
-                            value={null}
-                            onChange={(id) => {
-                                const entry = offered.byOption.get(id);
-                                if (entry !== undefined) add(entry);
-                            }}
-                            // A typed name the library does not have: create it from the panel.
-                            {...(offersQuickAdd
-                                ? {
-                                      noResultsAction: (typed: string, close: () => void) => (
-                                          <Button
-                                              testID={`${testID}-quick-add`}
-                                              size="sm"
-                                              variant="secondary"
-                                              label={t('kitchen:recipes.quickAddNamed', {
-                                                  name: typed,
-                                              })}
-                                              hint={t('kitchen:recipes.quickAddHint', {
-                                                  name: typed,
-                                              })}
-                                              iconStart={<Icon name="plus" size="sm" />}
-                                              disabled={quickAdd.busy}
-                                              onPress={() => {
-                                                  close();
-                                                  quickAdd.start(typed);
-                                              }}
-                                          />
-                                      ),
-                                  }
-                                : {})}
-                        />
-                    </View>
+                    <DeskPicker
+                        testID={`${testID}-picker`}
+                        label={pickerPlaceholder}
+                        placeholder={pickerPlaceholder}
+                        loading={catalogue.isPending}
+                        options={offered.options}
+                        onChange={pickOption}
+                        {...(noResultsAction === undefined ? {} : { noResultsAction })}
+                    />
                     {offersQuickAdd ? quickAdd.view : null}
                 </View>
             ) : null}
@@ -1136,4 +1131,3 @@ function cellControlClass(
 }
 
 /** The design's 320px field. Stated as a style: there is no 320px width token. */
-const PICKER_WIDTH = 320;

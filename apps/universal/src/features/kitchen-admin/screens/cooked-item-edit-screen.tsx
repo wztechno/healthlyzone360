@@ -293,15 +293,23 @@ function RecipeBookEditor({
     const writePacksDraft = useWritePacksDraft();
     const packsShown = seller !== undefined || (isCreating && cooked !== null);
 
+    // Every sold kind shows what it is filed under; a meal is filed as a meal and has no sub-kinds.
     const classification =
-        cooked === null || cooked === 'meal'
+        cooked === null
             ? undefined
-            : {
-                  categoryLabel: t(CATEGORY_LABEL_KEY[cooked]),
-                  subcategoryLabel: t('kitchen:fields.subcategory'),
-                  subcategoryPlaceholder: t('kitchen:fields.subcategoryPlaceholder'),
-                  options: subcategoryOptions(cooked, t),
-              };
+            : cooked === 'meal'
+              ? {
+                    categoryLabel: t('kitchen:meals.title'),
+                    subcategoryLabel: t('kitchen:fields.subcategory'),
+                    subcategoryPlaceholder: t('kitchen:fields.subcategoryPlaceholder'),
+                    options: [],
+                }
+              : {
+                    categoryLabel: t(CATEGORY_LABEL_KEY[cooked]),
+                    subcategoryLabel: t('kitchen:fields.subcategory'),
+                    subcategoryPlaceholder: t('kitchen:fields.subcategoryPlaceholder'),
+                    options: subcategoryOptions(cooked, t),
+                };
 
     /*
      * The recipe is written; this writes the thing that sells it, then lands on the recipe.
@@ -319,7 +327,7 @@ function RecipeBookEditor({
     const linkToCatalogue = (
         created: RecipeAdmin,
         itemType: RecipeSellerKind,
-        listing: { readonly description: LocalisedText },
+        listing: { readonly description: LocalisedText; readonly name: LocalisedText },
     ) => {
         const open = () => {
             router.replace(`/kitchen/recipes/${String(created.id)}` as never);
@@ -349,7 +357,7 @@ function RecipeBookEditor({
 
         if (itemType === 'meal') {
             createMeal.mutate(
-                { name: created.name, description: listing.description, recipeId: created.id },
+                { name: listing.name, description: listing.description, recipeId: created.id },
                 {
                     onSuccess: (meal) => {
                         writePacks(meal.id);
@@ -362,7 +370,7 @@ function RecipeBookEditor({
 
         createItem.mutate(
             {
-                name: created.name,
+                name: listing.name,
                 description: listing.description,
                 categoryCode: ITEM_CATEGORY[itemType],
                 itemType,
@@ -428,6 +436,7 @@ function RecipeBookEditor({
                     ? undefined
                     : {
                           label: t('kitchen:recipes.tabSelling'),
+                          reference: seller.reference,
                           content:
                               soldAs.length < 2 ? (
                                   listing

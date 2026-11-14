@@ -15,10 +15,10 @@ import {
     FormSection,
     Icon,
     QuantityInput,
-    Select,
     Stack,
     Text,
     UNDROPPABLE_PRIORITY,
+    useSectionLook,
 } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { IngredientId, minorUnitExponent } from '@healthy360/domain-types';
@@ -31,7 +31,7 @@ import type { TFunction } from 'i18next';
 import { createContext, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { useCan } from '../../access/gate.tsx';
 import { toFailure } from '../../data/hooks.ts';
@@ -45,6 +45,7 @@ import { useRepositories } from '../../data/repository-provider.tsx';
 import { CostCard } from './cost-card.tsx';
 import type { CostCardRow } from './cost-card.tsx';
 import { ChoiceRow } from './desk-kit/choice-row.tsx';
+import { DeskPicker } from './desk-kit/desk-picker.tsx';
 import { DeskChip } from './desk-kit/desk-chip.tsx';
 import { DeskIconButton } from './desk-kit/desk-button.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, PRICE_LIST_MANAGE_PERMISSION } from './entity-registry.ts';
@@ -539,6 +540,7 @@ export function PacksPricesSection({
     const canManagePrices = useCan(PRICE_LIST_MANAGE_PERMISSION);
     const canManage = canManageCatalogue && canManagePrices;
     const testID = PACKS_TEST_ID;
+    const board = useSectionLook() === 'board';
 
     const query = useItemPacksQuery(itemId);
     const mutation = useSetItemPacksMutation();
@@ -812,23 +814,51 @@ export function PacksPricesSection({
                 title={t('kitchen:packs.placesTitle')}
             >
                 <Stack space="xs">
-                    {PLACES.filter(offered).map((place) => (
-                        <ChoiceRow
-                            key={place}
-                            testID={`${testID}-place-${place}`}
-                            mark="check"
-                            label={placeLabel(place)}
-                            meta={placeCaption(place)}
-                            selected={draft.places[place]}
-                            disabled={!canManage || (place === 'counter' && counterLocked)}
-                            onPress={() => {
-                                setDraft((current) => ({
-                                    ...current,
-                                    places: { ...current.places, [place]: !current.places[place] },
-                                }));
-                            }}
-                        />
-                    ))}
+                    {board ? (
+                        <View className="flex-row gap-2.5">
+                            {PLACES.filter(offered).map((place) => (
+                                <PlaceTile
+                                    key={place}
+                                    testID={`${testID}-place-${place}`}
+                                    label={placeLabel(place)}
+                                    meta={placeCaption(place)}
+                                    selected={draft.places[place]}
+                                    disabled={!canManage || (place === 'counter' && counterLocked)}
+                                    onPress={() => {
+                                        setDraft((current) => ({
+                                            ...current,
+                                            places: {
+                                                ...current.places,
+                                                [place]: !current.places[place],
+                                            },
+                                        }));
+                                    }}
+                                />
+                            ))}
+                        </View>
+                    ) : null}
+                    {board
+                        ? null
+                        : PLACES.filter(offered).map((place) => (
+                              <ChoiceRow
+                                  key={place}
+                                  testID={`${testID}-place-${place}`}
+                                  mark="check"
+                                  label={placeLabel(place)}
+                                  meta={placeCaption(place)}
+                                  selected={draft.places[place]}
+                                  disabled={!canManage || (place === 'counter' && counterLocked)}
+                                  onPress={() => {
+                                      setDraft((current) => ({
+                                          ...current,
+                                          places: {
+                                              ...current.places,
+                                              [place]: !current.places[place],
+                                          },
+                                      }));
+                                  }}
+                              />
+                          ))}
                     {counterLocked && counter !== null ? (
                         <Text
                             testID={`${testID}-counter-locked`}
@@ -859,16 +889,13 @@ export function PacksPricesSection({
                 actions={
                     canManage ? (
                         <View className="z-auto w-64 min-w-0 shrink">
-                            <Select
+                            <DeskPicker
                                 testID={packsTargets.add}
-                                id={packsTargets.add}
                                 label={t('kitchen:packs.addPackLabel')}
-                                labelHidden
                                 placeholder={t('kitchen:packs.addPack')}
-                                searchable
+                                align="end"
                                 loading={packaging.isPending}
                                 options={containers.map(containerOption)}
-                                value={null}
                                 onChange={addPack}
                             />
                         </View>
@@ -876,8 +903,17 @@ export function PacksPricesSection({
                 }
             >
                 <Stack space="sm">
-                    {fills.length === 0 || batchAmount === null ? null : (
-                        <Text testID={`${testID}-batch-fills`} variant="label">
+                    {/* The board draws no "One batch fills…" line: each pack says its own "N per batch". */}
+                    {board || fills.length === 0 || batchAmount === null ? null : (
+                        <Text
+                            testID={`${testID}-batch-fills`}
+                            variant="label"
+                            className={
+                                board
+                                    ? 'rounded-xl bg-surface-sunken px-3 py-2.5 !text-[13px] !font-semibold'
+                                    : undefined
+                            }
+                        >
                             {t('kitchen:packs.batchFills', {
                                 amount: batchAmount,
                                 fills: fills
@@ -992,6 +1028,7 @@ export function PackCard({
     onRemove,
     testID,
 }: PackCardProps) {
+    const board = useSectionLook() === 'board';
     const { t } = useTranslation();
     const { locale } = useLocale();
     const formatter = useFormatter();
@@ -1020,10 +1057,14 @@ export function PackCard({
     const shown = pricedPlacesShown(places);
 
     return (
-        <Card testID={testID} padding="sm">
+        <PackFrame testID={testID}>
             <Stack space="sm">
                 <View className="z-auto flex-row flex-wrap items-center gap-tight">
-                    <Text testID={`${testID}-name`} variant="bodyStrong">
+                    <Text
+                        testID={`${testID}-name`}
+                        variant="bodyStrong"
+                        className={board ? '!text-[15px] !font-bold' : undefined}
+                    >
                         {name}
                     </Text>
                     {pack.code === '' ? null : (
@@ -1046,7 +1087,7 @@ export function PackCard({
                 </View>
 
                 <View className="z-auto flex-row flex-wrap items-start gap-base">
-                    <View className="w-40 max-w-full">
+                    <View className={board ? 'w-28 max-w-full' : 'w-40 max-w-full'}>
                         <QuantityInput
                             testID={`${testID}-fill`}
                             id={`${testID}-fill`}
@@ -1081,15 +1122,11 @@ export function PackCard({
                             {containerPart === undefined ? (
                                 canManage ? (
                                     <View className="z-auto w-56 max-w-full">
-                                        <Select
+                                        <DeskPicker
                                             testID={`${testID}-choose-container`}
-                                            id={`${testID}-choose-container`}
                                             label={t('kitchen:packs.chooseContainer')}
-                                            labelHidden
                                             placeholder={t('kitchen:packs.chooseContainer')}
-                                            searchable
                                             options={containerOptions}
-                                            value={null}
                                             onChange={(ingredientId) => {
                                                 onChange({
                                                     components: [
@@ -1145,15 +1182,11 @@ export function PackCard({
                             ))}
                             {canManage ? (
                                 <View className="z-auto w-40 max-w-full">
-                                    <Select
+                                    <DeskPicker
                                         testID={`${testID}-add-part`}
-                                        id={`${testID}-add-part`}
                                         label={t('kitchen:packs.addPartLabel')}
-                                        labelHidden
                                         placeholder={t('kitchen:packs.addPart')}
-                                        searchable
                                         options={partOptions}
-                                        value={null}
                                         onChange={(ingredientId) => {
                                             onChange({
                                                 components: [
@@ -1222,7 +1255,14 @@ export function PackCard({
                                     : undefined);
                             const currency = currencyOf(place);
                             return (
-                                <View key={place} className="w-56 max-w-full flex-col gap-hair">
+                                <View
+                                    key={place}
+                                    className={
+                                        board
+                                            ? 'w-32 max-w-full flex-col gap-hair'
+                                            : 'w-56 max-w-full flex-col gap-hair'
+                                    }
+                                >
                                     <QuantityInput
                                         testID={fieldId}
                                         id={fieldId}
@@ -1287,12 +1327,12 @@ export function PackCard({
                     </View>
                 )}
             </Stack>
-        </Card>
+        </PackFrame>
     );
 }
 
 /** The cost tile's rows: the three figures, or what is known and why the rest is not. */
-function packCostRows(
+export function packCostRows(
     cost: RecipePackCost | null,
     t: TFunction,
     formatter: Formatter,
@@ -1431,5 +1471,98 @@ export function PackCostTable({
             rowKey={(row) => row.key}
             density="sm"
         />
+    );
+}
+
+/**
+ * One place, as the recipe editor's board draws "Where it sells": a tile beside the other two, the
+ * place in bold over where it sells, a square tick at the start, and the brand's subtle fill with a
+ * brand edge when it is ticked. The same checkbox `ChoiceRow` is to a reader of the page.
+ */
+function PlaceTile({
+    label,
+    meta,
+    selected,
+    disabled,
+    onPress,
+    testID,
+}: {
+    readonly label: string;
+    readonly meta: string;
+    readonly selected: boolean;
+    readonly disabled: boolean;
+    readonly onPress: () => void;
+    readonly testID: string;
+}) {
+    return (
+        <Pressable
+            testID={testID}
+            role="checkbox"
+            accessibilityRole="checkbox"
+            accessibilityLabel={label}
+            accessibilityState={{ checked: selected, disabled }}
+            aria-checked={selected}
+            aria-disabled={disabled}
+            disabled={disabled}
+            onPress={onPress}
+            className={[
+                'min-w-0 flex-1 flex-row items-center gap-2.5 rounded-[14px] border p-3',
+                selected
+                    ? 'border-surface-brand bg-surface-brand-subtle'
+                    : 'border-stroke bg-surface-raised web:hover:bg-surface-sunken',
+                disabled ? 'opacity-50' : '',
+            ].join(' ')}
+        >
+            <View
+                aria-hidden
+                className={[
+                    'h-[18px] w-[18px] items-center justify-center rounded-[4px] border',
+                    selected
+                        ? 'border-surface-brand bg-surface-brand'
+                        : 'border-stroke bg-surface-raised',
+                ].join(' ')}
+            >
+                {selected ? (
+                    <Icon name="check" size="sm" className="text-content-on-brand" />
+                ) : null}
+            </View>
+            <View className="min-w-0 shrink">
+                <RNText numberOfLines={1} className="text-sm font-bold text-content-primary">
+                    {label}
+                </RNText>
+                <RNText numberOfLines={1} className="text-xs text-content-secondary">
+                    {meta}
+                </RNText>
+            </View>
+        </Pressable>
+    );
+}
+
+/**
+ * A pack's frame: the shared `Card`, or — on a screen drawn from its board — the board's `.pk`, a
+ * hairline edge with a 16px corner, 14px in, and no cast.
+ */
+function PackFrame({
+    testID,
+    children,
+}: {
+    readonly testID: string;
+    readonly children: ReactNode;
+}) {
+    const board = useSectionLook() === 'board';
+    if (!board) {
+        return (
+            <Card testID={testID} padding="sm">
+                {children}
+            </Card>
+        );
+    }
+    return (
+        <View
+            testID={testID}
+            className="z-auto rounded-2xl border border-stroke bg-surface-raised p-[14px]"
+        >
+            {children}
+        </View>
     );
 }
