@@ -3240,6 +3240,30 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                 <Text testID={id('data-list-pressed')} variant="caption" tone="secondary">
                     Last row pressed: {pressedRow ?? 'none'}
                 </Text>
+                <Text variant="caption" tone="secondary">
+                    framed, with a row note
+                </Text>
+                {/*
+                 * `rowNote`: a line under one row — an editable row's problem said for the row, so
+                 * no field grows taller and none of the row's fields move out of line.
+                 */}
+                <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card">
+                    <DataList
+                        testID={id('data-list-noted')}
+                        label="Ingredients, with a row note"
+                        framed
+                        columns={catalogueColumns('list-noted')}
+                        rows={CATALOGUE_ROWS}
+                        rowKey={(row) => row.key}
+                        rowNote={(row) =>
+                            row.key === CATALOGUE_ROWS[0]?.key ? (
+                                <Text variant="caption" tone="danger" role="alert">
+                                    Give both ends of the energy band.
+                                </Text>
+                            ) : null
+                        }
+                    />
+                </View>
                 <DataList
                     testID={id('data-list-empty')}
                     label="Ingredients, empty"

@@ -7129,6 +7129,7 @@ export interface NamespaceKeys {
     | 'plans.descriptionLabel'
     | 'plans.descriptionPlaceholderAr'
     | 'plans.descriptionPlaceholderEn'
+    | 'plans.dietsChosen'
     | 'plans.dietsLabel'
     | 'plans.discountInvalid'
     | 'plans.discountLabel'
@@ -7146,6 +7147,7 @@ export interface NamespaceKeys {
     | 'plans.editTitle'
     | 'plans.emptyBody'
     | 'plans.emptyTitle'
+    | 'plans.energyBandHeader'
     | 'plans.energyMaxLabel'
     | 'plans.energyMaxPlaceholder'
     | 'plans.energyMinLabel'
@@ -7172,6 +7174,7 @@ export interface NamespaceKeys {
     | 'plans.noVariants'
     | 'plans.notFoundBody'
     | 'plans.notFoundTitle'
+    | 'plans.offerHeader'
     | 'plans.oneOffExplainer'
     | 'plans.openPriceLists'
     | 'plans.placeholderPriceCount'
@@ -17927,6 +17930,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.descriptionLabel',
   'kitchen:plans.descriptionPlaceholderAr',
   'kitchen:plans.descriptionPlaceholderEn',
+  'kitchen:plans.dietsChosen',
   'kitchen:plans.dietsLabel',
   'kitchen:plans.discountInvalid',
   'kitchen:plans.discountLabel',
@@ -17944,6 +17948,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.editTitle',
   'kitchen:plans.emptyBody',
   'kitchen:plans.emptyTitle',
+  'kitchen:plans.energyBandHeader',
   'kitchen:plans.energyMaxLabel',
   'kitchen:plans.energyMaxPlaceholder',
   'kitchen:plans.energyMinLabel',
@@ -17970,6 +17975,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:plans.noVariants',
   'kitchen:plans.notFoundBody',
   'kitchen:plans.notFoundTitle',
+  'kitchen:plans.offerHeader',
   'kitchen:plans.oneOffExplainer',
   'kitchen:plans.openPriceLists',
   'kitchen:plans.placeholderPriceCount',

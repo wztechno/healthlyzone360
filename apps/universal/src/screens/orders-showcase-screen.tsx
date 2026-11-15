@@ -24,6 +24,7 @@ import {
     DeskRowMenu,
     DeskSelect,
     DeskTabs,
+    DeskToggleTile,
     ListGroupRow,
     MiniMonthPicker,
     initialsOf,
@@ -366,6 +367,19 @@ export function OrdersShowcaseScreen() {
                             label="Order Tahini"
                             checked={ticked}
                             onChange={setTicked}
+                        />
+                        {/* `.dtl`: a record's own multi-choice (the plan's diets), ticked as tiles. */}
+                        <DeskToggleTile
+                            testID="showcase-orders-tile"
+                            label="High protein"
+                            selected={ticked}
+                            onChange={setTicked}
+                        />
+                        <DeskToggleTile
+                            testID="showcase-orders-tile-off"
+                            label="Vegan"
+                            selected={false}
+                            onChange={() => undefined}
                         />
                         <DeskColumnPicker
                             testID="showcase-orders-columns"

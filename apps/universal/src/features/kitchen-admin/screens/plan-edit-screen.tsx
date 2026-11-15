@@ -6,11 +6,11 @@ import {
     Cascade,
     Dialog,
     ErrorState,
-    FilterChip,
     FormGrid,
     FormSection,
     FormSkeleton,
     Icon,
+    InfoTip,
     Inline,
     IssueTrayFrame,
     IssueUnanchored,
@@ -62,7 +62,7 @@ import {
 } from '../format.ts';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useFinishDetour } from '../finish-detour.ts';
-import { useSaveBar } from '../save-bar.tsx';
+import { DiscardButton } from '../save-bar.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { PlanDurationRows, PlanVariantRows } from '../plan-row-editors.tsx';
 import {
@@ -89,6 +89,7 @@ import { BackPill } from '../../../ui/back-pill.tsx';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskToggleTile } from '../desk-kit/desk-toggle-tile.tsx';
 /**
  * `/kitchen/plans/{plan}` — the commercial definition of a subscription plan.
  *
@@ -976,24 +977,6 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
         );
     };
 
-    // The save bar takes the unsaved marker and Save the plan; Publish stays in the header.
-    const planWriting =
-        create.isPending ||
-        update.isPending ||
-        (isCreating && (saveVariantsMutation.isPending || saveDurationsMutation.isPending));
-    const barDrawn = useSaveBar({
-        dirty: guard.isDirty,
-        creating: isCreating,
-        save: {
-            testID: 'kitchen-plan-editor-screen-save',
-            // The design's own word for this button (Commercial §3.3).
-            label: t('kitchen:plans.savePlan'),
-            loading: planWriting,
-            disabled: !canManage || planWriting,
-            onPress: attemptSave,
-        },
-        testID: 'kitchen-plan-editor-screen',
-    });
 
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
 
@@ -1315,7 +1298,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                     tone="brand"
                                     label={t('kitchen:plans.createChip')}
                                 />
-                                {guard.isDirty && !barDrawn ? (
+                                {guard.isDirty ? (
                                     <Badge
                                         variant="label"
                                         testID="kitchen-plan-editor-screen-dirty"
@@ -1335,6 +1318,10 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                         guard.intercept(back.leave);
                                     }}
                                 />
+                                {/* Puts the plan back as last saved, after asking. */}
+                                {guard.isDirty && canManage ? (
+                                    <DiscardButton testID="kitchen-plan-editor-screen-discard" />
+                                ) : null}
                                 {/* Publication is never offered before the plan exists. */}
                                 {isCreating || !canManage ? null : isPublished ? (
                                     <DeskButton
@@ -1356,19 +1343,18 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                 )}
                                 {/*
                                  * The commit, last, on every step: a new plan is written whole from
-                                 * here, and a saved one is edited in any order. In the save bar
-                                 * where the kitchen layout draws one.
+                                 * here, and a saved one is edited in any order. Here rather than in
+                                 * a save bar at the foot (the user's choice, 2026-11-15): the
+                                 * marker, Discard and Save sit with Cancel, as on the recipe editor.
                                  */}
-                                {barDrawn ? null : (
-                                    <DeskButton
-                                        testID="kitchen-plan-editor-screen-save"
-                                        // The design's own word for this button (Commercial §3.3).
-                                        label={t('kitchen:plans.savePlan')}
-                                        loading={busy}
-                                        disabled={!canManage || busy}
-                                        onPress={attemptSave}
-                                    />
-                                )}
+                                <DeskButton
+                                    testID="kitchen-plan-editor-screen-save"
+                                    // The design's own word for this button (Commercial §3.3).
+                                    label={t('kitchen:plans.savePlan')}
+                                    loading={busy}
+                                    disabled={!canManage || busy}
+                                    onPress={attemptSave}
+                                />
                             </Inline>
                         }
                     />
@@ -1508,15 +1494,32 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                             </FormGrid>
                         </FormSection>
 
+                        {/*
+                         * The plan's own answer, ticked on a grid of tiles (Commercial canvas,
+                         * 2026-11-15) — a set the reader chooses for the record, not a filter —
+                         * with how many are chosen beside the title.
+                         */}
                         <FormSection
                             first
                             variant="panel"
                             testID="kitchen-plan-diets-section"
                             title={t('kitchen:plans.dietsLabel')}
+                            actions={
+                                <Text
+                                    testID="kitchen-plan-diets-count"
+                                    variant="caption"
+                                    tone="secondary"
+                                >
+                                    {t('kitchen:plans.dietsChosen', {
+                                        count: details.dietClassifications.length,
+                                        total: DIET_CLASSIFICATIONS.length,
+                                    })}
+                                </Text>
+                            }
                         >
-                            <Inline space="xs" wrap testID="kitchen-plan-diets">
+                            <View testID="kitchen-plan-diets" className="flex-row flex-wrap gap-2">
                                 {DIET_CLASSIFICATIONS.map((diet) => (
-                                    <FilterChip
+                                    <DeskToggleTile
                                         key={diet}
                                         testID={`kitchen-plan-diet-${diet}`}
                                         label={t(dietClassificationKey(diet))}
@@ -1537,7 +1540,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                         }}
                                     />
                                 ))}
-                            </Inline>
+                            </View>
                         </FormSection>
                     </View>
                 )}
@@ -1552,22 +1555,40 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                             testID="kitchen-plan-matrix"
                             nativeID={PLAN_STEP_SECTIONS.matrix}
                             title={t('kitchen:plans.tabMatrix')}
+                            actions={
+                                // A count beside the title with its reason behind the (i), not a
+                                // banner over the grid it is about.
+                                unsoldCells === 0 ? undefined : (
+                                    <View
+                                        testID="kitchen-plan-matrix-unsold"
+                                        role="status"
+                                        className="flex-row items-center gap-1"
+                                    >
+                                        <DeskChip
+                                            tone="warning"
+                                            label={t('kitchen:plans.matrixUnsold', {
+                                                count: unsoldCells,
+                                            })}
+                                        />
+                                        <InfoTip
+                                            label={t('kitchen:plans.matrixUnsold', {
+                                                count: unsoldCells,
+                                            })}
+                                            text={t('kitchen:plans.matrixUnsoldBody')}
+                                            testID="kitchen-plan-matrix-unsold-info"
+                                        />
+                                    </View>
+                                )
+                            }
                         >
-                            {unsoldCells === 0 ? null : (
-                                <Callout
-                                    testID="kitchen-plan-matrix-unsold"
-                                    tone="warning"
-                                    icon="warning"
-                                    role="status"
-                                    title={t('kitchen:plans.matrixUnsold', { count: unsoldCells })}
-                                    body={t('kitchen:plans.matrixUnsoldBody')}
-                                />
-                            )}
                             <PlanMatrixGrid
                                 testID="kitchen-plan-matrix-grid"
                                 rows={rows}
                                 bands={bands}
                                 variants={soldVariants}
+                                onOpenConfigurations={() => {
+                                    form.goTo('variants');
+                                }}
                             />
                         </FormSection>
                     )}

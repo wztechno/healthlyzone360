@@ -13,6 +13,7 @@
  * | `.gh2`            | `ListGroupRow`     | a hand-made section heading |
  * | `.drv` `.cb`      | `ChoiceRow`        | `FilterChip` / choose buttons in a dialog |
  * | `.dots.more`      | `DeskRowMenu`      | `RowActionsMenu` (or `rowActionsLook="desk"`) |
+ * | `.dtl`            | `DeskToggleTile`   | `FilterChip` for a record's own multi-choice |
  * | Show columns      | `DeskColumnPicker` | `ColumnPicker`              |
  * | Breadcrumb board  | `DeskTrail`        | `Breadcrumbs` in the kitchen top bar |
  *
@@ -29,6 +30,7 @@ export type { DeskChipSize } from './desk-chip.tsx';
 export { DeskSelect, DropTrigger } from './desk-select.tsx';
 export type { DeskSelectOption } from './desk-select.tsx';
 export { DeskTabs } from './desk-tabs.tsx';
+export { DeskToggleTile } from './desk-toggle-tile.tsx';
 export { DeskTrail } from './desk-trail.tsx';
 export type { DeskCrumb } from './desk-trail.tsx';
 export type { DeskTabItem } from './desk-tabs.tsx';
