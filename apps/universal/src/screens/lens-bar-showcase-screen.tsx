@@ -11,7 +11,11 @@ import type { PublishableStatus } from '@healthy360/api-client/contracts';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { LensBar, LensScope } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
+import {
+    LensBar,
+    LensFigureCell,
+    LensScope,
+} from '../features/kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
 import { DeskStatusDot } from '../features/kitchen-admin/desk-kit/desk-status-dot.tsx';
 
@@ -262,6 +266,50 @@ export function LensBarShowcaseScreen() {
                         <DeskStatusDot tone="danger" label="Awaiting review" />
                         <DeskStatusDot tone="neutral" label="Archived" />
                     </Inline>
+
+                    {/* 2026-11-15: the batch planner's summary — chips that fill their cell. */}
+                    <Text variant="title">Summary chips — note and fill</Text>
+                    <View
+                        testID="showcase-summary-chips"
+                        className="w-[560px] flex-row flex-wrap gap-2"
+                    >
+                        {(
+                            [
+                                {
+                                    key: 'version',
+                                    label: 'Version',
+                                    value: 1,
+                                    display: 'v1 Published',
+                                },
+                                {
+                                    key: 'batches',
+                                    label: 'Batches',
+                                    value: 2,
+                                    tone: 'brand',
+                                    active: true,
+                                    note: '×1.857',
+                                },
+                                { key: 'portions', label: 'Portions', value: 260 },
+                                {
+                                    key: 'weight',
+                                    label: 'Total weight',
+                                    value: 13.6,
+                                    display: '13.6 Kg',
+                                    note: '+5 % waste',
+                                },
+                            ] satisfies readonly LensFigure[]
+                        ).map((chip) => (
+                            <View key={chip.key} className="w-[276px]">
+                                <LensFigureCell
+                                    figure={chip}
+                                    narrow={false}
+                                    chip
+                                    fill
+                                    testID={`showcase-summary-${chip.key}`}
+                                />
+                            </View>
+                        ))}
+                    </View>
 
                     <Text variant="title">Searchable picker — card look</Text>
                     <View className="z-tooltip w-[240px]">
