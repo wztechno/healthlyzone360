@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10773 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10780 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -5322,12 +5322,19 @@ export interface NamespaceKeys {
     | 'ops.dishMargins.columnStatus'
     | 'ops.dishMargins.contentsCost'
     | 'ops.dishMargins.empty'
+    | 'ops.dishMargins.figureAll'
+    | 'ops.dishMargins.figureTarget'
     | 'ops.dishMargins.heading'
+    | 'ops.dishMargins.lensLabel'
     | 'ops.dishMargins.loadErrorTitle'
     | 'ops.dishMargins.marginValue'
     | 'ops.dishMargins.noTarget'
     | 'ops.dishMargins.onTarget'
     | 'ops.dishMargins.openRecipe'
+    | 'ops.dishMargins.setTarget'
+    | 'ops.dishMargins.showAll'
+    | 'ops.dishMargins.showBelow'
+    | 'ops.dishMargins.targetNotSet'
     | 'ops.dishMargins.targetNote'
     | 'ops.dishMargins.withheld.cost_incomplete'
     | 'ops.dishMargins.withheld.currency_mismatch'
@@ -16113,12 +16120,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.dishMargins.columnStatus',
   'kitchen:ops.dishMargins.contentsCost',
   'kitchen:ops.dishMargins.empty',
+  'kitchen:ops.dishMargins.figureAll',
+  'kitchen:ops.dishMargins.figureTarget',
   'kitchen:ops.dishMargins.heading',
+  'kitchen:ops.dishMargins.lensLabel',
   'kitchen:ops.dishMargins.loadErrorTitle',
   'kitchen:ops.dishMargins.marginValue',
   'kitchen:ops.dishMargins.noTarget',
   'kitchen:ops.dishMargins.onTarget',
   'kitchen:ops.dishMargins.openRecipe',
+  'kitchen:ops.dishMargins.setTarget',
+  'kitchen:ops.dishMargins.showAll',
+  'kitchen:ops.dishMargins.showBelow',
+  'kitchen:ops.dishMargins.targetNotSet',
   'kitchen:ops.dishMargins.targetNote',
   'kitchen:ops.dishMargins.withheld.cost_incomplete',
   'kitchen:ops.dishMargins.withheld.currency_mismatch',

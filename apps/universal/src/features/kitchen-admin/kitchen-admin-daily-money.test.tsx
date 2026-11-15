@@ -326,7 +326,8 @@ describe('dish margins', () => {
             repositories: { kitchenOps: { getDishMargins: async () => margins } },
         });
 
-        expect(await screen.findByText('Below target')).toBeTruthy();
+        // The row's badge, and the Lens bar's Below target figure over the list.
+        expect((await screen.findAllByText('Below target')).length).toBeGreaterThan(0);
         expect(screen.getByText('Withheld: cost incomplete')).toBeTruthy();
         expect(screen.getByTestId('kitchen-dish-margin-margin-2')).toHaveTextContent('—');
     });
@@ -389,7 +390,8 @@ describe('dish margins', () => {
             repositories: { kitchenOps: { getDishMargins: async () => margins } },
         });
 
-        expect(await screen.findByText('Below target')).toBeTruthy();
+        // The row's badge, and the Lens bar's Below target figure over the list.
+        expect((await screen.findAllByText('Below target')).length).toBeGreaterThan(0);
         expect(
             screen.queryByTestId('kitchen-dish-margins-table-row-margin-1-action-recipe'),
         ).toBeNull();

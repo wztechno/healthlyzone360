@@ -1,5 +1,5 @@
 import type { StaffAlert, StaffAlertType } from '@healthy360/api-client/contracts';
-import { DensityProvider, Icon, useBreakpoint, useToast } from '@healthy360/design-system';
+import { DensityProvider, Icon, useToast } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { usePathname, useRouter } from 'expo-router';
@@ -267,7 +267,6 @@ function AlertsBell() {
     // Open on the page it was opened on, as `KeptWorkButton` is.
     const [openOn, setOpenOn] = useState<string | null>(null);
     const open = openOn === pathname;
-    const roomy = useBreakpoint().atLeast('md');
 
     // Escape closes it, as any panel hung from a top bar does.
     useEffect(() => {
@@ -321,8 +320,10 @@ function AlertsBell() {
                     onPress={() => {
                         setOpenOn(open ? null : pathname);
                     }}
-                    // Soft green with a red count while anything is unread; plain once all is read.
-                    className={`h-11 flex-row items-center gap-2 rounded-full border pe-3 ps-4 web:transition-colors ${
+                    // A round bell like the bar's other icons (Phase C board 4, option A): soft green
+                    // with a red count while anything is unread; plain once all is read. The name is
+                    // its accessible label and its hover, not a word on the bar.
+                    className={`h-11 w-11 items-center justify-center rounded-full border web:transition-colors ${
                         open
                             ? 'border-surface-brand bg-surface-brand-subtle'
                             : unreadCount > 0
@@ -332,20 +333,10 @@ function AlertsBell() {
                 >
                     <Icon
                         name="bell"
-                        size="sm"
                         className={lit ? 'text-content-on-brand-subtle' : 'text-content-primary'}
                     />
-                    {roomy ? (
-                        <RNText
-                            className={`text-sm font-semibold ${
-                                lit ? 'text-content-on-brand-subtle' : 'text-content-primary'
-                            }`}
-                        >
-                            {t('kitchen:alerts.title')}
-                        </RNText>
-                    ) : null}
                     {unreadCount === 0 ? null : (
-                        <View className="h-5 min-w-5 items-center justify-center rounded-full bg-danger-strong px-1.5">
+                        <View className="absolute -end-1 -top-1 h-5 min-w-5 items-center justify-center rounded-full border-2 border-surface-raised bg-danger-strong px-1">
                             <RNText
                                 testID="staff-alerts-count"
                                 className="text-xs font-bold tabular-nums text-danger-on-strong"
@@ -354,12 +345,6 @@ function AlertsBell() {
                             </RNText>
                         </View>
                     )}
-                    {/* The top bar is full on a phone, so the pill gives up its chevron there. */}
-                    {roomy ? (
-                        <View className={`web:transition-transform ${open ? 'rotate-180' : ''}`}>
-                            <Icon name="chevronDown" size="sm" className="text-content-secondary" />
-                        </View>
-                    ) : null}
                 </Pressable>
                 {open ? (
                     <View
