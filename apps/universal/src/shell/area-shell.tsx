@@ -218,22 +218,6 @@ function GuardedAreaShell({
                  * Back to the workspace page, to choose another area. Labelled, because it is the
                  * one way between areas; `self-center`, because `Button` is `self-start` by default.
                  */}
-                {/*
-                 * The admin bar's round icons (Phase C board 4, option A): the grid beside the bell,
-                 * the language and the theme, at their size — outside the bar's compact density,
-                 * which drew it at 28px — its name on hover.
-                 */}
-                {showWorkspacesButton && WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) ? (
-                    <IconButton
-                        testID="workspaces-button"
-                        size="sm"
-                        variant="quiet"
-                        round
-                        label={workspacesLabel}
-                        icon={<Icon name="gridDots" size="lg" className="text-content-primary" />}
-                        onPress={toWorkspace}
-                    />
-                ) : null}
                 <DensityProvider value={barDensity}>
                     {!showWorkspacesButton ||
                     WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) ? null : (
@@ -251,6 +235,22 @@ function GuardedAreaShell({
                     )}
                 </DensityProvider>
                 <ThemeToggle />
+                {/*
+                 * The admin bar's round icons (Phase C board 4, option A): the grid last, after
+                 * the bell, the language and the theme, at their size — outside the bar's compact
+                 * density, which drew it at 28px — its name on hover.
+                 */}
+                {showWorkspacesButton && WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) ? (
+                    <IconButton
+                        testID="workspaces-button"
+                        size="sm"
+                        variant="quiet"
+                        round
+                        label={workspacesLabel}
+                        icon={<Icon name="gridDots" size="lg" className="text-content-primary" />}
+                        onPress={toWorkspace}
+                    />
+                ) : null}
                 <DensityProvider value={barDensity}>
                     {railPresent ? null : iconsOnly ? (
                         <IconButton
