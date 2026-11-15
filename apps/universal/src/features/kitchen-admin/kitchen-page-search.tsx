@@ -9,9 +9,12 @@ import {
 import type { CommandPaletteItem, NavigationItem } from '@healthy360/design-system';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { ENTITY_FAMILIES } from './entity-registry.ts';
+
+/** Below this much room the pill's words and Ctrl K chip no longer fit: the round glyph instead. */
+const SEARCH_PILL_MIN = 220;
 
 /**
  * The kitchen area's page search — the box in the top bar, Ctrl K anywhere, and the palette both
@@ -61,10 +64,21 @@ export function KitchenPageSearch({
     );
 
     const label = t('kitchen:search.label');
-    const wide = atLeast('md');
+    /*
+     * The pill needs room for its words and the Ctrl K chip. It is decided by the room the bar
+     * actually leaves it — a long trail on a laptop — not by the window alone; below that it is the
+     * round glyph, never a squeezed "S…".
+     */
+    const [room, setRoom] = useState<number | null>(null);
+    const wide = atLeast('md') && (room === null || room >= SEARCH_PILL_MIN);
 
     return (
-        <>
+        <View
+            className="min-w-0 flex-1 flex-row items-center"
+            onLayout={(event) => {
+                setRoom(event.nativeEvent.layout.width);
+            }}
+        >
             <Pressable
                 testID="kitchen-page-search-trigger"
                 role="button"
@@ -119,6 +133,6 @@ export function KitchenPageSearch({
                     close: t('kitchen:search.hintClose'),
                 }}
             />
-        </>
+        </View>
     );
 }

@@ -55,7 +55,7 @@ import {
 import { useViewedRecord } from '../use-viewed-record.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The subject as a reader names it, for sorting: its label, or the bare id when it has none. */
 function subjectName(row: QualityCheck): string {
     return row.subjectLabel ?? row.subjectId;
@@ -318,7 +318,7 @@ function QualityCheckList({
                 },
             },
             render: (row) => (
-                <DeskChip
+                <DeskStatusDot
                     testID={`${qualityCheckRowTestId(String(row.id))}-status`}
                     tone={qualityCheckStatusTone(row.status)}
                     label={t(qualityCheckStatusKey(row.status))}

@@ -44,6 +44,8 @@ export function RowActionsMenu({
             <Menu
                 label={label}
                 align="end"
+                // The admin's one menu look: the card, as every scope and row menu draws it.
+                look="card"
                 sections={[{ items: actions }]}
                 trigger={({ triggerProps, toggle }) => (
                     <IconButton

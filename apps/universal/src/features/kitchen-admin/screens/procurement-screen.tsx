@@ -3,6 +3,7 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
+    Icon,
     Inline,
     Stack,
     TableSkeleton,
@@ -607,11 +608,11 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                             {/*
                              * Suppliers have their own screen (SUP1) and the unpriced queue is the cost
                              * holder's; both stay one press from the receipts book, beside the one primary.
+                             * Pills like Ingredients' Import and Export, never bare text links.
                              */}
                             <DeskButton
                                 testID="kitchen-procurement-manage-suppliers"
-                                size="sm"
-                                variant="ghost"
+                                variant="secondary"
                                 label={t('kitchen:ops.procurement.manageSuppliers')}
                                 onPress={() => {
                                     router.push('/kitchen/suppliers' as never);
@@ -620,8 +621,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                             {canViewCosts ? (
                                 <DeskButton
                                     testID="kitchen-procurement-unpriced-link"
-                                    size="sm"
-                                    variant="ghost"
+                                    variant="secondary"
                                     label={t('kitchen:ops.procurement.unpricedReceipts')}
                                     onPress={() => {
                                         router.push(
@@ -634,6 +634,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 <DeskButton
                                     testID="kitchen-procurement-post-receipt"
                                     label={t('kitchen:ops.procurement.postReceipt')}
+                                    iconStart={<Icon name="plus" size="sm" />}
                                     onPress={() => {
                                         router.push('/kitchen/procurement/new' as never);
                                     }}

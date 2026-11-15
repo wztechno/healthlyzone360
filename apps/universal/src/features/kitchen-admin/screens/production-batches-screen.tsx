@@ -37,6 +37,7 @@ import {
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * `/kitchen/production-desk/batches` — the batches nobody has to move any more (PROD1).
  *
@@ -273,7 +274,7 @@ function ProductionBatches() {
                 width: 140,
                 priority: 85,
                 render: (row) => (
-                    <DeskChip
+                    <DeskStatusDot
                         testID={`${productionBatchTestId(String(row.id))}-status`}
                         tone={productionStatusTone(row.status)}
                         label={t(productionStatusKey(row.status))}

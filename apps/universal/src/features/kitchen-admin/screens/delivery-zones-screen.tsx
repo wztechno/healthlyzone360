@@ -74,6 +74,7 @@ import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The zone `?view=` names, read on its own when the loaded page does not hold it. */
 function useZoneById(id: string | null) {
     const parsed = DeliveryZoneId.safeParse(id);
@@ -367,7 +368,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                 },
             },
             render: (row) => (
-                <DeskChip
+                <DeskStatusDot
                     testID={`${zoneRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
                     label={t(statusShortKey(row.meta.status))}

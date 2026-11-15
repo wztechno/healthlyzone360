@@ -634,11 +634,12 @@ function AppShellLayout({
                     {topbarTitle}
                 </View>
             )}
+            {/*
+             * The search and the room after it are one column, so the search gets all the slack. It
+             * used to share it half-and-half with a spacer, and a long trail left it a sliver.
+             */}
             {titleWide ? null : (
-                <>
-                    {topbarSearch}
-                    <View className="flex-1" />
-                </>
+                <View className="min-w-0 flex-1 flex-row items-center">{topbarSearch}</View>
             )}
             {topbarEnd}
         </>

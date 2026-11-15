@@ -8,6 +8,7 @@ import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * The fourteen regulatory allergen classes, as a column spec.
  *
@@ -200,14 +201,13 @@ export function allergenColumns({
                 entry.isActive ? t('kitchen:classes.active') : t('kitchen:classes.inactive'),
             render: (entry) =>
                 entry.isActive ? (
-                    <DeskChip
+                    <DeskStatusDot
                         testID={`${allergenRowTestId(String(entry.code))}-active`}
                         tone="brand"
-                        // A pill and its word, as the board draws both states.
                         label={t('kitchen:classes.active')}
                     />
                 ) : (
-                    <DeskChip
+                    <DeskStatusDot
                         testID={`${allergenRowTestId(String(entry.code))}-inactive`}
                         tone="warning"
                         label={t('kitchen:classes.inactive')}

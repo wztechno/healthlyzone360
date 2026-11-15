@@ -11,8 +11,10 @@
  *
  * ## Placement
  *
- * `below` (the default): under the control, centred on it, and flipped above only when below would
- * leave the window. `end`: beside it, at its inline end — the right in a left-to-right page, the left
+ * `above` (the default): over the control, centred on it. It used to open below, where the mouse
+ * pointer's arrow hangs — about 20px under its tip — so the label landed under the cursor and was
+ * half hidden by it. Only when above would leave the window (the top bar) does it go below, and then
+ * far enough down to clear the pointer. `end`: beside it, at its inline end — the right in a left-to-right page, the left
  * in Arabic — vertically centred; the module rail's placement, where a label below would sit on the
  * next icon. Either is clamped to the window so a control at an edge keeps its label on screen.
  *
@@ -24,6 +26,8 @@
 /** Clear of the control and of the hairline a bar or table row draws under it. */
 const GAP = 10;
 const EDGE = 4;
+/** Below the control, clear of the pointer's arrow resting on its lower edge. */
+const POINTER_CLEAR = 26;
 
 export interface FloatingLabel {
     readonly hide: () => void;
@@ -55,7 +59,7 @@ export function showFloatingLabel(
     target: unknown,
     text: string,
     testID?: string | undefined,
-    placement: 'below' | 'end' = 'below',
+    placement: 'above' | 'end' = 'above',
     options: FloatingLabelOptions = {},
 ): FloatingLabel | null {
     if (typeof document === 'undefined' || typeof window === 'undefined') return null;
@@ -99,8 +103,8 @@ export function showFloatingLabel(
         top = rect.top + rect.height / 2 - height / 2;
         left = rtl ? rect.left - GAP - width : rect.right + GAP;
     } else {
-        const below = rect.bottom + GAP;
-        top = below + height > window.innerHeight - EDGE ? rect.top - GAP - height : below;
+        const above = rect.top - GAP - height;
+        top = above >= EDGE ? above : rect.bottom + POINTER_CLEAR;
         left = rect.left + rect.width / 2 - width / 2;
     }
     top = Math.max(EDGE, Math.min(top, window.innerHeight - height - EDGE));

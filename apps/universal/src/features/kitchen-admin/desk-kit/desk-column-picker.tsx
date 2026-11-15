@@ -6,6 +6,7 @@ import { View } from 'react-native';
 import type { ColumnPickerProps } from '../catalogue/column-picker.tsx';
 import { ChoiceRow } from './choice-row.tsx';
 import { DeskButton } from './desk-button.tsx';
+import { DeskChip } from './desk-chip.tsx';
 import { DropTrigger } from './desk-select.tsx';
 
 /**
@@ -16,7 +17,7 @@ import { DropTrigger } from './desk-select.tsx';
  *                     in bold; its accessible name is the whole "Show columns · 6 of 6"
  *
  *   ┌ Choose the columns to show ─────────────── ✕ ┐
- *   │ Show up to 6 columns                         │
+ *   │ Show up to 6 columns               (3 of 6) │   one line: the cap, and the count as a chip
  *   │ [✓] Ingredient      [✓] Required             │   check rows, two to a row; a locked
  *   │ [✓] On hand         [ ] Reserved             │   column stays ticked and cannot be
  *   │ …                                            │   unticked, a full table greys the rest
@@ -64,7 +65,6 @@ export function DeskColumnPicker({
                 open={open}
                 onClose={close}
                 title={t('kitchen:catalogue.columnsLabel')}
-                description={t('kitchen:catalogue.columnsHeading', { max })}
                 actions={
                     <>
                         <DeskButton
@@ -88,14 +88,20 @@ export function DeskColumnPicker({
                     </>
                 }
             >
-                <Text
-                    variant="label"
-                    tone="secondary"
-                    className="!font-semibold tabular-nums"
-                    testID={`${testID}-count`}
-                >
-                    {t('kitchen:catalogue.columnsButton', { shown, max })}
-                </Text>
+                {/*
+                 * The cap and the count on one line. They were two stacked captions — "Show up to
+                 * 6 columns", then "Show columns · 3 of 6" — the second repeating the title.
+                 */}
+                <View className="flex-row items-center justify-between gap-3">
+                    <Text variant="body" tone="secondary" testID={`${testID}-cap`}>
+                        {t('kitchen:catalogue.columnsHeading', { max })}
+                    </Text>
+                    <DeskChip
+                        testID={`${testID}-count`}
+                        tone={shown >= max ? 'brand' : 'neutral'}
+                        label={count}
+                    />
+                </View>
                 {/* A gap between the rows, so two ticked neighbours read as two choices, not one band. */}
                 <View className="flex-row flex-wrap gap-y-1.5">
                     {options.map((option) => (

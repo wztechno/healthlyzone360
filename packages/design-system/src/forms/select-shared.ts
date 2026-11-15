@@ -79,6 +79,12 @@ export interface SelectProps<T extends string = string> extends GridSpanProps {
      */
     readonly searchable?: boolean | undefined;
     /**
+     * The open list's look. `card` is the kitchen admin's one menu look — the 260px rounded card
+     * with roomy, rounded rows and a brand check — so a searchable picker on a desk page opens like
+     * every scope and row menu beside it. Web only; the phone's sheet is unchanged.
+     */
+    readonly look?: 'field' | 'card' | undefined;
+    /**
      * The options are still being fetched. An empty list then says so rather than "No option
      * matches", which read as a refusal for the half minute a slow list took to arrive.
      */

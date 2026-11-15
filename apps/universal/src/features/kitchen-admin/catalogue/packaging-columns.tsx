@@ -8,7 +8,7 @@ import { displayName, statusShortKey, statusTone, unitShortKey } from '../format
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * The columns of `/kitchen/packaging`.
  *
@@ -287,10 +287,9 @@ export function packagingColumns({
             sortable: false,
             value: (row) => t(packagingStatusKey(row.meta.status)),
             render: (row) => (
-                <DeskChip
+                <DeskStatusDot
                     testID={`${packagingRowTestId(row.id)}-status`}
                     tone={packagingStatusTone(row.meta.status)}
-                    // A pill and its word, as the Packaging board draws it.
                     label={t(packagingStatusKey(row.meta.status))}
                 />
             ),

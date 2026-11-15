@@ -225,6 +225,8 @@ function BatchPlanner() {
                                 labelHidden
                                 placeholder={t('kitchen:ops.batch.recipePlaceholder')}
                                 searchable
+                                // Opens as the admin's card menu, like the scope pickers.
+                                look="card"
                                 loading={recipes.isPending}
                                 options={recipeOptions}
                                 value={recipeId === null ? null : String(recipeId)}
