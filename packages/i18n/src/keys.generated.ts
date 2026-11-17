@@ -6508,6 +6508,7 @@ export interface NamespaceKeys {
     | 'ops.suppliers.archivedToast'
     | 'ops.suppliers.backToList'
     | 'ops.suppliers.caption'
+    | 'ops.suppliers.codeHint'
     | 'ops.suppliers.codePlaceholder'
     | 'ops.suppliers.columnContact'
     | 'ops.suppliers.columnItem'
@@ -6552,6 +6553,9 @@ export interface NamespaceKeys {
     | 'ops.suppliers.filteredEmptyBody'
     | 'ops.suppliers.filteredEmptyTitle'
     | 'ops.suppliers.generalContact'
+    | 'ops.suppliers.groupIdentity'
+    | 'ops.suppliers.groupReach'
+    | 'ops.suppliers.groupTerms'
     | 'ops.suppliers.itemCount'
     | 'ops.suppliers.itemRefPlaceholder'
     | 'ops.suppliers.itemsEmptyBody'
@@ -8021,10 +8025,6 @@ export interface NamespaceKeys {
     | 'sauces.kindMarinadePrep'
     | 'sauces.title'
     | 'sauces.viewKind'
-    | 'saveBar.discard'
-    | 'saveBar.discardBody'
-    | 'saveBar.discardTitle'
-    | 'saveBar.keepEditing'
     | 'saveBar.label'
     | 'saveBar.notSavedYet'
     | 'saveBar.toFix'
@@ -17340,6 +17340,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.archivedToast',
   'kitchen:ops.suppliers.backToList',
   'kitchen:ops.suppliers.caption',
+  'kitchen:ops.suppliers.codeHint',
   'kitchen:ops.suppliers.codePlaceholder',
   'kitchen:ops.suppliers.columnContact',
   'kitchen:ops.suppliers.columnItem',
@@ -17384,6 +17385,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.filteredEmptyBody',
   'kitchen:ops.suppliers.filteredEmptyTitle',
   'kitchen:ops.suppliers.generalContact',
+  'kitchen:ops.suppliers.groupIdentity',
+  'kitchen:ops.suppliers.groupReach',
+  'kitchen:ops.suppliers.groupTerms',
   'kitchen:ops.suppliers.itemCount',
   'kitchen:ops.suppliers.itemRefPlaceholder',
   'kitchen:ops.suppliers.itemsEmptyBody',
@@ -18853,10 +18857,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:sauces.kindMarinadePrep',
   'kitchen:sauces.title',
   'kitchen:sauces.viewKind',
-  'kitchen:saveBar.discard',
-  'kitchen:saveBar.discardBody',
-  'kitchen:saveBar.discardTitle',
-  'kitchen:saveBar.keepEditing',
   'kitchen:saveBar.label',
   'kitchen:saveBar.notSavedYet',
   'kitchen:saveBar.toFix',

@@ -20,7 +20,6 @@ import { withDeskWidth } from '../../testing/desk-width.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { focusField } from './field-focus.ts';
-import { DiscardBoundary } from './save-bar.tsx';
 import { EMPTY_PACKS_DRAFT, EMPTY_PACKS_REPORT, packsIssuesOf } from './packs-prices-section.tsx';
 import type { PacksDraft, PacksTab } from './packs-prices-section.tsx';
 import {
@@ -286,15 +285,10 @@ function renderEditor(
     record: () => RecipeAdmin,
     writes: Record<string, unknown> = {},
 ) {
-    return renderStubScreen(
-        <DiscardBoundary>
-            <RecipeEditScreen recipe={String(RECIPE_ID)} {...props} />
-        </DiscardBoundary>,
-        {
-            session: kitchenManagerSession(),
-            repositories: { kitchenAdmin: { ...reads(record), ...writes } },
-        },
-    );
+    return renderStubScreen(<RecipeEditScreen recipe={String(RECIPE_ID)} {...props} />, {
+        session: kitchenManagerSession(),
+        repositories: { kitchenAdmin: { ...reads(record), ...writes } },
+    });
 }
 
 const RETURN_TO = '/kitchen/consumption-exceptions?reason=unquantified_recipe_line&page=2';
@@ -736,15 +730,26 @@ describe('leaving the recipe with unsaved work', () => {
         );
     });
 
-    it('keeps nothing once the reader discards it', async () => {
+    it('keeps nothing once the reader leaves and discards it', async () => {
         const stored = recipe();
-        const first = await renderEditor({ returnTo: RETURN_TO }, () => stored);
+        const first = await renderEditor(
+            {
+                returnTo: RETURN_TO,
+                stockGapFix: { reason: 'no_yield_piece_count', ingredientId: null },
+            },
+            () => stored,
+        );
 
+        // Opened from a stock gap, it starts on Production; the name is on the first tab.
+        await untilVisible('kitchen-recipe-tab-description');
+        await press('kitchen-recipe-tab-description');
         await untilVisible('kitchen-recipe-name-en-input');
         await type('kitchen-recipe-name-en-input', 'Burghul salad, extra lemon');
-        await press('kitchen-recipe-editor-screen-discard');
-        await untilVisible('kitchen-recipe-editor-screen-discard-dialog');
-        await press('kitchen-recipe-editor-screen-discard-confirm');
+        // No Discard beside Save: the way back asks, and its Discard drops the work.
+        expect(screen.queryByTestId('kitchen-recipe-editor-screen-discard')).toBeNull();
+        await press('kitchen-recipe-stock-gap-back');
+        await untilVisible('kitchen-recipe-editor-screen-unsaved-dialog');
+        await press('kitchen-recipe-editor-screen-unsaved-discard');
         await act(async () => {
             first.view.unmount();
         });

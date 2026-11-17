@@ -2,6 +2,7 @@ import type { LocalisedText, SuppliedItem, SupplierDetail } from '@healthy360/ap
 import {
     Callout,
     Cascade,
+    DataList,
     Dialog,
     ErrorState,
     FormGrid,
@@ -11,13 +12,12 @@ import {
     Inline,
     Select,
     Stack,
-    Table,
     Text,
     TextInputField,
     useFormSteps,
     useToast,
 } from '@healthy360/design-system';
-import type { TabItem, TableColumn } from '@healthy360/design-system';
+import type { DataListColumn, TabItem } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -54,7 +54,7 @@ import { suppliedItemRowTestId, supplierContactRowTestId } from '../ops-format.t
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
 import {
-    SupplierContactCard,
+    SupplierContactRows,
     emptySupplierContact,
     supplierContactDraft,
     supplierContactInputs,
@@ -68,6 +68,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskRowMenu } from '../desk-kit/desk-row-menu.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { FailureToast } from '../failure-toast.tsx';
 /**
@@ -163,6 +164,15 @@ const CONTACT_FIELDS = [
     ['phone', 'phone', 'kitchen:ops.suppliers.fieldContactPhone'],
     ['whatsapp_phone', 'whatsapp', 'kitchen:ops.suppliers.fieldContactWhatsapp'],
 ] as const satisfies readonly (readonly [SupplierContactWireField, string, string])[];
+
+/**
+ * What you buy here's tracks: the item takes the row's slack; the reference, the price and the
+ * `⋯` keep their widths.
+ */
+const SUPPLIED_ITEM_TRACK = 240;
+const SUPPLIED_REF_TRACK = 200;
+const SUPPLIED_PRICE_TRACK = 240;
+const SUPPLIED_MENU_TRACK = 48;
 
 /** A stable empty set, so the memo below does not recompute on every render of a loading page. */
 const EMPTY_SUPPLIED_ITEMS: readonly SuppliedItem[] = [];
@@ -657,36 +667,49 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
             : formatter.formatDate(receivedAt, { dateStyle: 'medium' });
     }
 
-    const suppliedColumns: readonly TableColumn<SuppliedItem>[] = [
+    /*
+     * What you buy here, as the canvas draws it (2026-11-15): one table — the item with its code
+     * under it and **Preferred** beside its name, their reference, the last price — and the row's
+     * three acts behind its `⋯`. Each keeps the id it had as a button, so a suite presses the same
+     * act from the menu.
+     */
+    const suppliedColumns: readonly DataListColumn<SuppliedItem>[] = [
         {
             key: 'item',
-            header: t('kitchen:ops.suppliers.columnItem'),
-            rowHeader: true,
-            flex: 2,
+            label: t('kitchen:ops.suppliers.columnItem'),
+            width: SUPPLIED_ITEM_TRACK,
+            priority: 100,
+            fill: true,
             render: (row) => {
                 const testID = suppliedItemRowTestId(String(row.stockItem?.id ?? ''));
                 return (
-                    <Stack space="none">
-                        <Text variant="bodyStrong" testID={`${testID}-name`}>
-                            {row.stockItem?.nameEn ?? ''}
-                        </Text>
+                    <View className="min-w-0 flex-col py-tight">
+                        <Inline space="xs" align="center">
+                            <Text variant="bodyStrong" numberOfLines={1} testID={`${testID}-name`}>
+                                {row.stockItem?.nameEn ?? ''}
+                            </Text>
+                            {row.isPreferred ? (
+                                <DeskChip
+                                    testID={`${testID}-preferred`}
+                                    tone="success"
+                                    size="sm"
+                                    label={t('kitchen:ops.suppliers.preferredBadge')}
+                                />
+                            ) : null}
+                        </Inline>
                         <Text variant="caption" tone="secondary">
                             {row.stockItem?.code ?? ''}
                         </Text>
-                        {row.isPreferred ? (
-                            <DeskChip
-                                testID={`${testID}-preferred`}
-                                tone="success"
-                                label={t('kitchen:ops.suppliers.preferredBadge')}
-                            />
-                        ) : null}
-                    </Stack>
+                    </View>
                 );
             },
         },
         {
             key: 'ref',
-            header: t('kitchen:ops.suppliers.columnRef'),
+            label: t('kitchen:ops.suppliers.columnRef'),
+            width: SUPPLIED_REF_TRACK,
+            priority: 99,
+            grow: false,
             render: (row) => (
                 <Text
                     tone={row.supplierItemRef === null ? 'secondary' : 'primary'}
@@ -698,61 +721,80 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
         },
         {
             key: 'lastPrice',
-            numeric: true,
-            header: t('kitchen:ops.suppliers.columnLastPrice'),
-            flex: 2,
-            render: priceCell,
+            label: t('kitchen:ops.suppliers.columnLastPrice'),
+            width: SUPPLIED_PRICE_TRACK,
+            priority: 98,
+            render: (row) => <View className="min-w-0 flex-col py-tight">{priceCell(row)}</View>,
         },
-    ];
-
-    const suppliedRowAction = editable
-        ? {
-              header: t('kitchen:list.actionHeader'),
-              render: (row: SuppliedItem) => {
-                  const testID = suppliedItemRowTestId(String(row.stockItem?.id ?? ''));
-                  return (
-                      <Inline space="xs" wrap justify="end">
-                          {row.isPreferred ? null : (
-                              <DeskButton
-                                  testID={`${testID}-make-preferred`}
-                                  size="sm"
-                                  variant="secondary"
-                                  label={t('kitchen:ops.suppliers.makePreferred')}
-                                  onPress={() => {
-                                      if (row.stockItem === null) return;
-                                      writeLink(
-                                          row.stockItem.id,
-                                          { isPreferred: true },
-                                          t('kitchen:ops.suppliers.preferredToast'),
-                                          'kitchen-supplier-item-preferred-toast',
-                                      );
-                                  }}
+        ...(editable
+            ? [
+                  {
+                      key: 'actions',
+                      label: t('kitchen:list.actionHeader'),
+                      // The ⋯ needs no visible heading in a 48px track; its name stays for a reader.
+                      renderHeader: () => (
+                          <View accessibilityLabel={t('kitchen:list.actionHeader')} />
+                      ),
+                      width: SUPPLIED_MENU_TRACK,
+                      priority: 97,
+                      grow: false,
+                      align: 'end',
+                      render: (row: SuppliedItem) => {
+                          const testID = suppliedItemRowTestId(String(row.stockItem?.id ?? ''));
+                          return (
+                              <DeskRowMenu
+                                  testID={`${testID}-menu`}
+                                  label={t('kitchen:list.rowActions')}
+                                  actions={[
+                                      ...(row.isPreferred
+                                          ? []
+                                          : [
+                                                {
+                                                    key: 'make-preferred',
+                                                    label: t('kitchen:ops.suppliers.makePreferred'),
+                                                    icon: 'star' as const,
+                                                    testID: `${testID}-make-preferred`,
+                                                    onSelect: () => {
+                                                        if (row.stockItem === null) return;
+                                                        writeLink(
+                                                            row.stockItem.id,
+                                                            { isPreferred: true },
+                                                            t(
+                                                                'kitchen:ops.suppliers.preferredToast',
+                                                            ),
+                                                            'kitchen-supplier-item-preferred-toast',
+                                                        );
+                                                    },
+                                                },
+                                            ]),
+                                      {
+                                          key: 'edit-ref',
+                                          label: t('kitchen:ops.suppliers.editRef'),
+                                          icon: 'pen',
+                                          testID: `${testID}-edit-ref`,
+                                          onSelect: () => {
+                                              setEditingRef(row);
+                                              setRefDraft(row.supplierItemRef ?? '');
+                                          },
+                                      },
+                                      {
+                                          key: 'unlink',
+                                          label: t('kitchen:ops.suppliers.unlink'),
+                                          icon: 'close',
+                                          tone: 'danger',
+                                          testID: `${testID}-unlink`,
+                                          onSelect: () => {
+                                              setUnlinking(row);
+                                          },
+                                      },
+                                  ]}
                               />
-                          )}
-                          <DeskButton
-                              testID={`${testID}-edit-ref`}
-                              size="sm"
-                              variant="ghost"
-                              label={t('kitchen:ops.suppliers.editRef')}
-                              onPress={() => {
-                                  setEditingRef(row);
-                                  setRefDraft(row.supplierItemRef ?? '');
-                              }}
-                          />
-                          <DeskButton
-                              testID={`${testID}-unlink`}
-                              size="sm"
-                              variant="ghost"
-                              label={t('kitchen:ops.suppliers.unlink')}
-                              onPress={() => {
-                                  setUnlinking(row);
-                              }}
-                          />
-                      </Inline>
-                  );
-              },
-          }
-        : undefined;
+                          );
+                      },
+                  } satisfies DataListColumn<SuppliedItem>,
+              ]
+            : []),
+    ];
 
     /* ── not found, loading and load failure ─────────────────────────────────────────────────── */
 
@@ -904,16 +946,21 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
         items: linkFailure === null ? 0 : 1,
     };
 
-    const stepItems: readonly TabItem<SupplierStep>[] = (
-        isCreating ? SUPPLIER_CREATE_STEPS : SUPPLIER_STEPS
-    ).map((key) => ({
+    /*
+     * All three steps from the first visit (Buying canvas, 2026-11-15): a supplier being created
+     * shows Named contacts and What you buy here too, locked until the first save — they hang off a
+     * record that does not exist yet — so the reader sees where the form goes next.
+     */
+    const stepItems: readonly TabItem<SupplierStep>[] = SUPPLIER_STEPS.map((key) => ({
         value: key,
         label: stepLabels[key],
-        ...(key === 'contacts'
-            ? { count: contacts.length }
-            : key === 'items'
-              ? { count: suppliedItems.length }
-              : {}),
+        ...(isCreating && key !== 'details'
+            ? { disabled: true, icon: 'lock' as const }
+            : key === 'contacts'
+              ? { count: contacts.length }
+              : key === 'items'
+                ? { count: suppliedItems.length }
+                : {}),
         ...(stepIssueCount[key] > 0
             ? {
                   issues: {
@@ -1036,9 +1083,10 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                     label: t('kitchen:editor.stepsLabel'),
                     value: form.current,
                     onChange: form.goTo,
-                    // One step until the first save: contacts and supplied items hang off a record.
                     items: stepItems,
                 }}
+                // Save sits with Cancel, as on the plan editor, not in a bar at the foot.
+                saveInHeader
             />
 
             {isArchived ? (
@@ -1064,192 +1112,220 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
             <View className="z-auto flex-col">
                 {/* ── 1. the record ────────────────────────────────────────────────────────── */}
                 {form.current !== 'details' ? null : (
-                    <FormSection
-                        first
-                        variant="panel"
-                        testID="kitchen-supplier-details"
-                        title={t('kitchen:ops.suppliers.sectionDetails')}
-                    >
-                        {/*
-                         * The ingredient editor's grid: `sm` fields in tracks, the identifier first,
-                         * the bilingual name across two tracks with its halves side by side, and the
-                         * two free-text fields across the full row. A single column of full-width
-                         * default-size inputs was the one kitchen form still drawn the old way.
-                         */}
-                        <FormGrid testID="kitchen-supplier-details-grid">
-                            <TextInputField
-                                testID="kitchen-supplier-code"
-                                id="kitchen-supplier-code"
-                                label={t('kitchen:ops.suppliers.fieldCode')}
-                                placeholder={t('kitchen:ops.suppliers.codePlaceholder')}
-                                size="sm"
-                                value={details.code}
-                                autoCapitalize="characters"
-                                disabled={!editable}
-                                {...server.flag('code')}
-                                onChangeText={(code) => {
-                                    editDetails({ ...details, code });
-                                }}
-                            />
-
-                            <BilingualField
-                                span={2}
-                                layout="row"
-                                testID="kitchen-supplier-name"
-                                fieldLabel={t('kitchen:ops.suppliers.fieldName')}
-                                placeholder={{
-                                    en: t('kitchen:ops.suppliers.namePlaceholderEn'),
-                                    ar: t('kitchen:ops.suppliers.namePlaceholderAr'),
-                                }}
-                                value={details.name}
-                                requiredEnglish
-                                disabled={!editable}
-                                onChange={(name) => {
-                                    editDetails({ ...details, name });
-                                }}
-                                {...(shows('name')
-                                    ? { englishError: t('kitchen:forms.required') }
-                                    : server.errorFor('name_en') === undefined
-                                      ? {}
-                                      : { englishError: server.errorFor('name_en') })}
-                                {...(server.errorFor('name_ar') === undefined
-                                    ? {}
-                                    : { arabicError: server.errorFor('name_ar') })}
-                            />
-
-                            <TextInputField
-                                testID="kitchen-supplier-email"
-                                id="kitchen-supplier-email"
-                                label={t('kitchen:ops.suppliers.fieldEmail')}
-                                placeholder={t('kitchen:ops.suppliers.emailPlaceholder')}
-                                size="sm"
-                                value={details.contactEmail}
-                                keyboardType="email-address"
-                                autoCapitalize="none"
-                                disabled={!editable}
-                                {...server.flag('contact_email')}
-                                onChangeText={(contactEmail) => {
-                                    editDetails({ ...details, contactEmail });
-                                }}
-                            />
-
-                            <TextInputField
-                                testID="kitchen-supplier-phone"
-                                id="kitchen-supplier-phone"
-                                label={t('kitchen:ops.suppliers.fieldPhone')}
-                                placeholder={t('kitchen:ops.suppliers.phonePlaceholder')}
-                                size="sm"
-                                value={details.contactPhone}
-                                keyboardType="phone-pad"
-                                disabled={!editable}
-                                {...server.flag('contact_phone')}
-                                onChangeText={(contactPhone) => {
-                                    editDetails({ ...details, contactPhone });
-                                }}
-                            />
-
-                            {/*
-                             * Displayed, never picked. Every price in this system is booked in one
-                             * currency (there is no exchange rate — `MixedIngredientCostCurrency`), so
-                             * a picker here would offer a choice the receipt path then refuses. A
-                             * disabled field rather than a label over a line of text, so it sits in
-                             * the grid the way the ingredient editor's read-only Id does.
-                             */}
-                            <TextInputField
-                                testID="kitchen-supplier-currency"
-                                id="kitchen-supplier-currency"
-                                label={t('kitchen:ops.suppliers.fieldCurrency')}
-                                size="sm"
-                                value={data?.currencyCode ?? t('kitchen:ops.suppliers.noCurrency')}
-                                disabled
-                                onChangeText={() => undefined}
-                            />
-
-                            <TextInputField
-                                testID="kitchen-supplier-payment-terms"
-                                id="kitchen-supplier-payment-terms"
-                                label={t('kitchen:ops.suppliers.fieldPaymentTerms')}
-                                placeholder={t('kitchen:ops.suppliers.paymentTermsPlaceholder')}
-                                size="sm"
-                                value={details.paymentTerms}
-                                disabled={!editable}
-                                {...server.flag('payment_terms')}
-                                onChangeText={(paymentTerms) => {
-                                    editDetails({ ...details, paymentTerms });
-                                }}
-                            />
-
-                            <TextInputField
-                                testID="kitchen-supplier-lead-time"
-                                id="kitchen-supplier-lead-time"
-                                label={t('kitchen:ops.suppliers.fieldLeadTime')}
-                                placeholder={t('kitchen:ops.suppliers.leadTimePlaceholder')}
-                                size="sm"
-                                value={details.leadTimeDays}
-                                keyboardType="number-pad"
-                                disabled={!editable}
-                                onChangeText={(leadTimeDays) => {
-                                    editDetails({ ...details, leadTimeDays });
-                                }}
-                                {...(shows('lead-time')
-                                    ? { error: t('kitchen:ops.suppliers.leadTimeInvalid') }
-                                    : {})}
-                                {...server.flag('lead_time_days')}
-                            />
-
-                            <TextInputField
-                                testID="kitchen-supplier-payment-due-days"
-                                id="kitchen-supplier-payment-due-days"
-                                label={t('kitchen:ops.suppliers.fieldPaymentDueDays')}
-                                placeholder={t('kitchen:ops.suppliers.paymentDueDaysPlaceholder')}
-                                size="sm"
-                                value={details.paymentDueDays}
-                                keyboardType="number-pad"
-                                disabled={!editable}
-                                onChangeText={(paymentDueDays) => {
-                                    editDetails({ ...details, paymentDueDays });
-                                }}
-                                {...(dueDays === undefined
-                                    ? { error: t('kitchen:ops.suppliers.leadTimeInvalid') }
-                                    : {})}
-                                {...server.flag('payment_due_days')}
-                            />
-
-                            <TextInputField
-                                testID="kitchen-supplier-address"
-                                id="kitchen-supplier-address"
-                                label={t('kitchen:ops.suppliers.fieldAddress')}
-                                placeholder={t('kitchen:ops.suppliers.addressPlaceholder')}
-                                size="sm"
-                                fullWidth
-                                value={details.address}
-                                multiline
-                                numberOfLines={3}
-                                disabled={!editable}
-                                {...server.flag('address')}
-                                onChangeText={(address) => {
-                                    editDetails({ ...details, address });
-                                }}
-                            />
-
-                            <TextInputField
-                                testID="kitchen-supplier-notes"
-                                id="kitchen-supplier-notes"
-                                label={t('kitchen:ops.suppliers.fieldNotes')}
-                                placeholder={t('kitchen:ops.suppliers.notesPlaceholder')}
-                                size="sm"
-                                fullWidth
-                                value={details.notes}
-                                multiline
-                                numberOfLines={3}
-                                disabled={!editable}
-                                {...server.flag('notes')}
-                                onChangeText={(notes) => {
-                                    editDetails({ ...details, notes });
-                                }}
-                            />
-                        </FormGrid>
-                    </FormSection>
+                    /*
+                     * The supplier in the canvas's four parts (2026-11-15) — who they are, how to
+                     * reach them, the terms they sell on, and notes — each its own panel with the
+                     * ingredient editor's grid inside: `sm` fields in tracks, the bilingual name
+                     * across two, the free-text fields across the full row.
+                     */
+                    <View testID="kitchen-supplier-details" className="z-auto flex-col gap-loose">
+                        <FormSection
+                            first
+                            variant="panel"
+                            testID="kitchen-supplier-identity"
+                            title={t('kitchen:ops.suppliers.groupIdentity')}
+                        >
+                            <FormGrid testID="kitchen-supplier-identity-grid">
+                                <TextInputField
+                                    testID="kitchen-supplier-code"
+                                    id="kitchen-supplier-code"
+                                    label={t('kitchen:ops.suppliers.fieldCode')}
+                                    placeholder={t('kitchen:ops.suppliers.codePlaceholder')}
+                                    hint={
+                                        isCreating ? t('kitchen:ops.suppliers.codeHint') : undefined
+                                    }
+                                    size="sm"
+                                    value={details.code}
+                                    autoCapitalize="characters"
+                                    disabled={!editable}
+                                    {...server.flag('code')}
+                                    onChangeText={(code) => {
+                                        editDetails({ ...details, code });
+                                    }}
+                                />
+                                <BilingualField
+                                    span={2}
+                                    layout="row"
+                                    testID="kitchen-supplier-name"
+                                    fieldLabel={t('kitchen:ops.suppliers.fieldName')}
+                                    placeholder={{
+                                        en: t('kitchen:ops.suppliers.namePlaceholderEn'),
+                                        ar: t('kitchen:ops.suppliers.namePlaceholderAr'),
+                                    }}
+                                    value={details.name}
+                                    requiredEnglish
+                                    disabled={!editable}
+                                    onChange={(name) => {
+                                        editDetails({ ...details, name });
+                                    }}
+                                    {...(shows('name')
+                                        ? { englishError: t('kitchen:forms.required') }
+                                        : server.errorFor('name_en') === undefined
+                                          ? {}
+                                          : { englishError: server.errorFor('name_en') })}
+                                    {...(server.errorFor('name_ar') === undefined
+                                        ? {}
+                                        : { arabicError: server.errorFor('name_ar') })}
+                                />
+                            </FormGrid>
+                        </FormSection>
+                        <FormSection
+                            first
+                            variant="panel"
+                            testID="kitchen-supplier-reach"
+                            title={t('kitchen:ops.suppliers.groupReach')}
+                        >
+                            <FormGrid testID="kitchen-supplier-reach-grid">
+                                <TextInputField
+                                    testID="kitchen-supplier-email"
+                                    id="kitchen-supplier-email"
+                                    label={t('kitchen:ops.suppliers.fieldEmail')}
+                                    placeholder={t('kitchen:ops.suppliers.emailPlaceholder')}
+                                    size="sm"
+                                    value={details.contactEmail}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    disabled={!editable}
+                                    {...server.flag('contact_email')}
+                                    onChangeText={(contactEmail) => {
+                                        editDetails({ ...details, contactEmail });
+                                    }}
+                                />
+                                <TextInputField
+                                    testID="kitchen-supplier-phone"
+                                    id="kitchen-supplier-phone"
+                                    label={t('kitchen:ops.suppliers.fieldPhone')}
+                                    placeholder={t('kitchen:ops.suppliers.phonePlaceholder')}
+                                    size="sm"
+                                    value={details.contactPhone}
+                                    keyboardType="phone-pad"
+                                    disabled={!editable}
+                                    {...server.flag('contact_phone')}
+                                    onChangeText={(contactPhone) => {
+                                        editDetails({ ...details, contactPhone });
+                                    }}
+                                />
+                                <TextInputField
+                                    testID="kitchen-supplier-address"
+                                    id="kitchen-supplier-address"
+                                    label={t('kitchen:ops.suppliers.fieldAddress')}
+                                    placeholder={t('kitchen:ops.suppliers.addressPlaceholder')}
+                                    size="sm"
+                                    fullWidth
+                                    value={details.address}
+                                    multiline
+                                    numberOfLines={3}
+                                    disabled={!editable}
+                                    {...server.flag('address')}
+                                    onChangeText={(address) => {
+                                        editDetails({ ...details, address });
+                                    }}
+                                />
+                            </FormGrid>
+                        </FormSection>
+                        <FormSection
+                            first
+                            variant="panel"
+                            testID="kitchen-supplier-terms"
+                            title={t('kitchen:ops.suppliers.groupTerms')}
+                        >
+                            <FormGrid testID="kitchen-supplier-terms-grid">
+                                <TextInputField
+                                    testID="kitchen-supplier-payment-terms"
+                                    id="kitchen-supplier-payment-terms"
+                                    label={t('kitchen:ops.suppliers.fieldPaymentTerms')}
+                                    placeholder={t('kitchen:ops.suppliers.paymentTermsPlaceholder')}
+                                    size="sm"
+                                    value={details.paymentTerms}
+                                    disabled={!editable}
+                                    {...server.flag('payment_terms')}
+                                    onChangeText={(paymentTerms) => {
+                                        editDetails({ ...details, paymentTerms });
+                                    }}
+                                />
+                                <TextInputField
+                                    testID="kitchen-supplier-payment-due-days"
+                                    id="kitchen-supplier-payment-due-days"
+                                    label={t('kitchen:ops.suppliers.fieldPaymentDueDays')}
+                                    placeholder={t(
+                                        'kitchen:ops.suppliers.paymentDueDaysPlaceholder',
+                                    )}
+                                    size="sm"
+                                    value={details.paymentDueDays}
+                                    keyboardType="number-pad"
+                                    disabled={!editable}
+                                    onChangeText={(paymentDueDays) => {
+                                        editDetails({ ...details, paymentDueDays });
+                                    }}
+                                    {...(dueDays === undefined
+                                        ? { error: t('kitchen:ops.suppliers.leadTimeInvalid') }
+                                        : {})}
+                                    {...server.flag('payment_due_days')}
+                                />
+                                <TextInputField
+                                    testID="kitchen-supplier-lead-time"
+                                    id="kitchen-supplier-lead-time"
+                                    label={t('kitchen:ops.suppliers.fieldLeadTime')}
+                                    placeholder={t('kitchen:ops.suppliers.leadTimePlaceholder')}
+                                    size="sm"
+                                    value={details.leadTimeDays}
+                                    keyboardType="number-pad"
+                                    disabled={!editable}
+                                    onChangeText={(leadTimeDays) => {
+                                        editDetails({ ...details, leadTimeDays });
+                                    }}
+                                    {...(shows('lead-time')
+                                        ? { error: t('kitchen:ops.suppliers.leadTimeInvalid') }
+                                        : {})}
+                                    {...server.flag('lead_time_days')}
+                                />
+                                {/*
+                                 * Displayed, never picked. Every price in this system is booked in one
+                                 * currency (there is no exchange rate — `MixedIngredientCostCurrency`), so
+                                 * a picker here would offer a choice the receipt path then refuses. A
+                                 * disabled field rather than a label over a line of text, so it sits in
+                                 * the grid the way the ingredient editor's read-only Id does.
+                                 */}
+                                <TextInputField
+                                    testID="kitchen-supplier-currency"
+                                    id="kitchen-supplier-currency"
+                                    label={t('kitchen:ops.suppliers.fieldCurrency')}
+                                    size="sm"
+                                    value={
+                                        data?.currencyCode ?? t('kitchen:ops.suppliers.noCurrency')
+                                    }
+                                    disabled
+                                    onChangeText={() => undefined}
+                                />
+                            </FormGrid>
+                        </FormSection>
+                        <FormSection
+                            first
+                            variant="panel"
+                            testID="kitchen-supplier-notes-section"
+                            title={t('kitchen:ops.suppliers.fieldNotes')}
+                        >
+                            <FormGrid testID="kitchen-supplier-notes-section-grid">
+                                <TextInputField
+                                    testID="kitchen-supplier-notes"
+                                    id="kitchen-supplier-notes"
+                                    label={t('kitchen:ops.suppliers.fieldNotes')}
+                                    labelHidden
+                                    placeholder={t('kitchen:ops.suppliers.notesPlaceholder')}
+                                    size="sm"
+                                    fullWidth
+                                    value={details.notes}
+                                    multiline
+                                    numberOfLines={3}
+                                    disabled={!editable}
+                                    {...server.flag('notes')}
+                                    onChangeText={(notes) => {
+                                        editDetails({ ...details, notes });
+                                    }}
+                                />
+                            </FormGrid>
+                        </FormSection>
+                    </View>
                 )}
 
                 {/* ── 2. named contacts ────────────────────────────────────────────────────── */}
@@ -1293,49 +1369,41 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                     {t('kitchen:ops.suppliers.noContacts')}
                                 </Text>
                             ) : (
-                                <Stack space="sm">
-                                    {contacts.map((draft, index) => (
-                                        <SupplierContactCard
-                                            key={draft.key}
-                                            draft={draft}
-                                            position={index + 1}
-                                            total={contacts.length}
-                                            canManage={editable}
-                                            serverError={(field) =>
-                                                contactsServer.errorFor(
-                                                    `contacts.${String(index)}.${field}`,
-                                                )
-                                            }
-                                            onChange={(next) => {
-                                                editContacts(
-                                                    contacts.map((candidate) =>
-                                                        candidate.key === draft.key
-                                                            ? next
-                                                            : candidate,
-                                                    ),
-                                                );
-                                            }}
-                                            onRemove={() => {
-                                                editContacts(
-                                                    contacts.filter(
-                                                        (candidate) => candidate.key !== draft.key,
-                                                    ),
-                                                );
-                                            }}
-                                            onMakePrimary={() => {
-                                                // Cleared everywhere else in the same edit: the
-                                                // server refuses a set with two primaries, and the
-                                                // screen must not be able to build one.
-                                                editContacts(
-                                                    contacts.map((candidate) => ({
-                                                        ...candidate,
-                                                        isPrimary: candidate.key === draft.key,
-                                                    })),
-                                                );
-                                            }}
-                                        />
-                                    ))}
-                                </Stack>
+                                <SupplierContactRows
+                                    testID="kitchen-supplier-contacts-table"
+                                    rows={contacts}
+                                    canManage={editable}
+                                    serverError={(index, field) =>
+                                        contactsServer.errorFor(
+                                            `contacts.${String(index)}.${field}`,
+                                        )
+                                    }
+                                    onChange={(next) => {
+                                        editContacts(
+                                            contacts.map((candidate) =>
+                                                candidate.key === next.key ? next : candidate,
+                                            ),
+                                        );
+                                    }}
+                                    onRemove={(draft) => {
+                                        editContacts(
+                                            contacts.filter(
+                                                (candidate) => candidate.key !== draft.key,
+                                            ),
+                                        );
+                                    }}
+                                    onMakePrimary={(draft) => {
+                                        // Cleared everywhere else in the same edit: the server
+                                        // refuses a set with two primaries, and the screen must
+                                        // not be able to build one.
+                                        editContacts(
+                                            contacts.map((candidate) => ({
+                                                ...candidate,
+                                                isPrimary: candidate.key === draft.key,
+                                            })),
+                                        );
+                                    }}
+                                />
                             )}
 
                             {/*
@@ -1404,16 +1472,14 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                     {t('kitchen:ops.suppliers.itemsEmptyBody')}
                                 </Text>
                             ) : (
-                                <Table<SuppliedItem>
+                                <DataList<SuppliedItem>
                                     testID="kitchen-supplier-items-table"
-                                    caption={t('kitchen:ops.suppliers.itemsTitle')}
-                                    captionHidden
+                                    label={t('kitchen:ops.suppliers.itemsTitle')}
                                     columns={suppliedColumns}
                                     rows={suppliedItems}
                                     rowKey={(row) => String(row.stockItem?.id ?? '')}
-                                    {...(suppliedRowAction === undefined
-                                        ? {}
-                                        : { rowAction: suppliedRowAction })}
+                                    density="sm"
+                                    framed
                                 />
                             )}
 

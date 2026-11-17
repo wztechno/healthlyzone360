@@ -122,7 +122,6 @@ import { ingredientFixHref, ingredientNeedsById } from '../ingredient-fix.ts';
 import type { HostArchive } from '../host-save.ts';
 import type { IngredientNeed } from '../ingredient-fix.ts';
 import { useFinishDetour } from '../finish-detour.ts';
-import { DiscardButton, useBeforeDiscard } from '../save-bar.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { CostCard } from '../cost-card.tsx';
 import {
@@ -773,10 +772,6 @@ function RecipeEditor({
      */
     const draftKeepable = useRef(true);
     const keptRef = useRef<{ keep: () => void; discard: () => void } | null>(null);
-    // The save bar's Discard redraws the page: drop the kept draft first, or it would return.
-    useBeforeDiscard(() => {
-        keptRef.current?.discard();
-    });
     const guard = useUnsavedGuard({
         message: t('kitchen:unsaved.browserPrompt'),
         keepsDraft: () => draftKeepable.current,
@@ -3170,12 +3165,6 @@ function RecipeEditor({
                                             </Text>
                                         </Inline>
                                     )}
-                                    {guard.isDirty && canManage ? (
-                                        <DiscardButton
-                                            testID="kitchen-recipe-editor-screen-discard"
-                                            className="!h-10 !px-4"
-                                        />
-                                    ) : null}
                                     {/*
                                      * On a published version only the shelf life can be written (it is the
                                      * recipe's), so Save lights for that change alone and stops calling

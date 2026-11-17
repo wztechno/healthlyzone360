@@ -62,7 +62,6 @@ import {
 } from '../format.ts';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useFinishDetour } from '../finish-detour.ts';
-import { DiscardButton } from '../save-bar.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { PlanDurationRows, PlanVariantRows } from '../plan-row-editors.tsx';
 import {
@@ -1317,10 +1316,6 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                         guard.intercept(back.leave);
                                     }}
                                 />
-                                {/* Puts the plan back as last saved, after asking. */}
-                                {guard.isDirty && canManage ? (
-                                    <DiscardButton testID="kitchen-plan-editor-screen-discard" />
-                                ) : null}
                                 {/* Publication is never offered before the plan exists. */}
                                 {isCreating || !canManage ? null : isPublished ? (
                                     <DeskButton
@@ -1344,7 +1339,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                  * The commit, last, on every step: a new plan is written whole from
                                  * here, and a saved one is edited in any order. Here rather than in
                                  * a save bar at the foot (the user's choice, 2026-11-15): the
-                                 * marker, Discard and Save sit with Cancel, as on the recipe editor.
+                                 * marker and Save sit with Cancel, as on the recipe editor.
                                  */}
                                 <DeskButton
                                     testID="kitchen-plan-editor-screen-save"

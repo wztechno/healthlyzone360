@@ -199,8 +199,9 @@ describe('the supplier record leads the reader', () => {
         await press('kitchen-supplier-contacts-save');
 
         await untilVisible(`${card}-phone-error`);
+        // Said under the contact's row, so the line names the field it is about.
         expect(screen.getByTestId(`${card}-phone-error`)).toHaveTextContent(
-            'That number is not valid.',
+            /^Telephone: That number is not valid\.$/,
         );
         expect(stepPill('contacts')).toHaveTextContent('1');
         // Placed on the card, so the section's callout has nothing left to say.

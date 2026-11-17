@@ -11,7 +11,7 @@ import { guardNavigation } from '../../navigation/use-unsaved-guard.ts';
 import { useAccessState } from '../../session/session-provider.tsx';
 import { TrailLeafProvider, useTrailLeaf, useTrailLeafState } from '../../shell/area-trail.tsx';
 import { returnCrumbLabel } from './came-from.ts';
-import { DiscardBoundary, SaveBarSlot } from './save-bar.tsx';
+import { SaveBarSlot } from './save-bar.tsx';
 import { DeskTrail } from './desk-kit/desk-trail.tsx';
 import type { DeskCrumb } from './desk-kit/desk-trail.tsx';
 import { ENTITY_FAMILIES } from './entity-registry.ts';
@@ -328,8 +328,7 @@ export function KitchenOpsShell({ children }: KitchenOpsShellProps) {
             <SectionLook look="board">
                 <View testID="kitchen-ops-shell" className="min-h-0 flex-1">
                     <View testID="kitchen-ops-content" className="min-h-0 min-w-0 flex-1">
-                        {/* The save bar's Discard draws the page afresh from its saved record. */}
-                        <DiscardBoundary>{children}</DiscardBoundary>
+                        {children}
                     </View>
                     {/* Last in the content, so it can stick to the foot of the scroll port. */}
                     <SaveBarSlot />

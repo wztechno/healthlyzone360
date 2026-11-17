@@ -136,7 +136,6 @@ import { AllergenReferencePicker } from '../allergen-reference-picker.tsx';
 import { IngredientAllergenEditor } from '../ingredient-allergen-editor.tsx';
 import { IngredientBarcodesSection } from '../ingredient-barcodes-section.tsx';
 import { STOCK_GAPS_PATH } from '../consumption-exceptions/stock-gap-fix.ts';
-import { DiscardButton, useBeforeDiscard } from '../save-bar.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusFirstRefusal, UnsavedDialog } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
@@ -696,10 +695,6 @@ function IngredientEditor({
      */
     const draftKeepable = useRef(true);
     const keptRef = useRef<{ keep: () => void; discard: () => void } | null>(null);
-    // The save bar's Discard redraws the page: drop the kept draft first, or it would return.
-    useBeforeDiscard(() => {
-        keptRef.current?.discard();
-    });
     const guard = useUnsavedGuard({
         message: t('kitchen:unsaved.browserPrompt'),
         keepsDraft: () => draftKeepable.current,
@@ -2839,12 +2834,9 @@ function IngredientEditor({
                         />
                         {/*
                          * Save in the header, as the recipe editor keeps it: no save bar at the
-                         * page's foot. Discard comes with it while there is something to discard.
+                         * page's foot, and no Discard — Cancel is how unsaved work is dropped.
                          * Hidden rather than always disabled on a record this caller cannot write.
                          */}
-                        {guard.isDirty && editable && !platformNotice ? (
-                            <DiscardButton testID="kitchen-ingredient-editor-screen-discard" />
-                        ) : null}
                         {platformNotice ? null : (
                             <DeskButton
                                 testID="kitchen-ingredient-editor-screen-save"
