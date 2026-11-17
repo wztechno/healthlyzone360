@@ -17,6 +17,7 @@ import {
     InfoTip,
     Inline,
     IssueTrayFrame,
+    IssueUnanchored,
     Select,
     Stack,
     Switch,
@@ -37,6 +38,7 @@ import { View } from 'react-native';
 
 import { Gate, useCan } from '../../access/gate.tsx';
 import { DishOptionsSection } from './dish-options-section.tsx';
+import { InlineChecksButton } from './inline-checks-button.tsx';
 import { toFailure } from '../../data/hooks.ts';
 import { useDishOptionsQuery } from '../../data/order-desk-hooks.ts';
 import {
@@ -1750,12 +1752,20 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
             tray={{
                 title: t('kitchen:tray.title'),
                 testID: 'kitchen-meal-tray',
+                // Inline, as the recipe editor: each card beside the section it is about.
+                placement: 'inline',
                 groups: [listingGroup],
                 passed: listingPassed,
             }}
             controller={issueTray}
         >
-            {editor}
+            <Stack space="sm">
+                <Inline space="xs" align="center" justify="end" wrap>
+                    <InlineChecksButton testID="kitchen-meal-checks" />
+                </Inline>
+                <IssueUnanchored testID="kitchen-meal-issues-loose" />
+                {editor}
+            </Stack>
         </IssueTrayFrame>
     );
 }

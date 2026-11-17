@@ -72,6 +72,7 @@ import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** Until the index has counted: every figure reads as pending. */
 const NO_FIGURES: PriceListFigures = {
     statusCounts: { draft: 0, review_required: 0, published: 0, retired: 0 },
@@ -350,7 +351,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                 },
             },
             render: (row) => (
-                <DeskChip
+                <DeskStatusDot
                     testID={`${priceListRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
                     label={t(statusShortKey(row.meta.status))}

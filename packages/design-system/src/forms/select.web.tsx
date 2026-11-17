@@ -78,6 +78,7 @@ export function Select<T extends string = string>({
     required = false,
     disabled = false,
     searchable = false,
+    look = 'field',
     loading = false,
     noResultsAction,
     size: sizeProp,
@@ -87,6 +88,7 @@ export function Select<T extends string = string>({
 }: SelectProps<T>) {
     const { t } = useTranslation();
     const density = useDensity();
+    const card = look === 'card';
     const [query, setQuery] = useState('');
     const trigger = useRef<View | null>(null);
     const searchId = `select-search-${useId().replace(/:/g, '')}`;
@@ -190,11 +192,13 @@ export function Select<T extends string = string>({
                     choose(option, close);
                 }}
                 className={cx(
-                    'flex-row items-center gap-control-sm px-control-md',
+                    card
+                        ? 'h-9 flex-row items-center gap-2 rounded-[10px] px-2.5'
+                        : 'flex-row items-center gap-control-sm px-control-md',
                     // One line per option, so the desk's list takes the smallest step and
                     // shows twice the options a two-line row did. The phone keeps its
                     // 44px target.
-                    density === 'compact' ? 'h-control-xs' : 'min-h-touch py-2',
+                    card ? null : density === 'compact' ? 'h-control-xs' : 'min-h-touch py-2',
                     // The row under the pointer or the keyboard is lit, so the reader sees
                     // which one a press or Enter will take — the chosen one keeps its brand
                     // tint over it.
@@ -209,7 +213,11 @@ export function Select<T extends string = string>({
                 {/* Fixed, so labels align whether or not one is ticked. */}
                 <View className="w-icon-md">
                     {isSelected ? (
-                        <Icon name="check" size="sm" className="text-content-on-brand-subtle" />
+                        <Icon
+                            name="check"
+                            size="sm"
+                            className={card ? 'text-surface-brand' : 'text-content-on-brand-subtle'}
+                        />
                     ) : null}
                 </View>
                 {/*
@@ -217,7 +225,11 @@ export function Select<T extends string = string>({
                  * truncates, the description keeps its own width at the row's end.
                  */}
                 <RNText
-                    className={cx('min-w-0 flex-1 text-content-primary text-start', textClass)}
+                    className={cx(
+                        'min-w-0 flex-1 text-content-primary text-start',
+                        card ? 'text-sm' : textClass,
+                        card ? (isSelected ? 'font-bold' : 'font-medium') : null,
+                    )}
                     numberOfLines={1}
                 >
                     {option.label}
@@ -259,7 +271,11 @@ export function Select<T extends string = string>({
                     // `w-full` rather than a min-width: an anchored panel shrinks to its content by
                     // default, and a six-option list narrower than the field it belongs to reads as
                     // a tooltip that happened to appear nearby. The field's width is the panel's.
-                    panelClassName="w-full max-h-[320px] overflow-hidden"
+                    panelClassName={
+                        card
+                            ? 'w-full max-h-[360px] overflow-hidden !rounded-xl !shadow-elevation-bar p-1.5'
+                            : 'w-full max-h-[320px] overflow-hidden'
+                    }
                     /*
                      * A closed panel has no query, whatever closed it — an outside press, Escape or
                      * a choice. `onOpenChange` is the one notification that covers every route, and

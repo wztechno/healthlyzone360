@@ -132,8 +132,10 @@ function normalise(
 export function useColumnVisibility<Column extends PickableColumn>(
     tableId: string,
     columns: readonly Column[],
-    { defaults, locked = [], max = MAX_VISIBLE_COLUMNS, storageKey }: ColumnVisibilityOptions,
+    { defaults, locked = [], max: cap = MAX_VISIBLE_COLUMNS, storageKey }: ColumnVisibilityOptions,
 ): ColumnVisibility<Column> {
+    // Never more than the table has: a five-column list reads "5 of 5", not "5 of 6".
+    const max = Math.min(cap, columns.length);
     const storedAs = storageKey ?? tableId;
     const known = useMemo(() => new Set(columns.map((column) => column.key)), [columns]);
     const [chosen, setChosen] = useState<readonly string[]>(() =>

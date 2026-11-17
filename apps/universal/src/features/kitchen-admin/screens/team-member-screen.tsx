@@ -486,6 +486,7 @@ function TeamMemberEditor() {
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-team-member-tray',
+        placement: 'inline',
         groups: [
             {
                 key: 'save',

@@ -442,6 +442,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-qc-create-tray',
+        placement: 'inline',
         groups: [
             { key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards },
             { key: 'check', title: t('kitchen:tray.groupCheck'), items: checkCards },

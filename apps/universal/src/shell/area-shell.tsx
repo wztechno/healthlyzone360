@@ -5,7 +5,6 @@ import {
     Icon,
     IconButton,
     Inline,
-    IssueTrayButton,
     OfflineIndicator,
     RailAccount,
     useBreakpoint,
@@ -208,12 +207,11 @@ function GuardedAreaShell({
             <Inline space="xs" wrap={false}>
                 {/*
                  * The way back into unfinished work — a process stepped out of, editors kept for
-                 * later — when its card at the bottom of the page is minimised (`kept-work-dock.tsx`),
-                 * then the page's issue tray: what is left to fix here, from anywhere on the page.
-                 * Each is drawn only when it has something to hold.
+                 * later — when its card at the bottom of the page is minimised (`kept-work-dock.tsx`).
+                 * Drawn only when it has something to hold. No issue-tray pill: every page's problems
+                 * are drawn inline, beside the sections they are in.
                  */}
                 <KeptWorkButton />
-                <IssueTrayButton />
                 {topbarActions}
                 <LocaleToggle round={WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant)} />
                 {/*
@@ -221,14 +219,8 @@ function GuardedAreaShell({
                  * one way between areas; `self-center`, because `Button` is `self-start` by default.
                  */}
                 <DensityProvider value={barDensity}>
-                    {!showWorkspacesButton ? null : iconsOnly ? (
-                        <IconButton
-                            testID="workspaces-button"
-                            label={workspacesLabel}
-                            icon={<Icon name="gridDots" />}
-                            onPress={toWorkspace}
-                        />
-                    ) : (
+                    {!showWorkspacesButton ||
+                    WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) ? null : (
                         <Button
                             testID="workspaces-button"
                             size="sm"
@@ -243,6 +235,22 @@ function GuardedAreaShell({
                     )}
                 </DensityProvider>
                 <ThemeToggle />
+                {/*
+                 * The admin bar's round icons (Phase C board 4, option A): the grid last, after
+                 * the bell, the language and the theme, at their size — outside the bar's compact
+                 * density, which drew it at 28px — its name on hover.
+                 */}
+                {showWorkspacesButton && WORKSPACES_BUTTON_VARIANTS.has(resolvedVariant) ? (
+                    <IconButton
+                        testID="workspaces-button"
+                        size="sm"
+                        variant="quiet"
+                        round
+                        label={workspacesLabel}
+                        icon={<Icon name="gridDots" size="lg" className="text-content-primary" />}
+                        onPress={toWorkspace}
+                    />
+                ) : null}
                 <DensityProvider value={barDensity}>
                     {railPresent ? null : iconsOnly ? (
                         <IconButton

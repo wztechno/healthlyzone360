@@ -1068,6 +1068,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-post-receipt-tray',
+        placement: 'inline',
         groups: [
             { key: 'save', title: t('kitchen:tray.groupSave'), items: [] },
             { key: 'failed', title: t('kitchen:tray.groupFailed'), items: failedCards },

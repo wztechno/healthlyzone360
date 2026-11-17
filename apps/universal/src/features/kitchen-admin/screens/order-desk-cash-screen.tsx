@@ -2,6 +2,7 @@ import { Stack, Tabs } from '@healthy360/design-system';
 import type { TabItem } from '@healthy360/design-system';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { useCashWaiting } from '../../../data/order-desk-hooks.ts';
@@ -70,15 +71,18 @@ function OrderDeskCash() {
 
     return (
         <Stack space="md" testID="kitchen-cash-screen">
-            <Tabs<CashTab>
-                variant="strip"
-                label={t('kitchen:families.cash.name')}
-                value={tab ?? 'taken'}
-                onChange={(value) => {
-                    router.setParams({ tab: value });
-                }}
-                items={items}
-            />
+            {/* Centred over the page, as every tabbed admin page now opens. */}
+            <View className="flex-row justify-center">
+                <Tabs<CashTab>
+                    variant="strip"
+                    label={t('kitchen:families.cash.name')}
+                    value={tab ?? 'taken'}
+                    onChange={(value) => {
+                        router.setParams({ tab: value });
+                    }}
+                    items={items}
+                />
+            </View>
             {tab === 'taken' ? <OrderDeskCashReportScreen /> : null}
             {tab === 'handins' ? <OrderDeskSettlementScreen /> : null}
             {tab === 'close' ? <OrderDeskCloseScreen /> : null}

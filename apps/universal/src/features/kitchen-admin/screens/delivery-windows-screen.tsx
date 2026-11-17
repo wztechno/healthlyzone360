@@ -300,7 +300,7 @@ function DeliveryWindowsEditor() {
                     first
                     variant="panel"
                     testID="kitchen-windows-section"
-                    title={title}
+                    // No title: the page's own already says "Delivery windows".
                     description={t('kitchen:deliveryWindows.intro')}
                     printDescription
                 >

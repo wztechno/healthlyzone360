@@ -55,13 +55,25 @@ export function useInlineIssues(): {
     }, [value]);
 }
 
-function IssueChip({ item }: { readonly item: IssueCardItem }) {
+function IssueChip({
+    item,
+    withDetail = false,
+}: {
+    readonly item: IssueCardItem;
+    /**
+     * Says the card's `detail` too. A chip beside its section leaves it out — the detail names
+     * where the problem is, and the section's title already does — but a loose one may be the
+     * only place a refusal's own words are said ("The kitchen is closed.").
+     */
+    readonly withDetail?: boolean;
+}) {
     /*
      * The board's `.fx`, for every open problem — a heads-up too: an amber pill, a white "!" in a
      * strong amber disc, the problem in 12px semibold. Loud on purpose; a dashed grey chip was
      * missed.
      */
     const action = item.action;
+    const detail = withDetail ? item.detail : undefined;
     const body = (
         <>
             <View
@@ -70,13 +82,24 @@ function IssueChip({ item }: { readonly item: IssueCardItem }) {
             >
                 <RNText className="text-[11px] font-extrabold text-warning-on-strong">!</RNText>
             </View>
-            <RNText numberOfLines={1} className="text-xs font-semibold text-warning-on-subtle">
-                {item.label}
+            <RNText
+                numberOfLines={detail === undefined ? 1 : 2}
+                className="shrink text-xs font-semibold text-warning-on-subtle"
+            >
+                {/* The panel's handle for a card's words, so either layout is found the same way. */}
+                <RNText testID={item.testID === undefined ? undefined : `${item.testID}-label`}>
+                    {item.label}
+                </RNText>
+                {detail === undefined ? null : (
+                    <RNText className="font-normal">{` · ${detail}`}</RNText>
+                )}
             </RNText>
         </>
     );
-    const shape =
-        'h-7 max-w-full flex-row items-center gap-1.5 rounded-full border border-transparent bg-warning-subtle pe-2.5 ps-1';
+    const shape = cx(
+        'max-w-full flex-row items-center gap-1.5 rounded-full border border-transparent bg-warning-subtle pe-2.5 ps-1',
+        detail === undefined ? 'h-7' : 'min-h-7 py-1',
+    );
     /*
      * The card's testIDs as the panel gives them, so a suite (and a reader of the DOM) finds the
      * same handles in either layout: the card itself, its Fix (`-fix`, or the action's own), and
@@ -156,13 +179,24 @@ export function IssueAnchor({
 export function IssueUnanchored({ testID }: { readonly testID?: string | undefined }) {
     const value = useContext(InlineIssuesContext);
     const { items } = useInlineIssues();
-    const loose = items.filter((item) => item.anchor === undefined);
+    // By group, each under the group's own handle — the panel's — so a group is found as one.
+    const groups = (value?.groups ?? [])
+        .map((group) => ({ group, loose: group.items.filter((item) => item.anchor === undefined) }))
+        .filter((entry) => entry.loose.length > 0);
     const done = items.length === 0 ? value?.doneAction : undefined;
-    if (loose.length === 0 && done === undefined) return null;
+    if (groups.length === 0 && done === undefined) return null;
     return (
         <View testID={testID} className="flex-row flex-wrap items-center gap-1">
-            {loose.map((item) => (
-                <IssueChip key={item.key} item={item} />
+            {groups.map(({ group, loose }) => (
+                <View
+                    key={group.key}
+                    testID={group.testID}
+                    className="max-w-full flex-row flex-wrap items-center gap-1"
+                >
+                    {loose.map((item) => (
+                        <IssueChip key={item.key} item={item} withDetail />
+                    ))}
+                </View>
             ))}
             {done === undefined ? null : (
                 <Pressable

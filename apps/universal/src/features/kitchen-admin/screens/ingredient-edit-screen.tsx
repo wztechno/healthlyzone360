@@ -5,6 +5,7 @@ import type {
     AllergenReferenceSelection,
 } from '@healthy360/api-client/contracts';
 import { NutritionReferencePicker } from '../nutrition-reference-picker.tsx';
+import { InlineChecksButton } from '../inline-checks-button.tsx';
 import type {
     AllergenClass,
     CostAmount,
@@ -30,6 +31,7 @@ import {
     Icon,
     Inline,
     IssueTrayFrame,
+    IssueUnanchored,
     QuantityInput,
     Select,
     Stack,
@@ -134,7 +136,7 @@ import { AllergenReferencePicker } from '../allergen-reference-picker.tsx';
 import { IngredientAllergenEditor } from '../ingredient-allergen-editor.tsx';
 import { IngredientBarcodesSection } from '../ingredient-barcodes-section.tsx';
 import { STOCK_GAPS_PATH } from '../consumption-exceptions/stock-gap-fix.ts';
-import { useBeforeDiscard, useSaveBar } from '../save-bar.tsx';
+import { DiscardButton, useBeforeDiscard } from '../save-bar.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusFirstRefusal, UnsavedDialog } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
@@ -1949,23 +1951,6 @@ function IngredientEditor({
         back.leave();
     };
 
-    // The save bar takes the unsaved marker and Save, on a record this caller can write.
-    const ingredientWriting = create.isPending || update.isPending || photoSave.isPending;
-    const barDrawn = useSaveBar({
-        dirty: guard.isDirty,
-        creating: isCreating,
-        save: platformNotice
-            ? undefined
-            : {
-                  testID: 'kitchen-ingredient-editor-screen-save',
-                  label: t('kitchen:editor.save'),
-                  loading: ingredientWriting,
-                  disabled: !editable || currencyMissing || ingredientWriting,
-                  onPress: save,
-              },
-        testID: 'kitchen-ingredient-editor-screen',
-    });
-
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
 
     if (!isCreating && parsed === null) {
@@ -2681,7 +2666,17 @@ function IngredientEditor({
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-ingredient-tray',
-        groups: trayGroups,
+        // Inline, as the recipe editor: each card beside the section it is about, the checks in
+        // one pill in the header.
+        placement: 'inline',
+        groups: trayGroups.map((group) => ({
+            ...group,
+            items: group.items.map((item) => ({
+                ...item,
+                key: `${group.key}-${item.key}`,
+                anchor: ingredientIssueAnchor(item.key, family.food),
+            })),
+        })),
         passed: passedChecks,
         ...(cameFromRecipe
             ? {
@@ -2779,7 +2774,7 @@ function IngredientEditor({
                                     {reference}
                                 </Text>
                             )}
-                            {!family.food && guard.isDirty && !barDrawn ? (
+                            {!family.food && guard.isDirty ? (
                                 <Badge
                                     testID="kitchen-ingredient-editor-screen-dirty"
                                     tone="warning"
@@ -2818,7 +2813,7 @@ function IngredientEditor({
                         ) : null}
                     </View>
                     <Inline space="xs" align="center">
-                        {family.food && guard.isDirty && !barDrawn ? (
+                        {family.food && guard.isDirty ? (
                             <View
                                 testID="kitchen-ingredient-editor-screen-dirty"
                                 className="flex-row items-center gap-1.5"
@@ -2832,6 +2827,7 @@ function IngredientEditor({
                                 </Text>
                             </View>
                         ) : null}
+                        <InlineChecksButton testID="kitchen-ingredient-checks" />
                         <DeskButton
                             testID="kitchen-ingredient-editor-screen-back"
                             variant="secondary"
@@ -2841,8 +2837,15 @@ function IngredientEditor({
                                 leaveWithoutKeeping(goBack);
                             }}
                         />
-                        {/* Hidden rather than always disabled on a record this caller cannot write. */}
-                        {platformNotice || barDrawn ? null : (
+                        {/*
+                         * Save in the header, as the recipe editor keeps it: no save bar at the
+                         * page's foot. Discard comes with it while there is something to discard.
+                         * Hidden rather than always disabled on a record this caller cannot write.
+                         */}
+                        {guard.isDirty && editable && !platformNotice ? (
+                            <DiscardButton testID="kitchen-ingredient-editor-screen-discard" />
+                        ) : null}
+                        {platformNotice ? null : (
                             <DeskButton
                                 testID="kitchen-ingredient-editor-screen-save"
                                 label={t('kitchen:editor.save')}
@@ -2855,6 +2858,8 @@ function IngredientEditor({
                         )}
                     </Inline>
                 </View>
+
+                <IssueUnanchored testID="kitchen-ingredient-issues-loose" />
 
                 {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
                 <View className={sectionsClass}>
@@ -3727,4 +3732,22 @@ function NeedLine({
             </Text>
         </View>
     );
+}
+
+/**
+ * Which section a tray card belongs to, by its key: the editor's tray is inline, so each card is
+ * drawn beside that section's title (the FormSection whose testID this is). A card no section
+ * claims — a refused save, the platform notice — goes to the row under the header.
+ */
+function ingredientIssueAnchor(key: string, food: boolean): string | undefined {
+    if (key === 'name' || key === 'category' || key === 'reference')
+        return 'kitchen-ingredient-identity';
+    // Food's price is read off receipts and shown with its units; only packaging has a Cost section.
+    if (key === 'price') return food ? 'kitchen-ingredient-measurement' : 'kitchen-ingredient-cost';
+    if (key === 'pack-price' || key === 'waste') return 'kitchen-ingredient-cost';
+    if (key === 'b2b-price' || key === 'b2c-price' || key === 'currency')
+        return 'kitchen-ingredient-sale';
+    if (key === 'nutrition' || key === 'pending-nutrition') return 'kitchen-ingredient-nutrition';
+    if (key === 'allergens' || key === 'quarantine') return 'kitchen-ingredient-allergens';
+    return undefined;
 }

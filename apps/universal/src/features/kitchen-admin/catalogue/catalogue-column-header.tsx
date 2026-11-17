@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
 import { Pressable, Text as RNText, View } from 'react-native';
 
+import { MENU_MAX_HEIGHT } from '../desk-kit/desk-select.tsx';
+
 /**
  * One column header, with its sort-and-filter menu — §4.3, drawn so the affordance is visible
  * before it is pressed.
@@ -179,6 +181,8 @@ export function CatalogueColumnHeader({
             // The header cell is inside the list's own stacking context and the rows paint
             // after it, so a panel hanging from the header lands *under* the first rows.
             className="z-sticky"
+            // A filter's values can run long (sixteen categories): they scroll inside the menu.
+            maxHeight={MENU_MAX_HEIGHT}
             {...(menuLook === 'card' ? { look: 'card' as const, closeOnSelect: true } : {})}
             sections={sections}
             trigger={({ triggerProps, toggle }) => (

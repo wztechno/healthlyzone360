@@ -22,8 +22,12 @@ import { cx } from '../internal/class-names.ts';
  */
 
 export interface FormSectionProps {
-    /** Renders on the `section` step — 13px, 600, sentence case. */
-    readonly title: string;
+    /**
+     * Renders on the `section` step — 13px, 600, sentence case. Optional for a page's one section
+     * whose name the page title already says (Delivery windows): without it the section opens on
+     * its printed description, or straight on its content.
+     */
+    readonly title?: string | undefined;
     /** Guidance the section genuinely needs, behind an (i) beside the title — see `InfoTip`. */
     readonly description?: string | undefined;
     /** Prints the description under the title instead, where the section's board draws it there. */
@@ -124,6 +128,12 @@ export function FormSection({
     const panel = variant === 'panel' && !board;
     const ruled = variant === 'ruled';
     const underlined = variant === 'underlined' || card;
+    // An untitled section with nothing else for its opening row draws none, and no gap under it.
+    const headed =
+        title !== undefined ||
+        aside !== undefined ||
+        actions !== undefined ||
+        (description !== undefined && printDescription === true);
 
     return (
         // `z-auto` for the reason `FormField` states: every React Native Web `View` is a stacking
@@ -150,74 +160,82 @@ export function FormSection({
                 <Separator className="mb-loose" />
             )}
 
-            <View
-                className={cx(
-                    board ? 'mb-[14px] flex-col gap-hair' : 'mb-snug flex-col gap-hair',
-                    underlined ? 'border-b border-stroke-subtle pb-1.5' : null,
-                )}
-            >
-                <View className="flex-row items-center justify-between gap-tight">
-                    {/*
-                     * The title and its aside are one group so `justify-between` separates *them*
-                     * from the actions rather than separating the badge from the title it
-                     * qualifies. `min-w-0` lets a long title truncate instead of shoving the
-                     * actions off the row.
-                     */}
-                    <View className="min-w-0 flex-row items-baseline gap-tight">
-                        <RNText
-                            testID={testID === undefined ? undefined : `${testID}-title`}
-                            accessibilityRole="header"
-                            aria-level={3}
-                            {...(board ? { dataSet: { face: 'body' } } : {})}
-                            className={cx(
-                                panel || ruled || board
-                                    ? 'text-[15px] font-bold'
-                                    : 'text-role-section',
-                                'text-content-primary text-start',
+            {!headed ? null : (
+                <View
+                    className={cx(
+                        board ? 'mb-[14px] flex-col gap-hair' : 'mb-snug flex-col gap-hair',
+                        underlined ? 'border-b border-stroke-subtle pb-1.5' : null,
+                    )}
+                >
+                    <View className="flex-row items-center justify-between gap-tight">
+                        {/*
+                         * The title and its aside are one group so `justify-between` separates *them*
+                         * from the actions rather than separating the badge from the title it
+                         * qualifies. `min-w-0` lets a long title truncate instead of shoving the
+                         * actions off the row.
+                         */}
+                        <View className="min-w-0 flex-row items-baseline gap-tight">
+                            {title === undefined ? null : (
+                                <RNText
+                                    testID={testID === undefined ? undefined : `${testID}-title`}
+                                    accessibilityRole="header"
+                                    aria-level={3}
+                                    {...(board ? { dataSet: { face: 'body' } } : {})}
+                                    className={cx(
+                                        panel || ruled || board
+                                            ? 'text-[15px] font-bold'
+                                            : 'text-role-section',
+                                        'text-content-primary text-start',
+                                    )}
+                                >
+                                    {title}
+                                </RNText>
                             )}
-                        >
-                            {title}
-                        </RNText>
-                        {/*
-                         * The description is a tip beside the title, not a paragraph under it:
-                         * a sentence there pushed every section's fields down by a line and read
-                         * as fine print. See `InfoTip`.
-                         */}
-                        {description === undefined || printDescription ? null : (
-                            <View className="self-center">
-                                <InfoTip
-                                    label={title}
-                                    text={description}
-                                    {...(testID === undefined ? {} : { testID: `${testID}-info` })}
-                                />
-                            </View>
-                        )}
-                        {board ? (
-                            <TitleAsideContext.Provider value={true}>
-                                {aside}
-                            </TitleAsideContext.Provider>
-                        ) : (
-                            aside
-                        )}
-                        {/*
-                         * On a page whose issue tray is inline, the problems this section holds
-                         * are drawn here, beside its title — matched on the section's testID.
-                         */}
-                        {testID === undefined ? null : (
-                            <IssueAnchor anchor={testID} testID={`${testID}-fixes`} />
-                        )}
+                            {/*
+                             * The description is a tip beside the title, not a paragraph under it:
+                             * a sentence there pushed every section's fields down by a line and read
+                             * as fine print. See `InfoTip`.
+                             */}
+                            {description === undefined ||
+                            printDescription ||
+                            title === undefined ? null : (
+                                <View className="self-center">
+                                    <InfoTip
+                                        label={title}
+                                        text={description}
+                                        {...(testID === undefined
+                                            ? {}
+                                            : { testID: `${testID}-info` })}
+                                    />
+                                </View>
+                            )}
+                            {board ? (
+                                <TitleAsideContext.Provider value={true}>
+                                    {aside}
+                                </TitleAsideContext.Provider>
+                            ) : (
+                                aside
+                            )}
+                            {/*
+                             * On a page whose issue tray is inline, the problems this section holds
+                             * are drawn here, beside its title — matched on the section's testID.
+                             */}
+                            {testID === undefined ? null : (
+                                <IssueAnchor anchor={testID} testID={`${testID}-fixes`} />
+                            )}
+                        </View>
+                        {actions}
                     </View>
-                    {actions}
+                    {description === undefined || !printDescription ? null : (
+                        <RNText
+                            testID={testID === undefined ? undefined : `${testID}-description`}
+                            className="text-[13px] font-medium text-content-secondary text-start"
+                        >
+                            {description}
+                        </RNText>
+                    )}
                 </View>
-                {description === undefined || !printDescription ? null : (
-                    <RNText
-                        testID={testID === undefined ? undefined : `${testID}-description`}
-                        className="text-[13px] font-medium text-content-secondary text-start"
-                    >
-                        {description}
-                    </RNText>
-                )}
-            </View>
+            )}
 
             {/*
              * The section's content as one column with a 12px gap, so a notice, a grid and a table

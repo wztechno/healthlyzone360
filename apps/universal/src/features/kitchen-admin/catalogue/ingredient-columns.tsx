@@ -1,6 +1,5 @@
 import type { CostAmount, IngredientAdmin } from '@healthy360/api-client/contracts';
 import { Inline, Text } from '@healthy360/design-system';
-import type { BadgeTone } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { View } from 'react-native';
@@ -13,6 +12,7 @@ import {
     unitShortKey,
 } from '../format.ts';
 import { allergenLabel } from '../ops-format.ts';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 import { AllergenChip } from './allergen-chip.tsx';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
@@ -117,15 +117,6 @@ export const INGREDIENT_DEFAULT_COLUMNS: readonly string[] = [
 
 /** The row's title can be moved past but never dropped — see `column-picker.tsx`. */
 export const INGREDIENT_LOCKED_COLUMNS: readonly string[] = ['name'];
-
-/** The status dot, by `statusTone`'s answer. A tone not named here is drawn neutral. */
-const STATUS_DOT_CLASS: Readonly<Partial<Record<BadgeTone, string>>> = {
-    success: 'bg-success',
-    brand: 'bg-surface-brand',
-    warning: 'bg-warning-border',
-    danger: 'bg-danger',
-    info: 'bg-info',
-};
 
 /** Prices render at exactly two decimals, which is the design's `fmt: 2`. */
 const PRICE_DIGITS: Intl.NumberFormatOptions = {
@@ -377,20 +368,12 @@ export function ingredientColumns({
             sortType: 'text',
             value: (row) => t(statusShortKey(row.meta.status)),
             render: (row) => (
-                // A dot and the word, as the board draws it. The tone is still `statusTone`'s: the
-                // API's `PublishableStatus` mapped in `format.ts`, and the word carries the meaning.
-                <View
+                // A dot and the word, as the board draws it — the look every list's status takes.
+                <DeskStatusDot
                     testID={`${ingredientRowTestId(row.id)}-status`}
-                    className="flex-row items-center gap-1.5"
-                >
-                    <View
-                        aria-hidden
-                        className={`h-2 w-2 rounded-full ${STATUS_DOT_CLASS[statusTone(row.meta.status)] ?? 'bg-content-secondary'}`}
-                    />
-                    <Text variant="label" numberOfLines={1}>
-                        {t(statusShortKey(row.meta.status))}
-                    </Text>
-                </View>
+                    tone={statusTone(row.meta.status)}
+                    label={t(statusShortKey(row.meta.status))}
+                />
             ),
         },
 

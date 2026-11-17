@@ -49,6 +49,18 @@ function Harness({ options }: { readonly options?: ColumnControlsOptions }) {
     );
 }
 
+function PickerHarness() {
+    const { picker } = useColumnControls(LINES, COLUMNS, 'lines');
+    return <Text testID="count">{`${String(picker.shown)} of ${String(picker.max)}`}</Text>;
+}
+
+describe('the column picker counts the table it is on', () => {
+    it('says 3 of 3 on a three-column table, not 3 of 6', async () => {
+        await render(<PickerHarness />);
+        expect(screen.getByTestId('count')).toHaveTextContent('3 of 3');
+    });
+});
+
 describe('every column of an in-memory table sorts', () => {
     it('sorts a column that states only its value, numbers as numbers and blanks last', async () => {
         await render(<Harness />);

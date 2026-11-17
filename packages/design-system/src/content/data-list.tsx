@@ -289,6 +289,14 @@ export interface DataListProps<Row> {
      * nothing. The caller draws the heading's content; the list gives it a full-width row.
      */
     readonly sectionHeader?: ((row: Row, previous: Row | undefined) => ReactNode) | undefined;
+    /**
+     * A line drawn across the whole table directly under a row — what is wrong with an editable
+     * row, said once for the row rather than under one of its fields. A message under a field makes
+     * that cell taller, and a centred row then moves every other field out of line with it; under
+     * the row it moves nothing. `null` draws nothing. The row's rule moves below its note, so the
+     * two read as one row.
+     */
+    readonly rowNote?: ((row: Row) => ReactNode) | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -390,6 +398,7 @@ export function DataList<Row>({
     flushTop = false,
     rowEntrance = false,
     sectionHeader,
+    rowNote,
     className,
     testID,
 }: DataListProps<Row>) {
@@ -650,17 +659,20 @@ export function DataList<Row>({
                           ));
 
                           const last = index === rows.length - 1;
+                          const note = rowNote?.(row) ?? null;
+                          const noted = note !== null && note !== false;
                           /*
                            * A soft hairline between rows, in the subtle stroke so it separates
                            * without striping a dense page into a ledger. The last row has none —
                            * the frame's own edge closes the list — and takes the frame's bottom
-                           * corners, so its tint does not square them off.
+                           * corners, so its tint does not square them off. A row with a note
+                           * hands both to the note, which closes the row instead.
                            */
                           const rowClass = cx(
                               ROW_HEIGHT_CLASS[density],
                               'flex-row items-center',
-                              last ? null : 'border-b border-stroke-subtle',
-                              framed && last ? 'rounded-b-panel' : null,
+                              last || noted ? null : 'border-b border-stroke-subtle',
+                              framed && last && !noted ? 'rounded-b-panel' : null,
                           );
 
                           const rowTestID =
@@ -714,8 +726,36 @@ export function DataList<Row>({
                               drawn
                           );
 
+                          /*
+                           * The note spans the table under its row, inset like the cells, and
+                           * closes the row: the rule between rows and the frame's bottom corners
+                           * are the note's when there is one.
+                           */
+                          const withNote = noted ? (
+                              <Fragment key={key}>
+                                  {entered}
+                                  <View
+                                      role="row"
+                                      testID={
+                                          rowTestID === undefined ? undefined : `${rowTestID}-note`
+                                      }
+                                      className={cx(
+                                          '-mt-1 px-control-sm pb-snug',
+                                          last ? null : 'border-b border-stroke-subtle',
+                                          framed && last ? 'rounded-b-panel' : null,
+                                      )}
+                                  >
+                                      <View role="cell" className="min-w-0">
+                                          {note}
+                                      </View>
+                                  </View>
+                              </Fragment>
+                          ) : (
+                              entered
+                          );
+
                           const heading = sectionHeader?.(row, rows[index - 1]) ?? null;
-                          if (heading === null || heading === false) return entered;
+                          if (heading === null || heading === false) return withNote;
                           return (
                               <Fragment key={key}>
                                   {/*
@@ -737,7 +777,7 @@ export function DataList<Row>({
                                           {heading}
                                       </View>
                                   </View>
-                                  {entered}
+                                  {withNote}
                               </Fragment>
                           );
                       })}

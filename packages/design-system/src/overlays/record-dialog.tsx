@@ -173,6 +173,8 @@ export function RecordDialog({
                                         testID={`${testID}-actions-menu`}
                                         label={actionsLabel}
                                         align="end"
+                                        // The admin's one menu look: the card, as every scope and row menu draws it.
+                                        look="card"
                                         sections={actionSections(actions)}
                                         trigger={({ triggerProps, toggle }) => (
                                             <IconButton

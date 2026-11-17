@@ -181,6 +181,8 @@ function ExportControl({
         <Menu
             label={t('kitchen:transfer.export.menuLabel')}
             align="end"
+            // The admin's one menu look: the card, as every scope and row menu draws it.
+            look="card"
             sections={[{ items }]}
             trigger={({ triggerProps, toggle }) => (
                 <DeskButton

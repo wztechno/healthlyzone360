@@ -9,6 +9,7 @@ import {
     EmptyState,
     ErrorState,
     FormSection,
+    Icon,
     Stack,
     TableSkeleton,
     Text,
@@ -67,6 +68,7 @@ import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The order `?view=` names, read on its own when the loaded page does not hold it. */
 function useOrderById(id: string | null) {
     const parsed = PurchaseOrderId.safeParse(id);
@@ -447,7 +449,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                     },
                 },
                 render: (row) => (
-                    <DeskChip
+                    <DeskStatusDot
                         testID={`${purchaseOrderRowTestId(String(row.id))}-status`}
                         tone={purchaseOrderStatusTone(row.status)}
                         label={t(purchaseOrderStatusKey(row.status))}
@@ -733,6 +735,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                         <DeskButton
                             testID="kitchen-supply-orders-prepare"
                             label={t('kitchen:ops.supplyOrders.prepare')}
+                            iconStart={<Icon name="plus" size="sm" />}
                             onPress={prepare}
                         />
                     }

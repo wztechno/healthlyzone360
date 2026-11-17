@@ -27,6 +27,7 @@ import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * The recipe book, as an array — every track the merged page can draw, answering this entity's
  * questions: what the recipe is, what it is sold as, and whether that is on sale.
@@ -570,7 +571,8 @@ export function recipeColumns({
                     {dash}
                 </Text>
             ) : (
-                <DeskChip
+                // A publish state, so the status column's dot and word.
+                <DeskStatusDot
                     testID={`${rowID(row)}-on-sale`}
                     tone={statusTone(state)}
                     label={t(statusShortKey(state))}
@@ -591,10 +593,9 @@ export function recipeColumns({
         sortType: 'text',
         value: (row) => t(statusShortKey(row.meta.status)),
         render: (row) => (
-            <DeskChip
+            <DeskStatusDot
                 testID={`${rowID(row)}-status`}
                 tone={statusTone(row.meta.status)}
-                // A pill and its word, as the Recipes board draws it.
                 label={t(statusShortKey(row.meta.status))}
             />
         ),

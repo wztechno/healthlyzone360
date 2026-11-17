@@ -3,6 +3,7 @@ import {
     Dialog,
     FormIssueBanner,
     Inline,
+    IssueUnanchored,
     Stack,
     Tabs,
     Text,
@@ -192,6 +193,9 @@ export function RecordFormOpening<Step extends string>({
             />
 
             {details === undefined ? null : <View testID={`${testID}-details`}>{details}</View>}
+
+            {/* Inside an inline tray: what is wrong, as chips, only while something is. */}
+            <IssueUnanchored testID={`${testID}-issues-loose`} />
 
             {/*
              * Only outside a tray. One strip above the other, each the full width: side by side

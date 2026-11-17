@@ -87,7 +87,7 @@ import {
 import { useViewedRecord } from '../use-viewed-record.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 /**
  * The photograph of what is on the shelf: the ingredient's own, or the product's.
@@ -496,7 +496,7 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
                 match: (row, value) => row.state === value,
             },
             render: (row) => (
-                <DeskChip
+                <DeskStatusDot
                     testID={`${stockItemRowTestId(String(row.item.id))}-status`}
                     tone={STATE_TONE[row.state]}
                     label={t(STATE_LABEL[row.state])}

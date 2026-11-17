@@ -1,10 +1,23 @@
-import { Button, Cascade, DensityProvider, Icon, Inline, Text } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    DensityProvider,
+    Icon,
+    Inline,
+    Select,
+    Text,
+} from '@healthy360/design-system';
 import type { PublishableStatus } from '@healthy360/api-client/contracts';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { LensBar, LensScope } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
+import {
+    LensBar,
+    LensFigureCell,
+    LensScope,
+} from '../features/kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
+import { DeskStatusDot } from '../features/kitchen-admin/desk-kit/desk-status-dot.tsx';
 
 type Kind = 'all' | 'meal' | 'sauce' | 'preparation';
 
@@ -27,6 +40,7 @@ export function LensBarShowcaseScreen() {
     const [onSale, setOnSale] = useState(false);
     const [kind, setKind] = useState<Kind>('all');
     const [search, setSearch] = useState('');
+    const [recipe, setRecipe] = useState<string | null>(null);
 
     const figure = (key: PublishableStatus, label: string, tone: LensFigure['tone']) => ({
         key,
@@ -243,6 +257,78 @@ export function LensBarShowcaseScreen() {
                         result="24 of 24"
                         clearLabel="Clear"
                     />
+
+                    {/* 2026-11-15: the parts every list now shares (Phase B). */}
+                    <Text variant="title">Status cell — every list</Text>
+                    <Inline space="lg" align="center" testID="showcase-status-dots">
+                        <DeskStatusDot tone="success" label="Published" />
+                        <DeskStatusDot tone="warning" label="Draft" />
+                        <DeskStatusDot tone="danger" label="Awaiting review" />
+                        <DeskStatusDot tone="neutral" label="Archived" />
+                    </Inline>
+
+                    {/* 2026-11-15: the batch planner's summary — chips that fill their cell. */}
+                    <Text variant="title">Summary chips — note and fill</Text>
+                    <View
+                        testID="showcase-summary-chips"
+                        className="w-[560px] flex-row flex-wrap gap-2"
+                    >
+                        {(
+                            [
+                                {
+                                    key: 'version',
+                                    label: 'Version',
+                                    value: 1,
+                                    display: 'v1 Published',
+                                },
+                                {
+                                    key: 'batches',
+                                    label: 'Batches',
+                                    value: 2,
+                                    tone: 'brand',
+                                    active: true,
+                                    note: '×1.857',
+                                },
+                                { key: 'portions', label: 'Portions', value: 260 },
+                                {
+                                    key: 'weight',
+                                    label: 'Total weight',
+                                    value: 13.6,
+                                    display: '13.6 Kg',
+                                    note: '+5 % waste',
+                                },
+                            ] satisfies readonly LensFigure[]
+                        ).map((chip) => (
+                            <View key={chip.key} className="w-[276px]">
+                                <LensFigureCell
+                                    figure={chip}
+                                    narrow={false}
+                                    chip
+                                    fill
+                                    testID={`showcase-summary-${chip.key}`}
+                                />
+                            </View>
+                        ))}
+                    </View>
+
+                    <Text variant="title">Searchable picker — card look</Text>
+                    <View className="z-tooltip w-[240px]">
+                        <Select
+                            testID="showcase-card-select"
+                            label="Recipe"
+                            labelHidden
+                            placeholder="Choose a recipe"
+                            searchable
+                            look="card"
+                            value={recipe}
+                            onChange={setRecipe}
+                            options={[
+                                { value: 'lentil', label: 'Lentil soup', description: 'Meal' },
+                                { value: 'garlic', label: 'Garlic mayo', description: 'Sauce' },
+                                { value: 'hummus', label: 'Hummus', description: 'Preparation' },
+                            ]}
+                        />
+                    </View>
                 </Cascade>
             </View>
         </DensityProvider>

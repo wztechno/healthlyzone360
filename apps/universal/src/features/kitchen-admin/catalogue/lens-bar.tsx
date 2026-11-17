@@ -55,6 +55,11 @@ export interface LensFigure {
     readonly active?: boolean | undefined;
     /** Translated. Why the figure is what it is, behind an (i) beside it — never a line on the bar. */
     readonly info?: string | undefined;
+    /**
+     * Translated. A quiet word after the number — the planner's "×1.86", "+5 % waste". Drawn only
+     * by the chip look (`LensFigureCell chip`), where the figure has room for it.
+     */
+    readonly note?: string | undefined;
     /** Draws the figure in the danger ink while it is above zero: it blocks work. */
     readonly alarm?: boolean | undefined;
     /** A hairline before this figure, to start a new group. */
@@ -653,6 +658,7 @@ export function LensFigureCell({
     figure,
     narrow,
     chip = false,
+    fill = false,
     testID,
 }: {
     readonly figure: LensFigure;
@@ -660,6 +666,11 @@ export function LensFigureCell({
     readonly narrow: boolean;
     /** The split layout's look: each figure a bordered chip standing on the page. */
     readonly chip?: boolean | undefined;
+    /**
+     * With `chip`: the chip takes its cell's whole width and the number moves to its end, so a
+     * grid of chips reads as label | value columns (the batch planner's summary).
+     */
+    readonly fill?: boolean | undefined;
     readonly testID: string;
 }) {
     const active = figure.active === true;
@@ -714,13 +725,24 @@ export function LensFigureCell({
                     tone={alarm ? 'danger' : zero ? 'secondary' : 'primary'}
                     className={
                         chip
-                            ? `!text-sm font-bold tabular-nums ${active ? '!text-content-on-brand-subtle' : ''}`
+                            ? `!text-sm font-bold tabular-nums ${active ? '!text-content-on-brand-subtle' : ''} ${fill ? 'ms-auto' : ''}`
                             : 'font-semibold tabular-nums'
                     }
                 >
                     {figure.display ?? String(value)}
                 </Text>
             )}
+            {chip && figure.note !== undefined && value !== null ? (
+                <Text
+                    testID={`${testID}-note`}
+                    variant="caption"
+                    tone={active ? 'primary' : 'secondary'}
+                    numberOfLines={1}
+                    className={`tabular-nums ${active ? '!text-content-on-brand-subtle' : ''}`}
+                >
+                    {figure.note}
+                </Text>
+            ) : null}
         </>
     );
 

@@ -152,7 +152,7 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
 
     const statedLocked = options.picker?.locked;
     const statedDefaults = options.picker?.defaults;
-    const max = options.picker?.max ?? MAX_VISIBLE_COLUMNS;
+    const max = Math.min(options.picker?.max ?? MAX_VISIBLE_COLUMNS, allColumns.length);
     const locked = useMemo(() => {
         if (statedLocked !== undefined) return statedLocked;
         const title =

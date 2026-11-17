@@ -52,7 +52,7 @@ import {
 } from '../list-memory.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * `/kitchen/team` — everybody who can sign in to this kitchen (AA1), on the Catalogue list.
  *
@@ -138,14 +138,7 @@ function StatusBadge({ member }: { readonly member: TeamMemberSummary }) {
           ? 'neutral'
           : 'warning';
 
-    return (
-        <DeskChip
-            testID={testID}
-            tone={tone}
-            // A pill on every status, as the board draws them.
-            label={statusText(member, t)}
-        />
-    );
+    return <DeskStatusDot testID={testID} tone={tone} label={statusText(member, t)} />;
 }
 
 function PendingInvitations({ invitations }: { readonly invitations: readonly StaffInvitation[] }) {

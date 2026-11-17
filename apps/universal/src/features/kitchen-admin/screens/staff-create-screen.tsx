@@ -496,6 +496,7 @@ function StaffCreateForm() {
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-staff-create-tray',
+        placement: 'inline',
         groups: [{ key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards }],
     };
 

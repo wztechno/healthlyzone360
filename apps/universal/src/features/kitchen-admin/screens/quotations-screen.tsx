@@ -66,6 +66,7 @@ import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The request `?view=` names, read on its own when the loaded page does not hold it. */
 function useQuotationById(id: string | null) {
     const parsed = QuotationId.safeParse(id);
@@ -283,7 +284,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                 match: (row, value) => row.status === value,
             },
             render: (row) => (
-                <DeskChip
+                <DeskStatusDot
                     testID={`${kitchenQuotationRowTestId(String(row.id))}-status`}
                     tone={kitchenQuotationStatusTone(row.status)}
                     label={t(kitchenQuotationStatusKey(row.status))}

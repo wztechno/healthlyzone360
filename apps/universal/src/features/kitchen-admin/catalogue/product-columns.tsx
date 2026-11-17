@@ -19,6 +19,7 @@ import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * Products — and, unchanged, sauces and dressings — as an array.
  *
@@ -340,10 +341,9 @@ export function productColumns({
             sortType: 'text',
             value: (row) => t(statusShortKey(row.meta.status)),
             render: (row) => (
-                <DeskChip
+                <DeskStatusDot
                     testID={`${productRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
-                    // A pill and its word, as the Resale board draws it.
                     label={t(statusShortKey(row.meta.status))}
                 />
             ),

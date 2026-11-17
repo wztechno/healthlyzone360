@@ -1284,14 +1284,14 @@ describe('creating and editing a product', () => {
 
         await withDeskWidth(async () => {
             // Nothing is flagged before anyone has typed — a page of red on arrival is not help.
-            expect(screen.queryByTestId('kitchen-product-issues-errors')).toBeNull();
+            expect(screen.queryByTestId('kitchen-product-issues-errors-name')).toBeNull();
 
             await act(async () => {
                 fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
             });
 
-            // One card per required field, in the tray.
-            await untilVisible('kitchen-product-issues-errors');
+            // One chip per required field, beside its section.
+            await untilVisible('kitchen-product-issues-errors-name');
             for (const key of ['name', 'category', 'packs']) {
                 expect(screen.getByTestId(`kitchen-product-issues-errors-${key}`)).toBeTruthy();
             }
@@ -2022,10 +2022,7 @@ describe('publishing a meal', () => {
         });
         expect(repositories.kitchenAdmin.updateMeal).not.toHaveBeenCalled();
 
-        // …and only now does the editor say it is public, and offer the way to go and look at it.
-        await withDeskWidth(async () => {
-            await untilVisible('kitchen-meal-published');
-        });
+        // …and only now does the editor offer the way to go and look at it.
         await untilVisible('kitchen-meal-view-public');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-meal-view-public'));
@@ -2088,9 +2085,7 @@ describe('publishing a meal', () => {
                 lockVersion: 1,
             });
         });
-        await withDeskWidth(async () => {
-            await untilVisible('kitchen-meal-published');
-        });
+        await untilVisible('kitchen-meal-view-public');
     });
 
     it('gives a new meal no allergen label it did not earn', async () => {
