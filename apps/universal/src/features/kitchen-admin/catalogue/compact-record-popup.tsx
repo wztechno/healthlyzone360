@@ -8,7 +8,14 @@ import {
 import type { IconName } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, ScrollView, useWindowDimensions, View } from 'react-native';
+import {
+    Modal,
+    Pressable,
+    Text as RNText,
+    ScrollView,
+    useWindowDimensions,
+    View,
+} from 'react-native';
 
 import { DeskIconButton } from '../desk-kit/desk-button.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
@@ -50,8 +57,16 @@ const POPUP_WIDTH = 960;
  * record leaves room under it; a long one scrolls its body.
  */
 const POPUP_HEIGHT = 720;
+/**
+ * The record sheet's window (`roomy`, 2026-11-17): taller and wider, so the head, the figures strip
+ * and the first row of cards are on screen together without scrolling.
+ */
+const ROOMY_WIDTH = 1000;
+const ROOMY_HEIGHT = 880;
 /** The body's inline padding (`ps-4 pe-4`) — what `useContentWidth` subtracts inside the window. */
 const BODY_PADDING = 16;
+/** The sheet's (`ps-6 pe-6`). */
+const ROOMY_PADDING = 24;
 /** Below this the two columns stack. */
 const TWO_COLUMNS_MIN = 720;
 
@@ -103,6 +118,11 @@ export interface CompactRecordPopupProps {
     readonly windowTestID?: string | undefined;
     /** Overrides `{testID}-kind` — `RecordPopup` keeps its `-eyebrow`. */
     readonly kindTestID?: string | undefined;
+    /** The record's own reference, as a small chip beside the kind. */
+    readonly reference?: string | null | undefined;
+    readonly referenceTestID?: string | undefined;
+    /** The record sheet's window: larger, with more room round the body. */
+    readonly roomy?: boolean | undefined;
 }
 
 export function CompactRecordPopup({
@@ -124,6 +144,9 @@ export function CompactRecordPopup({
     testID,
     windowTestID,
     kindTestID,
+    reference,
+    referenceTestID,
+    roomy = false,
 }: CompactRecordPopupProps) {
     const { t } = useTranslation();
     const viewport = useWindowDimensions();
@@ -131,8 +154,15 @@ export function CompactRecordPopup({
     useKitchenTrailLeaf(label, onClose);
 
     const gutter = viewport.width < PHONE_MAX ? PHONE_GUTTER : GUTTER;
-    const width = Math.max(0, Math.min(POPUP_WIDTH, viewport.width - gutter * 2));
-    const height = Math.max(0, Math.min(POPUP_HEIGHT, viewport.height - gutter * 2));
+    const width = Math.max(
+        0,
+        Math.min(roomy ? ROOMY_WIDTH : POPUP_WIDTH, viewport.width - gutter * 2),
+    );
+    const height = Math.max(
+        0,
+        Math.min(roomy ? ROOMY_HEIGHT : POPUP_HEIGHT, viewport.height - gutter * 2),
+    );
+    const bodyPadding = roomy ? ROOMY_PADDING : BODY_PADDING;
     const twoColumns = side !== undefined && width >= TWO_COLUMNS_MIN && atLeast('md');
     // The two columns share the window between them: each takes its part of the row.
 
@@ -208,14 +238,26 @@ export function CompactRecordPopup({
                                     </View>
                                 )}
                                 <View className="min-w-0 shrink flex-col">
-                                    <Text
-                                        variant="micro"
-                                        tone="secondary"
-                                        className="font-bold uppercase tracking-wider"
-                                        testID={kindTestID ?? `${testID}-kind`}
-                                    >
-                                        {kind}
-                                    </Text>
+                                    <View className="flex-row flex-wrap items-center gap-2">
+                                        <Text
+                                            variant="micro"
+                                            tone="secondary"
+                                            className="font-bold uppercase tracking-wider"
+                                            testID={kindTestID ?? `${testID}-kind`}
+                                        >
+                                            {kind}
+                                        </Text>
+                                        {reference === undefined ||
+                                        reference === null ||
+                                        reference === '' ? null : (
+                                            <RNText
+                                                testID={referenceTestID ?? `${testID}-reference`}
+                                                className="rounded-md bg-surface-sunken px-2 py-0.5 text-xs font-semibold tabular-nums text-content-primary"
+                                            >
+                                                {reference}
+                                            </RNText>
+                                        )}
+                                    </View>
                                     {title === undefined ? null : (
                                         <Text
                                             variant="section"
@@ -312,13 +354,17 @@ export function CompactRecordPopup({
                             testID={`${testID}-thin-scroll`}
                             // eslint-disable-next-line no-restricted-syntax -- the body takes the window's height the header and foot leave.
                             className="min-h-0 flex-1"
-                            contentContainerClassName="flex-col gap-[14px] pb-[18px] pe-4 ps-4 pt-[14px]"
+                            contentContainerClassName={
+                                roomy
+                                    ? 'flex-col gap-4 pb-7 pe-6 ps-6 pt-6'
+                                    : 'flex-col gap-[14px] pb-[18px] pe-4 ps-4 pt-[14px]'
+                            }
                         >
-                            {/* What a body measures against: the window, less its 16px a side. */}
+                            {/* What a body measures against: the window, less its padding a side. */}
                             <ContentWidthProvider
                                 value={{
                                     chrome: Math.max(0, viewport.width - width),
-                                    padding: BODY_PADDING,
+                                    padding: bodyPadding,
                                 }}
                             >
                                 {banner}

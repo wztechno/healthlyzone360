@@ -5955,5 +5955,16 @@
     "previous": "[[Þŕéṽíóúš āēīō]]",
     "next": "[[Ñéẋţ āē]]",
     "position": "[[{{index}} óƒ {{count}} āēīōūāēīō]]"
+  },
+  "recordSheet": {
+    "lastChanged": "[[Łášţ çĥáñĝéð āēīōū]]",
+    "byName": "[[ƀý {{name}} āēīōū]]",
+    "forSale": "[[Ƒóŕ šáłé āēīō]]",
+    "notForSale": "[[Ñóţ ƒóŕ šáłé āēīōū]]",
+    "allergensAndDiets": "[[Áłłéŕĝéñš áñð ðíéţš āēīōūāēī]]",
+    "contains": "[[Çóñţáíñš āēīō]]",
+    "mayContain": "[[Ṁáý çóñţáíñ āēīōū]]",
+    "perHundredGrams": "[[þéŕ 100 ĝ āēīō]]",
+    "marginNote": "[[þéŕ {{unit}} · ɱáŕĝíñ {{percent}} % āēīōūāēīōūāēīō]]"
   }
 }

@@ -1,43 +1,59 @@
 import type { IngredientAdmin } from '@healthy360/api-client/contracts';
 import type { ReactNode } from 'react';
-import { Badge, Cascade, InfoTip, Text } from '@healthy360/design-system';
+import { Cascade, InfoTip, Text } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 import type { DimensionValue } from 'react-native';
 
-import { EntityImage } from '../../../media/entity-image.tsx';
 import { PhotoCredit } from '../../../media/photo-credit.tsx';
-import { displayName, statusShortKey, unitKey, unitShortKey } from '../format.ts';
-import { AllergenChip } from './allergen-chip.tsx';
+import { displayName, statusShortKey, statusTone, unitKey, unitShortKey } from '../format.ts';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { allergenLabel } from '../ops-format.ts';
 import { ingredientStockPhotoId } from './ingredient-photo.ts';
-import { RecordCanopyHero } from './record-canopy.tsx';
 import { primaryMenuAction, RecordPopup } from './record-popup.tsx';
-import { RecordTile, RecordTileRow, TileEmpty, TileFacts } from './record-tiles.tsx';
+import {
+    RecordFigures,
+    RecordSheetHead,
+    RecordThumb,
+    SheetCard,
+    SheetColumns,
+    SheetFacts,
+    SheetTagRows,
+    SheetText,
+} from './record-sheet.tsx';
+import type { SheetFigure } from './record-sheet.tsx';
+import { TileEmpty } from './record-tiles.tsx';
 import { SegmentBar, SegmentKey } from './segment-bar.tsx';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
- * The ingredient record, in its pop-up — the `Kitchen-ingredient` board.
+ * The ingredient record, in its pop-up — option A of the `Record pop-up — no canopy` canvas
+ * (2026-11-17), which took the green band away.
  *
  * ```
- * ┌ canopy ──────────────────────────────────────────────────────────────┐
- * │ [photo] ING-221 · Published                               Unit price │
- * │         Tahini                                              $13.13   │
- * │         طحينة   (Nut & Seed) (Seed) (Kilogram)               per kg  │
- * └──────────────────────────────────────────────────────────────────────┘
- * ┌ Prices ───────────────────────┐  ┌ Allergens ─────────────────────────┐
- * ┌ Nutrition per 100 g ─────────────────────────────────────────────────┐
- * ┌ Composition ─────────────────────────────────────────────────────────┐
+ * INGREDIENT [ING-221]                                                                 ✕
+ * [photo] Tahini                                                           LAST CHANGED
+ *         طحينة                                                             2 days ago
+ *         (Published) (For sale) (Nut & Seed › Seed) (Kilogram)     by Hala · Version 7
+ * ┌ UNIT PRICE ─┬ COST / 100 G ┬ B2B PRICE ──────────┬ B2C PRICE ─┬ ENERGY ──────┐
+ * │ $13.13      │ $1.31        │ $16.00             │ $19.50     │ 595 kcal     │
+ * │ per kg      │              │ per kg · margin 22%│ per kg     │ per 100 g    │
+ * └─────────────┴──────────────┴────────────────────┴────────────┴──────────────┘
+ * ┌ Allergens and diets ──────────────────────────────────────────────────────────┐
+ * │ Contains     (Sesame)                                                         │
+ * │ May contain  (Peanuts)                                                        │
+ * │ Diets        (Vegan) (Gluten free)                                            │
+ * ┌ Nutrition per 100 g (Estimated) (i) ┐ ┌ Composition ───────────────────────────┐
+ * │ 595 kcal                  30 % RI   │ ┌ Details ───────────────────────────────┐
+ * │ Fat        ▓▓▓▓▓▓░  53.8 g    77 %  │ │ Bought in · Also called · Notes        │
  * ```
  *
  * ## Only what an `IngredientAdmin` carries
  *
- * Every figure on the page is a field of the record, or arithmetic on two of them. The board draws
- * fewer rows than the record holds; what it leaves out still has a place here — the photo on the
- * canopy, cost per 100 g, margin and for sale among the prices, diets under the allergens, other
- * names and notes under the composition.
+ * Every figure on the page is a field of the record, or arithmetic on two of them: the prices and
+ * energy lead in the strip, the margin rides under the B2B price, and for sale is a chip on the
+ * head.
  *
  * ## Allergens: what it carries, or that nobody has looked
  *
@@ -50,10 +66,10 @@ import { DeskChip } from '../desk-kit/desk-chip.tsx';
  * Each nutrient is drawn against an adult reference intake — the EU Reference Intakes (Regulation
  * (EU) No 1169/2011, Annex XIII Part B), with sodium as the salt RI divided by 2.5. Nothing in
  * `@healthy360/nutrition` classifies a single ingredient's per-100 g figure as "high" or "low", so
- * every bar takes the same fill and states the share it is. Fibre has no RI: its figure is stated
- * and its track stays empty.
+ * every bar takes the same quiet fill and states the share it is. Fibre has no RI: its figure is
+ * stated and its track stays empty.
  *
- * The energy split under the bars is the fat, carbohydrate and protein the record states, at
+ * The energy split under the rows is the fat, carbohydrate and protein the record states, at
  * 9 / 4 / 4 kcal a gram, as shares of their sum — drawn only when all three are recorded.
  */
 
@@ -68,17 +84,20 @@ const REFERENCE_INTAKES: Readonly<Record<string, number>> = {
     sodium: 2400,
 };
 
-/** The bars, in the board's order. Energy leads in its circle and sodium closes on its own row. */
-const NUTRIENT_BARS: readonly {
+/** The rows, in the order a nutrition label reads; "of which" rows sit under their parent. */
+const NUTRIENT_ROWS: readonly {
     readonly id: string;
+    readonly unit: 'g' | 'mg';
     readonly labelKey: string;
+    readonly sub?: boolean;
 }[] = [
-    { id: 'protein', labelKey: 'nutrition:nutrients.protein' },
-    { id: 'carbohydrate', labelKey: 'nutrition:nutrients.carbohydrate' },
-    { id: 'sugars', labelKey: 'nutrition:nutrients.sugars' },
-    { id: 'fat', labelKey: 'nutrition:nutrients.fat' },
-    { id: 'saturated_fat', labelKey: 'nutrition:nutrients.saturatedFat' },
-    { id: 'fibre', labelKey: 'nutrition:nutrients.fibre' },
+    { id: 'fat', unit: 'g', labelKey: 'nutrition:nutrients.fat' },
+    { id: 'saturated_fat', unit: 'g', labelKey: 'nutrition:nutrients.saturatedFat', sub: true },
+    { id: 'carbohydrate', unit: 'g', labelKey: 'nutrition:nutrients.carbohydrate' },
+    { id: 'sugars', unit: 'g', labelKey: 'nutrition:nutrients.sugars', sub: true },
+    { id: 'fibre', unit: 'g', labelKey: 'nutrition:nutrients.fibre' },
+    { id: 'protein', unit: 'g', labelKey: 'nutrition:nutrients.protein' },
+    { id: 'sodium', unit: 'mg', labelKey: 'nutrition:nutrients.sodium' },
 ];
 
 /** Atwater's general factors, kcal per gram. */
@@ -92,30 +111,6 @@ const ENERGY_SPLIT = [
     },
     { id: 'protein', labelKey: 'nutrition:nutrients.protein', kcalPerGram: 4, tone: 'brand' },
 ] as const;
-
-/** One label and value line of a tile, the value at the inline end. */
-function ValueRow({
-    label,
-    value,
-    tone = 'primary',
-    testID,
-}: {
-    readonly label: string;
-    readonly value: string;
-    readonly tone?: 'primary' | 'secondary' | 'warning' | undefined;
-    readonly testID: string;
-}) {
-    return (
-        <View className="min-h-[30px] flex-row items-center justify-between gap-snug">
-            <Text variant="body" tone="secondary">
-                {label}
-            </Text>
-            <Text testID={testID} variant="strong" tone={tone} className="tabular-nums">
-                {value}
-            </Text>
-        </View>
-    );
-}
 
 export interface IngredientDetailProps {
     readonly ingredient: IngredientAdmin;
@@ -148,11 +143,12 @@ export function IngredientDetail({
     const unit = t(unitShortKey(ingredient.measurementUnit));
     const name = displayName(ingredient.name, locale);
     const separator = t('kitchen:recordView.metaSeparator');
+    const perUnit = t('kitchen:ingredientDetail.perUnitCaption', { unit });
 
     const money = (amount: { readonly amount: number; readonly currency: string } | null) =>
         amount === null ? dash : formatter.formatCurrency(amount.amount, amount.currency);
-    const oneDecimal = (value: number) =>
-        formatter.formatNumber(value, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+    const wholePercent = (value: number) =>
+        formatter.formatNumber(value, { maximumFractionDigits: 0 });
 
     /*
      * `null` whenever either side is missing or the basis is zero — a margin over a price nobody
@@ -168,15 +164,14 @@ export function IngredientDetail({
                   ingredient.unitPrice.amount) *
               100;
 
-    const updatedLine =
-        ingredient.meta.updatedByName === null
-            ? t('kitchen:editor.lastUpdatedBySeed', {
-                  when: formatter.formatRelativeTime(ingredient.meta.updatedAt),
-              })
-            : t('kitchen:editor.lastUpdatedBy', {
-                  when: formatter.formatRelativeTime(ingredient.meta.updatedAt),
-                  name: ingredient.meta.updatedByName,
-              });
+    const changedNote = [
+        ...(ingredient.meta.updatedByName === null
+            ? []
+            : [t('kitchen:recordSheet.byName', { name: ingredient.meta.updatedByName })]),
+        t('kitchen:recordView.version', {
+            version: formatter.formatNumber(ingredient.meta.lockVersion),
+        }),
+    ].join(separator);
 
     /*
      * The name in the other language, under the title. The same word twice says nothing, and a
@@ -200,6 +195,13 @@ export function IngredientDetail({
         ingredient.photoUrl !== null &&
         ingredient.photoUrl !== '';
 
+    const filing = [
+        ingredient.categoryCode === ''
+            ? t('kitchen:list.noCategory')
+            : categoryName(ingredient.categoryCode),
+        ...(ingredient.subcategoryCode === null ? [] : [categoryName(ingredient.subcategoryCode)]),
+    ].join(t('kitchen:recordView.pathSeparator'));
+
     /* ── nutrition ───────────────────────────────────────────────────────────────────────────── */
 
     /** The record's figure for a nutrient and its share of the reference, or `null` if unstated. */
@@ -222,18 +224,18 @@ export function IngredientDetail({
                     : t('kitchen:ingredientDetail.nutrientValue', {
                           value,
                           unit: nutrientUnit,
-                          percent: formatter.formatNumber(share, { maximumFractionDigits: 0 }),
+                          percent: wholePercent(share),
                       }),
         };
     };
 
     const energy = figureOf('energy', 'kcal');
-    const sodium = figureOf('sodium', 'mg');
-    const bars = NUTRIENT_BARS.flatMap((nutrient) => {
-        const figure = figureOf(nutrient.id, 'g');
+    const rows = NUTRIENT_ROWS.flatMap((nutrient) => {
+        const figure = figureOf(nutrient.id, nutrient.unit);
         return figure === null ? [] : [{ ...nutrient, figure }];
     });
-    const hasNutrition = energy !== null || sodium !== null || bars.length > 0;
+    const hasNutrition = energy !== null || rows.length > 0;
+    const kcal = t('kitchen:nutritionFacts.unitKcal');
 
     const split = ENERGY_SPLIT.map((part) => {
         const amount = ingredient.per100g === null ? null : findAmount(ingredient.per100g, part.id);
@@ -248,9 +250,7 @@ export function IngredientDetail({
             ? null
             : split.map((part) => ({
                   ...part,
-                  percent: formatter.formatNumber(((part.kcal ?? 0) / splitTotal) * 100, {
-                      maximumFractionDigits: 0,
-                  }),
+                  percent: wholePercent(((part.kcal ?? 0) / splitTotal) * 100),
               }));
     const shareOf = (id: string) => splitShares?.find((part) => part.id === id)?.percent ?? '';
 
@@ -279,10 +279,300 @@ export function IngredientDetail({
 
     const nutritionTitle = t('kitchen:nutritionFacts.title');
 
+    /* ── the figures ─────────────────────────────────────────────────────────────────────────── */
+
+    const priceFigure = (
+        key: string,
+        label: string,
+        amount: { readonly amount: number; readonly currency: string } | null,
+        note: string | undefined,
+    ): SheetFigure => ({
+        key,
+        label,
+        value: money(amount),
+        ...(note === undefined ? {} : { note }),
+        ...(amount === null ? { tone: 'muted' as const } : {}),
+        valueTestID: `${testID}-${key}`,
+    });
+
+    const figures: readonly SheetFigure[] = [
+        priceFigure('price-unit', t('kitchen:list.columnUnitPrice'), ingredient.unitPrice, perUnit),
+        priceFigure(
+            'cost-per-100g',
+            t('kitchen:list.columnCostPer100g'),
+            ingredient.costPer100g,
+            undefined,
+        ),
+        priceFigure(
+            'price-b2b',
+            t('kitchen:list.columnB2bPrice'),
+            ingredient.b2bPrice,
+            marginPercent === null
+                ? perUnit
+                : t('kitchen:recordSheet.marginNote', {
+                      unit,
+                      percent: formatter.formatNumber(marginPercent, {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                      }),
+                  }),
+        ),
+        priceFigure('price-b2c', t('kitchen:list.columnB2cPrice'), ingredient.b2cPrice, perUnit),
+        {
+            key: 'energy',
+            label: t('nutrition:nutrients.energy'),
+            value: energy === null ? dash : `${energy.value} ${kcal}`,
+            note: t('kitchen:recordSheet.perHundredGrams'),
+            ...(energy === null ? { tone: 'muted' as const } : {}),
+            valueTestID: `${testID}-energy`,
+        },
+    ];
+
     /* ── allergens ───────────────────────────────────────────────────────────────────────────── */
 
     const assessed = ingredient.allergens.length > 0 || ingredient.allergensAssessedClear === true;
     const reviewRequired = ingredient.allergenReviewRequired === true;
+    const quiet = (key: string) => (
+        <RNText testID={`${testID}-${key}`} className="pt-1 text-base text-content-secondary">
+            {dash}
+        </RNText>
+    );
+    const allergenChips = (containment: 'contains' | 'may_contain') => {
+        const found = ingredient.allergens.filter((mapping) => mapping.containment === containment);
+        return found.length === 0
+            ? quiet(`allergens-${containment}-none`)
+            : found.map((mapping) => {
+                  const code = String(mapping.allergenCode);
+                  return (
+                      <DeskChip
+                          key={code}
+                          testID={`${testID}-allergen-${code}-${containment}`}
+                          tone={containment === 'contains' ? 'danger' : 'warning'}
+                          size="lg"
+                          label={allergenLabel(code, t)}
+                      />
+                  );
+              });
+    };
+
+    const allergensCard = (
+        <SheetCard
+            testID={`${testID}-allergens`}
+            title={t('kitchen:recordSheet.allergensAndDiets')}
+        >
+            {assessed ? null : (
+                <TileEmpty
+                    testID={`${testID}-allergens-not-assessed`}
+                    tone="warning"
+                    text={t('kitchen:allergens.notAssessed')}
+                />
+            )}
+            <SheetTagRows
+                testID={`${testID}-allergen-list`}
+                rows={[
+                    ...(assessed
+                        ? [
+                              {
+                                  key: 'contains',
+                                  label: t('kitchen:recordSheet.contains'),
+                                  content:
+                                      ingredient.allergens.length === 0 ? (
+                                          <DeskChip
+                                              testID={`${testID}-allergens-clear`}
+                                              tone="success"
+                                              size="lg"
+                                              label={t('kitchen:allergens.noneBadge')}
+                                          />
+                                      ) : (
+                                          allergenChips('contains')
+                                      ),
+                              },
+                              {
+                                  key: 'may-contain',
+                                  label: t('kitchen:recordSheet.mayContain'),
+                                  content: allergenChips('may_contain'),
+                              },
+                          ]
+                        : []),
+                    {
+                        key: 'diets',
+                        label: t('kitchen:allergenBoard.diets'),
+                        content:
+                            ingredient.dietClassifications.length === 0
+                                ? quiet('no-diets')
+                                : ingredient.dietClassifications.map((diet) => (
+                                      <DeskChip
+                                          key={diet}
+                                          testID={`${testID}-diet-${diet}`}
+                                          tone="info"
+                                          size="lg"
+                                          label={t(`marketplace:diets.${diet}`)}
+                                      />
+                                  )),
+                    },
+                    {
+                        key: 'checked',
+                        label: t('kitchen:ingredientDetail.checkedLabel'),
+                        content: (
+                            <RNText
+                                testID={`${testID}-allergens-checked`}
+                                className={`pt-1 text-base font-semibold ${
+                                    reviewRequired || !assessed
+                                        ? 'text-warning-strong'
+                                        : 'text-content-primary'
+                                }`}
+                            >
+                                {t(
+                                    reviewRequired
+                                        ? 'kitchen:ingredientDetail.checkedReview'
+                                        : assessed
+                                          ? 'kitchen:ingredientDetail.checkedYes'
+                                          : 'kitchen:ingredientDetail.checkedNo',
+                                )}
+                            </RNText>
+                        ),
+                    },
+                ]}
+            />
+        </SheetCard>
+    );
+
+    /* ── nutrition card ──────────────────────────────────────────────────────────────────────── */
+
+    const nutritionCard = (
+        <SheetCard
+            testID={`${testID}-nutrition`}
+            title={nutritionTitle}
+            aside={nutritionBadges.length === 0 ? undefined : nutritionBadges}
+            trailing={
+                <InfoTip
+                    label={nutritionTitle}
+                    text={t('kitchen:ingredientDetail.nutritionSubtitle')}
+                />
+            }
+        >
+            {!hasNutrition ? (
+                <TileEmpty
+                    testID={`${testID}-nutrition-empty`}
+                    text={t('kitchen:ingredientDetail.nutritionEmpty')}
+                />
+            ) : (
+                <>
+                    {/* The energy line: one figure, then its share of the day. */}
+                    <View className="flex-row items-baseline gap-2 rounded-xl border border-stroke-subtle bg-surface-sunken px-4 py-3">
+                        <RNText
+                            testID={`${testID}-energy-line`}
+                            className="font-display text-3xl font-bold tabular-nums text-content-primary"
+                        >
+                            {energy?.value ?? dash}
+                        </RNText>
+                        <RNText className="text-sm font-semibold text-content-secondary">
+                            {kcal}
+                        </RNText>
+                        {energy?.share == null ? null : (
+                            <RNText className="ms-auto text-sm font-semibold tabular-nums text-content-primary">
+                                {t('kitchen:ingredientDetail.energyShareOfRi', {
+                                    percent: wholePercent(energy.share),
+                                })}
+                            </RNText>
+                        )}
+                    </View>
+
+                    {/* One row a nutrient: name, its share as a bar, the amount, the % RI. */}
+                    <View className="overflow-hidden">
+                        <View className="-mt-px flex-col">
+                            {rows.map((row) => (
+                                <View
+                                    key={row.id}
+                                    testID={`${testID}-nutrient-${row.id}`}
+                                    role="img"
+                                    aria-label={`${t(row.labelKey)}: ${row.figure.text}`}
+                                    className="min-h-10 flex-row items-center gap-3 border-t border-stroke-subtle"
+                                >
+                                    {/* eslint-disable-next-line no-restricted-syntax -- the name takes what the fixed columns leave. */}
+                                    <View className="min-w-0 flex-1">
+                                        <RNText
+                                            numberOfLines={1}
+                                            className={`text-sm text-start ${
+                                                row.sub === true
+                                                    ? 'text-content-secondary'
+                                                    : 'font-semibold text-content-primary'
+                                            }`}
+                                        >
+                                            {t(row.labelKey)}
+                                        </RNText>
+                                    </View>
+                                    <View className="h-1.5 w-20 overflow-hidden rounded-full bg-stroke-subtle">
+                                        {row.figure.share === null ? null : (
+                                            <View
+                                                className="h-full rounded-full bg-content-secondary"
+                                                style={{
+                                                    width: `${String(Math.min(100, row.figure.share))}%` as DimensionValue,
+                                                }}
+                                            />
+                                        )}
+                                    </View>
+                                    <RNText className="w-20 text-end text-sm font-semibold tabular-nums text-content-primary">
+                                        {`${row.figure.value} ${row.unit}`}
+                                    </RNText>
+                                    <RNText className="w-12 text-end text-sm font-semibold tabular-nums text-content-secondary">
+                                        {row.figure.share === null
+                                            ? dash
+                                            : `${wholePercent(row.figure.share)} %`}
+                                    </RNText>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+
+                    {splitShares === null ? null : (
+                        <View className="flex-col gap-tight pt-1">
+                            <SegmentBar
+                                testID={`${testID}-energy-split`}
+                                label={t('kitchen:ingredientDetail.energySplitLabel', {
+                                    fat: shareOf('fat'),
+                                    carbohydrate: shareOf('carbohydrate'),
+                                    protein: shareOf('protein'),
+                                })}
+                                segments={splitShares.map((part) => ({
+                                    key: part.id,
+                                    share: part.kcal ?? 0,
+                                    tone: part.tone,
+                                }))}
+                            />
+                            <View className="flex-row flex-wrap items-center gap-x-base gap-y-hair">
+                                <Text variant="label" tone="secondary">
+                                    {t('kitchen:ingredientDetail.energyFrom')}
+                                </Text>
+                                {splitShares.map((part) => (
+                                    <SegmentKey
+                                        key={part.id}
+                                        tone={part.tone}
+                                        label={t('kitchen:ingredientDetail.energyShare', {
+                                            nutrient: t(part.labelKey),
+                                            percent: part.percent,
+                                        })}
+                                    />
+                                ))}
+                            </View>
+                        </View>
+                    )}
+                    {ingredient.nutritionNote === null ? null : (
+                        <View className="flex-row flex-wrap gap-tight">
+                            <Text variant="label">{t('kitchen:nutritionFacts.noteLabel')}</Text>
+                            <Text
+                                testID={`${testID}-nutrition-note`}
+                                variant="label"
+                                tone="secondary"
+                            >
+                                {ingredient.nutritionNote}
+                            </Text>
+                        </View>
+                    )}
+                </>
+            )}
+        </SheetCard>
+    );
 
     return (
         <RecordPopup
@@ -290,6 +580,9 @@ export function IngredientDetail({
             kind={t('kitchen:list.viewKind')}
             onClose={onBack}
             leading={leading}
+            reference={ingredient.reference}
+            referenceTestID={`${testID}-reference`}
+            sheet
             actions={[
                 {
                     key: 'print-label',
@@ -310,375 +603,120 @@ export function IngredientDetail({
             testID={testID}
         >
             <Cascade space="md" testID={testID}>
-                <RecordCanopyHero
-                    testID={`${testID}-canopy`}
+                <RecordSheetHead
+                    testID={`${testID}-head`}
                     title={name.value}
                     titleAside={titleAside}
                     titleAsideLang={locale === 'ar' ? 'en' : 'ar'}
-                    reference={ingredient.reference}
-                    status={t(statusShortKey(ingredient.meta.status))}
-                    chips={[
-                        ingredient.categoryCode === ''
-                            ? t('kitchen:list.noCategory')
-                            : categoryName(ingredient.categoryCode),
-                        ...(ingredient.subcategoryCode === null
-                            ? []
-                            : [categoryName(ingredient.subcategoryCode)]),
-                        t(unitKey(ingredient.measurementUnit)),
-                    ]}
-                    caption={[
-                        updatedLine,
-                        t('kitchen:recordView.version', {
-                            version: formatter.formatNumber(ingredient.meta.lockVersion),
-                        }),
-                    ].join(separator)}
                     media={
-                        <View className="w-16 overflow-hidden rounded-lg">
-                            <EntityImage
-                                assetId={assetId}
-                                photoUrl={ingredient.photoUrl}
-                                seed={String(ingredient.id)}
-                                label={name.value}
-                                aspect="square"
-                                variant="card"
-                                decorative
-                                testID={`${testID}-photo`}
-                            />
-                        </View>
+                        <RecordThumb
+                            assetId={assetId}
+                            photoUrl={ingredient.photoUrl}
+                            label={name.value}
+                            seed={String(ingredient.id)}
+                            testID={`${testID}-photo`}
+                        />
                     }
-                    figure={{
-                        label: t('kitchen:list.columnUnitPrice'),
-                        value: money(ingredient.unitPrice),
-                        note: t('kitchen:ingredientDetail.perUnitCaption', { unit }),
+                    chips={[
+                        {
+                            key: 'status',
+                            label: t(statusShortKey(ingredient.meta.status)),
+                            tone: statusTone(ingredient.meta.status),
+                            testID: `${testID}-status`,
+                        },
+                        {
+                            key: 'sellable',
+                            label: t(
+                                ingredient.isSellable
+                                    ? 'kitchen:recordSheet.forSale'
+                                    : 'kitchen:recordSheet.notForSale',
+                            ),
+                            tone: ingredient.isSellable ? 'info' : 'neutral',
+                            testID: `${testID}-sellable`,
+                        },
+                        { key: 'filing', label: filing, tone: 'neutral' },
+                        {
+                            key: 'unit',
+                            label: t(unitKey(ingredient.measurementUnit)),
+                            tone: 'neutral',
+                        },
+                    ]}
+                    changed={{
+                        label: t('kitchen:recordSheet.lastChanged'),
+                        value: formatter.formatRelativeTime(ingredient.meta.updatedAt),
+                        note: changedNote,
+                        valueTestID: `${testID}-changed-when`,
                     }}
                 />
 
-                <RecordTileRow testID={`${testID}-row-safety`}>
-                    <RecordTile
-                        testID={`${testID}-prices`}
-                        title={t('kitchen:ingredientDetail.pricesTitle')}
-                    >
-                        <View className="flex-col">
-                            <ValueRow
-                                testID={`${testID}-price-unit`}
-                                label={t('kitchen:list.columnUnitPrice')}
-                                value={money(ingredient.unitPrice)}
-                                tone={ingredient.unitPrice === null ? 'secondary' : 'primary'}
-                            />
-                            <ValueRow
-                                testID={`${testID}-price-b2b`}
-                                label={t('kitchen:list.columnB2bPrice')}
-                                value={money(ingredient.b2bPrice)}
-                                tone={ingredient.b2bPrice === null ? 'secondary' : 'primary'}
-                            />
-                            <ValueRow
-                                testID={`${testID}-price-b2c`}
-                                label={t('kitchen:list.columnB2cPrice')}
-                                value={money(ingredient.b2cPrice)}
-                                tone={ingredient.b2cPrice === null ? 'secondary' : 'primary'}
-                            />
-                            <ValueRow
-                                testID={`${testID}-bought-in`}
-                                label={t('kitchen:ingredientDetail.boughtIn')}
-                                value={
-                                    ingredient.purchaseUnit === null
-                                        ? dash
-                                        : t(unitKey(ingredient.purchaseUnit))
-                                }
-                                tone={ingredient.purchaseUnit === null ? 'secondary' : 'primary'}
-                            />
-                            <ValueRow
-                                testID={`${testID}-cost-per-100g`}
-                                label={t('kitchen:list.columnCostPer100g')}
-                                value={money(ingredient.costPer100g)}
-                                tone={ingredient.costPer100g === null ? 'secondary' : 'primary'}
-                            />
-                            <ValueRow
-                                testID={`${testID}-margin`}
-                                label={t('kitchen:ingredientDetail.kpiMarginOnCost')}
-                                value={
-                                    marginPercent === null ? dash : `${oneDecimal(marginPercent)} %`
-                                }
-                                tone={marginPercent === null ? 'secondary' : 'primary'}
-                            />
-                            <ValueRow
-                                testID={`${testID}-sellable`}
-                                label={t('kitchen:ingredientDetail.fieldSellable')}
-                                value={t(
-                                    ingredient.isSellable
-                                        ? 'kitchen:ingredientDetail.sellableYes'
-                                        : 'kitchen:ingredientDetail.sellableNo',
-                                )}
-                            />
-                        </View>
-                    </RecordTile>
+                <RecordFigures testID={`${testID}-figures`} figures={figures} />
 
-                    <RecordTile
-                        testID={`${testID}-allergens`}
-                        title={t('kitchen:forms.allergensTitle')}
-                    >
-                        {assessed ? (
-                            <View
-                                testID={`${testID}-allergen-list`}
-                                role="list"
-                                aria-label={t('kitchen:allergenBoard.listLabel')}
-                                className="min-h-[68px] flex-row flex-wrap content-start gap-1.5"
-                            >
-                                {ingredient.allergens.length === 0 ? (
-                                    <View role="listitem">
-                                        <DeskChip
-                                            testID={`${testID}-allergens-clear`}
-                                            tone="success"
-                                            label={t('kitchen:allergens.noneBadge')}
-                                        />
-                                    </View>
-                                ) : (
-                                    ingredient.allergens.map((mapping) => {
-                                        const code = String(mapping.allergenCode);
-                                        return (
-                                            <View key={code} role="listitem">
-                                                <AllergenChip
-                                                    testID={`${testID}-allergen-${code}-${mapping.containment}`}
-                                                    code={code}
-                                                    containment={mapping.containment}
-                                                    size="md"
-                                                />
-                                            </View>
-                                        );
-                                    })
-                                )}
-                            </View>
-                        ) : (
-                            <TileEmpty
-                                testID={`${testID}-allergens-not-assessed`}
-                                tone="warning"
-                                text={t('kitchen:allergens.notAssessed')}
-                            />
-                        )}
-                        <View className="mt-auto flex-col border-t border-stroke-subtle pt-tight">
-                            <ValueRow
-                                testID={`${testID}-allergens-checked`}
-                                label={t('kitchen:ingredientDetail.checkedLabel')}
-                                value={t(
-                                    reviewRequired
-                                        ? 'kitchen:ingredientDetail.checkedReview'
-                                        : assessed
-                                          ? 'kitchen:ingredientDetail.checkedYes'
-                                          : 'kitchen:ingredientDetail.checkedNo',
-                                )}
-                                tone={reviewRequired || !assessed ? 'warning' : 'primary'}
-                            />
-                            <View className="min-h-[30px] flex-row flex-wrap items-center justify-between gap-snug">
-                                <Text variant="body" tone="secondary">
-                                    {t('kitchen:allergenBoard.diets')}
-                                </Text>
-                                {ingredient.dietClassifications.length === 0 ? (
-                                    <Text
-                                        variant="strong"
-                                        tone="secondary"
-                                        testID={`${testID}-no-diets`}
-                                    >
-                                        {dash}
-                                    </Text>
-                                ) : (
-                                    <View className="flex-row flex-wrap gap-1.5">
-                                        {ingredient.dietClassifications.map((diet) => (
-                                            <Badge
-                                                key={diet}
-                                                tone="brand"
-                                                icon="check"
-                                                label={t(`marketplace:diets.${diet}`)}
-                                                testID={`${testID}-diet`}
-                                            />
-                                        ))}
-                                    </View>
-                                )}
-                            </View>
-                        </View>
-                    </RecordTile>
-                </RecordTileRow>
-
-                <RecordTile
-                    testID={`${testID}-nutrition`}
-                    title={nutritionTitle}
-                    aside={nutritionBadges.length === 0 ? undefined : nutritionBadges}
-                    trailing={
-                        <InfoTip
-                            label={nutritionTitle}
-                            text={t('kitchen:ingredientDetail.nutritionSubtitle')}
-                        />
-                    }
-                >
-                    {!hasNutrition ? (
-                        <TileEmpty
-                            testID={`${testID}-nutrition-empty`}
-                            text={t('kitchen:ingredientDetail.nutritionEmpty')}
-                        />
-                    ) : (
+                <SheetColumns
+                    testID={`${testID}-body`}
+                    top={allergensCard}
+                    start={nutritionCard}
+                    end={
                         <>
-                            <View className="flex-row flex-wrap items-center gap-6">
-                                <View className="items-center gap-1">
-                                    <View className="h-28 w-28 items-center justify-center rounded-full bg-surface-brand-subtle">
-                                        <RNText
-                                            testID={`${testID}-energy`}
-                                            className="font-display text-3xl font-bold tabular-nums text-content-on-brand-subtle"
-                                        >
-                                            {energy?.value ?? dash}
-                                        </RNText>
-                                        <RNText className="text-role-label font-semibold text-content-on-brand-subtle">
-                                            {t('kitchen:nutritionFacts.unitKcal')}
-                                        </RNText>
-                                    </View>
-                                    {energy?.share == null ? null : (
-                                        <Text variant="caption" tone="secondary">
-                                            {t('kitchen:ingredientDetail.energyShareOfRi', {
-                                                percent: formatter.formatNumber(energy.share, {
-                                                    maximumFractionDigits: 0,
-                                                }),
-                                            })}
-                                        </Text>
-                                    )}
-                                </View>
-                                {/* eslint-disable-next-line no-restricted-syntax -- the bars take what the circle leaves. */}
-                                <View className="min-w-[280px] flex-1 flex-col gap-2">
-                                    {bars.map((bar) => (
-                                        <View
-                                            key={bar.id}
-                                            testID={`${testID}-nutrient-${bar.id}`}
-                                            role="img"
-                                            aria-label={`${t(bar.labelKey)}: ${bar.figure.text}`}
-                                            className="flex-row items-center gap-3"
-                                        >
-                                            <View className="w-28">
-                                                <Text
-                                                    variant="label"
-                                                    tone="secondary"
-                                                    numberOfLines={1}
-                                                >
-                                                    {t(bar.labelKey)}
-                                                </Text>
-                                            </View>
-                                            {/* eslint-disable-next-line no-restricted-syntax -- the track takes the middle of the row. */}
-                                            <View className="h-2.5 min-w-[48px] flex-1 overflow-hidden rounded-full bg-surface-sunken">
-                                                {bar.figure.share === null ? null : (
-                                                    <View
-                                                        className="h-full rounded-full bg-surface-brand"
-                                                        style={{
-                                                            width: `${String(Math.min(100, bar.figure.share))}%` as DimensionValue,
-                                                        }}
-                                                    />
-                                                )}
-                                            </View>
-                                            <View className="w-32 items-end">
-                                                <Text variant="label" className="tabular-nums">
-                                                    {bar.figure.text}
-                                                </Text>
-                                            </View>
-                                        </View>
-                                    ))}
-                                </View>
-                            </View>
-                            <View className="flex-col border-t border-stroke-subtle pt-tight">
-                                <ValueRow
-                                    testID={`${testID}-nutrient-sodium`}
-                                    label={t('nutrition:nutrients.sodium')}
-                                    value={sodium?.text ?? dash}
-                                    tone={sodium === null ? 'secondary' : 'primary'}
+                            <SheetCard
+                                testID={`${testID}-composition`}
+                                title={t('kitchen:fields.composition')}
+                            >
+                                <SheetText
+                                    testID={`${testID}-field-composition`}
+                                    text={
+                                        compositionEmpty ? dash : (ingredient.composition ?? dash)
+                                    }
+                                    empty={compositionEmpty}
                                 />
-                            </View>
-                            {splitShares === null ? null : (
-                                <View className="flex-col gap-tight">
-                                    <SegmentBar
-                                        testID={`${testID}-energy-split`}
-                                        label={t('kitchen:ingredientDetail.energySplitLabel', {
-                                            fat: shareOf('fat'),
-                                            carbohydrate: shareOf('carbohydrate'),
-                                            protein: shareOf('protein'),
-                                        })}
-                                        segments={splitShares.map((part) => ({
-                                            key: part.id,
-                                            share: part.kcal ?? 0,
-                                            tone: part.tone,
-                                        }))}
-                                    />
-                                    <View className="flex-row flex-wrap items-center gap-x-base gap-y-hair">
-                                        <Text variant="label" tone="secondary">
-                                            {t('kitchen:ingredientDetail.energyFrom')}
-                                        </Text>
-                                        {splitShares.map((part) => (
-                                            <SegmentKey
-                                                key={part.id}
-                                                tone={part.tone}
-                                                label={t('kitchen:ingredientDetail.energyShare', {
-                                                    nutrient: t(part.labelKey),
-                                                    percent: part.percent,
-                                                })}
-                                            />
-                                        ))}
-                                    </View>
-                                </View>
-                            )}
-                            {ingredient.nutritionNote === null ? null : (
-                                <View className="flex-row flex-wrap gap-tight">
-                                    <Text variant="label">
-                                        {t('kitchen:nutritionFacts.noteLabel')}
-                                    </Text>
-                                    <Text
-                                        testID={`${testID}-nutrition-note`}
-                                        variant="label"
-                                        tone="secondary"
-                                    >
-                                        {ingredient.nutritionNote}
-                                    </Text>
-                                </View>
+                            </SheetCard>
+                            <SheetCard
+                                testID={`${testID}-names`}
+                                title={t('kitchen:recordView.details')}
+                            >
+                                <SheetFacts
+                                    testID={`${testID}-field`}
+                                    facts={[
+                                        {
+                                            key: 'bought-in',
+                                            label: t('kitchen:ingredientDetail.boughtIn'),
+                                            value:
+                                                ingredient.purchaseUnit === null
+                                                    ? dash
+                                                    : t(unitKey(ingredient.purchaseUnit)),
+                                            empty: ingredient.purchaseUnit === null,
+                                        },
+                                        {
+                                            key: 'aliases',
+                                            label: t('kitchen:ingredientDetail.aliasesLabel'),
+                                            value:
+                                                ingredient.aliases.length === 0
+                                                    ? dash
+                                                    : ingredient.aliases.map((alias) => (
+                                                          <DeskChip
+                                                              key={alias}
+                                                              tone="neutral"
+                                                              size="lg"
+                                                              label={alias}
+                                                          />
+                                                      )),
+                                            empty: ingredient.aliases.length === 0,
+                                        },
+                                        {
+                                            key: 'notes',
+                                            label: t('kitchen:fields.notes'),
+                                            value: notesEmpty ? dash : (ingredient.notes ?? dash),
+                                            empty: notesEmpty,
+                                        },
+                                    ]}
+                                />
+                            </SheetCard>
+                            {/* The stock picture's licence travels with the record that shows it. */}
+                            {uploaded || assetId === undefined ? null : (
+                                <PhotoCredit assetId={assetId} testID={`${testID}-photo-credit`} />
                             )}
                         </>
-                    )}
-                </RecordTile>
-
-                <RecordTile testID={`${testID}-names`} title={t('kitchen:fields.composition')}>
-                    <Text
-                        testID={`${testID}-field-composition`}
-                        variant="body"
-                        tone={compositionEmpty ? 'secondary' : 'primary'}
-                    >
-                        {compositionEmpty ? dash : ingredient.composition}
-                    </Text>
-                    <TileFacts
-                        testID={`${testID}-field`}
-                        facts={[
-                            {
-                                key: 'aliases',
-                                label: t('kitchen:ingredientDetail.aliasesLabel'),
-                                value:
-                                    ingredient.aliases.length === 0 ? (
-                                        dash
-                                    ) : (
-                                        <View className="flex-row flex-wrap gap-1.5">
-                                            {ingredient.aliases.map((alias) => (
-                                                <DeskChip
-                                                    key={alias}
-                                                    tone="neutral"
-                                                    label={alias}
-                                                />
-                                            ))}
-                                        </View>
-                                    ),
-                                empty: ingredient.aliases.length === 0,
-                            },
-                            {
-                                key: 'notes',
-                                label: t('kitchen:fields.notes'),
-                                value: notesEmpty ? dash : (ingredient.notes ?? dash),
-                                empty: notesEmpty,
-                            },
-                        ]}
-                    />
-                    {/* The stock picture's licence travels with the record that shows it. */}
-                    {uploaded || assetId === undefined ? null : (
-                        <PhotoCredit assetId={assetId} testID={`${testID}-photo-credit`} />
-                    )}
-                </RecordTile>
+                    }
+                />
             </Cascade>
         </RecordPopup>
     );

@@ -2002,12 +2002,12 @@ describe('the recipe list at desk width', () => {
         await untilVisible('kitchen-recipes-view');
         // The handle the list reads it by — here the slug, for a row that predates the `RC-`
         // series — and the facts no track holds: the version count in words, and who last
-        // touched it.
+        // touched it, which the record sheet's head says under "Last changed".
         expect(screen.getByTestId('kitchen-recipes-view-reference')).toHaveTextContent(
             published.slug,
         );
         expect(screen.getByTestId('kitchen-recipes-view-field-versionCount')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-recipes-view-field-updatedBy')).toHaveTextContent(
+        expect(screen.getByTestId('kitchen-recipes-view-field-updatedBy-value')).toHaveTextContent(
             /Rana Haddad/,
         );
     });

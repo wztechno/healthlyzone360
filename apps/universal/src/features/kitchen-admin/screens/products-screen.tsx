@@ -19,7 +19,6 @@ import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-action
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
-import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -207,17 +206,14 @@ function ProductsList({
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-products-view"
-                look="board"
+                look="sheet"
                 eyebrow={t('kitchen:recordView.eyebrowResale')}
-                media={
-                    <RecordPhoto
-                        assetId={viewing.imagePlaceholderId}
-                        photoUrl={viewing.photoUrl}
-                        label={displayName(viewing.name, locale).value}
-                        shape="wide"
-                        testID="kitchen-products-view-photo"
-                    />
-                }
+                photo={{
+                    assetId: viewing.imagePlaceholderId,
+                    photoUrl: viewing.photoUrl,
+                    label: displayName(viewing.name, locale).value,
+                }}
+                figureKeys={['packs', 'pricing', 'assorted', 'dataQuality']}
                 kind={t(family.viewKind)}
                 title={displayName(viewing.name, locale).value}
                 status={{

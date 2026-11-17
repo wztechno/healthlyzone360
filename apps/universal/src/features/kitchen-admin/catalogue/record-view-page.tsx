@@ -13,11 +13,20 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { PhotoCredit } from '../../../media/photo-credit.tsx';
 import { RECORD_RAIL_MIN } from '../desk-layout.ts';
 import { RecordCanopy, RecordCanopyHero } from './record-canopy.tsx';
 import { RecordPopup, useRecordSplit } from './record-popup.tsx';
 import type { RecordAction, RecordPrimaryAction } from './record-popup.tsx';
 import type { RecordCanopyCaption, RecordCanopyTone } from './record-canopy.tsx';
+import {
+    RecordFigures,
+    RecordSheetHead,
+    RecordThumb,
+    SheetCard,
+    SheetColumns,
+    SheetFacts,
+} from './record-sheet.tsx';
 import { RecordTile } from './record-tiles.tsx';
 
 /**
@@ -144,8 +153,29 @@ export interface RecordViewPageProps {
      * `board` is the Catalogue boards' drawing: the large canopy with the status as a pill, tiles
      * with a title and no glyph, and fields as label-and-value rows. Every other View page keeps
      * the default until its own boards are applied.
+     *
+     * `sheet` is option A of `Record pop-up — no canopy` (2026-11-17): no green band — the name on
+     * the window's white, `figureKeys` in a strip under it, every other answer a white card. The
+     * Catalogue's pages draw it first.
      */
-    readonly look?: 'default' | 'board' | undefined;
+    readonly look?: 'default' | 'board' | 'sheet' | undefined;
+    /**
+     * `sheet` only: the record's picture, small at the head's start, in place of `media`'s card.
+     * Its stock photograph's credit closes the body.
+     */
+    readonly photo?:
+        | {
+              readonly assetId: string | undefined;
+              readonly photoUrl?: string | null | undefined;
+              readonly label: string;
+          }
+        | undefined;
+    /**
+     * `sheet` only: the fields lifted into the figures strip, in this order. Each keeps its
+     * `-field-{key}` and `-field-{key}-value` ids there. `reference`, `status`, `updated` and
+     * `updatedBy` go to the head instead of the Details card.
+     */
+    readonly figureKeys?: readonly string[] | undefined;
     /** Translated. The window's upper label, where it is not the record's `kind`. */
     readonly eyebrow?: string | undefined;
     readonly testID: string;
@@ -157,7 +187,11 @@ function canopyTone(tone: BadgeTone): RecordCanopyTone {
     return 'neutral';
 }
 
-export function RecordViewPage({
+export function RecordViewPage(props: RecordViewPageProps) {
+    return props.look === 'sheet' ? <RecordSheetView {...props} /> : <RecordBoardView {...props} />;
+}
+
+function RecordBoardView({
     title,
     kind,
     reference,
@@ -411,6 +445,292 @@ export function RecordViewPage({
                 </SplitBody>
             </Cascade>
         </RecordPopup>
+    );
+}
+
+/**
+ * Fields the sheet's head says, so its Details card does not say them again. `status` only when
+ * it says no more than the status chip — Allergen classes' explains what being withdrawn means.
+ */
+const HEAD_FIELD_KEYS: ReadonlySet<string> = new Set(['reference', 'updated', 'updatedBy']);
+
+/** The `sheet` look — option A of `Record pop-up — no canopy`. */
+function RecordSheetView({
+    title,
+    kind,
+    reference,
+    status,
+    titleAside,
+    onBack,
+    note,
+    banner,
+    fieldsTitle,
+    fieldsSubtitle,
+    fields,
+    sections = [],
+    lines,
+    linesTitle,
+    chips,
+    chipsContent,
+    chipsLabel,
+    chipsCaption,
+    chipsSourceBadge,
+    statusLines = [],
+    footNote,
+    statusContent,
+    rail = [],
+    media,
+    photo,
+    figureKeys = [],
+    primaryAction,
+    actions,
+    headerActions,
+    eyebrow,
+    testID,
+}: RecordViewPageProps) {
+    const { t } = useTranslation();
+    const dash = t('kitchen:list.noValue');
+
+    const byKey = new Map(fields.map((field) => [field.key, field]));
+    const figureFields = figureKeys.flatMap((key) => {
+        const field = byKey.get(key);
+        return field === undefined ? [] : [field];
+    });
+    const lifted = new Set([
+        ...figureKeys,
+        ...HEAD_FIELD_KEYS,
+        ...(byKey.get('status')?.value === status?.label ? ['status'] : []),
+    ]);
+    const detailFields = fields.filter((field) => !lifted.has(field.key));
+    const updated = byKey.get('updated');
+    const updatedBy = byKey.get('updatedBy');
+
+    const hasChips =
+        chipsLabel !== undefined && (chips !== undefined || chipsContent !== undefined);
+    const hasEnd =
+        (photo === undefined && media !== undefined) ||
+        statusContent !== undefined ||
+        hasChips ||
+        rail.length > 0;
+    const detailsTitle = fieldsTitle ?? t('kitchen:recordView.details');
+    const uploaded =
+        photo?.photoUrl !== undefined && photo.photoUrl !== null && photo.photoUrl !== '';
+
+    return (
+        <RecordPopup
+            title={title}
+            kind={eyebrow ?? kind}
+            onClose={onBack}
+            primaryAction={primaryAction}
+            actions={actions}
+            reference={reference}
+            referenceTestID={`${testID}-reference`}
+            sheet
+            testID={testID}
+        >
+            <Cascade space="md" testID={testID}>
+                <RecordSheetHead
+                    testID={`${testID}-header`}
+                    titleTestID={`${testID}-title`}
+                    title={title}
+                    media={
+                        photo === undefined ? undefined : (
+                            <RecordThumb
+                                assetId={photo.assetId}
+                                photoUrl={photo.photoUrl}
+                                label={photo.label}
+                                seed={photo.assetId ?? photo.label}
+                                testID={`${testID}-photo`}
+                            />
+                        )
+                    }
+                    chips={[
+                        ...(status === undefined
+                            ? []
+                            : [
+                                  {
+                                      key: 'status',
+                                      label: status.label,
+                                      tone: status.tone,
+                                      testID: `${testID}-status`,
+                                  },
+                              ]),
+                        { key: 'kind', label: kind, tone: 'neutral', testID: `${testID}-kind` },
+                    ]}
+                    badges={titleAside}
+                    lines={[
+                        ...statusLines.map((line, index) => ({
+                            text: line,
+                            testID: `${testID}-status-line-${String(index)}`,
+                        })),
+                        ...(footNote === undefined
+                            ? []
+                            : [{ text: footNote, testID: `${testID}-foot-note` }]),
+                    ]}
+                    {...(updated === undefined
+                        ? {}
+                        : {
+                              changed: {
+                                  label: t('kitchen:recordSheet.lastChanged'),
+                                  value: updated.value,
+                                  valueTestID: `${testID}-field-updated-value`,
+                                  // A seeded record names nobody: "by —" says nothing.
+                                  ...(updatedBy === undefined || updatedBy.value === dash
+                                      ? {}
+                                      : {
+                                            note: t('kitchen:recordSheet.byName', {
+                                                name: updatedBy.value,
+                                            }),
+                                            noteTestID: `${testID}-field-updatedBy-value`,
+                                        }),
+                              },
+                          })}
+                    actions={headerActions}
+                />
+
+                <RecordFigures
+                    testID={`${testID}-figures`}
+                    figures={figureFields.map((field) => ({
+                        key: field.key,
+                        label: field.label,
+                        value: field.value,
+                        ...(field.value === dash ? { tone: 'muted' as const } : {}),
+                        testID: `${testID}-field-${field.key}`,
+                        valueTestID: `${testID}-field-${field.key}-value`,
+                    }))}
+                />
+
+                {banner}
+
+                {note === undefined ? null : (
+                    <Callout testID={`${testID}-note`} tone="info" role="note" title={note} />
+                )}
+
+                <SheetColumns
+                    testID={`${testID}-body`}
+                    startTestID={`${testID}-main`}
+                    endTestID={`${testID}-rail`}
+                    start={
+                        <>
+                            {detailFields.length === 0 ? null : (
+                                <SheetCard
+                                    testID={`${testID}-details`}
+                                    title={detailsTitle}
+                                    trailing={
+                                        fieldsSubtitle === undefined ? undefined : (
+                                            <InfoTip label={detailsTitle} text={fieldsSubtitle} />
+                                        )
+                                    }
+                                >
+                                    <SheetFacts
+                                        testID={`${testID}-field`}
+                                        pairs={!hasEnd}
+                                        facts={detailFields.map((field) => ({
+                                            key: field.key,
+                                            label: field.label,
+                                            value: field.value,
+                                            empty: field.value === dash,
+                                        }))}
+                                    />
+                                </SheetCard>
+                            )}
+                            {sections.map((section) => (
+                                <SheetSection key={section.key} section={section} testID={testID} />
+                            ))}
+                            {lines === undefined ? null : (
+                                <SheetCard testID={`${testID}-lines`} title={linesTitle}>
+                                    {lines}
+                                </SheetCard>
+                            )}
+                            {uploaded || photo?.assetId === undefined ? null : (
+                                <PhotoCredit
+                                    assetId={photo.assetId}
+                                    testID={`${testID}-photo-credit`}
+                                />
+                            )}
+                        </>
+                    }
+                    end={
+                        hasEnd ? (
+                            <>
+                                {photo === undefined ? media : null}
+                                {statusContent === undefined ? null : (
+                                    <SheetCard
+                                        testID={`${testID}-record-status`}
+                                        title={t('kitchen:recordView.statusTitle')}
+                                    >
+                                        {statusContent}
+                                    </SheetCard>
+                                )}
+                                {hasChips ? (
+                                    <SheetCard
+                                        testID={`${testID}-chips`}
+                                        title={chipsLabel}
+                                        aside={
+                                            chipsCaption === undefined ||
+                                            chipsLabel === undefined ? undefined : (
+                                                <InfoTip label={chipsLabel} text={chipsCaption} />
+                                            )
+                                        }
+                                        trailing={
+                                            chipsSourceBadge === undefined ? undefined : (
+                                                <Badge
+                                                    tone="neutral"
+                                                    icon={null}
+                                                    label={chipsSourceBadge}
+                                                    testID={`${testID}-chips-source`}
+                                                />
+                                            )
+                                        }
+                                    >
+                                        {/* A row, so each chip is as wide as its word. */}
+                                        <View className="flex-row flex-wrap items-center gap-1.5">
+                                            {chipsContent ??
+                                                (chips === undefined ||
+                                                chips.length === 0 ? null : (
+                                                    <TagRow
+                                                        items={chips}
+                                                        testID={`${testID}-chip-row`}
+                                                    />
+                                                ))}
+                                        </View>
+                                    </SheetCard>
+                                ) : null}
+                                {rail.map((section) => (
+                                    <SheetSection
+                                        key={section.key}
+                                        section={section}
+                                        testID={testID}
+                                    />
+                                ))}
+                            </>
+                        ) : undefined
+                    }
+                />
+            </Cascade>
+        </RecordPopup>
+    );
+}
+
+function SheetSection({
+    section,
+    testID,
+}: {
+    readonly section: RecordViewSection;
+    readonly testID: string;
+}) {
+    return (
+        <SheetCard
+            testID={`${testID}-section-${section.key}`}
+            title={section.title}
+            trailing={
+                section.subtitle === undefined ? undefined : (
+                    <InfoTip label={section.title} text={section.subtitle} />
+                )
+            }
+        >
+            {section.content}
+        </SheetCard>
     );
 }
 

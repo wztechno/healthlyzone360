@@ -5955,5 +5955,16 @@
         "previous": "Previous",
         "next": "Next",
         "position": "{{index}} of {{count}}"
+    },
+    "recordSheet": {
+        "lastChanged": "Last changed",
+        "byName": "by {{name}}",
+        "forSale": "For sale",
+        "notForSale": "Not for sale",
+        "allergensAndDiets": "Allergens and diets",
+        "contains": "Contains",
+        "mayContain": "May contain",
+        "perHundredGrams": "per 100 g",
+        "marginNote": "per {{unit}} · margin {{percent}} %"
     }
 }

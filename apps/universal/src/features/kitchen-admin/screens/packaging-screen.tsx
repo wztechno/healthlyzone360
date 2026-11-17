@@ -19,7 +19,6 @@ import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-action
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
-import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import {
@@ -164,17 +163,14 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-packaging-view"
-                look="board"
+                look="sheet"
                 eyebrow={t('kitchen:recordView.eyebrowPackaging')}
-                media={
-                    <RecordPhoto
-                        assetId={`ingredient-${viewing.slug}`}
-                        photoUrl={viewing.photoUrl}
-                        label={displayName(viewing.name, locale).value}
-                        shape="square"
-                        testID="kitchen-packaging-view-photo"
-                    />
-                }
+                photo={{
+                    assetId: `ingredient-${viewing.slug}`,
+                    photoUrl: viewing.photoUrl,
+                    label: displayName(viewing.name, locale).value,
+                }}
+                figureKeys={['purchasePrice', 'capacity', 'itemsPerUnit', 'waste']}
                 kind={t('kitchen:packaging.viewKind')}
                 {...(viewing.reference === null ? {} : { reference: viewing.reference })}
                 title={displayName(viewing.name, locale).value}

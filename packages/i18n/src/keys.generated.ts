@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10804 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10813 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -7886,6 +7886,15 @@ export interface NamespaceKeys {
     | 'recipes.yieldQuantity'
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
+    | 'recordSheet.allergensAndDiets'
+    | 'recordSheet.byName'
+    | 'recordSheet.contains'
+    | 'recordSheet.forSale'
+    | 'recordSheet.lastChanged'
+    | 'recordSheet.marginNote'
+    | 'recordSheet.mayContain'
+    | 'recordSheet.notForSale'
+    | 'recordSheet.perHundredGrams'
     | 'recordView.details'
     | 'recordView.eyebrowAllergens'
     | 'recordView.eyebrowComplaints'
@@ -18708,6 +18717,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.yieldQuantity',
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
+  'kitchen:recordSheet.allergensAndDiets',
+  'kitchen:recordSheet.byName',
+  'kitchen:recordSheet.contains',
+  'kitchen:recordSheet.forSale',
+  'kitchen:recordSheet.lastChanged',
+  'kitchen:recordSheet.marginNote',
+  'kitchen:recordSheet.mayContain',
+  'kitchen:recordSheet.notForSale',
+  'kitchen:recordSheet.perHundredGrams',
   'kitchen:recordView.details',
   'kitchen:recordView.eyebrowAllergens',
   'kitchen:recordView.eyebrowComplaints',
