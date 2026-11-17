@@ -5965,6 +5965,7 @@
     "contains": "[[Çóñţáíñš āēīō]]",
     "mayContain": "[[Ṁáý çóñţáíñ āēīōū]]",
     "perHundredGrams": "[[þéŕ 100 ĝ āēīō]]",
-    "marginNote": "[[þéŕ {{unit}} · ɱáŕĝíñ {{percent}} % āēīōūāēīōūāēīō]]"
+    "marginNote": "[[þéŕ {{unit}} · ɱáŕĝíñ {{percent}} % āēīōūāēīōūāēīō]]",
+    "ofTotal": "[[óƒ {{total}} āēīōū]]"
   }
 }

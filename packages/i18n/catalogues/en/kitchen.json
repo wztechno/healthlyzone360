@@ -5965,6 +5965,7 @@
         "contains": "Contains",
         "mayContain": "May contain",
         "perHundredGrams": "per 100 g",
-        "marginNote": "per {{unit}} · margin {{percent}} %"
+        "marginNote": "per {{unit}} · margin {{percent}} %",
+        "ofTotal": "of {{total}}"
     }
 }

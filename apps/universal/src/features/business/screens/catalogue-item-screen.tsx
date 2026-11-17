@@ -146,6 +146,8 @@ export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
         <>
             <CorporateCatalogueScreen programmeId={String(item.programmeId)} />
             <RecordViewPage
+                look="sheet"
+                figureKeys={['minimum', 'recurring']}
                 testID="catalogue-item-screen"
                 title={item.name}
                 kind={t(catalogueKindKey(item.kind))}

@@ -454,6 +454,9 @@ function RecordBoardView({
  */
 const HEAD_FIELD_KEYS: ReadonlySet<string> = new Set(['reference', 'updated', 'updatedBy']);
 
+/** Past this a value is a phrase, not a figure. */
+const FIGURE_MAX_LENGTH = 24;
+
 /** The `sheet` look — option A of `Record pop-up — no canopy`. */
 function RecordSheetView({
     title,
@@ -492,12 +495,14 @@ function RecordSheetView({
     const dash = t('kitchen:list.noValue');
 
     const byKey = new Map(fields.map((field) => [field.key, field]));
+    // A value too long for a 24px figure ("3.00 USD per Kg · Supplier not recorded · Oct 27")
+    // stays a row of the Details card, where it can wrap.
     const figureFields = figureKeys.flatMap((key) => {
         const field = byKey.get(key);
-        return field === undefined ? [] : [field];
+        return field === undefined || field.value.length > FIGURE_MAX_LENGTH ? [] : [field];
     });
     const lifted = new Set([
-        ...figureKeys,
+        ...figureFields.map((field) => field.key),
         ...HEAD_FIELD_KEYS,
         ...(byKey.get('status')?.value === status?.label ? ['status'] : []),
     ]);
@@ -557,16 +562,26 @@ function RecordSheetView({
                               ]),
                         { key: 'kind', label: kind, tone: 'neutral', testID: `${testID}-kind` },
                     ]}
-                    badges={titleAside}
-                    lines={[
-                        ...statusLines.map((line, index) => ({
-                            text: line,
-                            testID: `${testID}-status-line-${String(index)}`,
-                        })),
-                        ...(footNote === undefined
-                            ? []
-                            : [{ text: footNote, testID: `${testID}-foot-note` }]),
-                    ]}
+                    // The foot note is guidance, not a fact of the record: it goes behind an (i)
+                    // at the end of the chips rather than as a sentence on the window.
+                    badges={
+                        titleAside === undefined && footNote === undefined ? undefined : (
+                            <>
+                                {titleAside}
+                                {footNote === undefined ? null : (
+                                    <InfoTip
+                                        label={title}
+                                        text={footNote}
+                                        testID={`${testID}-foot-note`}
+                                    />
+                                )}
+                            </>
+                        )
+                    }
+                    lines={statusLines.map((line, index) => ({
+                        text: line,
+                        testID: `${testID}-status-line-${String(index)}`,
+                    }))}
                     {...(updated === undefined
                         ? {}
                         : {

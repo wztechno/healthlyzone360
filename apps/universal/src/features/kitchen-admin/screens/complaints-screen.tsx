@@ -186,7 +186,8 @@ function Complaints({ view }: { readonly view: string | undefined }) {
             <>
                 <RecordViewPage
                     testID="kitchen-complaints-view"
-                    look="board"
+                    look="sheet"
+                    figureKeys={['cost', 'opened']}
                     eyebrow={t('kitchen:recordView.eyebrowComplaints')}
                     onBack={() => {
                         setViewing(null);

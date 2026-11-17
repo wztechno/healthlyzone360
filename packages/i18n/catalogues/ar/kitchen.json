@@ -6732,6 +6732,7 @@
         "contains": "يحتوي على",
         "mayContain": "قد يحتوي على",
         "perHundredGrams": "لكل 100 غ",
-        "marginNote": "لكل {{unit}} · هامش {{percent}} %"
+        "marginNote": "لكل {{unit}} · هامش {{percent}} %",
+        "ofTotal": "من {{total}}"
     }
 }

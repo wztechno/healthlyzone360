@@ -403,6 +403,7 @@ function ReviewWindow({
 
     return (
         <RecordViewPage
+            look="sheet"
             testID="kitchen-review-window"
             onBack={onBack}
             title={displayName(item.name, locale).value}

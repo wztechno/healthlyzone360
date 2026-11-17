@@ -420,7 +420,8 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-procurement-view"
-                look="board"
+                look="sheet"
+                figureKeys={['total', 'order']}
                 eyebrow={t('kitchen:recordView.eyebrowProcurement')}
                 onBack={() => {
                     setViewing(null);

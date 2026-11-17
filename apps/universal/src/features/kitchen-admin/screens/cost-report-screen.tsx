@@ -344,7 +344,8 @@ function CostReport() {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-cost-report-window"
-                look="board"
+                look="sheet"
+                figureKeys={['spend', 'cogs', 'revenue', 'margin', 'marginPercent']}
                 eyebrow={t('kitchen:recordView.eyebrowCostReport')}
                 onBack={() => {
                     setViewing(null);

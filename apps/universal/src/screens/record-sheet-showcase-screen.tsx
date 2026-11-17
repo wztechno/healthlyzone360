@@ -6,6 +6,7 @@ import { IngredientDetail } from '../features/kitchen-admin/catalogue/ingredient
 import {
     RecordFigures,
     RecordSheetHead,
+    RecordSteps,
     SheetCard,
     SheetColumns,
     SheetFacts,
@@ -167,6 +168,32 @@ export function RecordSheetShowcaseScreen() {
                                     value: '2 days ago',
                                     note: 'by Sara K. · Version 7',
                                 }}
+                            />
+                            <RecordSteps
+                                testID="record-sheet-showcase-steps"
+                                label="Where the order has got to"
+                                noValue="—"
+                                steps={[
+                                    {
+                                        key: 'draft',
+                                        label: 'Draft',
+                                        at: 'Made 9 Nov',
+                                        state: 'done',
+                                    },
+                                    { key: 'issued', label: 'Issued', at: '10 Nov', state: 'done' },
+                                    {
+                                        key: 'partly',
+                                        label: 'Partly received',
+                                        at: '12 Nov · 2 deliveries',
+                                        state: 'partial',
+                                    },
+                                    {
+                                        key: 'received',
+                                        label: 'Received',
+                                        at: null,
+                                        state: 'pending',
+                                    },
+                                ]}
                             />
                             <RecordFigures
                                 testID="record-sheet-showcase-figures"

@@ -267,7 +267,7 @@ export function RecordFigures({
                     </RNText>
                     <RNText
                         testID={figure.valueTestID}
-                        numberOfLines={1}
+                        numberOfLines={2}
                         className={`font-display text-2xl font-bold tabular-nums text-start ${
                             FIGURE_INK[figure.tone ?? 'plain']
                         }`}
@@ -279,6 +279,77 @@ export function RecordFigures({
                             {figure.note}
                         </RNText>
                     )}
+                </View>
+            ))}
+        </View>
+    );
+}
+
+/* ── the progress ──────────────────────────────────────────────────────────────────────────────── */
+
+/** `done` happened, `partial` happened in part, `pending` has not happened. */
+export type SheetStepState = 'done' | 'partial' | 'pending';
+
+export interface SheetStep {
+    readonly key: string;
+    /** Translated. */
+    readonly label: string;
+    /** Formatted, or `null` for a step with nothing to say yet: the dash. */
+    readonly at: string | null;
+    readonly state: SheetStepState;
+    readonly testID?: string | undefined;
+}
+
+const STEP_BAR: Readonly<Record<SheetStepState, string>> = {
+    done: 'bg-surface-brand',
+    partial: 'bg-warning',
+    pending: 'bg-stroke-subtle',
+};
+
+const STEP_INK: Readonly<Record<SheetStepState, string>> = {
+    done: 'text-content-primary',
+    partial: 'text-warning-strong',
+    pending: 'text-content-secondary',
+};
+
+/**
+ * Where a record with a lifecycle has got to — one bar a step, filled green when it happened and
+ * amber when it happened in part, with its name and date under it.
+ */
+export function RecordSteps({
+    steps,
+    label,
+    noValue,
+    testID,
+}: {
+    readonly steps: readonly SheetStep[];
+    /** Translated. The strip's accessible name. */
+    readonly label: string;
+    readonly noValue: string;
+    readonly testID: string;
+}) {
+    return (
+        <View testID={testID} role="list" aria-label={label} className="flex-row gap-2.5">
+            {steps.map((step) => (
+                <View
+                    key={step.key}
+                    testID={step.testID}
+                    role="listitem"
+                    className="min-w-0 flex-col gap-2"
+                    // eslint-disable-next-line no-restricted-syntax -- the steps share the strip equally.
+                    style={{ flexGrow: 1, flexBasis: 0 }}
+                >
+                    <View aria-hidden className={`h-1.5 rounded-full ${STEP_BAR[step.state]}`} />
+                    <View className="flex-col">
+                        <RNText
+                            className={`text-sm font-semibold text-start ${STEP_INK[step.state]}`}
+                        >
+                            {step.label}
+                        </RNText>
+                        <RNText className="text-xs tabular-nums text-content-secondary text-start">
+                            {step.at ?? noValue}
+                        </RNText>
+                    </View>
                 </View>
             ))}
         </View>
