@@ -977,7 +977,6 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
         );
     };
 
-
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
 
     if (!isCreating && parsed === null) {

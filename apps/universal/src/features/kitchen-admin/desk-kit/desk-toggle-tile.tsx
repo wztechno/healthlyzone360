@@ -53,10 +53,14 @@ export function DeskToggleTile({
             <View
                 aria-hidden
                 className={`h-5 w-5 shrink-0 items-center justify-center rounded-md border-[1.5px] ${
-                    selected ? 'border-surface-brand bg-surface-brand' : 'border-stroke bg-surface-raised'
+                    selected
+                        ? 'border-surface-brand bg-surface-brand'
+                        : 'border-stroke bg-surface-raised'
                 }`}
             >
-                {selected ? <Icon name="check" size="sm" className="text-content-on-brand" /> : null}
+                {selected ? (
+                    <Icon name="check" size="sm" className="text-content-on-brand" />
+                ) : null}
             </View>
             <RNText
                 numberOfLines={1}

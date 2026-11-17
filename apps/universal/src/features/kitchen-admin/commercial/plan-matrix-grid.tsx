@@ -124,7 +124,10 @@ export function PlanMatrixGrid({
                 className="flex-1 flex-col overflow-hidden rounded-2xl border border-stroke-subtle bg-surface-raised"
             >
                 <View className="min-h-[38px] flex-row bg-surface-sunken">
-                    <View style={{ flex: COMBINATION_FLEX }} className="min-w-0 justify-center px-3.5 py-2">
+                    <View
+                        style={{ flex: COMBINATION_FLEX }}
+                        className="min-w-0 justify-center px-3.5 py-2"
+                    >
                         <RNText numberOfLines={1} className={DATA_LIST_HEAD_TEXT_CLASS}>
                             {t('kitchen:plans.matrixRowHeader')}
                         </RNText>
@@ -135,7 +138,10 @@ export function PlanMatrixGrid({
                      * here and on the inside below would not line up with itself.
                      */}
                     {bands.map((band) => (
-                        <View key={band.key} className="min-w-0 flex-1 border-s border-stroke-subtle">
+                        <View
+                            key={band.key}
+                            className="min-w-0 flex-1 border-s border-stroke-subtle"
+                        >
                             <View className="flex-1 justify-center px-3.5 py-2">
                                 <RNText numberOfLines={1} className={DATA_LIST_HEAD_TEXT_CLASS}>
                                     {bandLabel(band)}
@@ -156,8 +162,7 @@ export function PlanMatrixGrid({
                                 numberOfLines={2}
                                 className="text-sm font-bold text-content-primary text-start"
                             >
-                                {row.combination === null ||
-                                row.combination.label.en.trim() === ''
+                                {row.combination === null || row.combination.label.en.trim() === ''
                                     ? servings(row)
                                     : row.combination.label.en}
                             </RNText>

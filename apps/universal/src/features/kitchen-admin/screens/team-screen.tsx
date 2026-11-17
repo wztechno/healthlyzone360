@@ -138,9 +138,7 @@ function StatusBadge({ member }: { readonly member: TeamMemberSummary }) {
           ? 'neutral'
           : 'warning';
 
-    return (
-        <DeskStatusDot testID={testID} tone={tone} label={statusText(member, t)} />
-    );
+    return <DeskStatusDot testID={testID} tone={tone} label={statusText(member, t)} />;
 }
 
 function PendingInvitations({ invitations }: { readonly invitations: readonly StaffInvitation[] }) {

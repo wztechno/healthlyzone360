@@ -3743,8 +3743,7 @@ function ingredientIssueAnchor(key: string, food: boolean): string | undefined {
     if (key === 'name' || key === 'category' || key === 'reference')
         return 'kitchen-ingredient-identity';
     // Food's price is read off receipts and shown with its units; only packaging has a Cost section.
-    if (key === 'price')
-        return food ? 'kitchen-ingredient-measurement' : 'kitchen-ingredient-cost';
+    if (key === 'price') return food ? 'kitchen-ingredient-measurement' : 'kitchen-ingredient-cost';
     if (key === 'pack-price' || key === 'waste') return 'kitchen-ingredient-cost';
     if (key === 'b2b-price' || key === 'b2c-price' || key === 'currency')
         return 'kitchen-ingredient-sale';

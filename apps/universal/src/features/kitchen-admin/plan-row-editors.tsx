@@ -240,7 +240,9 @@ export function PlanVariantRows({
                       key: 'actions',
                       label: t('kitchen:list.actionHeader'),
                       // The ⋯ needs no visible heading in a 48px track; its name stays for a reader.
-                      renderHeader: () => <View accessibilityLabel={t('kitchen:list.actionHeader')} />,
+                      renderHeader: () => (
+                          <View accessibilityLabel={t('kitchen:list.actionHeader')} />
+                      ),
                       width: MENU_TRACK,
                       priority: 95,
                       grow: false,
@@ -573,7 +575,9 @@ export function PlanDurationRows({
                   {
                       key: 'remove',
                       label: t('kitchen:list.actionHeader'),
-                      renderHeader: () => <View accessibilityLabel={t('kitchen:list.actionHeader')} />,
+                      renderHeader: () => (
+                          <View accessibilityLabel={t('kitchen:list.actionHeader')} />
+                      ),
                       width: MENU_TRACK,
                       priority: 96,
                       grow: false,

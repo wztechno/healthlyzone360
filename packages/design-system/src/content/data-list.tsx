@@ -736,7 +736,9 @@ export function DataList<Row>({
                                   {entered}
                                   <View
                                       role="row"
-                                      testID={rowTestID === undefined ? undefined : `${rowTestID}-note`}
+                                      testID={
+                                          rowTestID === undefined ? undefined : `${rowTestID}-note`
+                                      }
                                       className={cx(
                                           '-mt-1 px-control-sm pb-snug',
                                           last ? null : 'border-b border-stroke-subtle',

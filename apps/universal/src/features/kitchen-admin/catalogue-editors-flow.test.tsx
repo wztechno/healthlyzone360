@@ -746,7 +746,9 @@ describe('the price list editor', () => {
 
             expect(screen.queryByTestId('kitchen-price-list-draft-note')).toBeNull();
             expect(screen.queryByTestId('kitchen-price-list-confidential')).toBeNull();
-            expect(screen.queryByTestId('kitchen-price-list-editor-screen-issues-loose')).toBeNull();
+            expect(
+                screen.queryByTestId('kitchen-price-list-editor-screen-issues-loose'),
+            ).toBeNull();
         });
     });
 });
