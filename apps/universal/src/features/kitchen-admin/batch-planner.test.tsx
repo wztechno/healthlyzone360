@@ -572,7 +572,7 @@ describe('the batch planner', () => {
         expect(screen.getByTestId('kitchen-batch-target-input')).toHaveProp('value', '50');
     });
 
-    it('ticks lines off as they are issued and forgets the ticks when the plan changes', async () => {
+    it('lists the lines to issue without a tick column', async () => {
         await renderStubScreen(<BatchPlannerScreen />, {
             session: kitchenManagerSession(),
             repositories: batchRepositories(),
@@ -580,19 +580,11 @@ describe('the batch planner', () => {
 
         await pickRecipe();
         await typeTarget('10');
-        await untilVisible(`kitchen-batch-row-${String(BURGHUL_ID)}-issued`);
-        expect(screen.getByTestId('kitchen-batch-issued-count')).toHaveTextContent('0 of 1 issued');
+        await untilVisible(`kitchen-batch-row-${String(BURGHUL_ID)}-quantity`);
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-issued`));
-        });
-        expect(screen.getByTestId('kitchen-batch-issued-count')).toHaveTextContent('1 of 1 issued');
-
-        // A new target is a new sheet: what was weighed for the old one is not ticked on it.
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-batch-target-input'), '12');
-        });
-        expect(screen.getByTestId('kitchen-batch-issued-count')).toHaveTextContent('0 of 1 issued');
+        // The user took the ticks out (2026-11-18): the sheet is read, not checked off.
+        expect(screen.queryByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-issued`)).toBeNull();
+        expect(screen.getByTestId('kitchen-batch-line-count')).toHaveTextContent('1 line');
     });
 
     it('hands New batch the planned yield in the output’s unit', async () => {

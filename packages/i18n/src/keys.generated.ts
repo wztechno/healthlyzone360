@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10814 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10811 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -5064,7 +5064,6 @@ export interface NamespaceKeys {
     | 'ops.batch.columnAvailable'
     | 'ops.batch.columnBasis'
     | 'ops.batch.columnDesignation'
-    | 'ops.batch.columnIssued'
     | 'ops.batch.columnItem'
     | 'ops.batch.columnPerBatch'
     | 'ops.batch.columnPosition'
@@ -5089,8 +5088,6 @@ export interface NamespaceKeys {
     | 'ops.batch.fromDatabase'
     | 'ops.batch.howMuch'
     | 'ops.batch.ingredientsHeading'
-    | 'ops.batch.issuedCount'
-    | 'ops.batch.issuedLabel'
     | 'ops.batch.less'
     | 'ops.batch.lineCount'
     | 'ops.batch.loadErrorTitle'
@@ -15896,7 +15893,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.columnAvailable',
   'kitchen:ops.batch.columnBasis',
   'kitchen:ops.batch.columnDesignation',
-  'kitchen:ops.batch.columnIssued',
   'kitchen:ops.batch.columnItem',
   'kitchen:ops.batch.columnPerBatch',
   'kitchen:ops.batch.columnPosition',
@@ -15921,8 +15917,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.fromDatabase',
   'kitchen:ops.batch.howMuch',
   'kitchen:ops.batch.ingredientsHeading',
-  'kitchen:ops.batch.issuedCount',
-  'kitchen:ops.batch.issuedLabel',
   'kitchen:ops.batch.less',
   'kitchen:ops.batch.lineCount',
   'kitchen:ops.batch.loadErrorTitle',

@@ -1983,10 +1983,7 @@
             "factPortions": "Portions",
             "factTotalWeight": "Total weight",
             "wasteNote": "+{{percent}} % waste",
-            "startBatch": "Start batch",
-            "columnIssued": "Issued",
-            "issuedLabel": "Issued: {{name}}",
-            "issuedCount": "{{done}} of {{total}} issued"
+            "startBatch": "Start batch"
         },
         "settlement": {
             "driversHeading": "Drivers holding cash",

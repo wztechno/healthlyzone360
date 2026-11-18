@@ -1983,10 +1983,7 @@
       "factPortions": "[[Þóŕţíóñš āēīō]]",
       "factTotalWeight": "[[Ţóţáł ŵéíĝĥţ āēīōū]]",
       "wasteNote": "[[+{{percent}} % ŵášţé āēīōūāēī]]",
-      "startBatch": "[[Šţáŕţ ƀáţçĥ āēīōū]]",
-      "columnIssued": "[[Íššúéð āēī]]",
-      "issuedLabel": "[[Íššúéð: {{name}} āēīōūāē]]",
-      "issuedCount": "[[{{done}} óƒ {{total}} íššúéð āēīōūāēīōūāē]]"
+      "startBatch": "[[Šţáŕţ ƀáţçĥ āēīōū]]"
     },
     "settlement": {
       "driversHeading": "[[Ðŕíṽéŕš ĥółðíñĝ çášĥ āēīōūāēī]]",

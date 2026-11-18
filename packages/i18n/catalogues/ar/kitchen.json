@@ -2270,10 +2270,7 @@
             "factPortions": "الحصص",
             "factTotalWeight": "الوزن الكلي",
             "wasteNote": "+{{percent}} % هدر",
-            "startBatch": "ابدأ الدفعة",
-            "columnIssued": "صُرف",
-            "issuedLabel": "صُرف: {{name}}",
-            "issuedCount": "صُرف {{done}} من {{total}}"
+            "startBatch": "ابدأ الدفعة"
         },
         "settlement": {
             "driversHeading": "سائقون بحوزتهم نقد",

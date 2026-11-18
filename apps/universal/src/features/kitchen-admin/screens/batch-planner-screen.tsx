@@ -54,7 +54,6 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import { DeskButton, DeskIconButton } from '../desk-kit/desk-button.tsx';
-import { DeskCheckbox } from '../desk-kit/desk-checkbox.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import {
     CATALOGUE_VIEW_PERMISSION,
@@ -75,9 +74,9 @@ import { ProductionTable, ProductionTableSection } from '../production-desk/prod
  * │ [⌕ Search recipes      ]  │ │ [Version v1 Published] [● Batches 2 ×1.857]                  │
  * │ ▌Crispy Chicken  RC-0004  │ │ [Portions 260]         [Total weight 13.6 Kg +5 % waste]     │
  * │  Classic Sauce   RC-0001  │ └──────────────────────────────────────────────────────────────┘
- * │ (2) How much              │ ┌ To issue  0 of 12 issued ────────────────────────────────────┐
- * │ [ Weight (Kg) | Portions ]│ │ ISSUED  REF.  ITEM  UNIT  PER BATCH  TO ISSUE                │
- * │ (−) [Target 260 portions] (+) │ [ ]   ING-1  Flour  Kg    1.2        2.229                  │
+ * │ (2) How much              │ ┌ To issue  12 lines ──────────────────────────────────────────┐
+ * │ [ Weight (Kg) | Portions ]│ │ REF.   ITEM   UNIT   PER BATCH   TO ISSUE                    │
+ * │ (−) [Target 260 portions] (+) │ ING-1  Flour  Kg     1.2         2.229                      │
  * │ (1 batch)(2 batches)(3)(5)│ └──────────────────────────────────────────────────────────────┘
  * └───────────────────────────┘   Packaging — none recorded
  * ```
@@ -99,11 +98,10 @@ import { ProductionTable, ProductionTableSection } from '../production-desk/prod
  * factor (the user's choice, 2026-11-15), so the batch reserves what the To issue list shows; the
  * form's Cancel comes back here with the plan intact (`returnTo` carries it).
  *
- * ## The tick column
+ * ## No tick column
  *
- * A helper while weighing out, nothing more: the ticks live in this page's state only and are
- * forgotten on a reload or when the recipe, the basis or the target changes (the user's choice,
- * 2026-11-15). Nothing is deducted until a batch is booked.
+ * The board drew a tick per line, to check lines off while weighing out. The user took it out on
+ * 2026-11-18: the list is a sheet to read, and nothing on it is deducted until a batch is booked.
  *
  * ## Every figure is arithmetic on one version
  *
@@ -154,11 +152,7 @@ const SUMMARY_GAP = 8;
  */
 const SHEET_COLUMN_WIDTH = 120;
 
-/** The tick column: the 32px tick target and its header. */
-const TICK_COLUMN_WIDTH = 72;
-
 const NO_LINES: readonly RecipeLine[] = [];
-const NO_TICKS: ReadonlySet<string> = new Set();
 
 const PLANNER_PATH = '/kitchen/batch';
 const NEW_BATCH_PATH = '/kitchen/production-desk/new';
@@ -211,23 +205,7 @@ function BatchPlanner() {
     const factor = version === null ? null : batchFactor(version, mode, parseQuantity(target));
     const planned = version !== null && factor !== null;
 
-    /*
-     * The ticks belong to one plan. Stored with the plan they were made on, so a new recipe, basis
-     * or target reads as no ticks without an effect to clear them.
-     */
-    const planKey = `${String(recipeId)}|${mode}|${target}`;
-    const [ticks, setTicks] = useState<{ readonly key: string; readonly ids: ReadonlySet<string> }>(
-        { key: planKey, ids: NO_TICKS },
-    );
-    const ticked = ticks.key === planKey ? ticks.ids : NO_TICKS;
-    const toggleTick = (id: string, next: boolean) => {
-        const ids = new Set(ticked);
-        if (next) ids.add(id);
-        else ids.delete(id);
-        setTicks({ key: planKey, ids });
-    };
-
-    const sheet = useSheetColumns(version, factor ?? 1, ingredients, ticked, toggleTick);
+    const sheet = useSheetColumns(version, factor ?? 1, ingredients);
     const lines = useColumnControls(
         planned ? version.lines : NO_LINES,
         sheet.lineColumns,
@@ -555,7 +533,6 @@ function BatchPlanner() {
                                 <ScaledSheet
                                     version={version}
                                     lines={lines}
-                                    ticked={ticked.size}
                                     packagingColumns={sheet.packagingColumns}
                                 />
                             </>
@@ -841,8 +818,6 @@ function useSheetColumns(
     version: RecipeVersionAdmin | null,
     factor: number,
     ingredients: Readonly<Record<string, IngredientAdmin>>,
-    ticked: ReadonlySet<string>,
-    onTick: (id: string, next: boolean) => void,
 ): {
     readonly lineColumns: readonly ControlledColumn<RecipeLine, CatalogueColumn<RecipeLine>>[];
     readonly packagingColumns: readonly ControlledColumn<
@@ -886,7 +861,7 @@ function useSheetColumns(
     };
 
     /*
-     * Every header but the tick sorts or filters, in memory: both tables are the whole of one
+     * Every header sorts or filters, in memory: both tables are the whole of one
      * version's lines, not a page of them. Unit filters, because a sheet's units are a handful of
      * codes; the rest sort. Before any header is pressed the rows keep the version's own order.
      */
@@ -902,23 +877,6 @@ function useSheetColumns(
     }
 
     const lineColumns: readonly ControlledColumn<RecipeLine, CatalogueColumn<RecipeLine>>[] = [
-        {
-            key: 'issued',
-            label: t('kitchen:ops.batch.columnIssued'),
-            width: TICK_COLUMN_WIDTH,
-            priority: 95,
-            sort: false,
-            render: (line) => (
-                <DeskCheckbox
-                    testID={`${rowId(line.ingredientId)}-issued`}
-                    checked={ticked.has(String(line.ingredientId))}
-                    label={t('kitchen:ops.batch.issuedLabel', { name: nameOf(line.ingredientId) })}
-                    onChange={(next) => {
-                        onTick(String(line.ingredientId), next);
-                    }}
-                />
-            ),
-        },
         {
             key: 'reference',
             role: 'meta',
@@ -1106,8 +1064,6 @@ function useSheetColumns(
 interface ScaledSheetProps {
     readonly version: RecipeVersionAdmin;
     readonly lines: ColumnControls<RecipeLine, CatalogueColumn<RecipeLine>>;
-    /** How many raw-material lines are ticked as issued. */
-    readonly ticked: number;
     readonly packagingColumns: readonly ControlledColumn<
         RecipePackagingLine,
         CatalogueColumn<RecipePackagingLine>
@@ -1115,10 +1071,10 @@ interface ScaledSheetProps {
 }
 
 /**
- * The To issue list with its tick column, then the packaging. Row test ids are
- * `kitchen-batch-row-<ingredient id>-*`, the same stem the production editor's sheet uses.
+ * The To issue list, then the packaging. Row test ids are `kitchen-batch-row-<ingredient id>-*`,
+ * the same stem the production editor's sheet uses.
  */
-function ScaledSheet({ version, lines, ticked, packagingColumns }: ScaledSheetProps) {
+function ScaledSheet({ version, lines, packagingColumns }: ScaledSheetProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const number = (value: number): string => formatter.formatNumber(value, BATCH_QUANTITY_FORMAT);
@@ -1136,18 +1092,9 @@ function ScaledSheet({ version, lines, ticked, packagingColumns }: ScaledSheetPr
                 sectionTestID="kitchen-batch-consume"
                 title={t('kitchen:ops.batch.columnToIssue')}
                 aside={
-                    <View className="h-5 min-w-[22px] items-center justify-center rounded-full bg-surface-brand-subtle px-[7px]">
-                        <Text
-                            testID="kitchen-batch-issued-count"
-                            role="status"
-                            className="text-xs font-bold tabular-nums text-content-on-brand-subtle"
-                        >
-                            {t('kitchen:ops.batch.issuedCount', {
-                                done: ticked,
-                                total: version.lines.length,
-                            })}
-                        </Text>
-                    </View>
+                    <Text testID="kitchen-batch-line-count" variant="caption" tone="secondary">
+                        {t('kitchen:ops.batch.lineCount', { count: version.lines.length })}
+                    </Text>
                 }
                 rows={version.lines}
                 controls={lines}
