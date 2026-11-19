@@ -85,6 +85,32 @@ describe('useKitchenNavigation', () => {
         expect(screen.getByTestId('probe-review')).toHaveTextContent(/\|To do\|/);
     });
 
+    it('keeps Price lists off the rail, though the session may open it', async () => {
+        await renderStubScreen(<Probe />, { session: kitchenManagerSession() });
+
+        await waitFor(() => {
+            expect(screen.getByTestId('probe-wholesale')).toHaveTextContent(/\|Commercial\|/);
+        });
+        // Reached only by its link (2026-11-18): not on the rail, so not in the page search.
+        expect(screen.queryByTestId('probe-price-lists')).toBeNull();
+    });
+
+    it('shows Price lists, lit under Commercial, while its page is the one open', async () => {
+        mockPathname = '/kitchen/price-lists';
+        try {
+            await renderStubScreen(<Probe />, { session: kitchenManagerSession() });
+
+            // Otherwise the panel would fall back to the first module for a page it cannot find.
+            await waitFor(() => {
+                expect(screen.getByTestId('probe-price-lists')).toHaveTextContent(
+                    /\|Commercial\|.*\|active$/,
+                );
+            });
+        } finally {
+            mockPathname = '/kitchen/stock';
+        }
+    });
+
     it('keeps Setup under To do until the kitchen is live', async () => {
         await renderStubScreen(<Probe />, {
             session: kitchenManagerSession(),

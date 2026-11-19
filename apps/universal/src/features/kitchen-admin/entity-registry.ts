@@ -284,6 +284,11 @@ export interface EntityFamily {
     readonly permission: string;
     /** Permission required to write. `null` for a family nobody can write from this workspace. */
     readonly managePermission: string | null;
+    /**
+     * Left out of the module rail and the page search (Ctrl K), while the page itself, its gate
+     * and its trail stay — reached only by its link. For a page the kitchen should not wander into.
+     */
+    readonly hiddenFromRail?: true | undefined;
 }
 
 export const ENTITY_FAMILIES: readonly EntityFamily[] = [
@@ -504,6 +509,8 @@ export const ENTITY_FAMILIES: readonly EntityFamily[] = [
         href: '/kitchen/price-lists',
         permission: PRICE_LIST_VIEW_PERMISSION,
         managePermission: PRICE_LIST_MANAGE_PERMISSION,
+        // Off the rail at the user's request (2026-11-18); the route still opens it.
+        hiddenFromRail: true,
     },
     {
         // A checklist across four records (channel, agreement list, assignment, offered items)

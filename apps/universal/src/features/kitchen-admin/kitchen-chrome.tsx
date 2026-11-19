@@ -19,9 +19,14 @@ import {
     isKitchenNavActive,
     kitchenNavSections,
 } from './kitchen-nav.ts';
-import { ORDER_SETTLE_CASH_PERMISSION } from './entity-registry.ts';
+import { ENTITY_FAMILIES, ORDER_SETTLE_CASH_PERMISSION } from './entity-registry.ts';
 import type { EntityGroup } from './entity-registry.ts';
 import { buildReviewQueue } from './review-queue.ts';
+
+/** The families kept off the rail and the page search; their routes still open them. */
+const RAIL_HIDDEN: ReadonlySet<string> = new Set(
+    ENTITY_FAMILIES.filter((family) => family.hiddenFromRail === true).map((family) => family.key),
+);
 
 /**
  * The kitchen area's sidebar: the family rail.
@@ -75,18 +80,26 @@ export function useKitchenNavigation(): readonly NavigationItem[] {
     );
     const setup = useKitchenSetupQuery(permitted.has('setup'));
     const isLive = setup.data?.isLive === true;
-    // Setup is done once the kitchen is live: drop it, and the section if it empties.
+    /*
+     * Setup is done once the kitchen is live: drop it. A family marked `hiddenFromRail` is dropped
+     * unless it is the page open now: reached by its link, it still lights its module, so the
+     * panel shows where the reader is rather than falling back to the first module. A section
+     * that empties goes with them.
+     */
     const sections = useMemo(
         () =>
-            isLive
-                ? allSections
-                      .map((section) => ({
-                          ...section,
-                          items: section.items.filter((item) => item.key !== 'setup'),
-                      }))
-                      .filter((section) => section.items.length > 0)
-                : allSections,
-        [allSections, isLive],
+            allSections
+                .map((section) => ({
+                    ...section,
+                    items: section.items.filter(
+                        (item) =>
+                            (!RAIL_HIDDEN.has(item.key) ||
+                                isKitchenNavActive(pathname, item.href)) &&
+                            !(isLive && item.key === 'setup'),
+                    ),
+                }))
+                .filter((section) => section.items.length > 0),
+        [allSections, isLive, pathname],
     );
 
     const reviewSources = useReviewQueueQuery(permitted.has('review'));
