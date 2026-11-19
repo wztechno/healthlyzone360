@@ -7,8 +7,16 @@ import type { View } from 'react-native';
  * Closes a panel hung from a button — Escape, or a press anywhere outside the returned ref's view —
  * as the shop design's dropdowns do. Web only: a phone opens these as drawers, which close
  * themselves.
+ *
+ * Pass `panel` when the panel is lifted out of the root's tree (`AnchoredLayer` portals it onto
+ * `body` on the web): a press inside it is then not inside `root`, and must still not count as
+ * outside.
  */
-export function useOutsideDismiss(open: boolean, close: () => void): RefObject<View | null> {
+export function useOutsideDismiss(
+    open: boolean,
+    close: () => void,
+    panel?: RefObject<View | null>,
+): RefObject<View | null> {
     const root = useRef<View>(null);
 
     useEffect(() => {
@@ -17,8 +25,11 @@ export function useOutsideDismiss(open: boolean, close: () => void): RefObject<V
             if (event.key === 'Escape') close();
         };
         const onPointer = (event: PointerEvent) => {
+            const target = event.target as Node;
             const node = root.current as unknown as HTMLElement | null;
-            if (node !== null && !node.contains(event.target as Node)) close();
+            const lifted = (panel?.current ?? null) as unknown as HTMLElement | null;
+            if (lifted?.contains(target) === true) return;
+            if (node !== null && !node.contains(target)) close();
         };
         document.addEventListener('keydown', onKey);
         document.addEventListener('pointerdown', onPointer);
@@ -26,7 +37,7 @@ export function useOutsideDismiss(open: boolean, close: () => void): RefObject<V
             document.removeEventListener('keydown', onKey);
             document.removeEventListener('pointerdown', onPointer);
         };
-    }, [close, open]);
+    }, [close, open, panel]);
 
     return root;
 }
