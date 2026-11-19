@@ -16,7 +16,6 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
     CascadeItem,
@@ -28,7 +27,6 @@ import {
     FormSkeleton,
     Icon,
     Inline,
-    IssueRevealScope,
     IssueTrayFrame,
     IssueUnanchored,
     SectionLook,
@@ -52,7 +50,7 @@ import type {
 } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
 import { IngredientId } from '@healthy360/domain-types';
-import type { RecipeVersionId } from '@healthy360/domain-types';
+import type { DietClassification, RecipeVersionId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
@@ -108,6 +106,7 @@ import {
 } from '../entity-registry.ts';
 import { focusField, focusSection } from '../field-focus.ts';
 import {
+    dietClassificationKey,
     displayName,
     formatMoney,
     isTranslationIncomplete,
@@ -119,20 +118,19 @@ import {
 } from '../format.ts';
 import { ImageSlot } from '../image-slot.tsx';
 import { ingredientFixHref, ingredientNeedsById } from '../ingredient-fix.ts';
-import type { HostArchive } from '../host-save.ts';
 import type { IngredientNeed } from '../ingredient-fix.ts';
 import { useFinishDetour } from '../finish-detour.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { CostCard } from '../cost-card.tsx';
+import type { ListingText } from '../recipe-listing-sync.ts';
 import {
     PackCostTable,
-    PacksHostContext,
     massKg,
     packCostRows,
     packsIssueLabel,
     packsIssuesFromRefusal,
 } from '../packs-prices-section.tsx';
-import type { PacksHost, PacksIssue, PacksTab } from '../packs-prices-section.tsx';
+import type { PacksIssue, PacksTab } from '../packs-prices-section.tsx';
 import {
     RecipeLineTable,
     ingredientEntry,
@@ -538,7 +536,7 @@ function useDebouncedRollupDraft(draft: RecipeRollupDraft | null): RecipeRollupD
  * union rather than an array — nothing iterates them; the tab row is built by hand so each entry can
  * carry its own count and testID.
  */
-type RecipeTab = 'description' | 'production' | 'packaging' | 'costing' | 'selling' | 'sheet';
+type RecipeTab = 'description' | 'production' | 'packaging' | 'costing' | 'sheet';
 
 /** A field the server can refuse, and where it is on this screen. */
 interface ServerTarget {
@@ -605,29 +603,27 @@ export interface RecipeEditScreenProps {
      */
     readonly referenceSeries?: ReferenceSeries | undefined;
     /**
-     * The catalogue item this formulation is sold as, drawn as a tab of its own.
+     * The catalogue items this formulation is sold as.
      *
      * A sauce, a dressing or a meal is one thing to a kitchen and two records to the API: the recipe
-     * it is made from and the item it is sold as. This editor owns the recipe; the host that read
-     * what sells it owns the item, and hands its listing over as `content` so the two read as one
-     * page.
-     * They are still different records — different lock versions, different permissions — but one
-     * Save draft writes both: the recipe's writes first, then `save`, the listing's own writes
-     * (`host-save.ts`), which answers whether they went through.
-     *
-     * `isDirty` is the listing's unsaved state, so leaving this page asks first whichever half holds
-     * the edit.
+     * it is made from and the item it is sold as. There is no Selling tab: the item's name and
+     * description are the ones on the Description tab — Save writes them onto every seller
+     * (`write`) — its diet classifications are drawn there read-only, where it sells is Packs &
+     * prices, and the recipe's Publish puts it on sale (`publish`).
      */
     readonly sellsAs?:
         | {
-              readonly label: string;
-              readonly content: ReactNode;
               /** The selling item's handle — `SAC-045` — shown as the recipe's ID once it exists. */
               readonly reference?: string | null | undefined;
-              readonly isDirty?: boolean;
-              readonly save?: (() => Promise<boolean>) | undefined;
-              /** The listing's Archive, drawn in the header's action row while Selling is open. */
-              readonly archive?: HostArchive | null | undefined;
+              /** What the item says now; `null` while it is being read. */
+              readonly listing: {
+                  readonly description: LocalisedText;
+                  readonly diets: readonly DietClassification[];
+              } | null;
+              readonly write: (text: ListingText) => Promise<boolean>;
+              readonly publish: () => Promise<boolean>;
+              /** Which seller Packs & prices edits, on a recipe sold twice. */
+              readonly sellerSwitch?: ReactNode;
           }
         | undefined;
     /**
@@ -702,7 +698,6 @@ const TAB_ORDER: readonly RecipeTab[] = [
     'production',
     'packaging',
     'costing',
-    'selling',
     'sheet',
 ];
 
@@ -794,13 +789,11 @@ function RecipeEditor({
     const [tab, setTab] = useState<RecipeTab>(
         fix === null ? (recipeTabOf(initialTab) ?? 'description') : 'production',
     );
-    // What a Selling card's Fix does first: the listing's fields are on that tab.
-    const revealSelling = useCallback(() => {
-        setTab('selling');
-    }, []);
     /** Set by a save that wrote everything; the header says so until the next edit. */
     const [allSaved, setAllSaved] = useState(false);
     const [listingSaving, setListingSaving] = useState(false);
+    /** The item's description as typed here; `null` until it is touched, so the item's own shows. */
+    const [listingDescription, setListingDescription] = useState<LocalisedText | null>(null);
     const [packsSaving, setPacksSaving] = useState(false);
     /** Whether a save has been pressed — what lets an empty required field call itself out. */
     const [attempted, setAttempted] = useState(false);
@@ -1012,14 +1005,8 @@ function RecipeEditor({
 
     const concurrency = useOptimisticConcurrency({ onReload: reload });
 
-    /*
-     * The listing's unsaved edits are this page's too.
-     *
-     * The Selling tab is another record with drafts of its own, and leaving from here — Discard, the
-     * trail — would drop them without a word unless this page's guard knew. So a dirty listing arms
-     * the guard, and it is disarmed only once neither half holds an edit.
-     */
-    const listingDirty = sellsAs?.isDirty === true;
+    // The item's description, typed on the Description tab, is written by the same Save.
+    const listingDirty = sellsAs !== undefined && listingDescription !== null;
     // Packs & prices is the sold item's too, held inside its section the same way.
     const packsDirty = packs?.report.dirty === true;
     const sideDirty = listingDirty || packsDirty;
@@ -1908,16 +1895,22 @@ function RecipeEditor({
     };
 
     /**
-     * The Selling tab's writes, after the recipe's — the second half of the one Save. Answers
-     * whether they went through; a refusal opens that tab, where the listing says what it needs.
+     * The item's writes, after the recipe's — the second half of the one Save: the recipe's name and
+     * the description typed here, onto every item that sells it. Nothing is written while the
+     * item's own description has not been read and none was typed, so a slow read never blanks it.
      */
     const saveListing = async (): Promise<boolean> => {
-        if (!listingDirty || sellsAs?.save === undefined) return true;
+        if (sellsAs === undefined) return true;
+        const description = listingDescription ?? sellsAs.listing?.description;
+        if (description === undefined) return true;
         setListingSaving(true);
-        const saved = await sellsAs.save();
+        const saved = await sellsAs.write({ name: details.name, description });
         setListingSaving(false);
-        if (saved) return true;
-        setTab('selling');
+        if (saved) {
+            setListingDescription(null);
+            return true;
+        }
+        setTab('description');
         toast.show({
             testID: 'kitchen-recipe-listing-unsaved-toast',
             tone: 'warning',
@@ -2361,12 +2354,6 @@ function RecipeEditor({
         if (issue.section) goToSection('packaging', issue.targetId);
         else goTo('packaging', issue.targetId);
     };
-    /*
-     * The listing inside Selling publishes the item, and the server can refuse it for the same
-     * three reasons; its cards open Packs & prices through this (`PacksHostContext`).
-     */
-    const packsHost: PacksHost | null =
-        packs === undefined ? null : { draft: packs.report.draft, open: openPackIssue };
 
     /*
      * What still stands between this draft and Publish, as one amber strip under the tabs: a chip
@@ -2638,7 +2625,6 @@ function RecipeEditor({
         if (target === 'production') return t('kitchen:recipes.tabProduction');
         if (target === 'packaging') return t('kitchen:packs.tabLabel');
         if (target === 'costing') return t('kitchen:recipes.tabCosting');
-        if (target === 'selling') return sellsAs?.label ?? t('kitchen:recipes.tabSelling');
         if (target === 'sheet') return t('kitchen:recipes.tabSheet');
         return undefined;
     };
@@ -3029,16 +3015,6 @@ function RecipeEditor({
             issues: tabIssues('costing'),
             testID: 'kitchen-recipe-tab-costing',
         },
-        // After the cost and before the sheet: what it costs, what it sells as, what it is.
-        ...(sellsAs === undefined
-            ? []
-            : [
-                  {
-                      value: 'selling' as const,
-                      label: sellsAs?.label ?? t('kitchen:recipes.tabSelling'),
-                      testID: 'kitchen-recipe-tab-selling',
-                  },
-              ]),
         {
             value: 'sheet' as const,
             label: t('kitchen:recipes.tabSheet'),
@@ -3127,22 +3103,7 @@ function RecipeEditor({
                                      * One of the two commits is filled, the one that comes next: Save while
                                      * there is something unsaved (or nothing to publish), Publish once the
                                      * draft on screen is the saved one.
-                                     *
-                                     * On Selling the listing's Archive leads the row, quiet, as it does on
-                                     * a resale item's own page — not on a row of its own under the header.
                                      */}
-                                    {tab !== 'selling' ||
-                                    sellsAs?.archive === undefined ||
-                                    sellsAs.archive === null ? null : (
-                                        <Button
-                                            testID="kitchen-product-archive"
-                                            variant="quiet"
-                                            label={t('kitchen:list.archive')}
-                                            disabled={sellsAs.archive.disabled}
-                                            hint={sellsAs.archive.hint}
-                                            onPress={sellsAs.archive.open}
-                                        />
-                                    )}
                                     {/*
                                      * A version that cannot be written says so once, here, instead of a
                                      * strip on the Description tab.
@@ -3334,13 +3295,12 @@ function RecipeEditor({
                                             }}
                                         />
                                         {/*
-                                         * Only when creating something sold: the description is its catalogue item's,
-                                         * written with it on the first save; once the item exists it is edited on the
-                                         * Selling tab with the rest of the listing.
+                                         * Whenever something sells it: the description is its catalogue
+                                         * item's — what the admin and the web shop show — written with it
+                                         * on the first save and by every Save after.
                                          */}
-                                        {!isCreating ||
-                                        onCreated === undefined ||
-                                        sellsAs !== undefined ? null : (
+                                        {sellsAs === undefined &&
+                                        (!isCreating || onCreated === undefined) ? null : (
                                             <BilingualField
                                                 span={4}
                                                 layout="row"
@@ -3355,14 +3315,34 @@ function RecipeEditor({
                                                         'kitchen:fields.descriptionPlaceholderAr',
                                                     ),
                                                 }}
-                                                value={details.description}
-                                                disabled={!editable}
+                                                value={
+                                                    sellsAs === undefined
+                                                        ? details.description
+                                                        : (listingDescription ??
+                                                          sellsAs.listing?.description ?? {
+                                                              en: '',
+                                                              ar: '',
+                                                          })
+                                                }
+                                                disabled={
+                                                    !editable ||
+                                                    (sellsAs !== undefined &&
+                                                        sellsAs.listing === null)
+                                                }
                                                 {...(server.errorFor('notes') === undefined
                                                     ? {}
                                                     : { englishError: server.errorFor('notes') })}
                                                 onChange={(next) => {
-                                                    setDetails({ ...details, description: next });
-                                                    markDirty('details');
+                                                    if (sellsAs === undefined) {
+                                                        setDetails({
+                                                            ...details,
+                                                            description: next,
+                                                        });
+                                                        markDirty('details');
+                                                        return;
+                                                    }
+                                                    setListingDescription(next);
+                                                    setAllSaved(false);
                                                 }}
                                             />
                                         )}
@@ -3439,6 +3419,47 @@ function RecipeEditor({
                                     </FormGrid>
                                 </View>
                             </FormSection>
+
+                            {/*
+                             * What the item is classed as, read-only: the server derives it from the
+                             * published recipe's ingredients.
+                             */}
+                            {sellsAs === undefined || sellsAs.listing === null ? null : (
+                                <FormSection
+                                    first
+                                    variant="panel"
+                                    testID="kitchen-recipe-diets"
+                                    title={t('kitchen:products.dietsLabel')}
+                                    aside={
+                                        <Badge
+                                            variant="label"
+                                            tone="info"
+                                            label={t('kitchen:recipes.viewAllergensSource')}
+                                        />
+                                    }
+                                >
+                                    {sellsAs.listing.diets.length === 0 ? (
+                                        <Text
+                                            testID="kitchen-recipe-diets-empty"
+                                            variant="mono"
+                                            tone="secondary"
+                                        >
+                                            {t('kitchen:list.noValue')}
+                                        </Text>
+                                    ) : (
+                                        <Inline space="xs" wrap>
+                                            {sellsAs.listing.diets.map((diet) => (
+                                                <Tag
+                                                    key={diet}
+                                                    testID={`kitchen-recipe-diet-${diet}`}
+                                                    tone="neutral"
+                                                    label={t(dietClassificationKey(diet))}
+                                                />
+                                            ))}
+                                        </Inline>
+                                    )}
+                                </FormSection>
+                            )}
                         </View>
                     )}
 
@@ -3639,6 +3660,7 @@ function RecipeEditor({
                             className={tab === 'packaging' ? undefined : 'hidden'}
                         >
                             <View className="relative z-raised" testID="kitchen-recipe-packs">
+                                {sellsAs?.sellerSwitch ?? null}
                                 {packs.render({
                                     // In kilograms whatever unit the yield is typed in: a 500 g batch is
                                     // half a kilo of packs, not five hundred.
@@ -3741,32 +3763,6 @@ function RecipeEditor({
                                 </FormSection>
                             )}
                         </View>
-                    )}
-
-                    {/* ── Selling ──────────────────────────────────────────────────────────────────── */}
-                    {/*
-                     * Mounted whenever there is a listing, and hidden rather than unmounted on the other tabs.
-                     * Its drafts live inside it, so unmounting it on a tab switch would throw away a pack
-                     * somebody had half typed — the recipe's own drafts survive a switch because they live on
-                     * this screen, and the listing's have to as well.
-                     *
-                     * It is its own `CascadeItem` so that `hidden` lands on the band's box: hidden one level
-                     * further in, the band would still stand in the page and take a gap on every other tab.
-                     */}
-                    {/*
-                     * The listing's problems are cards in this page's tray (`useIssueGroup`), under the
-                     * tab's name and on every tab; each one's Fix switches here first.
-                     */}
-                    {sellsAs === undefined ? null : (
-                        <CascadeItem index={0} className={tab === 'selling' ? undefined : 'hidden'}>
-                            <View className="relative z-raised" testID="kitchen-recipe-selling">
-                                <IssueRevealScope reveal={revealSelling}>
-                                    <PacksHostContext.Provider value={packsHost}>
-                                        {sellsAs.content}
-                                    </PacksHostContext.Provider>
-                                </IssueRevealScope>
-                            </View>
-                        </CascadeItem>
                     )}
 
                     {/* ── Technical sheet ──────────────────────────────────────────────────────────── */}
@@ -3997,6 +3993,19 @@ function RecipeEditor({
                                             },
                                             {
                                                 onSuccess: (published) => {
+                                                    // Where it sells is ticked on Packs & prices,
+                                                    // which Publish required — so its items go on
+                                                    // sale with it.
+                                                    void sellsAs?.publish().then((onSale) => {
+                                                        if (onSale) return;
+                                                        toast.show({
+                                                            testID: 'kitchen-recipe-listing-not-on-sale-toast',
+                                                            tone: 'warning',
+                                                            message: t(
+                                                                'kitchen:recipes.listingNotOnSaleToast',
+                                                            ),
+                                                        });
+                                                    });
                                                     setShowPublish(false);
                                                     setSelectedVersionId(null);
                                                     if (fix !== null) setFixPublished(true);

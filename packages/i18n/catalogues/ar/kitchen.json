@@ -4123,7 +4123,7 @@
         "checksNextFix": "الإصلاح التالي ←",
         "checksNextFixLabel": "نجح {{done}} من {{total}} فحوص. الإصلاح التالي: {{next}}",
         "checksAllPass": "نجحت كل الفحوص",
-        "kitchenNameLabel": "الاسم في المطبخ",
+        "kitchenNameLabel": "الاسم",
         "costBatchTitle": "دفعة واحدة",
         "costUnitTitle": "لكل {{unit}}",
         "costPackTitle": "لكل عبوة · {{name}}",
@@ -4197,7 +4197,8 @@
         "detourRestoredToast": "عدت إلى وصفتك. تغييراتك غير المحفوظة ما زالت هنا.",
         "savedAllToast": "تم حفظ كل التغييرات.",
         "allSavedBadge": "تم حفظ الكل",
-        "listingNotSavedToast": "لم يتم حفظ تبويب البيع. يوضح ما يجب إصلاحه.",
+        "listingNotSavedToast": "لم يتم حفظ اسم المتجر ووصفه. اضغط حفظ مرة أخرى.",
+        "listingNotOnSaleToast": "نُشرت الوصفة، لكن تعذّر عرض صنفها للبيع في المتجر.",
         "swappedToCopyToast": "تستخدم هذه الوصفة الآن نسخة مطبخك من المكوّن. احفظ للإبقاء على ذلك.",
         "offTodayToast": "خارج القائمة لهذا اليوم.",
         "backOnTodayToast": "عاد إلى القائمة اليوم."

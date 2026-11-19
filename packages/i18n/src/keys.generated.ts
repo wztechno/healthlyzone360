@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10811 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10812 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -7700,6 +7700,7 @@ export interface NamespaceKeys {
     | 'recipes.linesEmpty'
     | 'recipes.linesPickerHint'
     | 'recipes.listingFailedToast'
+    | 'recipes.listingNotOnSaleToast'
     | 'recipes.listingNotSavedToast'
     | 'recipes.loadErrorTitle'
     | 'recipes.marginHint'
@@ -18529,6 +18530,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.linesEmpty',
   'kitchen:recipes.linesPickerHint',
   'kitchen:recipes.listingFailedToast',
+  'kitchen:recipes.listingNotOnSaleToast',
   'kitchen:recipes.listingNotSavedToast',
   'kitchen:recipes.loadErrorTitle',
   'kitchen:recipes.marginHint',

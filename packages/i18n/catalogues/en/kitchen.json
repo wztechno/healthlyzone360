@@ -3704,7 +3704,7 @@
         "checksNextFix": "Next fix →",
         "checksNextFixLabel": "{{done}} of {{total}} checks pass. Next fix: {{next}}",
         "checksAllPass": "All checks pass",
-        "kitchenNameLabel": "Kitchen name",
+        "kitchenNameLabel": "Name",
         "costBatchTitle": "One batch",
         "costUnitTitle": "Per {{unit}}",
         "costPackTitle": "Per pack · {{name}}",
@@ -3766,7 +3766,8 @@
         "detourRestoredToast": "Back on your recipe. Your unsaved changes are still here.",
         "savedAllToast": "All changes saved.",
         "allSavedBadge": "All saved",
-        "listingNotSavedToast": "The Selling tab was not saved. It shows what to fix.",
+        "listingNotSavedToast": "The shop name and description were not saved. Try Save again.",
+        "listingNotOnSaleToast": "The recipe is published, but its shop item could not go on sale.",
         "swappedToCopyToast": "This recipe now uses your kitchen’s copy of the ingredient. Save to keep it.",
         "offTodayToast": "Off the menu for today.",
         "backOnTodayToast": "Back on the menu today."
