@@ -94,13 +94,6 @@ function Parts() {
                 toast.show({ tone: 'success', message: 'Supplier saved' });
             },
         },
-        discard: {
-            testID: 'feedback-showcase-discard',
-            label: 'Discard',
-            onPress: () => {
-                setChanges(0);
-            },
-        },
         testID: 'feedback-showcase',
     });
 

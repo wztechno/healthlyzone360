@@ -26,10 +26,6 @@
         "label": "حفظ التغييرات",
         "unsaved": "تغييرات غير محفوظة",
         "notSavedYet": "لم يُحفظ بعد",
-        "discard": "تجاهل",
-        "discardTitle": "تجاهل تغييراتك؟",
-        "discardBody": "تعود الصفحة إلى آخر نسخة محفوظة.",
-        "keepEditing": "متابعة التعديل",
         "toFix_zero": "لا شيء لإصلاحه",
         "toFix_one": "أمر واحد لإصلاحه",
         "toFix_two": "أمران لإصلاحهما",
@@ -972,6 +968,10 @@
             "notFoundBody": "قد يكون الرابط قديمًا، أو أن المورّد يخصّ مطبخًا آخر.",
             "loadErrorTitle": "تعذّر تحميل بيانات هذا المورّد",
             "sectionDetails": "بيانات المورّد",
+            "groupIdentity": "من هم",
+            "groupReach": "طرق التواصل",
+            "groupTerms": "الشروط",
+            "codeHint": "اتركه فارغًا ويُنشأ لك رمز تلقائيًا.",
             "sectionContacts": "جهات الاتصال",
             "saveDetails": "حفظ المورّد",
             "saveContacts": "حفظ جهات الاتصال",
@@ -2270,10 +2270,7 @@
             "factPortions": "الحصص",
             "factTotalWeight": "الوزن الكلي",
             "wasteNote": "+{{percent}} % هدر",
-            "startBatch": "ابدأ الدفعة",
-            "columnIssued": "صُرف",
-            "issuedLabel": "صُرف: {{name}}",
-            "issuedCount": "صُرف {{done}} من {{total}}"
+            "startBatch": "ابدأ الدفعة"
         },
         "settlement": {
             "driversHeading": "سائقون بحوزتهم نقد",
@@ -4126,7 +4123,7 @@
         "checksNextFix": "الإصلاح التالي ←",
         "checksNextFixLabel": "نجح {{done}} من {{total}} فحوص. الإصلاح التالي: {{next}}",
         "checksAllPass": "نجحت كل الفحوص",
-        "kitchenNameLabel": "الاسم في المطبخ",
+        "kitchenNameLabel": "الاسم",
         "costBatchTitle": "دفعة واحدة",
         "costUnitTitle": "لكل {{unit}}",
         "costPackTitle": "لكل عبوة · {{name}}",
@@ -4200,7 +4197,8 @@
         "detourRestoredToast": "عدت إلى وصفتك. تغييراتك غير المحفوظة ما زالت هنا.",
         "savedAllToast": "تم حفظ كل التغييرات.",
         "allSavedBadge": "تم حفظ الكل",
-        "listingNotSavedToast": "لم يتم حفظ تبويب البيع. يوضح ما يجب إصلاحه.",
+        "listingNotSavedToast": "لم يتم حفظ اسم المتجر ووصفه. اضغط حفظ مرة أخرى.",
+        "listingNotOnSaleToast": "نُشرت الوصفة، لكن تعذّر عرض صنفها للبيع في المتجر.",
         "swappedToCopyToast": "تستخدم هذه الوصفة الآن نسخة مطبخك من المكوّن. احفظ للإبقاء على ذلك.",
         "offTodayToast": "خارج القائمة لهذا اليوم.",
         "backOnTodayToast": "عاد إلى القائمة اليوم."
@@ -6722,5 +6720,17 @@
         "previous": "السابق",
         "next": "التالي",
         "position": "{{index}} من {{count}}"
+    },
+    "recordSheet": {
+        "lastChanged": "آخر تعديل",
+        "byName": "بواسطة {{name}}",
+        "forSale": "معروض للبيع",
+        "notForSale": "غير معروض للبيع",
+        "allergensAndDiets": "مسببات الحساسية والأنظمة الغذائية",
+        "contains": "يحتوي على",
+        "mayContain": "قد يحتوي على",
+        "perHundredGrams": "لكل 100 غ",
+        "marginNote": "لكل {{unit}} · هامش {{percent}} %",
+        "ofTotal": "من {{total}}"
     }
 }

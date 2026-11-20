@@ -23,7 +23,9 @@ import type { AnchoredLayerProps } from './anchored-layer-shared.ts';
  * ## Placement
  *
  * Fixed, from the trigger's `getBoundingClientRect`: under it by default, above it when there is no
- * room below and there is room above. `start` hangs from the trigger's leading edge (left in LTR,
+ * room below and there is room above. When it fits neither way it stays below (above only when
+ * below is a sliver and above is roomier), capped to the room there, and scrolls inside — a fixed
+ * panel is never reachable by scrolling the page. `start` hangs from the trigger's leading edge (left in LTR,
  * right in RTL) and `end` from its trailing edge, the same meaning `anchoredPanelClass` gives them in
  * place. It is re-placed on any scroll — captured, because the page scrolls inside the shell's
  * `ScrollView` rather than the window — on resize, and when the panel's own size changes.
@@ -43,8 +45,16 @@ const GAP = 4;
  */
 const ABOVE_MODAL_Z_INDEX = 10000;
 
+/** The gap a panel keeps from the viewport's top and bottom edges. */
+const EDGE = 8;
+
+/** Below this much room under the trigger, a panel that fits neither way opens above instead. */
+const MIN_ROOM = 240;
+
 interface Placement {
     readonly top: number;
+    /** Set only when the panel fits neither below nor above; it then scrolls inside. */
+    readonly maxHeight?: number | undefined;
     readonly left?: number;
     readonly right?: number;
     /** The anchor's width: a list is never narrower than the field it opens from. */
@@ -76,17 +86,40 @@ export function AnchoredLayer({ anchorRef, align, children }: AnchoredLayerProps
             const viewportHeight = window.innerHeight;
             const direction = getComputedStyle(anchor).direction === 'rtl' ? 'rtl' : 'ltr';
 
-            const height = layer?.offsetHeight ?? 0;
+            // `scrollHeight`, not `offsetHeight`: once a cap is set the box is only as tall as the
+            // cap, and measuring that would make the next pass think the panel now fits.
+            const height = layer?.scrollHeight ?? 0;
             const below = rect.bottom + GAP;
-            const above = rect.top - GAP - height;
-            const top = below + height > viewportHeight && above >= 0 ? above : below;
+            const roomBelow = viewportHeight - below - EDGE;
+            const roomAbove = rect.top - GAP - EDGE;
+
+            let top = below;
+            let maxHeight: number | undefined;
+            if (height > roomBelow) {
+                if (height <= roomAbove) {
+                    top = rect.top - GAP - height;
+                } else if (roomBelow < MIN_ROOM && roomAbove > roomBelow) {
+                    // Fits neither way: stay below, where the eye expects it, unless below is a
+                    // sliver and above has more; either way the panel scrolls inside.
+                    maxHeight = roomAbove;
+                    top = rect.top - GAP - roomAbove;
+                } else {
+                    maxHeight = Math.max(roomBelow, 0);
+                }
+            }
 
             // `start` is the leading edge: left in LTR, right in RTL.
             const fromLeft = (align === 'start') === (direction === 'ltr');
             setPlacement(
                 fromLeft
-                    ? { top, left: rect.left, minWidth: rect.width, direction }
-                    : { top, right: viewportWidth - rect.right, minWidth: rect.width, direction },
+                    ? { top, maxHeight, left: rect.left, minWidth: rect.width, direction }
+                    : {
+                          top,
+                          maxHeight,
+                          right: viewportWidth - rect.right,
+                          minWidth: rect.width,
+                          direction,
+                      },
             );
         };
 
@@ -116,6 +149,8 @@ export function AnchoredLayer({ anchorRef, align, children }: AnchoredLayerProps
             style={{
                 zIndex: ABOVE_MODAL_Z_INDEX,
                 top: placement?.top ?? 0,
+                maxHeight: placement?.maxHeight,
+                overflowY: placement?.maxHeight === undefined ? undefined : 'auto',
                 left: placement?.left,
                 right: placement?.right,
                 minWidth: placement?.minWidth,

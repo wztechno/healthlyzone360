@@ -77,6 +77,11 @@ export interface RecordPopupProps {
     /** Before the kind label: the Back pill to the page that opened the record, when one did. */
     readonly leading?: ReactNode;
     readonly children: ReactNode;
+    /** The record's own reference, as a chip beside the kind — the record sheet's. */
+    readonly reference?: string | null | undefined;
+    readonly referenceTestID?: string | undefined;
+    /** The record sheet's larger window (option A of `Record pop-up — no canopy`). */
+    readonly sheet?: boolean | undefined;
     readonly testID: string;
 }
 
@@ -94,6 +99,9 @@ export function RecordPopup({
     actions = [],
     leading,
     children,
+    reference,
+    referenceTestID,
+    sheet = false,
     testID,
 }: RecordPopupProps) {
     const all =
@@ -140,6 +148,9 @@ export function RecordPopup({
             testID={testID}
             windowTestID={`${testID}-window`}
             kindTestID={`${testID}-eyebrow`}
+            reference={reference}
+            referenceTestID={referenceTestID}
+            roomy={sheet}
             main={<InRecordPopup.Provider value>{children}</InRecordPopup.Provider>}
             {...(ahead.length === 0 ? {} : { footer: ahead.map(button) })}
             {...(danger.length === 0

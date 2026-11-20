@@ -390,7 +390,8 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-plans-view"
-                look="board"
+                look="sheet"
+                figureKeys={['variants', 'combinations', 'durations']}
                 eyebrow={t('kitchen:recordView.eyebrowPlans')}
                 onBack={() => {
                     setViewing(null);

@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10804 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10812 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -5064,7 +5064,6 @@ export interface NamespaceKeys {
     | 'ops.batch.columnAvailable'
     | 'ops.batch.columnBasis'
     | 'ops.batch.columnDesignation'
-    | 'ops.batch.columnIssued'
     | 'ops.batch.columnItem'
     | 'ops.batch.columnPerBatch'
     | 'ops.batch.columnPosition'
@@ -5089,8 +5088,6 @@ export interface NamespaceKeys {
     | 'ops.batch.fromDatabase'
     | 'ops.batch.howMuch'
     | 'ops.batch.ingredientsHeading'
-    | 'ops.batch.issuedCount'
-    | 'ops.batch.issuedLabel'
     | 'ops.batch.less'
     | 'ops.batch.lineCount'
     | 'ops.batch.loadErrorTitle'
@@ -6508,6 +6505,7 @@ export interface NamespaceKeys {
     | 'ops.suppliers.archivedToast'
     | 'ops.suppliers.backToList'
     | 'ops.suppliers.caption'
+    | 'ops.suppliers.codeHint'
     | 'ops.suppliers.codePlaceholder'
     | 'ops.suppliers.columnContact'
     | 'ops.suppliers.columnItem'
@@ -6552,6 +6550,9 @@ export interface NamespaceKeys {
     | 'ops.suppliers.filteredEmptyBody'
     | 'ops.suppliers.filteredEmptyTitle'
     | 'ops.suppliers.generalContact'
+    | 'ops.suppliers.groupIdentity'
+    | 'ops.suppliers.groupReach'
+    | 'ops.suppliers.groupTerms'
     | 'ops.suppliers.itemCount'
     | 'ops.suppliers.itemRefPlaceholder'
     | 'ops.suppliers.itemsEmptyBody'
@@ -7699,6 +7700,7 @@ export interface NamespaceKeys {
     | 'recipes.linesEmpty'
     | 'recipes.linesPickerHint'
     | 'recipes.listingFailedToast'
+    | 'recipes.listingNotOnSaleToast'
     | 'recipes.listingNotSavedToast'
     | 'recipes.loadErrorTitle'
     | 'recipes.marginHint'
@@ -7886,6 +7888,16 @@ export interface NamespaceKeys {
     | 'recipes.yieldQuantity'
     | 'recipes.yieldRequired'
     | 'recipes.yieldUnit'
+    | 'recordSheet.allergensAndDiets'
+    | 'recordSheet.byName'
+    | 'recordSheet.contains'
+    | 'recordSheet.forSale'
+    | 'recordSheet.lastChanged'
+    | 'recordSheet.marginNote'
+    | 'recordSheet.mayContain'
+    | 'recordSheet.notForSale'
+    | 'recordSheet.ofTotal'
+    | 'recordSheet.perHundredGrams'
     | 'recordView.details'
     | 'recordView.eyebrowAllergens'
     | 'recordView.eyebrowComplaints'
@@ -8011,10 +8023,6 @@ export interface NamespaceKeys {
     | 'sauces.kindMarinadePrep'
     | 'sauces.title'
     | 'sauces.viewKind'
-    | 'saveBar.discard'
-    | 'saveBar.discardBody'
-    | 'saveBar.discardTitle'
-    | 'saveBar.keepEditing'
     | 'saveBar.label'
     | 'saveBar.notSavedYet'
     | 'saveBar.toFix'
@@ -15886,7 +15894,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.columnAvailable',
   'kitchen:ops.batch.columnBasis',
   'kitchen:ops.batch.columnDesignation',
-  'kitchen:ops.batch.columnIssued',
   'kitchen:ops.batch.columnItem',
   'kitchen:ops.batch.columnPerBatch',
   'kitchen:ops.batch.columnPosition',
@@ -15911,8 +15918,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.batch.fromDatabase',
   'kitchen:ops.batch.howMuch',
   'kitchen:ops.batch.ingredientsHeading',
-  'kitchen:ops.batch.issuedCount',
-  'kitchen:ops.batch.issuedLabel',
   'kitchen:ops.batch.less',
   'kitchen:ops.batch.lineCount',
   'kitchen:ops.batch.loadErrorTitle',
@@ -17330,6 +17335,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.archivedToast',
   'kitchen:ops.suppliers.backToList',
   'kitchen:ops.suppliers.caption',
+  'kitchen:ops.suppliers.codeHint',
   'kitchen:ops.suppliers.codePlaceholder',
   'kitchen:ops.suppliers.columnContact',
   'kitchen:ops.suppliers.columnItem',
@@ -17374,6 +17380,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.suppliers.filteredEmptyBody',
   'kitchen:ops.suppliers.filteredEmptyTitle',
   'kitchen:ops.suppliers.generalContact',
+  'kitchen:ops.suppliers.groupIdentity',
+  'kitchen:ops.suppliers.groupReach',
+  'kitchen:ops.suppliers.groupTerms',
   'kitchen:ops.suppliers.itemCount',
   'kitchen:ops.suppliers.itemRefPlaceholder',
   'kitchen:ops.suppliers.itemsEmptyBody',
@@ -18521,6 +18530,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.linesEmpty',
   'kitchen:recipes.linesPickerHint',
   'kitchen:recipes.listingFailedToast',
+  'kitchen:recipes.listingNotOnSaleToast',
   'kitchen:recipes.listingNotSavedToast',
   'kitchen:recipes.loadErrorTitle',
   'kitchen:recipes.marginHint',
@@ -18708,6 +18718,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.yieldQuantity',
   'kitchen:recipes.yieldRequired',
   'kitchen:recipes.yieldUnit',
+  'kitchen:recordSheet.allergensAndDiets',
+  'kitchen:recordSheet.byName',
+  'kitchen:recordSheet.contains',
+  'kitchen:recordSheet.forSale',
+  'kitchen:recordSheet.lastChanged',
+  'kitchen:recordSheet.marginNote',
+  'kitchen:recordSheet.mayContain',
+  'kitchen:recordSheet.notForSale',
+  'kitchen:recordSheet.ofTotal',
+  'kitchen:recordSheet.perHundredGrams',
   'kitchen:recordView.details',
   'kitchen:recordView.eyebrowAllergens',
   'kitchen:recordView.eyebrowComplaints',
@@ -18833,10 +18853,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:sauces.kindMarinadePrep',
   'kitchen:sauces.title',
   'kitchen:sauces.viewKind',
-  'kitchen:saveBar.discard',
-  'kitchen:saveBar.discardBody',
-  'kitchen:saveBar.discardTitle',
-  'kitchen:saveBar.keepEditing',
   'kitchen:saveBar.label',
   'kitchen:saveBar.notSavedYet',
   'kitchen:saveBar.toFix',

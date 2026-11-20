@@ -659,7 +659,7 @@ describe('supplier detail', () => {
         expect(screen.queryByTestId('kitchen-supplier-screen-steps-nav')).toBeNull();
     });
 
-    it('is one step — details — until the first save, so it draws no progress row', async () => {
+    it('shows all three steps on a new supplier, with contacts and items locked until saved', async () => {
         await renderStubScreen(<SupplierDetailScreen supplier="new" />, {
             session: kitchenManagerSession(),
             repositories: { kitchenOps: {} },
@@ -667,9 +667,19 @@ describe('supplier detail', () => {
 
         await untilVisible('kitchen-supplier-details');
 
-        expect(screen.queryByTestId('kitchen-supplier-screen-steps')).toBeNull();
-        expect(screen.queryByTestId('kitchen-supplier-screen-steps-nav')).toBeNull();
+        // The steps say where the form goes next, but nothing hangs off a supplier not yet saved.
+        for (const step of ['contacts', 'items'] as const) {
+            expect(
+                screen.getByTestId(`kitchen-supplier-screen-steps-${step}`).props.accessibilityState
+                    ?.disabled,
+            ).toBe(true);
+        }
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supplier-screen-steps-contacts'));
+        });
         expect(screen.queryByTestId('kitchen-supplier-contacts')).toBeNull();
+        expect(screen.getByTestId('kitchen-supplier-details')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-supplier-screen-steps-nav')).toBeNull();
     });
 
     it('puts a refused email on the Email field and names it in the issue banner (BUG-06)', async () => {

@@ -59,7 +59,7 @@ function per100g(
     } as unknown as NutritionFacts;
 }
 
-const BLANK: IngredientAdmin = {
+export const BLANK: IngredientAdmin = {
     id: IngredientId.unsafe('01935f6d-0000-7000-8000-0000000a0101'),
     meta: { lockVersion: 1, status: 'draft', updatedAt: NOW, updatedByName: 'Omar H.' },
     name: { en: 'Date syrup', ar: '' },
@@ -93,7 +93,7 @@ const BLANK: IngredientAdmin = {
     notes: null,
 } as unknown as IngredientAdmin;
 
-const TAHINI: IngredientAdmin = {
+export const TAHINI: IngredientAdmin = {
     ...BLANK,
     id: IngredientId.unsafe('01935f6d-0000-7000-8000-0000000a0102'),
     meta: { lockVersion: 7, status: 'published', updatedAt: NOW, updatedByName: 'Sara K.' },
@@ -133,7 +133,7 @@ const CATEGORY_NAMES: Readonly<Record<string, string>> = {
     spreads: 'Spreads & pastes',
 };
 
-function categoryName(code: string): string {
+export function categoryName(code: string): string {
     return CATEGORY_NAMES[code] ?? code;
 }
 

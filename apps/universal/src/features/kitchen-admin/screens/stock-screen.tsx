@@ -67,7 +67,6 @@ import { parseQuantity, unitCodeLabel, withoutMinus } from '../format.ts';
 import { isOutOfStock, stockItemRowTestId } from '../ops-format.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
-import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
@@ -790,16 +789,13 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-stock-view"
-                look="board"
+                look="sheet"
+                figureKeys={['quantity', 'unit', 'reorder', 'lastPurchase']}
                 eyebrow={t('kitchen:recordView.eyebrowStock')}
-                media={
-                    <RecordPhoto
-                        assetId={stockPhotoId(viewing.item)}
-                        label={viewing.item.nameEn}
-                        shape={viewing.item.backing === 'ingredient' ? 'square' : 'wide'}
-                        testID="kitchen-stock-view-photo"
-                    />
-                }
+                photo={{
+                    assetId: stockPhotoId(viewing.item),
+                    label: viewing.item.nameEn,
+                }}
                 onBack={() => {
                     setViewing(null);
                 }}

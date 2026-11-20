@@ -322,7 +322,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-quotations-view"
-                look="board"
+                look="sheet"
                 eyebrow={t('kitchen:recordView.eyebrowQuotations')}
                 onBack={() => {
                     setViewing(null);

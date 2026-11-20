@@ -12,31 +12,34 @@ pnpm i18n:check     assert en / ar / en-XA catalogues agree
 
 ---
 
-## The active design is HealthZone
+## The current design — start every new design here
 
-`HealthZone.dc.html` (repo root) is the current design direction and the source of truth for
-**structure** — layout, density, sizing, hierarchy, composition. When a request says "implement
-the navbar", "build the cart", "redo the KDS screen" with no other qualifier, it means **from
-HealthZone**. Do not ask which design.
+`HealthZone.dc.html` and the `design_handoff_*` folders were **removed** on 2026-10-01
+(`ca701b61`). The design now lives on Claude Design canvases. Never start a new design, or a
+redesign, from HealthZone, from a handoff folder, or from an older canvas of the same page. Start
+from the newest accepted boards of the same surface:
 
-**Colour and type are not HealthZone's.** They follow the Wellness Green mood board, Option 02
-(`design_handoff_wellness_green/moodboard_option02_wellness.html`) — the user's decision on
-2026-09-29, "same fonts and colours across the webapp". See "Palette and type" below. HealthZone's
-own palette and Schibsted Grotesk are shelved; never pull a colour or a font out of it.
+- **Web shop:** canvas `https://claude.ai/artifact/GhjeZA43xWecYNiiouEBFv`, one "Shop · <page>"
+  page per app page. Its look is the floating rounded navbar, Inter + Space Grotesk, and soft
+  mint cards. Local copies of the boards are in `apps/universal/public/design/` (`Accepted-*`),
+  which is git-excluded and must never be committed.
+- **Kitchen admin:** the board to copy is `apps/universal/public/design/Orders-main.dc.html`
+  (local, git-excluded). Copy its chrome and its parts:
+    - the chrome: the floating green module rail, the 240px page panel, and the pill top bar;
+    - the parts: figures, the tool row, tables with uppercase headers, the canopy and tiles.
+    - Then apply the Phase C top bar (`https://claude.ai/artifact/LpdLj8aQCAyUfvqWW43oZV`, option A):
+      round icon buttons, bell with a red count, ع, moon, then Workspaces. The trail is ⌂ / Module ⌄ /
+      a soft green "current page" pill.
+    - A ready-made copy of all of this, chrome included, is `project/Main.dc.html` on the batch
+      planner canvas (`https://claude.ai/artifact/6xqpu7FfNx111T4qiCRDQu`).
+    - Table columns are all left-aligned; row actions sit behind a 3-dots menu.
+    - New admin designs go on that module's own canvas (the list is in the auto-memory note
+      "Admin to design canvases").
+- **Colours and fonts** always come from `packages/design-tokens` (the Wellness Green mood board,
+  Option 02 — the user's decision on 2026-09-29). See "Palette and type" below.
 
-`design_handoff_wellness_green/` is the direction the mood board belongs to — mint/emerald/violet,
-Inter + Space Grotesk. Read it for its component and composition rules (§2 and §4 of its README
-are good) and for colour and type. Where it and HealthZone disagree on layout, HealthZone wins;
-on a colour or a font, the mood board does.
-
-### Opening it
-
-It is a Claude Design canvas file. It needs `support.js` and `image-slot.js` as siblings — both
-are already in the repo root. Open it directly in a browser. Photos will be blank unless
-`.image-slots.state.json` is present; that file lives in the design project, not the repo.
-
-Source project: `https://claude.ai/design/p/1bbd0ef2-d072-4d81-9f44-281eb7e73a46`
-Read it with the `DesignSync` tool (`/design-login` first if it 401s).
+When a request says "design X" or "implement X" with no other qualifier, it means **in that
+current look**. Do not ask which design.
 
 ### It is a reference, never production code
 
@@ -49,8 +52,8 @@ preset. Reach for a token before a literal, every time.
 
 ## Naming a screen
 
-Each screen is a self-contained `<sc-if>` branch keyed by an id. Naming the id is the
-unambiguous way to point at one.
+These ids come from the retired HealthZone file. They are still the short way to name a screen
+and say where it is built; the look comes from "The current design" above.
 
 | id           | Design screen            | Implement in                                                                            |
 | ------------ | ------------------------ | --------------------------------------------------------------------------------------- |
@@ -86,11 +89,11 @@ design.
 
 ## Naming the chrome
 
-| Say                      | Means                                                                | Implement in                                                  |
-| ------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------- |
-| customer header / navbar | Logo, Menu/Kitchens/Weekly plans/Offers, search, account, cart pill  | `shell/marketplace-shell.tsx`, `consumer-shell.tsx`           |
-| admin sidebar            | 224px `#17231A` rail, grouped nav with counts, service-status footer | `shell/area-shell.tsx`, `kitchen-admin/kitchen-ops-shell.tsx` |
-| admin topbar             | Page title + timestamp, search, Export, user block                   | same shells                                                   |
+| Say                      | Means                                                               | Implement in                                                  |
+| ------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------- |
+| customer header / navbar | Logo, Menu/Kitchens/Weekly plans/Offers, search, account, cart pill | `shell/marketplace-shell.tsx`, `consumer-shell.tsx`           |
+| admin sidebar            | floating green module rail + 240px page panel with counts           | `shell/area-shell.tsx`, `kitchen-admin/kitchen-ops-shell.tsx` |
+| admin topbar             | pill bar: trail, search (Ctrl K), bell, ع, theme, Workspaces        | same shells                                                   |
 
 > **Trap — the black bar at the top of the design is not product chrome.** The
 > `HEALTHZONE / PROTOTYPE` rail with the customer/admin screen buttons is the canvas's own screen
@@ -237,10 +240,11 @@ Those are mood-board artefacts. Snap to the nearest token — `text-xs` 12, `tex
   against it, so `top-0` pins just under the top bar — never translate a design's `top:130px`
   literally.
 
-## Sequencing — HealthZone structure, mood board palette
+## Sequencing — canvas structure, token palette
 
-**Build HealthZone's structure in the mood board's palette and type.** Layout, density, sizing,
-hierarchy and composition come from HealthZone; every colour and font comes from the tokens.
+**Build the current canvas boards' structure in the tokens' palette and type.** Layout, density,
+sizing, hierarchy and composition come from the boards named in "The current design"; every
+colour and font comes from the tokens.
 
 This works because screens refer to colour _semantically_ (`surfaceCanopy`, `brandSurface`,
 `textSecondary`), never as hex. **Never reach for a HealthZone hex** — or any hex: a literal is

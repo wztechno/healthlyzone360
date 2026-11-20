@@ -359,6 +359,12 @@ export {
     resolveFlip,
 } from './overlays/anchored-surface.ts';
 export type { AnchorAlign, FlipInput } from './overlays/anchored-surface.ts';
+/**
+ * Extensionless so Metro picks the platform half: on the web the panel is portalled onto `body`
+ * (above every RN-Web `z-index: 0` view and every scroll port), on native it stays in place.
+ */
+export { AnchoredLayer, PANEL_IS_LIFTED } from './overlays/anchored-layer';
+export type { AnchoredLayerProps } from './overlays/anchored-layer';
 export {
     CommandPalette,
     commandShortcutLabel,

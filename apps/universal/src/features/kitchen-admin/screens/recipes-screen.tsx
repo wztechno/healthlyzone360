@@ -52,7 +52,6 @@ import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { LensBar, LensScope, LensViewSwitch } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
-import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField, RecordViewSection } from '../catalogue/record-view-page.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
@@ -354,17 +353,14 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
         viewed === null ? null : (
             <RecordViewPage
                 testID="kitchen-recipes-view"
-                look="board"
+                look="sheet"
                 eyebrow={t('kitchen:recordView.eyebrowRecipes')}
-                media={
-                    <RecordPhoto
-                        assetId={recipePhotoId(viewed)}
-                        photoUrl={viewed.photoUrl}
-                        label={displayName(viewed.name, locale).value}
-                        shape="wide"
-                        testID="kitchen-recipes-view-photo"
-                    />
-                }
+                photo={{
+                    assetId: recipePhotoId(viewed),
+                    photoUrl: viewed.photoUrl,
+                    label: displayName(viewed.name, locale).value,
+                }}
+                figureKeys={['onSale', 'version', 'portion', 'packs']}
                 kind={kindsLabel(viewed, t) ?? t('kitchen:recipes.viewKind')}
                 reference={recipeHandle(viewed)}
                 title={displayName(viewed.name, locale).value}

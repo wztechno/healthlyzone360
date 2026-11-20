@@ -72,10 +72,14 @@ export interface RecordFormOpeningProps<Step extends string> {
      * is something to save; a screen rendered on its own draws it last among the actions.
      */
     readonly save?: SaveBarAction | undefined;
-    /** Puts the form back as loaded — the save bar's Discard. */
-    readonly discard?: SaveBarAction | undefined;
     /** A record never saved: the save bar stays up until it is. */
     readonly creating?: boolean | undefined;
+    /**
+     * Draws the commit at the end of the header's actions even in the kitchen layout, and no save
+     * bar at the foot — the plan and supplier editors' choice (2026-11-15). The unsaved marker
+     * stays beside the title, and Cancel — first among `actions` — is how unsaved work is dropped.
+     */
+    readonly saveInHeader?: boolean | undefined;
     readonly errors?:
         { readonly summary: string; readonly items: readonly FormIssueItem[] } | undefined;
     readonly warnings?:
@@ -99,8 +103,8 @@ export function RecordFormOpening<Step extends string>({
     details,
     actions,
     save,
-    discard,
     creating,
+    saveInHeader = false,
     errors,
     warnings,
     steps,
@@ -134,15 +138,19 @@ export function RecordFormOpening<Step extends string>({
         testID: `${testID}-issues-warnings`,
     });
 
-    // The save bar takes the unsaved marker and the commit, where the kitchen layout draws one.
-    const barDrawn = useSaveBar({
-        dirty,
-        creating,
-        toFix: errors?.items.length ?? 0,
-        save,
-        discard,
-        testID,
-    });
+    // The save bar takes the unsaved marker and the commit, where the kitchen layout draws one —
+    // unless the page keeps its commit in the header.
+    const barDrawn = useSaveBar(
+        saveInHeader
+            ? null
+            : {
+                  dirty,
+                  creating,
+                  toFix: errors?.items.length ?? 0,
+                  save,
+                  testID,
+              },
+    );
 
     const showErrors = !inTray && errors !== undefined && errors.items.length > 0;
     const showWarnings = !inTray && warnings !== undefined && warnings.items.length > 0;

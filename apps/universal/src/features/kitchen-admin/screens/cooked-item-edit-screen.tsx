@@ -20,13 +20,12 @@ import type { SelectOption } from '@healthy360/design-system';
 import { MealId, ProductId, RecipeId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import { safeReturnTo, withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+import { safeReturnTo, withQuery } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import {
     useAdminMealQuery,
@@ -42,11 +41,9 @@ import {
     CATALOGUE_VIEW_PERMISSION,
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import type { HostArchive, HostSave } from '../host-save.ts';
-import { MealListing } from '../meal-listing.tsx';
 import { usePacksTab, useWritePacksDraft } from '../packs-prices-section.tsx';
+import { useRecipeListingSync } from '../recipe-listing-sync.ts';
 import { parseStockGapFix } from '../recipe-stock-gap-fix.ts';
-import { ProductEditScreen } from './product-edit-screen.tsx';
 import { RecipeEditScreen } from './recipe-edit-screen.tsx';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
@@ -254,28 +251,23 @@ function RecipeBookEditor({
         : (record.data?.kinds?.[0] ?? null);
     const cooked = sellerKind(kind);
 
-    // The listing's unsaved state, so the page's own exits ask before dropping it.
-    const [listingDirty, setListingDirty] = useState(false);
-    // The listing's Archive, drawn in the recipe header's row while Selling is open.
-    const [listingArchive, setListingArchive] = useState<HostArchive | null>(null);
     const [chosenSeller, setChosenSeller] = useState<string | null>(null);
-    /*
-     * The listing's save, handed over so the recipe's one Save draft writes it too
-     * (`host-save.ts`). A ref: it changes with the listing, and nothing here draws from it.
-     */
-    const listingSave = useRef<HostSave | null>(null);
-    const registerListingSave = useCallback((save: HostSave | null) => {
-        listingSave.current = save;
-    }, []);
-    const saveListing = useCallback(
-        async () => (listingSave.current === null ? true : listingSave.current()),
-        [],
-    );
 
     const createMeal = useCreateMealMutation();
     const createItem = useCreateProductMutation();
 
     const seller = soldAs.find((entry) => entry.id === chosenSeller) ?? soldAs[0];
+
+    // The item's own description and diets, drawn on the recipe's Description tab.
+    const sellerMeal = useAdminMealQuery(
+        seller?.itemType === 'meal' ? MealId.unsafe(seller.id) : null,
+    );
+    const sellerProduct = useProductQuery(
+        seller === undefined || seller.itemType === 'meal' ? null : ProductId.unsafe(seller.id),
+    );
+    const sellerRecord: MealAdmin | ProductAdmin | undefined =
+        seller?.itemType === 'meal' ? sellerMeal.data : sellerProduct.data;
+    const listingSync = useRecipeListingSync();
 
     /*
      * Packs & prices — the seller's packs, owned here beside its listing because they are the
@@ -385,32 +377,6 @@ function RecipeBookEditor({
         );
     };
 
-    /** The seller's own listing, inside this page — a meal's, or a packaged kind's. */
-    const listing =
-        seller === undefined ? null : seller.itemType === 'meal' ? (
-            <MealListing
-                key={seller.id}
-                meal={MealId.unsafe(seller.id)}
-                onDirtyChange={setListingDirty}
-                onRegisterSave={registerListingSave}
-                returnHref={withReturnTo(
-                    withQuery(`/kitchen/recipes/${String(recipe)}`, { tab: 'selling' }),
-                    safeReturnTo(returnTo),
-                )}
-            />
-        ) : (
-            <ProductEditScreen
-                key={seller.id}
-                product={seller.id}
-                itemType={seller.itemType}
-                routeBase="/kitchen/recipes"
-                embedded
-                onDirtyChange={setListingDirty}
-                onRegisterSave={registerListingSave}
-                onRegisterArchive={setListingArchive}
-            />
-        );
-
     return (
         <RecipeEditScreen
             recipe={recipe}
@@ -435,31 +401,32 @@ function RecipeBookEditor({
                 seller === undefined
                     ? undefined
                     : {
-                          label: t('kitchen:recipes.tabSelling'),
                           reference: seller.reference,
-                          content:
-                              soldAs.length < 2 ? (
-                                  listing
-                              ) : (
-                                  <View className="z-auto flex-col gap-base">
-                                      <SegmentedControl
-                                          testID="kitchen-recipe-selling-seller"
-                                          label={t('kitchen:recipes.sellerLabel')}
-                                          items={soldAs.map((entry) => ({
-                                              value: entry.id,
-                                              label: entry.reference ?? entry.slug,
-                                              testID: `kitchen-recipe-selling-seller-${entry.id}`,
-                                              disabled: listingDirty && entry.id !== seller.id,
-                                          }))}
-                                          value={seller.id}
-                                          onChange={setChosenSeller}
-                                      />
-                                      {listing}
-                                  </View>
+                          listing:
+                              sellerRecord === undefined
+                                  ? null
+                                  : {
+                                        description: sellerRecord.description,
+                                        diets: sellerRecord.dietClassifications,
+                                    },
+                          write: (text) => listingSync.write(soldAs, text),
+                          publish: () => listingSync.publish(soldAs),
+                          // Sold twice: Packs & prices edits one seller's packs at a time.
+                          sellerSwitch:
+                              soldAs.length < 2 ? undefined : (
+                                  <SegmentedControl
+                                      testID="kitchen-recipe-packs-seller"
+                                      label={t('kitchen:recipes.sellerLabel')}
+                                      items={soldAs.map((entry) => ({
+                                          value: entry.id,
+                                          label: entry.reference ?? entry.slug,
+                                          testID: `kitchen-recipe-packs-seller-${entry.id}`,
+                                          disabled: packsTab.report.dirty && entry.id !== seller.id,
+                                      }))}
+                                      value={seller.id}
+                                      onChange={setChosenSeller}
+                                  />
                               ),
-                          isDirty: listingDirty,
-                          save: saveListing,
-                          archive: listingArchive,
                       }
             }
         />
@@ -534,17 +501,7 @@ function CookedItemEditor({
     const linkMeal = useUpdateMealMutation();
     const linkProduct = useUpdateProductMutation();
 
-    // The listing's unsaved state and its save, handed to the recipe's one Save (`host-save.ts`).
-    const [listingDirty, setListingDirty] = useState(false);
-    const [listingArchive, setListingArchive] = useState<HostArchive | null>(null);
-    const listingSave = useRef<HostSave | null>(null);
-    const registerListingSave = useCallback((save: HostSave | null) => {
-        listingSave.current = save;
-    }, []);
-    const saveListing = useCallback(
-        async () => (listingSave.current === null ? true : listingSave.current()),
-        [],
-    );
+    const listingSync = useRecipeListingSync();
     // Packs & prices: the item exists, so the section writes it directly, after the listing.
     const packsTab = usePacksTab(parsed, String(parsed ?? 'none'));
 
@@ -662,25 +619,6 @@ function CookedItemEditor({
         }, keepRecipe);
     };
 
-    /** The item's own listing, on the Selling tab — a meal's, or a packaged kind's. */
-    const listing = isMeal ? (
-        <MealListing
-            meal={MealId.unsafe(String(item.id))}
-            onDirtyChange={setListingDirty}
-            onRegisterSave={registerListingSave}
-        />
-    ) : (
-        <ProductEditScreen
-            product={String(item.id)}
-            itemType={itemType}
-            routeBase="/kitchen/recipes"
-            embedded
-            onDirtyChange={setListingDirty}
-            onRegisterSave={registerListingSave}
-            onRegisterArchive={setListingArchive}
-        />
-    );
-
     /*
      * Saved as an item, with nothing made yet — every row the v6 import wrote, and any meal the
      * review queue finds with no recipe. It opens as the recipe page it is about to become: every
@@ -712,11 +650,20 @@ function CookedItemEditor({
                 linkToItem(created);
             }}
             sellsAs={{
-                label: t('kitchen:recipes.tabSelling'),
-                content: listing,
-                isDirty: listingDirty,
-                save: saveListing,
-                archive: listingArchive,
+                listing: { description: item.description, diets: item.dietClassifications },
+                write: (text) =>
+                    listingSync.write(
+                        [
+                            {
+                                id: String(item.id),
+                                itemType,
+                                status: item.meta.status,
+                                name: item.name,
+                            },
+                        ],
+                        text,
+                    ),
+                publish: () => Promise.resolve(true),
             }}
         />
     );

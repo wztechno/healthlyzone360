@@ -267,6 +267,7 @@ function AlertsBell() {
     // Open on the page it was opened on, as `KeptWorkButton` is.
     const [openOn, setOpenOn] = useState<string | null>(null);
     const open = openOn === pathname;
+    const rootRef = useRef<View>(null);
 
     // Escape closes it, as any panel hung from a top bar does.
     useEffect(() => {
@@ -274,9 +275,19 @@ function AlertsBell() {
         const onKey = (event: KeyboardEvent) => {
             if (event.key === 'Escape') setOpenOn(null);
         };
+        // A press anywhere outside the bell and its panel closes it too, as a menu does. The
+        // bell itself is inside, so its own press still toggles rather than closing and reopening.
+        const onPointer = (event: PointerEvent) => {
+            const root = rootRef.current as unknown as HTMLElement | null;
+            if (root !== null && event.target instanceof Node && !root.contains(event.target)) {
+                setOpenOn(null);
+            }
+        };
         document.addEventListener('keydown', onKey);
+        document.addEventListener('pointerdown', onPointer);
         return () => {
             document.removeEventListener('keydown', onKey);
+            document.removeEventListener('pointerdown', onPointer);
         };
     }, [open]);
 
@@ -309,7 +320,7 @@ function AlertsBell() {
 
     return (
         <DensityProvider value="compact">
-            <View className="relative self-center">
+            <View ref={rootRef} className="relative self-center">
                 <Pressable
                     testID="staff-alerts-button"
                     role="button"

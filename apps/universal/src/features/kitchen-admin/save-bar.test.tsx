@@ -4,21 +4,14 @@ import { Pressable, Text as RNText } from 'react-native';
 
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import {
-    DiscardBoundary,
-    SaveBarProvider,
-    SaveBarSlot,
-    useBeforeDiscard,
-    useSaveBar,
-} from './save-bar.tsx';
+import { SaveBarProvider, SaveBarSlot, useSaveBar } from './save-bar.tsx';
 
 /** An editor in miniature: a value it was loaded with, and what the reader changed it to. */
-function Editor({ onBeforeDiscard }: { readonly onBeforeDiscard: () => void }) {
+function Editor({ onSave }: { readonly onSave: () => void }) {
     const [value, setValue] = useState('saved');
-    useBeforeDiscard(onBeforeDiscard);
     const drawn = useSaveBar({
         dirty: value !== 'saved',
-        save: { testID: 'editor-save', label: 'Save', onPress: () => undefined },
+        save: { testID: 'editor-save', label: 'Save', onPress: onSave },
         testID: 'editor',
     });
     return (
@@ -42,13 +35,11 @@ async function press(testID: string) {
 }
 
 describe('the save bar', () => {
-    it('shows while there are changes, and its Discard puts the page back after asking', async () => {
-        const before = jest.fn();
+    it('shows while there are changes, with Save and no Discard', async () => {
+        const save = jest.fn();
         await renderStubScreen(
             <SaveBarProvider>
-                <DiscardBoundary>
-                    <Editor onBeforeDiscard={before} />
-                </DiscardBoundary>
+                <Editor onSave={save} />
                 <SaveBarSlot />
             </SaveBarProvider>,
             { session: kitchenManagerSession() },
@@ -59,24 +50,15 @@ describe('the save bar', () => {
 
         await press('editor-change');
         expect(screen.getByTestId('editor-save-bar-status')).toHaveTextContent(/Unsaved changes/);
-        expect(screen.getByTestId('editor-save')).toBeTruthy();
+        // Cancel is how unsaved work is dropped; the bar offers only the commit.
+        expect(screen.queryByTestId('editor-discard')).toBeNull();
 
-        // Asks first; Keep editing changes nothing.
-        await press('editor-discard');
-        await press('editor-discard-keep');
-        expect(screen.getByTestId('editor-value')).toHaveTextContent('changed');
-        expect(before).not.toHaveBeenCalled();
-
-        await press('editor-discard');
-        await press('editor-discard-confirm');
-        // Drafts are dropped first, then the page is drawn afresh from what was saved.
-        expect(before).toHaveBeenCalledTimes(1);
-        expect(screen.getByTestId('editor-value')).toHaveTextContent('saved');
-        expect(screen.queryByTestId('editor-save-bar')).toBeNull();
+        await press('editor-save');
+        expect(save).toHaveBeenCalledTimes(1);
     });
 
     it('is not drawn outside the kitchen layout, so the editor keeps its own Save', async () => {
-        await renderStubScreen(<Editor onBeforeDiscard={() => undefined} />, {
+        await renderStubScreen(<Editor onSave={() => undefined} />, {
             session: kitchenManagerSession(),
         });
         expect(screen.getByTestId('editor-drawn')).toHaveTextContent('own');

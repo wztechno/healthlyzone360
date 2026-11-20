@@ -44,7 +44,6 @@ import {
 import type { RecipeVersionId } from '@healthy360/domain-types';
 import type { NutritionFacts } from '@healthy360/nutrition';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
-import { DiscardBoundary } from './save-bar.tsx';
 import { Dimensions } from 'react-native';
 import type { ReactNode } from 'react';
 
@@ -2002,12 +2001,12 @@ describe('the recipe list at desk width', () => {
         await untilVisible('kitchen-recipes-view');
         // The handle the list reads it by — here the slug, for a row that predates the `RC-`
         // series — and the facts no track holds: the version count in words, and who last
-        // touched it.
+        // touched it, which the record sheet's head says under "Last changed".
         expect(screen.getByTestId('kitchen-recipes-view-reference')).toHaveTextContent(
             published.slug,
         );
         expect(screen.getByTestId('kitchen-recipes-view-field-versionCount')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-recipes-view-field-updatedBy')).toHaveTextContent(
+        expect(screen.getByTestId('kitchen-recipes-view-field-updatedBy-value')).toHaveTextContent(
             /Rana Haddad/,
         );
     });
@@ -4802,43 +4801,22 @@ describe('safety', () => {
         });
     });
 
-    it('asks before throwing away an unsaved line, and stays on the page', async () => {
+    it('offers no Discard beside Save: Cancel is how unsaved work is dropped', async () => {
         const stored = recipe({ ordinal: 7, name: 'Discard me' });
 
-        await renderStubScreen(
-            <DiscardBoundary>
-                <RecipeEditScreen recipe={String(stored.id)} />
-            </DiscardBoundary>,
-            {
-                session: kitchenManagerSession(),
-                repositories: { kitchenAdmin: editorReads(() => stored) },
-            },
-        );
+        await renderStubScreen(<RecipeEditScreen recipe={String(stored.id)} />, {
+            session: kitchenManagerSession(),
+            repositories: { kitchenAdmin: editorReads(() => stored) },
+        });
 
         await untilVisible('kitchen-recipe-editor-screen-header');
         await openTab('production');
         await untilVisible(LINE_PICKER_TRIGGER);
-        const before = screen.queryAllByTestId(LINE_ROWS).length;
-        // An unsaved *line*, specifically: Discard has to see a section the header's own fields
-        // know nothing about, which is exactly the edit a person is most likely to lose.
+        // An unsaved line: the edit a Discard used to sit beside Save for.
         await addLine(String(UNMAPPED_INGREDIENT.id));
 
-        // Discard sits beside Save and Publish (board v2), and asks first.
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-discard'));
-        });
-        await untilVisible('kitchen-recipe-editor-screen-discard-dialog');
-
-        // Back to the saved version, on the same page — nothing navigates.
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-recipe-editor-screen-discard-confirm'));
-        });
-        await openTab('production');
-        await waitFor(() => {
-            expect(screen.queryAllByTestId(LINE_ROWS)).toHaveLength(before);
-        });
-        expect(routerMock.__back).not.toHaveBeenCalled();
-        expect(routerMock.__push).not.toHaveBeenCalled();
+        expect(screen.getByTestId('kitchen-recipe-editor-screen-save')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-recipe-editor-screen-discard')).toBeNull();
     });
 });
 

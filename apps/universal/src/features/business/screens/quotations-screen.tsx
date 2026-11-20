@@ -288,6 +288,8 @@ export function QuotationsScreen({ initialFilter }: QuotationsScreenProps) {
     const viewPopup =
         viewing === null ? null : (
             <RecordViewPage
+                look="sheet"
+                figureKeys={['raised', 'delivery', 'expires']}
                 testID={`quotation-${viewing.reference}`}
                 onBack={() => {
                     setViewingId(null);
