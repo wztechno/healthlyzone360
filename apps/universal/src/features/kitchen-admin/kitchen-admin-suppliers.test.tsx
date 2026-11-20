@@ -670,8 +670,8 @@ describe('supplier detail', () => {
         // The steps say where the form goes next, but nothing hangs off a supplier not yet saved.
         for (const step of ['contacts', 'items'] as const) {
             expect(
-                screen.getByTestId(`kitchen-supplier-screen-steps-${step}`).props
-                    .accessibilityState?.disabled,
+                screen.getByTestId(`kitchen-supplier-screen-steps-${step}`).props.accessibilityState
+                    ?.disabled,
             ).toBe(true);
         }
         await act(async () => {

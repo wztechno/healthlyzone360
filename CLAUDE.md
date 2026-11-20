@@ -25,16 +25,16 @@ from the newest accepted boards of the same surface:
   which is git-excluded and must never be committed.
 - **Kitchen admin:** the board to copy is `apps/universal/public/design/Orders-main.dc.html`
   (local, git-excluded). Copy its chrome and its parts:
-  - the chrome: the floating green module rail, the 240px page panel, and the pill top bar;
-  - the parts: figures, the tool row, tables with uppercase headers, the canopy and tiles.
-  - Then apply the Phase C top bar (`https://claude.ai/artifact/LpdLj8aQCAyUfvqWW43oZV`, option A):
-    round icon buttons, bell with a red count, ع, moon, then Workspaces. The trail is ⌂ / Module ⌄ /
-    a soft green "current page" pill.
-  - A ready-made copy of all of this, chrome included, is `project/Main.dc.html` on the batch
-    planner canvas (`https://claude.ai/artifact/6xqpu7FfNx111T4qiCRDQu`).
-  - Table columns are all left-aligned; row actions sit behind a 3-dots menu.
-  - New admin designs go on that module's own canvas (the list is in the auto-memory note
-    "Admin to design canvases").
+    - the chrome: the floating green module rail, the 240px page panel, and the pill top bar;
+    - the parts: figures, the tool row, tables with uppercase headers, the canopy and tiles.
+    - Then apply the Phase C top bar (`https://claude.ai/artifact/LpdLj8aQCAyUfvqWW43oZV`, option A):
+      round icon buttons, bell with a red count, ع, moon, then Workspaces. The trail is ⌂ / Module ⌄ /
+      a soft green "current page" pill.
+    - A ready-made copy of all of this, chrome included, is `project/Main.dc.html` on the batch
+      planner canvas (`https://claude.ai/artifact/6xqpu7FfNx111T4qiCRDQu`).
+    - Table columns are all left-aligned; row actions sit behind a 3-dots menu.
+    - New admin designs go on that module's own canvas (the list is in the auto-memory note
+      "Admin to design canvases").
 - **Colours and fonts** always come from `packages/design-tokens` (the Wellness Green mood board,
   Option 02 — the user's decision on 2026-09-29). See "Palette and type" below.
 
@@ -89,11 +89,11 @@ design.
 
 ## Naming the chrome
 
-| Say                      | Means                                                                | Implement in                                                  |
-| ------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------- |
-| customer header / navbar | Logo, Menu/Kitchens/Weekly plans/Offers, search, account, cart pill  | `shell/marketplace-shell.tsx`, `consumer-shell.tsx`           |
-| admin sidebar            | floating green module rail + 240px page panel with counts            | `shell/area-shell.tsx`, `kitchen-admin/kitchen-ops-shell.tsx` |
-| admin topbar             | pill bar: trail, search (Ctrl K), bell, ع, theme, Workspaces         | same shells                                                   |
+| Say                      | Means                                                               | Implement in                                                  |
+| ------------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------- |
+| customer header / navbar | Logo, Menu/Kitchens/Weekly plans/Offers, search, account, cart pill | `shell/marketplace-shell.tsx`, `consumer-shell.tsx`           |
+| admin sidebar            | floating green module rail + 240px page panel with counts           | `shell/area-shell.tsx`, `kitchen-admin/kitchen-ops-shell.tsx` |
+| admin topbar             | pill bar: trail, search (Ctrl K), bell, ع, theme, Workspaces        | same shells                                                   |
 
 > **Trap — the black bar at the top of the design is not product chrome.** The
 > `HEALTHZONE / PROTOTYPE` rail with the customer/admin screen buttons is the canvas's own screen
