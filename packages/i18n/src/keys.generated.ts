@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10812 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10904 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -1311,12 +1311,14 @@ export interface NamespaceKeys {
     | 'accept.confirm'
     | 'accept.date'
     | 'accept.noAddress'
+    | 'accept.noDays'
     | 'accept.placedBody'
     | 'accept.placedRunTitle'
     | 'accept.placedTitle'
     | 'accept.refusedTitle'
     | 'accept.repeat'
     | 'accept.repeatHint'
+    | 'accept.summary'
     | 'accept.title'
     | 'accept.total'
     | 'accept.totalPerDelivery'
@@ -1324,8 +1326,16 @@ export interface NamespaceKeys {
     | 'accept.window'
     | 'builder.add'
     | 'builder.addNamed'
+    | 'builder.another'
+    | 'builder.asideTitle'
     | 'builder.back'
+    | 'builder.backToQuotations'
+    | 'builder.beforeYouSend'
     | 'builder.cancel'
+    | 'builder.checkLines'
+    | 'builder.checkNoLines'
+    | 'builder.columnIndicative'
+    | 'builder.columnPacks'
     | 'builder.columnQuantity'
     | 'builder.columnValue'
     | 'builder.contactEmail'
@@ -1335,14 +1345,20 @@ export interface NamespaceKeys {
     | 'builder.contactTitle'
     | 'builder.deliveryDate'
     | 'builder.deliveryDatePlaceholder'
+    | 'builder.deliveryNotGiven'
     | 'builder.deliveryTitle'
     | 'builder.draftNote'
     | 'builder.emptyBody'
     | 'builder.emptyTitle'
     | 'builder.errorBelowMinimum'
+    | 'builder.errorContactEmail'
+    | 'builder.errorContactName'
     | 'builder.errorNoLines'
     | 'builder.errorTitle'
     | 'builder.home'
+    | 'builder.journeyAccept'
+    | 'builder.journeyOrder'
+    | 'builder.journeySent'
     | 'builder.kindPlural.bulk_package'
     | 'builder.kindPlural.meal'
     | 'builder.kindPlural.meal_plan'
@@ -1351,19 +1367,25 @@ export interface NamespaceKeys {
     | 'builder.linesTitle'
     | 'builder.loadErrorTitle'
     | 'builder.minimumShort'
+    | 'builder.noLines'
     | 'builder.noTier'
     | 'builder.noTierShort'
     | 'builder.notFoundBody'
     | 'builder.notFoundTitle'
+    | 'builder.notSent'
     | 'builder.note'
     | 'builder.noteHint'
     | 'builder.notePlaceholder'
     | 'builder.openList'
+    | 'builder.packs'
+    | 'builder.pickerLabel'
+    | 'builder.pickerPlaceholder'
     | 'builder.priceEach'
     | 'builder.quantityLabel'
     | 'builder.recurring'
     | 'builder.recurringHint'
     | 'builder.rejectedTitle'
+    | 'builder.removeColumn'
     | 'builder.removeNamed'
     | 'builder.requestEmpty'
     | 'builder.requestTitle'
@@ -1372,6 +1394,7 @@ export interface NamespaceKeys {
     | 'builder.searchClear'
     | 'builder.searchEmptyBody'
     | 'builder.searchEmptyTitle'
+    | 'builder.sentToast'
     | 'builder.submit'
     | 'builder.submitHint'
     | 'builder.successBody'
@@ -1391,6 +1414,7 @@ export interface NamespaceKeys {
     | 'catalogue.columnItem'
     | 'catalogue.columnLeadTime'
     | 'catalogue.columnMinimum'
+    | 'catalogue.columnPack'
     | 'catalogue.columnPrice'
     | 'catalogue.columnRecurring'
     | 'catalogue.columnWeekdays'
@@ -1399,8 +1423,10 @@ export interface NamespaceKeys {
     | 'catalogue.emptyTitle'
     | 'catalogue.emptyUnfilteredBody'
     | 'catalogue.emptyUnfilteredTitle'
+    | 'catalogue.figureAll'
     | 'catalogue.kindAll'
     | 'catalogue.kindLabel'
+    | 'catalogue.kindToken'
     | 'catalogue.leadTime'
     | 'catalogue.loadErrorTitle'
     | 'catalogue.mixedCurrency'
@@ -1412,6 +1438,7 @@ export interface NamespaceKeys {
     | 'catalogue.notFoundTitle'
     | 'catalogue.oneOffShort'
     | 'catalogue.open'
+    | 'catalogue.perPack'
     | 'catalogue.placeOrder'
     | 'catalogue.pricePerPack'
     | 'catalogue.privacyBody'
@@ -1469,12 +1496,19 @@ export interface NamespaceKeys {
     | 'decline.title'
     | 'item.addToCart'
     | 'item.addedToCart'
+    | 'item.atYourRate'
+    | 'item.code'
     | 'item.fieldDescription'
+    | 'item.kind'
     | 'item.noTiers'
     | 'item.notFoundBody'
     | 'item.notFoundTitle'
+    | 'item.packChip'
+    | 'item.packsLabel'
+    | 'item.photo'
     | 'item.placeOrder'
     | 'item.quote'
+    | 'item.rate'
     | 'item.recurringOrder'
     | 'item.tierBetween'
     | 'item.tierFrom'
@@ -1495,6 +1529,33 @@ export interface NamespaceKeys {
     | 'nav.quotationsSection'
     | 'nav.railTitle'
     | 'nav.windDown'
+    | 'overview.accept'
+    | 'overview.allQuotations'
+    | 'overview.awaitingPrice'
+    | 'overview.catalogue'
+    | 'overview.dateLine'
+    | 'overview.decline'
+    | 'overview.declined'
+    | 'overview.kitchen'
+    | 'overview.kpiAccepted'
+    | 'overview.kpiAwaiting'
+    | 'overview.kpiOpen'
+    | 'overview.kpiProgrammes'
+    | 'overview.latestSub'
+    | 'overview.latestTitle'
+    | 'overview.lines'
+    | 'overview.linesAtRates'
+    | 'overview.lookupTitle'
+    | 'overview.programmeTitle'
+    | 'overview.runningSince'
+    | 'overview.seeAll'
+    | 'overview.title'
+    | 'overview.view'
+    | 'overview.waitingEmpty'
+    | 'overview.waitingPriced'
+    | 'overview.waitingPricedNoExpiry'
+    | 'overview.waitingSubmitted'
+    | 'overview.waitingTitle'
     | 'partner.allKitchens'
     | 'partner.body'
     | 'partner.clearKitchen'
@@ -1510,6 +1571,14 @@ export interface NamespaceKeys {
     | 'partner.reference'
     | 'partner.sourceNote'
     | 'partner.title'
+    | 'picked.ask'
+    | 'picked.clear'
+    | 'picked.count'
+    | 'picked.label'
+    | 'picked.namesMore'
+    | 'picked.pickAll'
+    | 'picked.pickOne'
+    | 'picked.separator'
     | 'programme.active'
     | 'programme.columnHeadcount'
     | 'programme.columnLines'
@@ -1539,6 +1608,7 @@ export interface NamespaceKeys {
     | 'quotationStates.quoted'
     | 'quotationStates.submitted'
     | 'quotations.accept'
+    | 'quotations.acceptSchedule'
     | 'quotations.awaitingPrice'
     | 'quotations.awaitingPriceShort'
     | 'quotations.caption'
@@ -1569,10 +1639,12 @@ export interface NamespaceKeys {
     | 'quotations.filters.closed'
     | 'quotations.filters.open'
     | 'quotations.filters.quoted'
+    | 'quotations.groupToken'
     | 'quotations.home'
     | 'quotations.line'
     | 'quotations.linesTitle'
     | 'quotations.loadErrorTitle'
+    | 'quotations.mixLabel'
     | 'quotations.oneOff'
     | 'quotations.recurring'
     | 'quotations.searchLabel'
@@ -1593,6 +1665,26 @@ export interface NamespaceKeys {
     | 'schedule.emptyTitle'
     | 'schedule.line'
     | 'schedule.title'
+    | 'sheet.acceptedOn'
+    | 'sheet.acceptedTotal'
+    | 'sheet.columnLine'
+    | 'sheet.columnLineTotal'
+    | 'sheet.columnUnitPrice'
+    | 'sheet.decideBy'
+    | 'sheet.decisionTitle'
+    | 'sheet.declinedOn'
+    | 'sheet.noReason'
+    | 'sheet.orderTitle'
+    | 'sheet.progress'
+    | 'sheet.replyTo'
+    | 'sheet.requestTitle'
+    | 'sheet.stepAsked'
+    | 'sheet.stepDecision'
+    | 'sheet.stepPriced'
+    | 'sheet.stepPricing'
+    | 'sheet.whyDeclined'
+    | 'stepper.fewer'
+    | 'stepper.more'
     | 'title';
   readonly "catalogue":
     | 'card.calories'
@@ -12149,12 +12241,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:accept.confirm',
   'business:accept.date',
   'business:accept.noAddress',
+  'business:accept.noDays',
   'business:accept.placedBody',
   'business:accept.placedRunTitle',
   'business:accept.placedTitle',
   'business:accept.refusedTitle',
   'business:accept.repeat',
   'business:accept.repeatHint',
+  'business:accept.summary',
   'business:accept.title',
   'business:accept.total',
   'business:accept.totalPerDelivery',
@@ -12162,8 +12256,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:accept.window',
   'business:builder.add',
   'business:builder.addNamed',
+  'business:builder.another',
+  'business:builder.asideTitle',
   'business:builder.back',
+  'business:builder.backToQuotations',
+  'business:builder.beforeYouSend',
   'business:builder.cancel',
+  'business:builder.checkLines',
+  'business:builder.checkNoLines',
+  'business:builder.columnIndicative',
+  'business:builder.columnPacks',
   'business:builder.columnQuantity',
   'business:builder.columnValue',
   'business:builder.contactEmail',
@@ -12173,14 +12275,20 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:builder.contactTitle',
   'business:builder.deliveryDate',
   'business:builder.deliveryDatePlaceholder',
+  'business:builder.deliveryNotGiven',
   'business:builder.deliveryTitle',
   'business:builder.draftNote',
   'business:builder.emptyBody',
   'business:builder.emptyTitle',
   'business:builder.errorBelowMinimum',
+  'business:builder.errorContactEmail',
+  'business:builder.errorContactName',
   'business:builder.errorNoLines',
   'business:builder.errorTitle',
   'business:builder.home',
+  'business:builder.journeyAccept',
+  'business:builder.journeyOrder',
+  'business:builder.journeySent',
   'business:builder.kindPlural.bulk_package',
   'business:builder.kindPlural.meal',
   'business:builder.kindPlural.meal_plan',
@@ -12189,19 +12297,25 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:builder.linesTitle',
   'business:builder.loadErrorTitle',
   'business:builder.minimumShort',
+  'business:builder.noLines',
   'business:builder.noTier',
   'business:builder.noTierShort',
   'business:builder.notFoundBody',
   'business:builder.notFoundTitle',
+  'business:builder.notSent',
   'business:builder.note',
   'business:builder.noteHint',
   'business:builder.notePlaceholder',
   'business:builder.openList',
+  'business:builder.packs',
+  'business:builder.pickerLabel',
+  'business:builder.pickerPlaceholder',
   'business:builder.priceEach',
   'business:builder.quantityLabel',
   'business:builder.recurring',
   'business:builder.recurringHint',
   'business:builder.rejectedTitle',
+  'business:builder.removeColumn',
   'business:builder.removeNamed',
   'business:builder.requestEmpty',
   'business:builder.requestTitle',
@@ -12210,6 +12324,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:builder.searchClear',
   'business:builder.searchEmptyBody',
   'business:builder.searchEmptyTitle',
+  'business:builder.sentToast',
   'business:builder.submit',
   'business:builder.submitHint',
   'business:builder.successBody',
@@ -12229,6 +12344,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:catalogue.columnItem',
   'business:catalogue.columnLeadTime',
   'business:catalogue.columnMinimum',
+  'business:catalogue.columnPack',
   'business:catalogue.columnPrice',
   'business:catalogue.columnRecurring',
   'business:catalogue.columnWeekdays',
@@ -12237,8 +12353,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:catalogue.emptyTitle',
   'business:catalogue.emptyUnfilteredBody',
   'business:catalogue.emptyUnfilteredTitle',
+  'business:catalogue.figureAll',
   'business:catalogue.kindAll',
   'business:catalogue.kindLabel',
+  'business:catalogue.kindToken',
   'business:catalogue.leadTime',
   'business:catalogue.loadErrorTitle',
   'business:catalogue.mixedCurrency',
@@ -12250,6 +12368,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:catalogue.notFoundTitle',
   'business:catalogue.oneOffShort',
   'business:catalogue.open',
+  'business:catalogue.perPack',
   'business:catalogue.placeOrder',
   'business:catalogue.pricePerPack',
   'business:catalogue.privacyBody',
@@ -12307,12 +12426,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:decline.title',
   'business:item.addToCart',
   'business:item.addedToCart',
+  'business:item.atYourRate',
+  'business:item.code',
   'business:item.fieldDescription',
+  'business:item.kind',
   'business:item.noTiers',
   'business:item.notFoundBody',
   'business:item.notFoundTitle',
+  'business:item.packChip',
+  'business:item.packsLabel',
+  'business:item.photo',
   'business:item.placeOrder',
   'business:item.quote',
+  'business:item.rate',
   'business:item.recurringOrder',
   'business:item.tierBetween',
   'business:item.tierFrom',
@@ -12333,6 +12459,33 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:nav.quotationsSection',
   'business:nav.railTitle',
   'business:nav.windDown',
+  'business:overview.accept',
+  'business:overview.allQuotations',
+  'business:overview.awaitingPrice',
+  'business:overview.catalogue',
+  'business:overview.dateLine',
+  'business:overview.decline',
+  'business:overview.declined',
+  'business:overview.kitchen',
+  'business:overview.kpiAccepted',
+  'business:overview.kpiAwaiting',
+  'business:overview.kpiOpen',
+  'business:overview.kpiProgrammes',
+  'business:overview.latestSub',
+  'business:overview.latestTitle',
+  'business:overview.lines',
+  'business:overview.linesAtRates',
+  'business:overview.lookupTitle',
+  'business:overview.programmeTitle',
+  'business:overview.runningSince',
+  'business:overview.seeAll',
+  'business:overview.title',
+  'business:overview.view',
+  'business:overview.waitingEmpty',
+  'business:overview.waitingPriced',
+  'business:overview.waitingPricedNoExpiry',
+  'business:overview.waitingSubmitted',
+  'business:overview.waitingTitle',
   'business:partner.allKitchens',
   'business:partner.body',
   'business:partner.clearKitchen',
@@ -12348,6 +12501,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:partner.reference',
   'business:partner.sourceNote',
   'business:partner.title',
+  'business:picked.ask',
+  'business:picked.clear',
+  'business:picked.count',
+  'business:picked.label',
+  'business:picked.namesMore',
+  'business:picked.pickAll',
+  'business:picked.pickOne',
+  'business:picked.separator',
   'business:programme.active',
   'business:programme.columnHeadcount',
   'business:programme.columnLines',
@@ -12377,6 +12538,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:quotationStates.quoted',
   'business:quotationStates.submitted',
   'business:quotations.accept',
+  'business:quotations.acceptSchedule',
   'business:quotations.awaitingPrice',
   'business:quotations.awaitingPriceShort',
   'business:quotations.caption',
@@ -12407,10 +12569,12 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:quotations.filters.closed',
   'business:quotations.filters.open',
   'business:quotations.filters.quoted',
+  'business:quotations.groupToken',
   'business:quotations.home',
   'business:quotations.line',
   'business:quotations.linesTitle',
   'business:quotations.loadErrorTitle',
+  'business:quotations.mixLabel',
   'business:quotations.oneOff',
   'business:quotations.recurring',
   'business:quotations.searchLabel',
@@ -12431,6 +12595,26 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'business:schedule.emptyTitle',
   'business:schedule.line',
   'business:schedule.title',
+  'business:sheet.acceptedOn',
+  'business:sheet.acceptedTotal',
+  'business:sheet.columnLine',
+  'business:sheet.columnLineTotal',
+  'business:sheet.columnUnitPrice',
+  'business:sheet.decideBy',
+  'business:sheet.decisionTitle',
+  'business:sheet.declinedOn',
+  'business:sheet.noReason',
+  'business:sheet.orderTitle',
+  'business:sheet.progress',
+  'business:sheet.replyTo',
+  'business:sheet.requestTitle',
+  'business:sheet.stepAsked',
+  'business:sheet.stepDecision',
+  'business:sheet.stepPriced',
+  'business:sheet.stepPricing',
+  'business:sheet.whyDeclined',
+  'business:stepper.fewer',
+  'business:stepper.more',
   'business:title',
   'catalogue:card.calories',
   'catalogue:card.figure',

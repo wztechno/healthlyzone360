@@ -1,10 +1,11 @@
-import type { BreadcrumbItem, NavigationItem } from '@healthy360/design-system';
+import type { MenuItem, NavigationItem } from '@healthy360/design-system';
 import { usePathname, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { useCorporateProgrammesQuery, useQuotationsQuery } from '../../data/business-hooks.ts';
 import { useTrailLeafState } from '../../shell/area-trail.tsx';
+import type { DeskCrumb } from '../kitchen-admin/desk-kit/desk-trail.tsx';
 
 /**
  * The corporate area's chrome: the rail, the trail and the brand block — the kitchen's desk shell
@@ -124,54 +125,85 @@ export function useCorporateNavigation(): readonly NavigationItem[] {
 }
 
 /**
- * The crumbs for the current corporate route. Empty on the overview, where a trail naming the page
- * you are on is furniture — the caller's signal to draw the area title instead.
+ * The crumbs for the current corporate route, in the kitchen's pill trail (`DeskTrail`, Phase C):
  *
- * Two crumbs on a page, three on a record: the record's name is the leaf a screen names through
- * `useTrailLeaf`, and the crumb above it becomes the way back — to the list by closing the record
- * where it opened in place (a quotation), or by navigating where it is a route of its own (a
- * catalogue line, whose screen hands the trail a callback that returns to its programme).
+ * ```
+ *  (⌂) / Purchasing ⌄ / ( Test employee meals )            a page
+ *  (⌂) / Purchasing ⌄ / Quotations / ( QUO-2026-… )         a record open over its list
+ * ```
+ *
+ * Home is the overview. The module crumb's menu lists the Purchasing pages with the rail's counts.
+ * On a record, the page crumb becomes the way back — to the list by closing the record where it
+ * opened in place (a quotation), or by navigating where it is a route of its own (a catalogue line,
+ * whose screen hands the trail a callback that returns to its programme).
  */
-export function useCorporateTrail(): readonly BreadcrumbItem[] {
+export function useCorporateTrail(): readonly DeskCrumb[] {
     const { t } = useTranslation();
     const router = useRouter();
     const pathname = usePathname();
+    const navigation = useCorporateNavigation();
     const programmes = useCorporateProgrammesQuery();
     const { leaf, back } = useTrailLeafState();
 
-    return useMemo<readonly BreadcrumbItem[]>(() => {
+    return useMemo<readonly DeskCrumb[]>(() => {
         const route = corporateRoute(pathname);
-        if (route.kind === 'home') return [];
+        const overview = t('business:nav.overview');
+        if (route.kind === 'home') {
+            return [
+                { key: 'home', kind: 'current', label: overview, testID: 'corporate-crumb-home' },
+            ];
+        }
 
-        const home: BreadcrumbItem = {
+        const home: DeskCrumb = {
             key: 'home',
-            label: t('business:nav.overview'),
+            kind: 'home',
+            label: overview,
             testID: 'corporate-crumb-home',
             onPress: () => {
                 router.push(CORPORATE_HOME_HREF as never);
             },
         };
-        const toQuotations = () => {
-            router.push(CORPORATE_QUOTATIONS_HREF as never);
+        const pages: MenuItem[] = navigation
+            .filter((item) => item.group !== undefined)
+            .map((item) => ({
+                key: item.key,
+                label: item.label,
+                selected: item.active,
+                testID: `corporate-crumb-module-${item.key}`,
+                ...(item.count === undefined ? {} : { count: item.count }),
+                onSelect: item.onPress,
+            }));
+        const module: DeskCrumb = {
+            key: 'module',
+            kind: 'module',
+            label: t('business:nav.group'),
+            testID: 'corporate-crumb-module',
+            pages,
         };
 
-        // The page's own crumb, and whether pressing it does anything. It is a link whenever a
-        // record is open beneath it; otherwise it is the page, and the last crumb is never a link.
+        // The page's own crumb: the current pill, or — with a record open beneath it — the way back.
         const page = (
             key: string,
             label: string,
             onPress: (() => void) | null,
-        ): readonly BreadcrumbItem[] => {
+        ): readonly DeskCrumb[] => {
             const withLeaf = leaf !== null && onPress !== null;
             return [
                 home,
-                {
-                    key,
-                    label,
-                    testID: 'corporate-crumb-page',
-                    ...(withLeaf ? { onPress } : {}),
-                },
-                ...(withLeaf ? [{ key: 'leaf', label: leaf, testID: 'corporate-crumb-leaf' }] : []),
+                module,
+                withLeaf
+                    ? { key, kind: 'page', label, testID: 'corporate-crumb-page', onPress }
+                    : { key, kind: 'current', label, testID: 'corporate-crumb-page' },
+                ...(withLeaf
+                    ? [
+                          {
+                              key: 'leaf',
+                              kind: 'current' as const,
+                              label: leaf,
+                              testID: 'corporate-crumb-leaf',
+                          },
+                      ]
+                    : []),
             ];
         };
 
@@ -180,7 +212,7 @@ export function useCorporateTrail(): readonly BreadcrumbItem[] {
                 const programme = (programmes.data ?? []).find(
                     (candidate) => String(candidate.id) === route.programmeId,
                 );
-                return page('catalogue', programme?.name ?? t('business:nav.catalogue'), null);
+                return page('catalogue', programme?.name ?? t('business:nav.catalogue'), back);
             }
             case 'item':
                 return page('catalogue', t('business:nav.catalogue'), back);
@@ -189,14 +221,19 @@ export function useCorporateTrail(): readonly BreadcrumbItem[] {
             case 'new-quotation':
                 return [
                     home,
+                    module,
                     {
                         key: 'quotations',
+                        kind: 'page',
                         label: t('business:nav.quotations'),
                         testID: 'corporate-crumb-page',
-                        onPress: toQuotations,
+                        onPress: () => {
+                            router.push(CORPORATE_QUOTATIONS_HREF as never);
+                        },
                     },
                     {
                         key: 'leaf',
+                        kind: 'current',
                         label: t('business:nav.newQuotation'),
                         testID: 'corporate-crumb-leaf',
                     },
@@ -204,7 +241,7 @@ export function useCorporateTrail(): readonly BreadcrumbItem[] {
             case 'wind-down':
                 return page('wind-down', t('business:nav.windDown'), null);
             case 'other':
-                return [home];
+                return [{ ...home, kind: 'current', onPress: undefined }];
         }
-    }, [back, leaf, pathname, programmes.data, router, t]);
+    }, [back, leaf, navigation, pathname, programmes.data, router, t]);
 }

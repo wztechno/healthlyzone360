@@ -128,7 +128,11 @@
         "columnChannels": "القنوات",
         "columnRecurring": "الجدولة",
         "recurringShort": "دائم",
-        "oneOffShort": "لمرة واحدة"
+        "oneOffShort": "لمرة واحدة",
+        "columnPack": "العبوة",
+        "perPack": "/ {{size}}",
+        "figureAll": "كل البنود",
+        "kindToken": "النوع: {{kind}}"
     },
     "item": {
         "notFoundTitle": "لا يوجد بند بهذا العنوان",
@@ -146,7 +150,14 @@
         "placeOrder": "أكمل الطلب",
         "addedToCart": "أُضيف إلى سلة الشراء المؤسسية ({{items}} بند).",
         "recurringOrder": "أنشئ طلباً دائماً",
-        "fieldDescription": "الوصف"
+        "fieldDescription": "الوصف",
+        "kind": "بند الكتالوج",
+        "packChip": "عبوة {{size}}",
+        "rate": "سعرك",
+        "code": "رمز البند",
+        "packsLabel": "عبوات {{name}}",
+        "atYourRate": "{{value}} بسعرك",
+        "photo": "الصورة"
     },
     "builder": {
         "title": "إنشاء طلب تسعير",
@@ -214,7 +225,33 @@
             "meal": "الوجبات",
             "bulk_package": "العبوات بالجملة",
             "meal_plan": "خطط الوجبات"
-        }
+        },
+        "deliveryNotGiven": "غير محدد",
+        "backToQuotations": "العودة إلى عروض الأسعار",
+        "checkLines_one": "بند واحد بكمية",
+        "checkLines_other": "{{count}} بند بكمية",
+        "checkLines_zero": "لا بنود بكمية",
+        "checkLines_two": "بندان بكمية",
+        "checkLines_few": "{{count}} بنود بكمية",
+        "checkLines_many": "{{count}} بنداً بكمية",
+        "checkNoLines": "أضف بنداً واحداً على الأقل",
+        "columnPacks": "الكمية (عبوات)",
+        "columnIndicative": "تقديري",
+        "removeColumn": "إزالة",
+        "pickerLabel": "أضف بنداً من الكتالوج",
+        "pickerPlaceholder": "أضف بنداً…",
+        "noLines": "لا بنود بعد",
+        "errorContactName": "أدخل اسم جهة الاتصال.",
+        "errorContactEmail": "أدخل بريداً إلكترونياً يمكننا الرد عليه.",
+        "asideTitle": "هذا الطلب",
+        "packs": "العبوات",
+        "notSent": "لم يُرسل بعد",
+        "journeySent": "أُرسل",
+        "journeyAccept": "تقبله أنت",
+        "journeyOrder": "يُنشأ الطلب",
+        "another": "عرض سعر آخر",
+        "beforeYouSend": "قبل الإرسال",
+        "sentToast": "أُرسل الطلب إلى مدير حسابك"
     },
     "quotations": {
         "filterLabel": "اعرض",
@@ -263,7 +300,10 @@
         "columnContact": "جهة الاتصال",
         "columnOrder": "الطلب",
         "columnDeclineReason": "سبب الرفض",
-        "searchPlaceholder": "ابحث في عروض الأسعار بالمرجع"
+        "searchPlaceholder": "ابحث في عروض الأسعار بالمرجع",
+        "groupToken": "عرض: {{group}}",
+        "mixLabel": "{{open}} مفتوحة، {{quoted}} بانتظار قرارك، {{closed}} مغلقة",
+        "acceptSchedule": "قبول وجدولة"
     },
     "partner": {
         "title": "التزامات التوريد",
@@ -337,7 +377,9 @@
         "placedRunTitle_two": "تم تقديم طلبين أسبوعيين، أولهما {{order}}",
         "placedRunTitle_few": "تم تقديم {{count}} طلبات أسبوعية، أولها {{order}}",
         "placedRunTitle_many": "تم تقديم {{count}} طلبًا أسبوعيًا، أولها {{order}}",
-        "placedRunTitle_other": "تم تقديم {{count}} طلب أسبوعي، أولها {{order}}"
+        "placedRunTitle_other": "تم تقديم {{count}} طلب أسبوعي، أولها {{order}}",
+        "summary": "{{day}} · {{window}}",
+        "noDays": "لا يوجد لدى المطبخ يوم توصيل خلال الأسابيع الثلاثة القادمة."
     },
     "decline": {
         "title": "رفض {{reference}}",
@@ -346,5 +388,78 @@
         "reason": "السبب (اختياري)",
         "reasonPlaceholder": "مثال: يتجاوز ميزانيتنا لهذا الشهر",
         "failedTitle": "تعذّر رفض عرض السعر"
+    },
+    "overview": {
+        "title": "حساب الشركة",
+        "dateLine": "{{date}} · {{organisation}}",
+        "kpiAwaiting": "بانتظار قرارك",
+        "kpiOpen": "عروض أسعار مفتوحة",
+        "kpiAccepted": "مقبولة",
+        "kpiProgrammes": "برامج قيد التشغيل",
+        "waitingTitle": "بانتظارك",
+        "allQuotations": "كل عروض الأسعار",
+        "waitingPriced": "مُسعّر · {{lines}} · ينتهي {{date}}",
+        "waitingPricedNoExpiry": "مُسعّر · {{lines}}",
+        "waitingSubmitted": "لدى مدير حسابك · {{lines}}",
+        "awaitingPrice": "بانتظار السعر",
+        "waitingEmpty": "لا شيء بانتظارك.",
+        "view": "عرض",
+        "decline": "رفض",
+        "accept": "قبول",
+        "declined": "تم رفض {{reference}}",
+        "latestTitle": "أحدث عروض الأسعار",
+        "seeAll": "عرض الكل ({{count}})",
+        "latestSub": "{{lines}} · طُلب في {{date}}",
+        "lines_one": "بند واحد",
+        "lines_other": "{{count}} بند",
+        "programmeTitle": "برنامجك",
+        "catalogue": "الكتالوج",
+        "kitchen": "المطبخ",
+        "linesAtRates": "بنود بأسعارك",
+        "runningSince": "يعمل منذ",
+        "lookupTitle": "افتح بنداً برمزه",
+        "lines_zero": "لا بنود",
+        "lines_two": "بندان",
+        "lines_few": "{{count}} بنود",
+        "lines_many": "{{count}} بنداً"
+    },
+    "picked": {
+        "label": "البنود المختارة",
+        "count_one": "تم اختيار بند واحد",
+        "count_other": "تم اختيار {{count}} بند",
+        "count_zero": "لم يُختر أي بند",
+        "count_two": "تم اختيار بندين",
+        "count_few": "تم اختيار {{count}} بنود",
+        "count_many": "تم اختيار {{count}} بنداً",
+        "separator": "، ",
+        "namesMore": "{{names}} و{{count}} غيرها",
+        "clear": "مسح",
+        "ask": "اطلب سعراً",
+        "pickAll": "اختر كل البنود المعروضة",
+        "pickOne": "اختر {{name}}"
+    },
+    "stepper": {
+        "fewer": "عبوة أقل",
+        "more": "عبوة أكثر"
+    },
+    "sheet": {
+        "progress": "التقدم",
+        "stepAsked": "تم الطلب",
+        "stepPriced": "تم التسعير",
+        "stepPricing": "قيد التسعير",
+        "stepDecision": "قرارك",
+        "decideBy": "قبل {{date}}",
+        "acceptedTotal": "الإجمالي المقبول",
+        "requestTitle": "طلبك",
+        "replyTo": "الرد إلى",
+        "orderTitle": "الطلب",
+        "decisionTitle": "القرار",
+        "acceptedOn": "قُبل في",
+        "declinedOn": "رُفض في",
+        "whyDeclined": "سبب الرفض",
+        "noReason": "لم يُذكر",
+        "columnLine": "البند",
+        "columnUnitPrice": "سعر الوحدة",
+        "columnLineTotal": "إجمالي البند"
     }
 }
