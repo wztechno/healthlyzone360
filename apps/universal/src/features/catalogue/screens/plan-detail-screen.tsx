@@ -1,4 +1,4 @@
-import { Icon, MeterBar, cx } from '@healthy360/design-system';
+import { Icon, MeterBar, cx, LoadingSweep } from '@healthy360/design-system';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
 import type {
@@ -14,7 +14,7 @@ import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { StaffReturnButton } from '../../marketplace/staff-return-button.tsx';
 
@@ -1036,7 +1036,7 @@ function PriceCard({
                         disabled={restoring}
                         onPress={onSetUp}
                         className={cx(
-                            'group h-[54px] flex-row items-center justify-between rounded-2xl px-5',
+                            'group relative h-[54px] flex-row items-center justify-between overflow-hidden rounded-2xl px-5',
                             held === null
                                 ? 'bg-surface-brand hover:bg-surface-canopy'
                                 : 'border border-stroke bg-surface-raised hover:bg-surface-brand-subtle',
@@ -1053,27 +1053,32 @@ function PriceCard({
                                 : t('catalogue:plan.configureSignIn')}
                         </RNText>
                         {restoring ? (
-                            <ActivityIndicator size="small" />
-                        ) : (
-                            <View
-                                className={cx(
-                                    'h-8 w-8 items-center justify-center rounded-full transition duration-normal ease-standard',
+                            <LoadingSweep
+                                tint={
                                     held === null
-                                        ? 'bg-content-on-brand/20'
-                                        : 'bg-surface-brand-subtle',
-                                )}
-                            >
-                                <Icon
-                                    name="chevronForward"
-                                    size="sm"
-                                    className={
-                                        held === null
-                                            ? 'text-content-on-brand'
-                                            : 'text-content-on-brand-subtle'
-                                    }
-                                />
-                            </View>
-                        )}
+                                        ? 'bg-surface-raised opacity-40'
+                                        : 'bg-surface-brand opacity-20'
+                                }
+                            />
+                        ) : null}
+                        <View
+                            className={cx(
+                                'h-8 w-8 items-center justify-center rounded-full transition duration-normal ease-standard',
+                                held === null
+                                    ? 'bg-content-on-brand/20'
+                                    : 'bg-surface-brand-subtle',
+                            )}
+                        >
+                            <Icon
+                                name="chevronForward"
+                                size="sm"
+                                className={
+                                    held === null
+                                        ? 'text-content-on-brand'
+                                        : 'text-content-on-brand-subtle'
+                                }
+                            />
+                        </View>
                     </Pressable>
                 )}
                 <Pressable

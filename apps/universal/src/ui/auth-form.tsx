@@ -1,9 +1,8 @@
-import { Icon, cx, useMotion } from '@healthy360/design-system';
+import { Icon, cx, useMotion, LoadingSweep } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import {
-    ActivityIndicator,
     Animated,
     Easing,
     Platform,
@@ -405,18 +404,13 @@ export function AuthSubmit({
             accessibilityState={{ disabled: inert, busy }}
             onPress={onPress}
             className={cx(
-                'h-[54px] flex-row items-center justify-center gap-2.5 rounded-full bg-surface-brand shadow-elevation-3 transition duration-normal ease-standard',
+                'relative h-[54px] flex-row items-center justify-center gap-2.5 overflow-hidden rounded-full bg-surface-brand shadow-elevation-3 transition duration-normal ease-standard',
                 disabled ? 'opacity-45' : 'hover:-translate-y-px hover:opacity-90',
             )}
         >
-            {busy ? (
-                <ActivityIndicator size="small" />
-            ) : (
-                <>
-                    <RNText className="text-base font-bold text-content-on-brand">{label}</RNText>
-                    <Icon name="chevronForward" size="md" className="text-content-on-brand" />
-                </>
-            )}
+            {busy ? <LoadingSweep tint="bg-surface-raised opacity-40" /> : null}
+            <RNText className="text-base font-bold text-content-on-brand">{label}</RNText>
+            <Icon name="chevronForward" size="md" className="text-content-on-brand" />
         </Pressable>
     );
 }

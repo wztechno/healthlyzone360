@@ -1,7 +1,7 @@
-import { Icon, cx, useBreakpoint } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint, LoadingSweep } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
-import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { BackPill } from '../../ui/back-pill.tsx';
 import { ShopPhoneTopBar } from '../../ui/shop-phone-bar.tsx';
@@ -195,7 +195,7 @@ export function ExtraButton({
             accessibilityState={{ disabled: inert, busy }}
             onPress={onPress}
             className={cx(
-                'relative h-[54px] flex-row items-center justify-center gap-2.5 rounded-2xl px-5',
+                'relative h-[54px] flex-row items-center justify-center gap-2.5 overflow-hidden rounded-2xl px-5',
                 tone === 'secondary'
                     ? 'border border-stroke bg-surface-raised hover:bg-surface-brand-subtle'
                     : tone === 'danger'
@@ -204,19 +204,18 @@ export function ExtraButton({
                 disabled ? 'opacity-45' : '',
             )}
         >
-            {/* The label stays laid out while busy, so the button keeps its width. */}
-            <View
-                className={cx('flex-row items-center gap-2.5', busy ? 'opacity-0' : '')}
-                aria-hidden={busy}
-            >
-                <RNText className={cx('text-base font-bold', ink)}>{label}</RNText>
-                {icon === undefined ? null : <Icon name={icon} size="md" className={ink} />}
-            </View>
+            {/* Behind the label, which stays put, so the button keeps its width. */}
             {busy ? (
-                <View className="absolute inset-0 items-center justify-center">
-                    <ActivityIndicator size="small" />
-                </View>
+                <LoadingSweep
+                    tint={
+                        tone === 'secondary'
+                            ? 'bg-surface-brand opacity-20'
+                            : 'bg-surface-raised opacity-40'
+                    }
+                />
             ) : null}
+            <RNText className={cx('text-base font-bold', ink)}>{label}</RNText>
+            {icon === undefined ? null : <Icon name={icon} size="md" className={ink} />}
         </Pressable>
     );
 }
@@ -250,7 +249,7 @@ export function ExtraSmallButton({
             accessibilityState={{ disabled: inert, busy }}
             onPress={onPress}
             className={cx(
-                'h-[38px] min-w-[72px] flex-row items-center justify-center rounded-xl border px-3.5',
+                'relative h-[38px] min-w-[72px] flex-row items-center justify-center overflow-hidden rounded-xl border px-3.5',
                 tone === 'brand'
                     ? 'border-surface-brand bg-surface-brand'
                     : 'border-stroke bg-surface-raised hover:bg-surface-brand-subtle',
@@ -258,17 +257,22 @@ export function ExtraSmallButton({
             )}
         >
             {busy ? (
-                <ActivityIndicator size="small" />
-            ) : (
-                <RNText
-                    className={cx(
-                        'text-sm font-semibold',
-                        tone === 'brand' ? 'text-content-on-brand' : 'text-content-primary',
-                    )}
-                >
-                    {label}
-                </RNText>
-            )}
+                <LoadingSweep
+                    tint={
+                        tone === 'brand'
+                            ? 'bg-surface-raised opacity-40'
+                            : 'bg-surface-brand opacity-20'
+                    }
+                />
+            ) : null}
+            <RNText
+                className={cx(
+                    'text-sm font-semibold',
+                    tone === 'brand' ? 'text-content-on-brand' : 'text-content-primary',
+                )}
+            >
+                {label}
+            </RNText>
         </Pressable>
     );
 }

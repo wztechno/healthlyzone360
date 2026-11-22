@@ -5,7 +5,14 @@ import type {
     KitchenOrderFulfilmentType,
     OrderStepTimes,
 } from '@healthy360/api-client/contracts';
-import { Icon, cx, useBreakpoint, useMotion, useToast } from '@healthy360/design-system';
+import {
+    Icon,
+    cx,
+    useBreakpoint,
+    useMotion,
+    useToast,
+    LoadingSweep,
+} from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type { Money } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -13,15 +20,7 @@ import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-    ActivityIndicator,
-    Animated,
-    Easing,
-    Platform,
-    Pressable,
-    Text as RNText,
-    View,
-} from 'react-native';
+import { Animated, Easing, Platform, Pressable, Text as RNText, View } from 'react-native';
 
 import { usePrototypeAction } from '../../prototype/index.ts';
 import { dishOptionsLine } from '../../ui/dish-choices.tsx';
@@ -648,21 +647,22 @@ function SoftButton({
             accessibilityState={{ disabled: busy, busy }}
             onPress={onPress}
             className={cx(
-                'h-11 flex-row items-center gap-2 rounded-[14px] border px-4',
+                'relative h-11 flex-row items-center gap-2 overflow-hidden rounded-[14px] border px-4',
                 primary
                     ? 'border-surface-brand bg-surface-brand hover:opacity-90'
                     : 'border-stroke bg-surface-raised hover:bg-surface-brand-subtle',
             )}
         >
             {busy ? (
-                <ActivityIndicator size="small" />
-            ) : (
-                <Icon
-                    name={icon}
-                    size="sm"
-                    className={primary ? 'text-content-on-brand' : 'text-content-primary'}
+                <LoadingSweep
+                    tint={primary ? 'bg-surface-raised opacity-40' : 'bg-surface-brand opacity-20'}
                 />
-            )}
+            ) : null}
+            <Icon
+                name={icon}
+                size="sm"
+                className={primary ? 'text-content-on-brand' : 'text-content-primary'}
+            />
             <RNText
                 className={cx(
                     'text-sm font-semibold',

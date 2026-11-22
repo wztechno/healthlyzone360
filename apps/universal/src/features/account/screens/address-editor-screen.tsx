@@ -11,13 +11,14 @@ import {
     TextInputField,
     cx,
     useToast,
+    LoadingSweep,
 } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type { ServiceAreaId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, Text as RNText, TextInput, View } from 'react-native';
+import { Pressable, Text as RNText, TextInput, View } from 'react-native';
 
 import {
     toFailure,
@@ -677,17 +678,16 @@ export function AddressEditorScreen({ addressId, returnTo }: AddressEditorScreen
                                     aria-busy={saving}
                                     accessibilityState={{ busy: saving, disabled: saving }}
                                     onPress={save}
-                                    className="h-12 flex-row items-center gap-2 rounded-[14px] bg-surface-brand px-5 hover:opacity-90"
+                                    className="relative h-12 flex-row items-center gap-2 overflow-hidden rounded-[14px] bg-surface-brand px-5 hover:opacity-90"
                                 >
                                     {saving ? (
-                                        <ActivityIndicator size="small" />
-                                    ) : (
-                                        <Icon
-                                            name="check"
-                                            size="sm"
-                                            className="text-content-on-brand"
-                                        />
-                                    )}
+                                        <LoadingSweep tint="bg-surface-raised opacity-40" />
+                                    ) : null}
+                                    <Icon
+                                        name="check"
+                                        size="sm"
+                                        className="text-content-on-brand"
+                                    />
                                     <RNText className="text-sm font-bold text-content-on-brand">
                                         {t('account:addresses.save')}
                                     </RNText>

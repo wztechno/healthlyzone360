@@ -451,6 +451,8 @@ export { Collapse } from './motion/collapse.tsx';
 export type { CollapseProps } from './motion/collapse.tsx';
 export { Shimmer } from './motion/shimmer.tsx';
 export type { ShimmerProps } from './motion/shimmer.tsx';
+export { LoadingSweep } from './motion/loading-sweep.tsx';
+export type { LoadingSweepProps } from './motion/loading-sweep.tsx';
 export { useAnimatedNumber } from './motion/use-animated-number.ts';
 export type { UseAnimatedNumberOptions } from './motion/use-animated-number.ts';
 export { PageTransition } from './motion/page-transition.tsx';
