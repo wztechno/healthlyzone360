@@ -2,6 +2,7 @@ import {
     Badge,
     Callout,
     Cascade,
+    Icon,
     InfoTip,
     RecordWindowFieldGrid,
     Stack,
@@ -22,11 +23,13 @@ import type { RecordCanopyCaption, RecordCanopyTone } from './record-canopy.tsx'
 import {
     RecordFigures,
     RecordSheetHead,
+    RecordSteps,
     RecordThumb,
     SheetCard,
     SheetColumns,
     SheetFacts,
 } from './record-sheet.tsx';
+import type { SheetStep } from './record-sheet.tsx';
 import { RecordTile } from './record-tiles.tsx';
 
 /**
@@ -176,6 +179,22 @@ export interface RecordViewPageProps {
      * `updatedBy` go to the head instead of the Details card.
      */
     readonly figureKeys?: readonly string[] | undefined;
+    /** `sheet` only: a figure's tone by its field key — an expiry still to act on is `warning`. */
+    readonly figureTones?: Readonly<Record<string, 'muted' | 'warning'>> | undefined;
+    /**
+     * `sheet` only: the record's progress, a strip between the head and the figures — a supply
+     * order's Draft → Issued → Received, a quotation's Asked → Priced → Your decision.
+     */
+    readonly steps?: { readonly label: string; readonly steps: readonly SheetStep[] } | undefined;
+    /** `sheet` only: the `lines` card spans both columns, above them — a quotation's lines. */
+    readonly linesWide?: boolean | undefined;
+    /** `sheet` only: what the `lines` card says at its end — "2 lines". */
+    readonly linesCount?: string | undefined;
+    /**
+     * `sheet` only: a glyph in the head's picture box, for a record with no photograph — a
+     * quotation's document. `photo` wins when both are given.
+     */
+    readonly headIcon?: IconName | undefined;
     /** Translated. The window's upper label, where it is not the record's `kind`. */
     readonly eyebrow?: string | undefined;
     readonly testID: string;
@@ -485,6 +504,11 @@ function RecordSheetView({
     media,
     photo,
     figureKeys = [],
+    figureTones = {},
+    steps,
+    linesWide = false,
+    linesCount,
+    headIcon,
     primaryAction,
     actions,
     headerActions,
@@ -539,7 +563,21 @@ function RecordSheetView({
                     titleTestID={`${testID}-title`}
                     title={title}
                     media={
-                        photo === undefined ? undefined : (
+                        photo === undefined ? (
+                            headIcon === undefined ? undefined : (
+                                <View
+                                    testID={`${testID}-head-icon`}
+                                    aria-hidden
+                                    className="h-16 w-16 items-center justify-center rounded-xl border border-stroke-subtle bg-surface-sunken"
+                                >
+                                    <Icon
+                                        name={headIcon}
+                                        size="lg"
+                                        className="text-content-secondary"
+                                    />
+                                </View>
+                            )
+                        ) : (
                             <RecordThumb
                                 assetId={photo.assetId}
                                 photoUrl={photo.photoUrl}
@@ -603,13 +641,26 @@ function RecordSheetView({
                     actions={headerActions}
                 />
 
+                {steps === undefined ? null : (
+                    <RecordSteps
+                        testID={`${testID}-steps`}
+                        label={steps.label}
+                        steps={steps.steps}
+                        noValue={dash}
+                    />
+                )}
+
                 <RecordFigures
                     testID={`${testID}-figures`}
                     figures={figureFields.map((field) => ({
                         key: field.key,
                         label: field.label,
                         value: field.value,
-                        ...(field.value === dash ? { tone: 'muted' as const } : {}),
+                        ...(field.value === dash
+                            ? { tone: 'muted' as const }
+                            : figureTones[field.key] === undefined
+                              ? {}
+                              : { tone: figureTones[field.key] }),
                         testID: `${testID}-field-${field.key}`,
                         valueTestID: `${testID}-field-${field.key}-value`,
                     }))}
@@ -625,6 +676,25 @@ function RecordSheetView({
                     testID={`${testID}-body`}
                     startTestID={`${testID}-main`}
                     endTestID={`${testID}-rail`}
+                    {...(linesWide && lines !== undefined
+                        ? {
+                              top: (
+                                  <SheetCard
+                                      testID={`${testID}-lines`}
+                                      title={linesTitle}
+                                      trailing={
+                                          linesCount === undefined ? undefined : (
+                                              <Text tone="secondary" variant="label">
+                                                  {linesCount}
+                                              </Text>
+                                          )
+                                      }
+                                  >
+                                      {lines}
+                                  </SheetCard>
+                              ),
+                          }
+                        : {})}
                     start={
                         <>
                             {detailFields.length === 0 ? null : (
@@ -652,7 +722,7 @@ function RecordSheetView({
                             {sections.map((section) => (
                                 <SheetSection key={section.key} section={section} testID={testID} />
                             ))}
-                            {lines === undefined ? null : (
+                            {lines === undefined || linesWide ? null : (
                                 <SheetCard testID={`${testID}-lines`} title={linesTitle}>
                                     {lines}
                                 </SheetCard>

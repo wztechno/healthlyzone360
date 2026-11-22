@@ -14,6 +14,7 @@
  * | `.drv` `.cb`      | `ChoiceRow`        | `FilterChip` / choose buttons in a dialog |
  * | `.dots.more`      | `DeskRowMenu`      | `RowActionsMenu` (or `rowActionsLook="desk"`) |
  * | `.dtl`            | `DeskToggleTile`   | `FilterChip` for a record's own multi-choice |
+ * | `.chipset`        | `DeskChoiceChips`  | a `Select` over a few short choices (on `/showcase-corporate`) |
  * | Show columns      | `DeskColumnPicker` | `ColumnPicker`              |
  * | Breadcrumb board  | `DeskTrail`        | `Breadcrumbs` in the kitchen top bar |
  *
@@ -23,6 +24,8 @@ export { ChoiceRow, initialsOf } from './choice-row.tsx';
 export { DeskButton, DeskIconButton } from './desk-button.tsx';
 export type { DeskButtonProps, DeskButtonVariant } from './desk-button.tsx';
 export { DeskCheckbox } from './desk-checkbox.tsx';
+export { DeskChoiceChips } from './desk-choice-chips.tsx';
+export type { DeskChoiceChip } from './desk-choice-chips.tsx';
 export { DeskChip } from './desk-chip.tsx';
 export { DeskColumnPicker } from './desk-column-picker.tsx';
 export { DeskRowMenu } from './desk-row-menu.tsx';
