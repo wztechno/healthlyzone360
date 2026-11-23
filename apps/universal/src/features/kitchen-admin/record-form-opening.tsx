@@ -1,5 +1,4 @@
 import {
-    Badge,
     Dialog,
     FormIssueBanner,
     Inline,
@@ -23,8 +22,16 @@ import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
 
 import { DeskButton } from './desk-kit/desk-button.tsx';
-import { useSaveBar } from './save-bar.tsx';
-import type { SaveBarAction } from './save-bar.tsx';
+import { UnsavedMark } from './unsaved-mark.tsx';
+
+/** The editor's commit, drawn last among the header's actions. */
+export interface RecordFormSave {
+    readonly label: string;
+    readonly onPress: () => void;
+    readonly testID: string;
+    readonly loading?: boolean | undefined;
+    readonly disabled?: boolean | undefined;
+}
 /**
  * The opening of a Catalogue Forms record page, for the forms that do not draw their own.
  *
@@ -67,18 +74,11 @@ export interface RecordFormOpeningProps<Step extends string> {
     readonly details?: ReactNode | undefined;
     /** At the inline end — Cancel, then any lifecycle act. The commit goes in `save`. */
     readonly actions?: ReactNode | undefined;
-    /**
-     * The commit. In the kitchen layout it is drawn in the save bar at the page's foot, while there
-     * is something to save; a screen rendered on its own draws it last among the actions.
-     */
-    readonly save?: SaveBarAction | undefined;
-    /** A record never saved: the save bar stays up until it is. */
+    /** The commit, drawn last among the header's actions. */
+    readonly save?: RecordFormSave | undefined;
+    /** A record never saved. Kept for the callers; the header no longer draws anything for it. */
     readonly creating?: boolean | undefined;
-    /**
-     * Draws the commit at the end of the header's actions even in the kitchen layout, and no save
-     * bar at the foot — the plan and supplier editors' choice (2026-11-15). The unsaved marker
-     * stays beside the title, and Cancel — first among `actions` — is how unsaved work is dropped.
-     */
+    /** Kept for the callers: the commit is always in the header since the save bar went (2026-11-23). */
     readonly saveInHeader?: boolean | undefined;
     readonly errors?:
         { readonly summary: string; readonly items: readonly FormIssueItem[] } | undefined;
@@ -103,8 +103,6 @@ export function RecordFormOpening<Step extends string>({
     details,
     actions,
     save,
-    creating,
-    saveInHeader = false,
     errors,
     warnings,
     steps,
@@ -138,20 +136,6 @@ export function RecordFormOpening<Step extends string>({
         testID: `${testID}-issues-warnings`,
     });
 
-    // The save bar takes the unsaved marker and the commit, where the kitchen layout draws one —
-    // unless the page keeps its commit in the header.
-    const barDrawn = useSaveBar(
-        saveInHeader
-            ? null
-            : {
-                  dirty,
-                  creating,
-                  toFix: errors?.items.length ?? 0,
-                  save,
-                  testID,
-              },
-    );
-
     const showErrors = !inTray && errors !== undefined && errors.items.length > 0;
     const showWarnings = !inTray && warnings !== undefined && warnings.items.length > 0;
 
@@ -165,19 +149,11 @@ export function RecordFormOpening<Step extends string>({
                 titleAside={
                     <Inline space="xs" align="center" wrap testID={`${testID}-meta`}>
                         {badges}
-                        {dirty && !barDrawn ? (
-                            <Badge
-                                variant="label"
-                                testID={`${testID}-dirty`}
-                                tone="warning"
-                                icon="warning"
-                                label={t('kitchen:editor.unsaved')}
-                            />
-                        ) : null}
+                        {dirty ? <UnsavedMark testID={`${testID}-dirty`} /> : null}
                     </Inline>
                 }
                 primaryAction={
-                    actions === undefined && (save === undefined || barDrawn) ? undefined : (
+                    actions === undefined && save === undefined ? undefined : (
                         <Inline
                             space="xs"
                             align="center"
@@ -186,7 +162,7 @@ export function RecordFormOpening<Step extends string>({
                             testID={`${testID}-actions`}
                         >
                             {actions}
-                            {save === undefined || barDrawn ? null : (
+                            {save === undefined ? null : (
                                 <DeskButton
                                     testID={save.testID}
                                     label={save.label}
