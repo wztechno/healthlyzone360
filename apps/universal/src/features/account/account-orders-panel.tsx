@@ -1,10 +1,10 @@
 import type { PlacedOrder } from '@healthy360/api-client/contracts';
-import { Icon, cx, useBreakpoint } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint, LoadingSweep } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { useMyOrdersQuery } from '../../data/commerce-hooks.ts';
 import { TINT_FILL, TINT_INK, TINT_INK_FILL } from '../catalogue/shelf-tints.ts';
@@ -444,13 +444,12 @@ export function AccountOrdersPanel() {
                             onPress={() => {
                                 void orders.fetchNextPage();
                             }}
-                            className="h-[46px] flex-row items-center gap-2 rounded-full bg-content-primary px-6 hover:opacity-90"
+                            className="relative h-[46px] flex-row items-center gap-2 overflow-hidden rounded-full bg-content-primary px-6 hover:opacity-90"
                         >
                             {orders.isFetchingNextPage ? (
-                                <ActivityIndicator size="small" />
-                            ) : (
-                                <Icon name="chevronDown" size="sm" className="text-surface-base" />
-                            )}
+                                <LoadingSweep tint="bg-surface-raised opacity-40" />
+                            ) : null}
+                            <Icon name="chevronDown" size="sm" className="text-surface-base" />
                             <RNText className="text-sm font-bold text-surface-base">
                                 {t('account:orders.more')}
                             </RNText>

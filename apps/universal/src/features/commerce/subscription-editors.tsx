@@ -1,9 +1,9 @@
-import { Callout, Icon, cx } from '@healthy360/design-system';
+import { Callout, Icon, cx, LoadingSweep } from '@healthy360/design-system';
 import type { SubscriptionBalance, SubscriptionQuote } from '@healthy360/api-client/contracts';
 import type { SubscriptionState } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { toFailure } from '../../data/commerce-hooks.ts';
 import {
@@ -526,14 +526,22 @@ export function EditorButton({
             accessibilityState={{ disabled: inert, busy: pending }}
             onPress={onPress}
             className={cx(
-                'h-8 flex-row items-center justify-center gap-1.5 rounded-full border px-3',
+                'relative h-8 flex-row items-center justify-center gap-1.5 overflow-hidden rounded-full border px-3',
                 tone === 'primary'
                     ? 'border-content-primary bg-content-primary'
                     : 'border-stroke bg-surface-raised hover:bg-surface-brand-subtle',
                 inert ? 'opacity-50' : '',
             )}
         >
-            {pending ? <ActivityIndicator size="small" /> : null}
+            {pending ? (
+                <LoadingSweep
+                    tint={
+                        tone === 'primary'
+                            ? 'bg-surface-raised opacity-40'
+                            : 'bg-surface-brand opacity-20'
+                    }
+                />
+            ) : null}
             <RNText
                 className={cx(
                     'text-xs font-semibold',

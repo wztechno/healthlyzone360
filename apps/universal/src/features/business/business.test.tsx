@@ -32,6 +32,7 @@ import {
 import { page } from '../../testing/stub-repositories.ts';
 import type { RepositoryOverrides } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
+import { deliveryDays } from './accept-quotation-dialog.tsx';
 import { validateDraft } from './draft.ts';
 import type { DraftContact } from './draft.ts';
 import {
@@ -50,7 +51,7 @@ import { CorporateDashboardScreen } from './screens/corporate-dashboard-screen.t
 import { PartnerCommitmentsScreen } from './screens/partner-commitments-screen.tsx';
 import { PartnerScheduleScreen } from './screens/partner-schedule-screen.tsx';
 import { QuotationBuilderScreen } from './screens/quotation-builder-screen.tsx';
-import { QuotationsScreen } from './screens/quotations-screen.tsx';
+import { QuotationsScreen, quotationSteps } from './screens/quotations-screen.tsx';
 
 /**
  * The B2B surfaces, against a world this file authors.
@@ -89,10 +90,12 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
     default: () => ({ width: 1280, height: 900, scale: 1, fontScale: 1 }),
 }));
 
+const mockPush = jest.fn();
+
 jest.mock('expo-router', () => ({
     __esModule: true,
     useRouter: () => ({
-        push: jest.fn(),
+        push: mockPush,
         replace: jest.fn(),
         setParams: jest.fn(),
         back: jest.fn(),
@@ -267,6 +270,8 @@ const SUBMITTED_QUOTATION: Quotation = {
     note: 'Weekly, Monday to Thursday. Reception delivery before 11:30 please.',
     requestedAt: '2026-07-28T07:20:00.000Z',
     respondedAt: null,
+    quotedAt: null,
+    decidedAt: null,
     expiresAt: null,
     contactName: null,
     contactEmail: null,
@@ -298,6 +303,8 @@ const QUOTED_QUOTATION: Quotation = {
     note: 'Trial pallet run, four weeks.',
     requestedAt: '2026-07-21T06:05:00.000Z',
     respondedAt: '2026-07-23T12:40:00.000Z',
+    quotedAt: '2026-07-23T12:40:00.000Z',
+    decidedAt: null,
     expiresAt: '2026-08-20T23:59:59.000Z',
     contactName: null,
     contactEmail: null,
@@ -449,6 +456,8 @@ function businessWorld(seed: Partial<WorldSeed> = {}): BusinessWorld {
                     note: request.note ?? null,
                     requestedAt: '2026-08-01T09:00:00.000Z',
                     respondedAt: null,
+                    quotedAt: null,
+                    decidedAt: null,
                     expiresAt: null,
                     contactName: request.contactName,
                     contactEmail: request.contactEmail,
@@ -566,6 +575,55 @@ describe('the supply calendar', () => {
     });
 });
 
+describe('the quotation sheet', () => {
+    const t = ((key: string, options?: { date?: string }) =>
+        options?.date === undefined ? key : `${key}(${options.date})`) as never;
+    const date = (value: string) => value.slice(0, 10);
+
+    it('reads its progress off the priced and decided dates, which the API keeps apart', () => {
+        const accepted: Quotation = {
+            ...QUOTED_QUOTATION,
+            state: 'accepted',
+            quotedAt: '2026-07-23T12:40:00.000Z' as Quotation['quotedAt'],
+            decidedAt: '2026-07-25T08:00:00.000Z' as Quotation['decidedAt'],
+        };
+        const steps = quotationSteps(accepted, t, date);
+        expect(steps.map((step) => [step.key, step.at, step.state])).toEqual([
+            ['asked', date(accepted.requestedAt), 'done'],
+            ['priced', '2026-07-23', 'done'],
+            ['decision', '2026-07-25', 'done'],
+        ]);
+    });
+
+    it('leaves the price and the decision open on a request nobody has priced', () => {
+        const steps = quotationSteps(SUBMITTED_QUOTATION, t, date);
+        expect(steps.map((step) => step.state)).toEqual(['done', 'partial', 'pending']);
+    });
+});
+
+describe('the delivery days offered on accept', () => {
+    it('skips the days no window runs on, and offers seven', () => {
+        // Monday 2 November 2026; a kitchen that does not deliver on Sundays (7).
+        const windows = [
+            {
+                slot: { code: 'lunch', startsAt: '11:00', endsAt: '14:00' },
+                weekdays: [1, 2, 3, 4, 5, 6],
+            },
+        ];
+        const days = deliveryDays('2026-11-02', windows);
+        expect(days).toHaveLength(7);
+        expect(days).not.toContain('2026-11-08');
+        expect(days[6]).toBe('2026-11-09');
+    });
+
+    it('treats a window with no weekdays as running every day', () => {
+        const windows = [
+            { slot: { code: 'lunch', startsAt: '11:00', endsAt: '14:00' }, weekdays: [] },
+        ];
+        expect(deliveryDays('2026-11-02', windows)[6]).toBe('2026-11-08');
+    });
+});
+
 describe('quotation draft validation', () => {
     const translate = (key: string) => key;
     const contact: DraftContact = {
@@ -608,34 +666,43 @@ describe('quotation draft validation', () => {
 /* ══ the corporate dashboard ═══════════════════════════════════════════════════════════════════ */
 
 describe('corporate dashboard', () => {
-    it('lists every programme the account buys through, and says where the list comes from', async () => {
+    it('draws the four figures, what is waiting on you, and every programme', async () => {
         const world = businessWorld();
         await renderStubScreen(<CorporateDashboardScreen />, {
             session: buyerSession(),
             repositories: world.overrides,
         });
 
-        expect(screen.getByTestId('corporate-programme-source')).toBeTruthy();
-        await waitFor(() => {
-            expect(screen.getByTestId('corporate-programme-list')).toBeTruthy();
-        });
-
-        // Two programmes authored, two rows — the count is derived from the world, not written down.
+        for (const key of ['awaiting', 'open', 'accepted', 'programmes']) {
+            expect(screen.getByTestId(`corporate-dashboard-stats-${key}`)).toBeTruthy();
+        }
+        // Two programmes authored, two cards — the count is derived from the world, not written down.
         await waitFor(() => {
             expect(screen.getAllByTestId(/^corporate-programme-[0-9a-f-]+-name$/)).toHaveLength(2);
         });
         for (const programme of [STAFF_PROGRAMME, WHOLESALE_PROGRAMME]) {
-            const base = `corporate-programme-${String(programme.id)}`;
             expect(
-                screen.getByTestId(`corporate-programme-list-row-${String(programme.id)}`),
+                screen.getByTestId(`corporate-programme-${String(programme.id)}-name`),
             ).toBeTruthy();
-            expect(screen.getByTestId(`${base}-name`)).toBeTruthy();
-            expect(screen.getByTestId(`${base}-headcount`)).toBeTruthy();
-            expect(screen.getByTestId(`${base}-term`)).toBeTruthy();
+            expect(
+                screen.getByTestId(`corporate-programme-${String(programme.id)}-term`),
+            ).toBeTruthy();
         }
+        // The priced quotation waits on the buyer, with Accept and Decline on its row.
+        await waitFor(() => {
+            expect(
+                screen.getByTestId(`corporate-waiting-${QUOTED_QUOTATION.reference}-accept`),
+            ).toBeTruthy();
+        });
+        expect(
+            screen.getByTestId(`corporate-waiting-${QUOTED_QUOTATION.reference}-decline`),
+        ).toBeTruthy();
+        expect(screen.getByTestId('corporate-dashboard-stats-awaiting-value')).toHaveTextContent(
+            '1',
+        );
     });
 
-    it('marks the per-person subsidy as a contract price, because it is one', async () => {
+    it('marks a waiting total as a contract price, because it is one', async () => {
         const world = businessWorld();
         await renderStubScreen(<CorporateDashboardScreen />, {
             session: buyerSession(),
@@ -644,16 +711,20 @@ describe('corporate dashboard', () => {
 
         await waitFor(() => {
             expect(
-                screen.getByTestId(contractPriceTestId(`subsidy-${String(STAFF_PROGRAMME.id)}`)),
-            ).toBeTruthy();
+                screen.getAllByTestId(
+                    contractPriceTestId(`overview-total-${QUOTED_QUOTATION.reference}`),
+                ).length,
+            ).toBeGreaterThan(0);
         });
-        // The unsubsidised programme says so rather than rendering a marked zero.
+        // The unpriced request carries no marked total.
         expect(
-            screen.getByTestId(`corporate-programme-${String(WHOLESALE_PROGRAMME.id)}-no-subsidy`),
-        ).toBeTruthy();
+            screen.queryByTestId(
+                contractPriceTestId(`overview-total-${SUBMITTED_QUOTATION.reference}`),
+            ),
+        ).toBeNull();
     });
 
-    it('summarises the outstanding quotations by reference', async () => {
+    it('summarises the latest quotations by reference', async () => {
         const world = businessWorld();
         await renderStubScreen(<CorporateDashboardScreen />, {
             session: buyerSession(),
@@ -674,7 +745,7 @@ describe('corporate dashboard', () => {
 /* ══ the negotiated catalogue ══════════════════════════════════════════════════════════════════ */
 
 describe('corporate catalogue', () => {
-    it('renders a contract price, a minimum order and a lead time on every line', async () => {
+    it('renders a contract price and the pack on every line, and offers no basket', async () => {
         const world = businessWorld();
         await renderStubScreen(
             <CorporateCatalogueScreen programmeId={String(STAFF_PROGRAMME_ID)} />,
@@ -687,10 +758,11 @@ describe('corporate catalogue', () => {
             ).toBeTruthy();
         });
         expect(screen.getByTestId(contractPriceTestId(STAFF_LUNCH_BOX.id))).toBeTruthy();
-        expect(screen.getByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}-minimum`)).toBeTruthy();
-        expect(screen.getByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}-lead-time`)).toBeTruthy();
-        expect(screen.getByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}-weekdays`)).toBeTruthy();
-        expect(screen.getByTestId('corporate-catalogue-stats-currency')).toBeTruthy();
+        expect(screen.getByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}-pack`)).toBeTruthy();
+        expect(screen.getByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}-kind`)).toBeTruthy();
+        // A corporate buyer asks for a price; there is nothing to put in a basket.
+        expect(screen.queryByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}-cart`)).toBeNull();
+        expect(screen.queryByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}-order`)).toBeNull();
 
         // The catalogue is scoped to the programme by the contract, so the other programme's line
         // must not be here.
@@ -710,10 +782,9 @@ describe('corporate catalogue', () => {
             expect(screen.getByTestId(contractPriceTestId(WHOLESALE_PALLET.id))).toBeTruthy();
         });
         expect(screen.getAllByText(/SAR/).length).toBeGreaterThan(0);
-
-        // The B2B price says what it buys; the staff line, priced as itself, does not.
-        expect(screen.getByTestId(contractPriceTestId(WHOLESALE_PALLET.id))).toHaveTextContent(
-            /\/ 12 kg$/,
+        // The B2B price says what it buys.
+        expect(screen.getByTestId(`catalogue-item-${WHOLESALE_PALLET.id}-pack`)).toHaveTextContent(
+            '12 kg',
         );
     });
 
@@ -731,7 +802,7 @@ describe('corporate catalogue', () => {
         });
 
         // The wholesale programme holds a bulk package and no meals.
-        fireEvent.press(screen.getByTestId('corporate-catalogue-toolbar-status-meal'));
+        fireEvent.press(screen.getByTestId('corporate-catalogue-toolbar-figure-meal'));
         await waitFor(() => {
             expect(screen.getByTestId('corporate-catalogue-empty')).toBeTruthy();
         });
@@ -742,6 +813,30 @@ describe('corporate catalogue', () => {
                 screen.getByTestId(`corporate-catalogue-list-row-${WHOLESALE_PALLET.id}`),
             ).toBeTruthy();
         });
+    });
+
+    it('gathers picked lines in the bar and asks for a price on all of them', async () => {
+        const world = businessWorld();
+        await renderStubScreen(
+            <CorporateCatalogueScreen programmeId={String(STAFF_PROGRAMME_ID)} />,
+            { session: buyerSession(), repositories: world.overrides },
+        );
+
+        await waitFor(() => {
+            expect(screen.getByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}-pick`)).toBeTruthy();
+        });
+        expect(screen.queryByTestId('corporate-catalogue-picked')).toBeNull();
+
+        fireEvent.press(screen.getByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}-pick`));
+        await waitFor(() => {
+            expect(screen.getByTestId('corporate-catalogue-picked-count')).toHaveTextContent(
+                '1 line picked',
+            );
+        });
+        fireEvent.press(screen.getByTestId('corporate-catalogue-picked-ask'));
+        expect(mockPush).toHaveBeenCalledWith(
+            `/corporate/quotations/new?programme=${String(STAFF_PROGRAMME_ID)}&items=${STAFF_LUNCH_BOX.id}`,
+        );
     });
 
     it('answers a malformed programme address with a not-found rather than a failure', async () => {
@@ -756,24 +851,34 @@ describe('corporate catalogue', () => {
 });
 
 describe('catalogue line detail', () => {
-    it('prices every volume tier, and marks each one', async () => {
+    it('shows the rate, values the packs asked about, and carries them to a quotation', async () => {
         const world = businessWorld();
-        await renderStubScreen(<CatalogueItemScreen itemId={STAFF_LUNCH_BOX.id} />, {
-            session: buyerSession(),
-            repositories: world.overrides,
-        });
+        await renderStubScreen(
+            <CatalogueItemScreen
+                itemId={STAFF_LUNCH_BOX.id}
+                programmeId={String(STAFF_PROGRAMME_ID)}
+            />,
+            { session: buyerSession(), repositories: world.overrides },
+        );
 
         await waitFor(() => {
             expect(screen.getByTestId('catalogue-item-screen-title')).toBeTruthy();
         });
+        expect(screen.getByTestId('catalogue-item-screen-field-rate')).toBeTruthy();
         expect(
             screen.getByTestId(contractPriceTestId(`headline-${STAFF_LUNCH_BOX.id}`)),
         ).toBeTruthy();
-        for (const tier of STAFF_LUNCH_BOX.volumeTiers) {
-            expect(screen.getByTestId(contractPriceTestId(`tier-${String(tier.id)}`))).toBeTruthy();
-        }
-        // Three authored rungs, three marked prices plus the headline.
-        expect(screen.getAllByTestId(/^contract-price-tier-/)).toHaveLength(3);
+        // No basket: the line's one action is to ask for a price.
+        expect(screen.queryByTestId('catalogue-item-cart')).toBeNull();
+
+        fireEvent.press(screen.getByTestId('catalogue-item-packs-increment'));
+        await waitFor(() => {
+            expect(screen.getByTestId('catalogue-item-packs-input').props.value).toBe('2');
+        });
+        fireEvent.press(screen.getByTestId('catalogue-item-quote'));
+        expect(mockPush).toHaveBeenCalledWith(
+            `/corporate/quotations/new?programme=${String(STAFF_PROGRAMME_ID)}&items=${STAFF_LUNCH_BOX.id}&qty=2`,
+        );
     });
 
     it('answers an unknown line with an error state rather than a blank screen', async () => {
@@ -792,17 +897,6 @@ describe('catalogue line detail', () => {
 /* ══ the quotation builder ═════════════════════════════════════════════════════════════════════ */
 
 describe('quotation builder', () => {
-    it('states that it asks for a price and orders nothing', async () => {
-        const world = businessWorld();
-        await renderStubScreen(
-            <QuotationBuilderScreen programmeId={String(STAFF_PROGRAMME_ID)} />,
-            { session: buyerSession(), repositories: world.overrides },
-        );
-
-        // Said once, behind the lines section's (i), where the quantities are chosen.
-        expect(screen.getByTestId('quotation-builder-lines-section-info')).toBeTruthy();
-    });
-
     it('refuses an empty draft and says which rule it broke', async () => {
         const world = businessWorld();
         await renderStubScreen(
@@ -810,9 +904,10 @@ describe('quotation builder', () => {
             { session: buyerSession(), repositories: world.overrides },
         );
 
-        await waitFor(() => {
-            expect(screen.getByTestId(`quotation-builder-tile-${STAFF_LUNCH_BOX.id}`)).toBeTruthy();
-        });
+        expect(
+            await screen.findByTestId('quotation-builder-request-empty', {}, { timeout: 5000 }),
+        ).toBeTruthy();
+        expect(screen.getByTestId('quotation-builder-checks-lines')).toBeTruthy();
 
         fireEvent.press(screen.getByTestId('quotation-builder-submit'));
         await waitFor(() => {
@@ -828,7 +923,7 @@ describe('quotation builder', () => {
         await renderStubScreen(
             <QuotationBuilderScreen
                 programmeId={String(STAFF_PROGRAMME_ID)}
-                initialItemId={STAFF_LUNCH_BOX.id}
+                initialItemIds={[STAFF_LUNCH_BOX.id]}
             />,
             { session: buyerSession(), repositories: world.overrides },
         );
@@ -852,7 +947,7 @@ describe('quotation builder', () => {
         const { repositories } = await renderStubScreen(
             <QuotationBuilderScreen
                 programmeId={String(STAFF_PROGRAMME_ID)}
-                initialItemId={STAFF_LUNCH_BOX.id}
+                initialItemIds={[STAFF_LUNCH_BOX.id]}
             />,
             { session: buyerSession(), repositories: world.overrides },
         );
@@ -902,43 +997,38 @@ describe('quotation builder', () => {
         expect(world.quotations.at(-1)?.requestedTotal).toBeNull();
     });
 
-    it('adds a tile at its minimum order, steps it, and takes it off below the minimum', async () => {
+    it('seeds the packs the line pop-up chose, steps them, and takes a line off', async () => {
         const world = businessWorld();
+        const id = STAFF_LUNCH_BOX.id;
+        const start = STAFF_LUNCH_BOX.minimumOrderQuantity + 2;
         await renderStubScreen(
-            <QuotationBuilderScreen programmeId={String(STAFF_PROGRAMME_ID)} />,
+            <QuotationBuilderScreen
+                programmeId={String(STAFF_PROGRAMME_ID)}
+                initialItemIds={[id]}
+                initialQuantity={start}
+            />,
             { session: buyerSession(), repositories: world.overrides },
         );
 
-        const id = STAFF_LUNCH_BOX.id;
-        const minimum = STAFF_LUNCH_BOX.minimumOrderQuantity;
-        await waitFor(() => {
-            expect(screen.getByTestId(`quotation-builder-tile-${id}-add`)).toBeTruthy();
-        });
-        expect(screen.getByTestId('quotation-builder-request-empty')).toBeTruthy();
-
-        // Added at the minimum: a request is never opened already invalid.
-        await fireEvent.press(screen.getByTestId(`quotation-builder-tile-${id}-add`));
         await waitFor(() => {
             expect(screen.getByTestId(`quotation-line-${id}-quantity-input`).props.value).toBe(
-                String(minimum),
+                String(start),
             );
         });
-        expect(screen.getByTestId(`quotation-builder-tile-${id}-quantity`)).toBeTruthy();
+        expect(screen.getByTestId('quotation-builder-dirty')).toBeTruthy();
 
-        await fireEvent.press(screen.getByTestId(`quotation-builder-line-${id}-increment`));
+        await fireEvent.press(screen.getByTestId(`quotation-line-${id}-quantity-increment`));
         await waitFor(() => {
             expect(screen.getByTestId(`quotation-line-${id}-quantity-input`).props.value).toBe(
-                String(minimum + 1),
+                String(start + 1),
             );
         });
 
-        // Two steps down crosses the minimum, so the line comes off rather than going invalid.
-        await fireEvent.press(screen.getByTestId(`quotation-builder-line-${id}-decrement`));
-        await fireEvent.press(screen.getByTestId(`quotation-builder-line-${id}-decrement`));
+        await fireEvent.press(screen.getByTestId(`quotation-builder-line-${id}-remove`));
         await waitFor(() => {
             expect(screen.queryByTestId(`quotation-builder-line-${id}`)).toBeNull();
         });
-        expect(screen.getByTestId(`quotation-builder-tile-${id}-add`)).toBeTruthy();
+        expect(screen.getByTestId('quotation-builder-request-empty')).toBeTruthy();
     });
 
     it('starts the reply contact as the signed-in buyer', async () => {
@@ -956,31 +1046,6 @@ describe('quotation builder', () => {
         expect(screen.getByTestId('quotation-builder-contact-name-input').props.value).toBe(
             'Test Person',
         );
-    });
-
-    it('narrows the menu by search and shows a way back when nothing matches', async () => {
-        const world = businessWorld();
-        await renderStubScreen(
-            <QuotationBuilderScreen programmeId={String(STAFF_PROGRAMME_ID)} />,
-            { session: buyerSession(), repositories: world.overrides },
-        );
-
-        await waitFor(() => {
-            expect(screen.getByTestId(`quotation-builder-tile-${STAFF_LUNCH_BOX.id}`)).toBeTruthy();
-        });
-        await act(async () => {
-            fireEvent.changeText(
-                screen.getByTestId('quotation-builder-toolbar-search-input'),
-                'zzz no such dish',
-            );
-        });
-        await waitFor(() => {
-            expect(screen.getByTestId('quotation-builder-search-empty')).toBeTruthy();
-        });
-        await fireEvent.press(screen.getByTestId('quotation-builder-search-clear'));
-        await waitFor(() => {
-            expect(screen.getByTestId(`quotation-builder-tile-${STAFF_LUNCH_BOX.id}`)).toBeTruthy();
-        });
     });
 
     it('offers neither a draft control nor a note apologising for its absence', async () => {
@@ -1070,7 +1135,7 @@ describe('quotation list', () => {
         });
 
         // Neither authored quotation is closed, so the closed group is genuinely empty.
-        fireEvent.press(screen.getByTestId('quotations-toolbar-status-closed'));
+        fireEvent.press(screen.getByTestId('quotations-toolbar-figure-closed'));
         await waitFor(() => {
             expect(screen.getByTestId('quotations-empty')).toBeTruthy();
         });
@@ -1115,7 +1180,11 @@ describe('quotation list', () => {
             expect.objectContaining({
                 quotationId: QUOTED_QUOTATION.id,
                 lockVersion: QUOTED_QUOTATION.lockVersion,
-                delivery: expect.objectContaining({ customerAddressId: OFFICE_ADDRESS.id }),
+                delivery: expect.objectContaining({
+                    customerAddressId: OFFICE_ADDRESS.id,
+                    requestedDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+                    deliveryWindowCode: expect.any(String),
+                }),
             }),
         );
         expect(

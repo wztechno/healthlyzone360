@@ -1,9 +1,6 @@
-import { useMotion } from '@healthy360/design-system';
-import { easings } from '@healthy360/design-tokens';
-import { useEffect, useState } from 'react';
+import { LoadingSweep } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
-import { Animated, Platform, Pressable, Text as RNText, StyleSheet, View } from 'react-native';
-import type { StyleProp, ViewStyle } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 /**
  * The desk's buttons — the Orders canvas's `.btn.sm`, `.nx`, `.lnk` and `.ib.sm` (2026-11-10).
@@ -181,108 +178,6 @@ export function DeskButton({
                 </View>
             )}
         </Pressable>
-    );
-}
-
-const SWEEP_MS = 1100;
-
-/*
- * As `Shimmer`: on the web the band is a CSS animation, so a busy button costs no JavaScript per
- * frame. The band is half the pill, and a percentage translation is relative to the band, so
- * -100% → 200% runs it from just off the start edge to just off the end.
- */
-const WEB_SWEEP = StyleSheet.create({
-    band: {
-        animationTimingFunction: easings.standard.css,
-        animationIterationCount: 'infinite',
-        animationDuration: `${String(SWEEP_MS)}ms`,
-        willChange: 'transform',
-    } as unknown as ViewStyle,
-    ltr: {
-        // @ts-expect-error -- web-only style key, absent from React Native's style types.
-        animationKeyframes: [
-            {
-                '0%': { transform: 'translateX(-100%)' },
-                '100%': { transform: 'translateX(200%)' },
-            },
-        ],
-    },
-    rtl: {
-        // @ts-expect-error -- web-only style key, absent from React Native's style types.
-        animationKeyframes: [
-            {
-                '0%': { transform: 'translateX(100%)' },
-                '100%': { transform: 'translateX(-200%)' },
-            },
-        ],
-    },
-});
-
-/**
- * The loading band: a soft fill sweeping across the pill, behind the label. Decorative — the pill
- * carries `aria-busy`. Under reduced motion it stands still, filling the first half.
- */
-function LoadingSweep({ tint, testID }: { readonly tint: string; readonly testID?: string }) {
-    const { enabled, axisSign, easing } = useMotion();
-    const [progress] = useState(() => new Animated.Value(0));
-    const native = Platform.OS !== 'web';
-
-    useEffect(() => {
-        if (!native || !enabled) return;
-        progress.setValue(0);
-        const loop = Animated.loop(
-            Animated.timing(progress, {
-                toValue: 1,
-                duration: SWEEP_MS,
-                easing: easing.standard,
-                useNativeDriver: true,
-            }),
-        );
-        loop.start();
-        return () => {
-            loop.stop();
-        };
-    }, [native, enabled, progress, easing]);
-
-    const hidden = {
-        testID,
-        accessibilityElementsHidden: true,
-        importantForAccessibility: 'no-hide-descendants' as const,
-        'aria-hidden': true,
-    };
-    if (!enabled) {
-        return <View {...hidden} className={`absolute inset-y-0 start-0 w-1/2 ${tint}`} />;
-    }
-    if (!native) {
-        return (
-            <View
-                {...hidden}
-                className={`absolute inset-y-0 start-0 w-1/2 rounded-full ${tint}`}
-                style={
-                    [
-                        WEB_SWEEP.band,
-                        axisSign === 1 ? WEB_SWEEP.ltr : WEB_SWEEP.rtl,
-                    ] as unknown as StyleProp<ViewStyle>
-                }
-            />
-        );
-    }
-    return (
-        <Animated.View
-            {...hidden}
-            className={`absolute inset-y-0 start-0 w-1/2 rounded-full ${tint}`}
-            style={{
-                transform: [
-                    {
-                        translateX: progress.interpolate({
-                            inputRange: [0, 1],
-                            // A percentage is not a native transform: run it in points instead.
-                            outputRange: [-120 * axisSign, 300 * axisSign],
-                        }),
-                    },
-                ],
-            }}
-        />
     );
 }
 

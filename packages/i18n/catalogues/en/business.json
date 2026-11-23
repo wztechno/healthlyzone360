@@ -124,7 +124,11 @@
         "columnChannels": "Channels",
         "columnRecurring": "Schedule",
         "recurringShort": "Standing",
-        "oneOffShort": "One-off"
+        "oneOffShort": "One-off",
+        "columnPack": "Pack",
+        "perPack": "/ {{size}}",
+        "figureAll": "All lines",
+        "kindToken": "Kind: {{kind}}"
     },
     "item": {
         "notFoundTitle": "No such catalogue line",
@@ -142,7 +146,14 @@
         "placeOrder": "Place order",
         "addedToCart": "Added to your corporate basket ({{items}} items).",
         "recurringOrder": "Set up a standing order",
-        "fieldDescription": "Description"
+        "fieldDescription": "Description",
+        "kind": "Catalogue line",
+        "packChip": "{{size}} pack",
+        "rate": "Your rate",
+        "code": "Line code",
+        "packsLabel": "Packs of {{name}}",
+        "atYourRate": "{{value}} at your rate",
+        "photo": "Photo"
     },
     "builder": {
         "title": "Build a quotation",
@@ -206,7 +217,29 @@
             "meal": "Meals",
             "bulk_package": "Bulk packages",
             "meal_plan": "Meal plans"
-        }
+        },
+        "deliveryNotGiven": "Not given",
+        "backToQuotations": "Back to quotations",
+        "checkLines_one": "1 with a quantity",
+        "checkLines_other": "{{count}} with a quantity",
+        "checkNoLines": "Add at least one line",
+        "columnPacks": "Quantity (packs)",
+        "columnIndicative": "Indicative",
+        "removeColumn": "Remove",
+        "pickerLabel": "Add a line from your catalogue",
+        "pickerPlaceholder": "Add a line…",
+        "noLines": "No lines yet",
+        "errorContactName": "Enter a contact name.",
+        "errorContactEmail": "Enter an email we can reply to.",
+        "asideTitle": "This request",
+        "packs": "Packs",
+        "notSent": "Not sent yet",
+        "journeySent": "Sent",
+        "journeyAccept": "You accept",
+        "journeyOrder": "Order placed",
+        "another": "Another quotation",
+        "beforeYouSend": "Before you send",
+        "sentToast": "Request sent to your account manager"
     },
     "quotations": {
         "filterLabel": "Show",
@@ -255,7 +288,10 @@
         "columnContact": "Contact",
         "columnOrder": "Order",
         "columnDeclineReason": "Why it was declined",
-        "searchPlaceholder": "Search quotations by reference"
+        "searchPlaceholder": "Search quotations by reference",
+        "groupToken": "Show: {{group}}",
+        "mixLabel": "{{open}} open, {{quoted}} awaiting your decision, {{closed}} closed",
+        "acceptSchedule": "Accept and schedule"
     },
     "partner": {
         "title": "Supply commitments",
@@ -317,7 +353,9 @@
         "weeks_one": "{{count}} week",
         "weeks_other": "{{count}} weeks",
         "placedRunTitle_one": "Order {{order}} placed",
-        "placedRunTitle_other": "{{count}} weekly orders placed, starting with {{order}}"
+        "placedRunTitle_other": "{{count}} weekly orders placed, starting with {{order}}",
+        "summary": "{{day}} · {{window}}",
+        "noDays": "The kitchen has no delivery day in the next three weeks."
     },
     "decline": {
         "title": "Decline {{reference}}",
@@ -326,5 +364,70 @@
         "reason": "Reason (optional)",
         "reasonPlaceholder": "e.g. Over our budget for this month",
         "failedTitle": "The quotation could not be declined"
+    },
+    "overview": {
+        "title": "Corporate account",
+        "dateLine": "{{date}} · {{organisation}}",
+        "kpiAwaiting": "Awaiting your decision",
+        "kpiOpen": "Open quotations",
+        "kpiAccepted": "Accepted",
+        "kpiProgrammes": "Programmes running",
+        "waitingTitle": "Waiting on you",
+        "allQuotations": "All quotations",
+        "waitingPriced": "Priced · {{lines}} · expires {{date}}",
+        "waitingPricedNoExpiry": "Priced · {{lines}}",
+        "waitingSubmitted": "With your account manager · {{lines}}",
+        "awaitingPrice": "Awaiting a price",
+        "waitingEmpty": "Nothing is waiting on you.",
+        "view": "View",
+        "decline": "Decline",
+        "accept": "Accept",
+        "declined": "{{reference}} declined",
+        "latestTitle": "Latest quotations",
+        "seeAll": "See all {{count}}",
+        "latestSub": "{{lines}} · raised {{date}}",
+        "lines_one": "{{count}} line",
+        "lines_other": "{{count}} lines",
+        "programmeTitle": "Your programme",
+        "catalogue": "Catalogue",
+        "kitchen": "Kitchen",
+        "linesAtRates": "Lines at your rates",
+        "runningSince": "Running since",
+        "lookupTitle": "Open a line by its code"
+    },
+    "picked": {
+        "label": "Picked lines",
+        "count_one": "1 line picked",
+        "count_other": "{{count}} lines picked",
+        "separator": ", ",
+        "namesMore": "{{names}} and {{count}} more",
+        "clear": "Clear",
+        "ask": "Ask for a price",
+        "pickAll": "Pick every line shown",
+        "pickOne": "Pick {{name}}"
+    },
+    "stepper": {
+        "fewer": "One pack fewer",
+        "more": "One pack more"
+    },
+    "sheet": {
+        "progress": "Progress",
+        "stepAsked": "Asked",
+        "stepPriced": "Priced",
+        "stepPricing": "Being priced",
+        "stepDecision": "Your decision",
+        "decideBy": "by {{date}}",
+        "acceptedTotal": "Accepted total",
+        "requestTitle": "Your request",
+        "replyTo": "Reply to",
+        "orderTitle": "Order",
+        "decisionTitle": "Decision",
+        "acceptedOn": "Accepted on",
+        "declinedOn": "Declined on",
+        "whyDeclined": "Why you declined",
+        "noReason": "None given",
+        "columnLine": "Line",
+        "columnUnitPrice": "Unit price",
+        "columnLineTotal": "Line total"
     }
 }

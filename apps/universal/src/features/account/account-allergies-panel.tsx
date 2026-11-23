@@ -4,11 +4,18 @@ import type {
     DietaryProfile,
     FoodExclusion,
 } from '@healthy360/api-client/contracts';
-import { Icon, InfoTip, cx, useBreakpoint, useToast } from '@healthy360/design-system';
+import {
+    Icon,
+    InfoTip,
+    cx,
+    useBreakpoint,
+    useToast,
+    LoadingSweep,
+} from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, Text as RNText, TextInput, View } from 'react-native';
+import { Pressable, Text as RNText, TextInput, View } from 'react-native';
 
 import {
     toFailure,
@@ -410,13 +417,15 @@ export function AllergiesPanel({ testID, guard, onSaved, onCancel }: AllergiesPa
                         disabled={current.answer === null || save.isPending}
                         onPress={submit}
                         className={cx(
-                            'h-12 flex-row items-center gap-2 rounded-[14px] px-5',
+                            'relative h-12 flex-row items-center gap-2 overflow-hidden rounded-[14px] px-5',
                             current.answer === null
                                 ? 'bg-stroke-subtle'
                                 : 'bg-surface-brand hover:bg-surface-canopy',
                         )}
                     >
-                        {save.isPending ? <ActivityIndicator size="small" /> : null}
+                        {save.isPending ? (
+                            <LoadingSweep tint="bg-surface-raised opacity-40" />
+                        ) : null}
                         <RNText
                             className={cx(
                                 'text-sm font-bold',

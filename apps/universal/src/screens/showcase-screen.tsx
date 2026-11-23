@@ -3912,6 +3912,13 @@ export function ShowcaseScreen() {
                             onPress={() => undefined}
                         />
                         <Button
+                            testID="showcase-button-loading-secondary"
+                            variant="secondary"
+                            loading
+                            label="loading"
+                            onPress={() => undefined}
+                        />
+                        <Button
                             testID="showcase-button-disabled"
                             disabled
                             label="disabled"

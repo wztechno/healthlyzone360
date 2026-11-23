@@ -9,6 +9,7 @@ import {
     useBreakpoint,
     useMotion,
     useTheme,
+    LoadingSweep,
 } from '@healthy360/design-system';
 import type { NavigationItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
@@ -16,15 +17,7 @@ import { usePathname, useRouter } from 'expo-router';
 import { useCallback, useEffect, useEffectEvent, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-    ActivityIndicator,
-    Animated,
-    Easing,
-    Platform,
-    Pressable,
-    Text as RNText,
-    View,
-} from 'react-native';
+import { Animated, Easing, Platform, Pressable, Text as RNText, View } from 'react-native';
 
 import { recordResumeIntent } from '../features/marketplace/resume-intent.ts';
 import { useLogoutMutation } from '../data/hooks.ts';
@@ -621,13 +614,10 @@ function MarketplaceShellBody({ children }: MarketplaceShellProps) {
                         },
                     });
                 }}
-                className="h-11 flex-row items-center gap-2 rounded-full border border-stroke-subtle bg-surface-raised pe-4 ps-3 transition duration-normal ease-standard hover:border-stroke hover:bg-surface-brand-subtle active:opacity-80"
+                className="relative h-11 flex-row items-center gap-2 overflow-hidden rounded-full border border-stroke-subtle bg-surface-raised pe-4 ps-3 transition duration-normal ease-standard hover:border-stroke hover:bg-surface-brand-subtle active:opacity-80"
             >
-                {logout.isPending ? (
-                    <ActivityIndicator size="small" />
-                ) : (
-                    <Icon name="signOut" className="text-content-primary" />
-                )}
+                {logout.isPending ? <LoadingSweep tint="bg-surface-brand opacity-20" /> : null}
+                <Icon name="signOut" className="text-content-primary" />
                 <RNText className="hidden text-sm font-semibold text-content-primary md:flex">
                     {t('common:action.signOut')}
                 </RNText>

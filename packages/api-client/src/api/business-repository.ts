@@ -259,6 +259,8 @@ function mapQuotation(wire: WireQuotation): Quotation {
             wire.quoted_at === null && wire.decided_at === null
                 ? null
                 : ((wire.quoted_at ?? wire.decided_at ?? '') as Quotation['respondedAt']),
+        quotedAt: wire.quoted_at === null ? null : (wire.quoted_at as Quotation['quotedAt']),
+        decidedAt: wire.decided_at === null ? null : (wire.decided_at as Quotation['decidedAt']),
         expiresAt: wire.expires_at === null ? null : (wire.expires_at as Quotation['expiresAt']),
     };
 }

@@ -189,10 +189,12 @@ export function catalogueKindKey(kind: string): string {
  * A quotation state's badge tone. `quoted` is the one state waiting on the buyer, so it is the one
  * that reads as ready; the closed states recede.
  */
-export function quotationTone(state: QuotationState): 'success' | 'neutral' | 'brand' | 'info' {
-    if (state === 'quoted') return 'success';
+export function quotationTone(state: QuotationState): 'success' | 'neutral' | 'warning' | 'info' {
+    // The corporate canvas's tones: priced is amber — the one state waiting on the buyer — accepted
+    // is green, still with the account manager is blue, and a closed one is grey.
+    if (state === 'quoted') return 'warning';
     if (state === 'declined' || state === 'expired') return 'neutral';
-    if (state === 'accepted') return 'brand';
+    if (state === 'accepted') return 'success';
     return 'info';
 }
 
