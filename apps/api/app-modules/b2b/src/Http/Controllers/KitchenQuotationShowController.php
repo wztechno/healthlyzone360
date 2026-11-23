@@ -7,6 +7,7 @@ namespace Healthy360\B2b\Http\Controllers;
 use Healthy360\B2b\Enums\QuotationStatus;
 use Healthy360\B2b\Presenters\QuotationPresenter;
 use Healthy360\B2b\Services\B2bLocator;
+use Healthy360\B2b\Services\QuotationCorporateRates;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
@@ -28,6 +29,7 @@ final class KitchenQuotationShowController
     public function __construct(
         private readonly B2bLocator $locator,
         private readonly QuotationPresenter $presenter,
+        private readonly QuotationCorporateRates $corporateRates,
     ) {}
 
     /**
@@ -47,10 +49,15 @@ final class KitchenQuotationShowController
             throw new ApiException(ErrorCode::ResourceNotFound);
         }
 
+        $lines = $this->locator->kitchenQuotationLines($record);
+
         return ApiResponse::data([
             'quotation' => $this->presenter->quotation(
                 $record,
-                $this->locator->kitchenQuotationLines($record),
+                $lines,
+                // Today's corporate rate beside each line, so the price about to be named can be
+                // compared with the one the buyer's catalogue showed them.
+                $this->corporateRates->forLines($record, $lines, $organisationId),
             ),
         ])->withHeaders(['ETag' => '"'.$record->lock_version.'"']);
     }

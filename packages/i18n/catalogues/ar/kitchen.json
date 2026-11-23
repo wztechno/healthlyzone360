@@ -450,6 +450,8 @@
             "lineColumn": "السطر",
             "lineUnnamed": "سطر بلا اسم",
             "lineQuantity": "الكمية",
+            "lineCorporateRate": "سعر الشركات",
+            "lineNoCorporateRate": "—",
             "lineUnitPrice": "سعر الوحدة",
             "lineTotal": "إجمالي السطر",
             "lineNotPriced": "غير مُسعَّر",

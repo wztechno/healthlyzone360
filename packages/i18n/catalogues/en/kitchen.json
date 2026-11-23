@@ -418,6 +418,8 @@
             "lineColumn": "Line",
             "lineUnnamed": "Unnamed line",
             "lineQuantity": "Quantity",
+            "lineCorporateRate": "Corporate rate",
+            "lineNoCorporateRate": "—",
             "lineUnitPrice": "Unit price",
             "lineTotal": "Line total",
             "lineNotPriced": "Not priced",

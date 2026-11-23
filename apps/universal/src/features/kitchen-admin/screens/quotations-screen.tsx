@@ -64,6 +64,8 @@ import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 
+import { PageBackPill } from '../../../shell/area-trail.tsx';
+import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
@@ -485,11 +487,12 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
 }
 
 /**
- * The pricing page, laid out as the supply order page is: the record-form opening with Back and
- * Send in it, the cards down the page, and beside them a sticky summary of the request.
+ * The pricing page, laid out as the supply order page is: the record-form opening with Send in it,
+ * the cards down the page, and beside them a sticky summary of the request. The way back is the
+ * top bar's trail (… / Quotations / H360-Q-0012); the Back pill shows only where no trail is.
  *
  * ```
- * Quotation H360-Q-0012  AWAITING A PRICE            [ Back to quotations ] [ Send prices ]
+ * Quotation H360-Q-0012  AWAITING A PRICE                                   [ Send prices ]
  * Test employee meals · submitted 20 Oct 2026
  * ┌ LINES  6 lines ───────────────────────────────┐  ┌ THIS QUOTATION ──────────┐
  * │ Line           Quantity  Unit price  Total    │  │ Programme   Employee ... │
@@ -604,10 +607,15 @@ function QuotationPricing({
         );
     }
 
+    // The trail is the way back: ⌂ / Commercial / Quotations / <reference>, with Quotations closing
+    // this page (typed prices ask first). The pill below shows only where no trail is drawn.
+    useKitchenTrailLeaf(quotation?.reference ?? null, () => {
+        guard.intercept(onBack);
+    });
+
     const backButton = (
-        <DeskButton
+        <PageBackPill
             testID="kitchen-quotations-back"
-            variant="secondary"
             label={t('kitchen:ops.quotations.backToQuotations')}
             onPress={() => {
                 guard.intercept(onBack);

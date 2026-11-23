@@ -6,6 +6,8 @@ use App\Models\User;
 use Healthy360\B2b\Models\CorporateProgramme;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Models\CatalogueItem;
+use Healthy360\Catalogues\Models\SalesChannel;
+use Healthy360\Pricing\Services\PriceResolver;
 use Healthy360\Organisations\Models\Organisation;
 use Tests\SeedDatabaseOnce;
 
@@ -165,6 +167,70 @@ it('names every line and the programme, from both sides of the relationship', fu
             ->and($payload['programme_name_en'])->toBe($this->programme->name_en)
             ->and($payload['programme_name_ar'])->toBe($this->programme->name_ar);
     }
+});
+
+/**
+ * The kitchen prices beside the buyer's current corporate rate — the figure the
+ * buyer's catalogue showed them — so it can compare before naming a price. It
+ * is the kitchen's reference only: the buyer's own read leaves it out.
+ */
+it('shows the kitchen each line\'s current corporate rate, and not the buyer', function (): void {
+    $quotation = kitchenQuotationSmokeSubmitted($this);
+
+    kitchenQuotationSmokeActAs($this->buyerUser);
+
+    $buyerSide = $this->getJson("/api/v1/b2b/quotations/{$quotation['id']}", $this->buyerHeaders)
+        ->assertOk()
+        ->json('data.quotation');
+
+    kitchenQuotationSmokeActAs($this->kitchenUser);
+
+    $kitchenSide = $this->getJson("/api/v1/b2b/kitchen/quotations/{$quotation['id']}", $this->kitchenHeaders)
+        ->assertOk()
+        ->json('data.quotation');
+
+    foreach ($buyerSide['lines'] as $line) {
+        expect($line)->not->toHaveKey('corporate_unit_amount_minor');
+    }
+
+    // The figure the buyer's catalogue prices with: their agreement first, then the wholesale
+    // channel's tariff, at the line's quantity. A line nothing prices there reads null, not 0.
+    $wholesale = SalesChannel::withoutTenancy()
+        ->where('organisation_id', $this->kitchen->getKey())
+        ->get()
+        ->first(static fn (SalesChannel $channel): bool => $channel->channel_kind->hasPrivatePricing());
+
+    foreach ($kitchenSide['lines'] as $line) {
+        $expected = app(PriceResolver::class)->currentForBuyerOrganisation(
+            (string) $wholesale->getKey(),
+            (string) $this->buyer->getKey(),
+            $line['catalogue_item_id'],
+            null,
+            $line['quantity'],
+        );
+
+        expect($line)->toHaveKey('corporate_unit_amount_minor')
+            ->and($line['corporate_unit_amount_minor'])->toBe($expected?->amountMinor)
+            ->and($line['unit_amount_minor'])->toBeNull();
+    }
+
+    // The seed prices at least one of these lines, so the assertion above is not all nulls.
+    expect(array_filter(array_column($kitchenSide['lines'], 'corporate_unit_amount_minor')))->not->toBeEmpty();
+
+    // Still there after pricing: the quote answer is what the screen caches next.
+    $prices = array_map(
+        static fn (array $line): array => ['quotation_line_id' => $line['id'], 'unit_amount_minor' => 1000],
+        $kitchenSide['lines'],
+    );
+
+    $quoted = $this->postJson(
+        "/api/v1/b2b/kitchen/quotations/{$quotation['id']}/quote",
+        ['prices' => $prices],
+        $this->kitchenHeaders + ['If-Match' => '"'.$kitchenSide['lock_version'].'"'],
+    )->assertOk()->json('data.quotation');
+
+    expect(array_column($quoted['lines'], 'corporate_unit_amount_minor'))
+        ->toBe(array_column($kitchenSide['lines'], 'corporate_unit_amount_minor'));
 });
 
 /**

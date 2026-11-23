@@ -9,6 +9,7 @@ use Healthy360\B2b\Http\Concerns\ResolvesAuthenticatedUser;
 use Healthy360\B2b\Http\Requests\QuoteQuotationRequest;
 use Healthy360\B2b\Presenters\QuotationPresenter;
 use Healthy360\B2b\Services\B2bLocator;
+use Healthy360\B2b\Services\QuotationCorporateRates;
 use Healthy360\B2b\Services\QuotationService;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\ErrorCode;
@@ -41,6 +42,7 @@ final class KitchenQuotationQuoteController
         private readonly B2bLocator $locator,
         private readonly QuotationService $quotations,
         private readonly QuotationPresenter $presenter,
+        private readonly QuotationCorporateRates $corporateRates,
     ) {}
 
     /**
@@ -60,10 +62,13 @@ final class KitchenQuotationQuoteController
 
         $quoted = $this->quotations->quote($record, $actor, $request->payload(), $expected);
 
+        $lines = $this->locator->kitchenQuotationLines($quoted);
+
         return ApiResponse::data([
             'quotation' => $this->presenter->quotation(
                 $quoted,
-                $this->locator->kitchenQuotationLines($quoted),
+                $lines,
+                $this->corporateRates->forLines($quoted, $lines, $organisationId),
             ),
         ])->withHeaders(['ETag' => '"'.$quoted->lock_version.'"']);
     }

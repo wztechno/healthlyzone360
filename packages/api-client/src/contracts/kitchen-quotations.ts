@@ -95,6 +95,12 @@ export interface KitchenQuotationLine {
     readonly unitAmountMinor: number | null;
     /** `quantity × unitAmountMinor`, rounded once by the server. `null` until this kitchen quotes. */
     readonly lineTotalMinor: number | null;
+    /**
+     * Today's corporate rate for one unit — what the buyer's catalogue showed them — in the
+     * quotation's currency. A reference to price against, never the quoted price. `null` when
+     * nothing prices the line on the wholesale channel.
+     */
+    readonly corporateUnitAmountMinor: number | null;
     /** The buyer's own note on the line — frequently the only human-readable thing on it. */
     readonly note: string | null;
 }

@@ -13650,6 +13650,17 @@ export type QuotationLine = {
      *
      */
     line_total_minor: number | null;
+    /**
+     * **Kitchen reads only** (`/b2b/kitchen/quotations/…`). Today's
+     * corporate rate for one unit of this line — the buyer's agreement
+     * list, then the wholesale channel's public tariff, at the line's
+     * quantity — in minor units of the quotation's `currency_code`: the
+     * figure the buyer's catalogue showed them. A reference for pricing,
+     * never the quoted price. `null` when nothing prices the line in that
+     * currency. Absent from the buyer's reads.
+     *
+     */
+    corporate_unit_amount_minor?: number | null;
     note: string | null;
 };
 
