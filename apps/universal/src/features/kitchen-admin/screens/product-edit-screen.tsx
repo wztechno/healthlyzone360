@@ -1616,8 +1616,9 @@ function ProductEditor({
         />
     );
 
-    const dirtyBadge =
-        guard.isDirty ? <UnsavedMark testID="kitchen-product-editor-screen-dirty" /> : null;
+    const dirtyBadge = guard.isDirty ? (
+        <UnsavedMark testID="kitchen-product-editor-screen-dirty" />
+    ) : null;
 
     const assessmentBadges = (
         <AssessmentBadges

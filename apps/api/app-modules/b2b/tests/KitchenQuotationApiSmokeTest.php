@@ -7,8 +7,8 @@ use Healthy360\B2b\Models\CorporateProgramme;
 use Healthy360\Catalogues\Enums\CatalogueItemType;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
-use Healthy360\Pricing\Services\PriceResolver;
 use Healthy360\Organisations\Models\Organisation;
+use Healthy360\Pricing\Services\PriceResolver;
 use Tests\SeedDatabaseOnce;
 
 /**

@@ -824,7 +824,11 @@ function ServiceTimingsSection({
                         {label}
                         {required ? <Text tone="danger">{` ${REQUIRED_MARK}`}</Text> : null}
                     </Text>
-                    <InfoTip label={label} text={hint} testID={`kitchen-service-timings-${copy}-info`} />
+                    <InfoTip
+                        label={label}
+                        text={hint}
+                        testID={`kitchen-service-timings-${copy}-info`}
+                    />
                 </View>
                 <View className="w-[120px]">
                     <TextInputField
@@ -855,7 +859,12 @@ function ServiceTimingsSection({
     const minutes = t('kitchen:serviceTimings.unit');
     /** The three waits, in the order an order meets them. */
     const steps = [
-        { key: 'alarmAfterMinutes', copy: 'alarm', server: 'alarm_after_minutes', dot: 'bg-success' },
+        {
+            key: 'alarmAfterMinutes',
+            copy: 'alarm',
+            server: 'alarm_after_minutes',
+            dot: 'bg-success',
+        },
         {
             key: 'managerAlertAfterMinutes',
             copy: 'manager',

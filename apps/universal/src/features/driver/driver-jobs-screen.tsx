@@ -221,7 +221,9 @@ export function laneOf(job: DriverJob): 'waiting' | 'ready' | 'road' {
  * Runs in two currencies have no honest single sum, so the figure is left out rather than mixing
  * them. A sheet with nothing to collect shows zero in the first run's currency.
  */
-function cashTotal(rows: readonly DriverJob[]): { minor: number; currency: DriverJob['currencyCode'] } | null {
+function cashTotal(
+    rows: readonly DriverJob[],
+): { minor: number; currency: DriverJob['currencyCode'] } | null {
     const first = rows[0];
     if (first === undefined) return null;
     if (rows.some((job) => job.currencyCode !== first.currencyCode)) return null;
@@ -770,13 +772,22 @@ function BoardLane({
                 </Heading>
                 {hint === undefined ? null : <InfoTip label={title} text={hint} />}
                 <View className="rounded-full border border-stroke bg-surface-raised px-2">
-                    <Text variant="caption" className="font-semibold tabular-nums" testID={`${testID}-count`}>
+                    <Text
+                        variant="caption"
+                        className="font-semibold tabular-nums"
+                        testID={`${testID}-count`}
+                    >
                         {count}
                     </Text>
                 </View>
             </Inline>
             {children.length === 0 ? (
-                <Text variant="caption" tone="secondary" className="px-1 py-2" testID={`${testID}-empty`}>
+                <Text
+                    variant="caption"
+                    tone="secondary"
+                    className="px-1 py-2"
+                    testID={`${testID}-empty`}
+                >
                     {emptyLabel}
                 </Text>
             ) : (

@@ -264,7 +264,8 @@ export function EditorFrame({
                         // the page, and the progress line is what opens the form.
                         title={hideTitle || steps !== undefined ? undefined : title}
                         titleAside={
-                            titleChip === undefined && !(titleDrawn && guard.isDirty) ? undefined : (
+                            titleChip === undefined &&
+                            !(titleDrawn && guard.isDirty) ? undefined : (
                                 <Inline space="xs" align="center" wrap>
                                     {titleChip === undefined ? null : (
                                         <DeskChip

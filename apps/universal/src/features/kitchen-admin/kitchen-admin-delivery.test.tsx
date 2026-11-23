@@ -1925,8 +1925,18 @@ describe('the service timings in groups (Opening hours option A)', () => {
 });
 
 describe('the branch closures (Opening hours option A)', () => {
-    const CHRISTMAS = { id: 'closure-1', closedFrom: '2099-12-25', closedTo: '2099-12-25', note: 'Christmas' };
-    const NEW_YEAR = { id: 'closure-2', closedFrom: '2099-12-31', closedTo: '2100-01-01', note: null };
+    const CHRISTMAS = {
+        id: 'closure-1',
+        closedFrom: '2099-12-25',
+        closedTo: '2099-12-25',
+        note: 'Christmas',
+    };
+    const NEW_YEAR = {
+        id: 'closure-2',
+        closedFrom: '2099-12-31',
+        closedTo: '2100-01-01',
+        note: null,
+    };
 
     it('lists the closures as rows, and says when one is a single day', async () => {
         await renderStubScreen(<BranchOperatingScreen />, {
