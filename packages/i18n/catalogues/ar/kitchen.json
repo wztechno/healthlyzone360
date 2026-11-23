@@ -5411,7 +5411,10 @@
         "summaryBranch": "الفرع",
         "summaryDays": "يومًا بيوم",
         "dayHours": "{{opens}}–{{closes}}",
-        "summaryTimeZone": "المنطقة الزمنية"
+        "summaryTimeZone": "المنطقة الزمنية",
+        "scopeBranch": "هذا الفرع",
+        "summaryNextClosure": "الإغلاق القادم",
+        "summaryNoClosure": "لا يوجد"
     },
     "sauces": {
         "title": "الصلصات والتتبيلات",
@@ -6118,7 +6121,13 @@
         "newBranchName": "اسم الفرع",
         "newBranchCity": "المدينة",
         "newBranchToast": "تم فتح الفرع. حدّد ساعاته الآن.",
-        "newBranchError": "تعذّر فتح هذا الفرع"
+        "newBranchError": "تعذّر فتح هذا الفرع",
+        "oneDay": "يوم واحد",
+        "removeAction": "إزالة الإغلاق",
+        "removeTitle": "هل تريد إزالة هذا الإغلاق؟",
+        "removeBody": "سيتمكن العملاء من الطلب لـ {{dates}} مجدداً.",
+        "removedToast": "أُزيل الإغلاق.",
+        "rowMenu": "إجراءات أخرى لـ {{dates}}"
     },
     "stockDuplicates": {
         "caption": "صفوف مخزون تحمل الاسم نفسه",
@@ -6470,7 +6479,14 @@
         "priceLimitHint": "السعر الذي يتجاوز آخر سعر بهذه النسبة ينتظر الموافقة قبل دفع الفاتورة. اتركه فارغًا لإيقاف الموافقات.",
         "marginTargetLabel": "هامش الربح المستهدف للطبق",
         "marginTargetHint": "يُنبَّه المالك عندما يهبط طبق دون هذه النسبة. اتركه فارغًا لإيقاف التنبيهات.",
-        "percentUnit": "٪"
+        "percentUnit": "٪",
+        "scopeKitchen": "المطبخ كله",
+        "groupOrders": "الطلبات",
+        "groupWaits": "عندما ينتظر الطلب",
+        "groupWaitsHint": "يجب أن تأتي كل خطوة بعد التي قبلها. تُحتسب الأوقات فقط أثناء فتح الفرع.",
+        "groupOwner": "يحتاج موافقة المالك",
+        "noLimit": "بلا حد",
+        "off": "متوقف"
     },
     "allergy": {
         "title": "حساسية في هذا الطلب",

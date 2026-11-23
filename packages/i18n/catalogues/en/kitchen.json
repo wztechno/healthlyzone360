@@ -4720,7 +4720,10 @@
         "summaryBranch": "Branch",
         "summaryDays": "Day by day",
         "dayHours": "{{opens}}–{{closes}}",
-        "summaryTimeZone": "Time zone"
+        "summaryTimeZone": "Time zone",
+        "scopeBranch": "This branch",
+        "summaryNextClosure": "Next closure",
+        "summaryNoClosure": "None planned"
     },
     "sauces": {
         "title": "Sauces & marinations",
@@ -5387,7 +5390,13 @@
         "newBranchName": "Branch name",
         "newBranchCity": "City",
         "newBranchToast": "Branch opened. Set its hours next.",
-        "newBranchError": "That branch could not be opened"
+        "newBranchError": "That branch could not be opened",
+        "oneDay": "One day",
+        "removeAction": "Remove closure",
+        "removeTitle": "Remove this closure?",
+        "removeBody": "Customers will be able to order for {{dates}} again.",
+        "removedToast": "Closure removed.",
+        "rowMenu": "More actions for {{dates}}"
     },
     "stockDuplicates": {
         "caption": "Stock rows that share a name",
@@ -5739,7 +5748,14 @@
         "priceLimitHint": "A price this far above the last one waits for approval before the invoice can be paid. Leave it empty for no approvals.",
         "marginTargetLabel": "Dish margin target",
         "marginTargetHint": "The owner is alerted when a dish falls below this. Leave it empty for no alerts.",
-        "percentUnit": "%"
+        "percentUnit": "%",
+        "scopeKitchen": "Whole kitchen",
+        "groupOrders": "Orders",
+        "groupWaits": "When an order waits",
+        "groupWaitsHint": "Each step must come later than the one before it. Times count only while a branch is open.",
+        "groupOwner": "Needs the owner",
+        "noLimit": "No limit",
+        "off": "Off"
     },
     "allergy": {
         "title": "Allergy on this order",

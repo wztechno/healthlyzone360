@@ -23,7 +23,7 @@ import {
     KitchenId,
     ServiceAreaId,
 } from '@healthy360/domain-types';
-import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 
@@ -153,16 +153,13 @@ beforeEach(() => {
 });
 
 /**
- * Sets one day's Trading select (Commercial §3.5): the design chooses Open or Closed from a select,
- * where the week used to carry a Closed checkbox.
+ * Sets one day's Trading switch: Open | Closed side by side (Opening hours option A, 2026-11-23),
+ * where it used to be a select and before that a Closed checkbox.
  */
 async function setTrading(row: string, value: 'open' | 'closed') {
+    await untilVisible(`${row}-trading-${value}`);
     await act(async () => {
-        fireEvent.press(screen.getByTestId(`${row}-trading-trigger`));
-    });
-    await untilVisible(`${row}-trading-option-${value}`);
-    await act(async () => {
-        fireEvent.press(screen.getByTestId(`${row}-trading-option-${value}`));
+        fireEvent.press(screen.getByTestId(`${row}-trading-${value}`));
     });
 }
 
@@ -1863,6 +1860,144 @@ describe('the kitchen service timings', () => {
 
         expect(screen.queryByTestId('kitchen-service-timings')).toBeNull();
         expect(repositories.staffAlerts.getServiceSettings).not.toHaveBeenCalled();
+    });
+});
+
+describe('the service timings in groups (Opening hours option A)', () => {
+    const TIMINGS = {
+        orderLeadMinutes: 120,
+        alarmAfterMinutes: 5,
+        ordersPerWindow: null,
+        pausedUntil: null,
+        managerAlertAfterMinutes: 10,
+        ownerAlertAfterMinutes: 20,
+        refundApprovalAboveMinor: 5000,
+        priceApprovalAbovePercent: null,
+        dishMarginTargetPercent: null,
+    };
+
+    it('puts each setting in its group, the waits in the order an order meets them', async () => {
+        await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING },
+                staffAlerts: { getServiceSettings: async () => TIMINGS },
+            },
+        });
+        await untilVisible('kitchen-service-timings');
+
+        const orders = within(screen.getByTestId('kitchen-service-timings-group-orders'));
+        const waits = within(screen.getByTestId('kitchen-service-timings-group-waits'));
+        const owner = within(screen.getByTestId('kitchen-service-timings-group-owner'));
+        expect(orders.getByTestId('kitchen-service-timings-lead-input')).toBeTruthy();
+        expect(orders.getByTestId('kitchen-service-timings-capacity-input')).toBeTruthy();
+        expect(owner.getByTestId('kitchen-service-timings-refund-input').props.value).toBe('50');
+        expect(owner.getByTestId('kitchen-service-timings-priceLimit-input')).toBeTruthy();
+        expect(owner.getByTestId('kitchen-service-timings-marginTarget-input')).toBeTruthy();
+
+        const order = ['alarm', 'manager', 'owner'].map(
+            (copy) => waits.getByTestId(`kitchen-service-timings-${copy}-input`).props.value,
+        );
+        expect(order).toEqual(['5', '10', '20']);
+        // The whole-kitchen scope is said once, on the card, rather than in a sentence.
+        expect(screen.getByTestId('kitchen-service-timings-scope')).toHaveTextContent(
+            'Whole kitchen',
+        );
+    });
+
+    it('shows an empty optional limit as off, not as a blank box', async () => {
+        await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING },
+                staffAlerts: { getServiceSettings: async () => TIMINGS },
+            },
+        });
+        await untilVisible('kitchen-service-timings');
+
+        const capacity = screen.getByTestId('kitchen-service-timings-capacity-input');
+        expect(capacity.props.value).toBe('');
+        expect(capacity.props.placeholder).toBe('No limit');
+        expect(
+            screen.getByTestId('kitchen-service-timings-marginTarget-input').props.placeholder,
+        ).toBe('Off');
+    });
+});
+
+describe('the branch closures (Opening hours option A)', () => {
+    const CHRISTMAS = { id: 'closure-1', closedFrom: '2099-12-25', closedTo: '2099-12-25', note: 'Christmas' };
+    const NEW_YEAR = { id: 'closure-2', closedFrom: '2099-12-31', closedTo: '2100-01-01', note: null };
+
+    it('lists the closures as rows, and says when one is a single day', async () => {
+        await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING },
+                kitchenOps: { listBranchClosures: async () => [CHRISTMAS, NEW_YEAR] },
+            },
+        });
+        await untilVisible('kitchen-branch-closures-list');
+
+        const christmas = within(screen.getByTestId('kitchen-branch-closures-list'));
+        expect(christmas.getByText('One day')).toBeTruthy();
+        expect(christmas.getByText('Christmas')).toBeTruthy();
+        // The add form is a pop-up, not three fields above the list.
+        expect(screen.queryByTestId('kitchen-branch-closures-from')).toBeNull();
+        // The summary names the next one.
+        expect(screen.getByTestId('kitchen-branch-hours-summary')).toHaveTextContent(
+            /Next closureDec 25, 2099/u,
+        );
+    });
+
+    it('opens the add pop-up and will not add a closure without a first day', async () => {
+        const addBranchClosure = jest.fn();
+        await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING },
+                kitchenOps: { listBranchClosures: async () => [], addBranchClosure },
+            },
+        });
+        await untilVisible('kitchen-branch-closures-add');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-branch-closures-add'));
+        });
+        await untilVisible('kitchen-branch-closures-from');
+
+        expect(screen.getByTestId('kitchen-branch-closures-add-save')).toBeDisabled();
+        expect(addBranchClosure).not.toHaveBeenCalled();
+    });
+
+    it('removes a closure from its row menu only after asking', async () => {
+        let rows = [CHRISTMAS, NEW_YEAR];
+        const removeBranchClosure = jest.fn(async (id: string) => {
+            rows = rows.filter((row) => row.id !== id);
+        });
+        await renderStubScreen(<BranchOperatingScreen />, {
+            session: kitchenSession(),
+            repositories: {
+                kitchenAdmin: { getBranchOperating: async () => BRANCH_OPERATING },
+                kitchenOps: { listBranchClosures: async () => rows, removeBranchClosure },
+            },
+        });
+        await untilVisible('kitchen-branch-closures-row-closure-1-remove');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-branch-closures-row-closure-1-remove'));
+        });
+        await untilVisible('kitchen-branch-closures-remove-body');
+        expect(screen.getByTestId('kitchen-branch-closures-remove-body')).toHaveTextContent(
+            /able to order for .+ again/u,
+        );
+        // Nothing is removed until the confirmation.
+        expect(removeBranchClosure).not.toHaveBeenCalled();
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-branch-closures-remove-confirm'));
+        });
+        await untilVisible('kitchen-branch-closures-removed-toast');
+        expect(removeBranchClosure).toHaveBeenCalledWith('closure-1');
     });
 });
 
