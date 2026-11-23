@@ -23,7 +23,7 @@ import type { EditorStepsProps } from './editor-steps.tsx';
 import { useKitchenTrailLeaf } from './kitchen-ops-shell.tsx';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
-import { useSaveBar } from './save-bar.tsx';
+import { UnsavedMark } from './unsaved-mark.tsx';
 import { PageBackPill } from '../../shell/area-trail.tsx';
 
 import { DeskButton } from './desk-kit/desk-button.tsx';
@@ -172,28 +172,8 @@ export function EditorFrame({
     // The rail beside the form only while the form keeps its width — on the page, not the window.
     const railBeside = useContentWidth().atLeast(EDITOR_RAIL_WIDTH + 16 + EDITOR_FORM_MIN);
     const formatter = useFormatter();
-    const walked = steps !== undefined && steps.steps.length > 1;
-    // The save bar takes the unsaved marker, and the Save of a form that is not walked in steps.
-    // Embedded, the host page owns the bar.
-    const barDrawn = useSaveBar(
-        embedded
-            ? null
-            : {
-                  dirty: guard.isDirty,
-                  creating: meta === null,
-                  save:
-                      hideSave || walked
-                          ? undefined
-                          : {
-                                testID: `${testID}-save`,
-                                label: saveLabel,
-                                loading: saving,
-                                disabled: saveDisabled || saving,
-                                onPress: onSaveDraft,
-                            },
-                  testID,
-              },
-    );
+    // Beside the title where one is drawn; otherwise on the record-facts line.
+    const titleDrawn = !embedded && !chromeless && !hideTitle && steps === undefined;
 
     const updatedLine = (): string => {
         // An unknown timestamp reads the same as no record at all. `/kitchen/branch-operating` is the
@@ -237,13 +217,7 @@ export function EditorFrame({
                     label={t(statusKey(meta.status))}
                 />
             ) : null}
-            {guard.isDirty && !barDrawn ? (
-                <DeskChip
-                    testID={`${testID}-dirty`}
-                    tone="warning"
-                    label={t('kitchen:editor.unsaved')}
-                />
-            ) : null}
+            {guard.isDirty && !titleDrawn ? <UnsavedMark testID={`${testID}-dirty`} /> : null}
             <Text testID={`${testID}-updated`} tone="secondary" variant="caption">
                 {updatedLine()}
             </Text>
@@ -269,7 +243,7 @@ export function EditorFrame({
                         testID={`${testID}-actions`}
                     >
                         {primaryAction}
-                        {hideSave || barDrawn ? null : (
+                        {hideSave ? null : (
                             <DeskButton
                                 testID={`${testID}-save`}
                                 label={saveLabel}
@@ -290,12 +264,20 @@ export function EditorFrame({
                         // the page, and the progress line is what opens the form.
                         title={hideTitle || steps !== undefined ? undefined : title}
                         titleAside={
-                            titleChip === undefined ? undefined : (
-                                <DeskChip
-                                    testID={`${testID}-chip`}
-                                    tone={titleChip.tone}
-                                    label={titleChip.label}
-                                />
+                            titleChip === undefined &&
+                            !(titleDrawn && guard.isDirty) ? undefined : (
+                                <Inline space="xs" align="center" wrap>
+                                    {titleChip === undefined ? null : (
+                                        <DeskChip
+                                            testID={`${testID}-chip`}
+                                            tone={titleChip.tone}
+                                            label={titleChip.label}
+                                        />
+                                    )}
+                                    {titleDrawn && guard.isDirty ? (
+                                        <UnsavedMark testID={`${testID}-dirty`} />
+                                    ) : null}
+                                </Inline>
                             )
                         }
                         primaryAction={
@@ -317,7 +299,7 @@ export function EditorFrame({
                                 )}
                                 {primaryAction}
                                 {/* A stepped form saves from its last step's Next, not up here. */}
-                                {hideSave || stepped || barDrawn ? null : (
+                                {hideSave || stepped ? null : (
                                     <DeskButton
                                         testID={`${testID}-save`}
                                         label={saveLabel}
@@ -330,7 +312,7 @@ export function EditorFrame({
                         }
                     />
                     {summary === undefined ? null : summary}
-                    {summary !== undefined && !guard.isDirty ? null : metaLine}
+                    {summary !== undefined && !(guard.isDirty && !titleDrawn) ? null : metaLine}
                 </Stack>
             )}
 

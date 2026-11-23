@@ -146,6 +146,7 @@ import { BackPill } from '../../../ui/back-pill.tsx';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { UnsavedMark } from '../unsaved-mark.tsx';
 /**
  * `/kitchen/ingredients/{ingredient}` — the record editor, as `Catalogue Forms.dc.html` draws it
  * (`isIngredient` and `isPackaging`).
@@ -2759,6 +2760,9 @@ function IngredientEditor({
                                     label={t(statusKey(data?.meta.status ?? 'draft'))}
                                 />
                             </View>
+                            {guard.isDirty ? (
+                                <UnsavedMark testID="kitchen-ingredient-editor-screen-dirty" />
+                            ) : null}
                             {family.food || reference === '' ? null : (
                                 <Text
                                     testID="kitchen-ingredient-editor-screen-identity"
@@ -2769,14 +2773,6 @@ function IngredientEditor({
                                     {reference}
                                 </Text>
                             )}
-                            {!family.food && guard.isDirty ? (
-                                <Badge
-                                    testID="kitchen-ingredient-editor-screen-dirty"
-                                    tone="warning"
-                                    icon="warning"
-                                    label={t('kitchen:editor.unsaved')}
-                                />
-                            ) : null}
                         </View>
                         {family.food ? (
                             <View
@@ -2808,20 +2804,6 @@ function IngredientEditor({
                         ) : null}
                     </View>
                     <Inline space="xs" align="center">
-                        {family.food && guard.isDirty ? (
-                            <View
-                                testID="kitchen-ingredient-editor-screen-dirty"
-                                className="flex-row items-center gap-1.5"
-                            >
-                                <View
-                                    aria-hidden
-                                    className="h-2 w-2 rounded-full bg-warning-border"
-                                />
-                                <Text variant="label" tone="warning">
-                                    {t('kitchen:editor.unsaved')}
-                                </Text>
-                            </View>
-                        ) : null}
                         <InlineChecksButton testID="kitchen-ingredient-checks" />
                         <DeskButton
                             testID="kitchen-ingredient-editor-screen-back"

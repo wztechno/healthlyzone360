@@ -6,15 +6,20 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
-    FormGrid,
     FormSection,
     FormSkeleton,
+    Icon,
+    InfoTip,
+    REQUIRED_MARK,
     Text,
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
+import type { IconName } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
+import { useFormatter } from '@healthy360/i18n';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
@@ -24,7 +29,10 @@ import {
     useBranchOperatingQuery,
     useSetBranchOperatingMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { useCreateBranchMutation } from '../../../data/kitchen-ops-hooks.ts';
+import {
+    useBranchClosuresQuery,
+    useCreateBranchMutation,
+} from '../../../data/kitchen-ops-hooks.ts';
 import {
     useKitchenServiceSettingsQuery,
     useSaveKitchenServiceSettingsMutation,
@@ -51,6 +59,7 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { useLocalSearchParams } from 'expo-router';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useFinishDetour } from '../finish-detour.ts';
@@ -250,6 +259,18 @@ function BranchOperatingEditor() {
 
     const summary = summariseOperating(days);
 
+    /*
+     * The next closure that has not ended yet, for the summary: the date someone checking this page
+     * most often wants. Read from the closures card's own query, so no second request.
+     */
+    const formatter = useFormatter();
+    const closures = useBranchClosuresQuery();
+    const today = new Date().toISOString().slice(0, 10);
+    const nextClosure =
+        (closures.data ?? [])
+            .filter((closure) => closure.closedTo >= today)
+            .sort((a, b) => a.closedFrom.localeCompare(b.closedFrom))[0] ?? null;
+
     const saveWeek = () => {
         if (data === undefined || branchId === null || dayIssues.size > 0) return;
         save.mutate(
@@ -436,7 +457,13 @@ function BranchOperatingEditor() {
                         testID="kitchen-branch-hours-week"
                         title={t('kitchen:branchHours.weekTitle')}
                         description={t('kitchen:branchHours.cutOffHint')}
-                        printDescription
+                        aside={
+                            <DeskChip
+                                testID="kitchen-branch-hours-week-scope"
+                                tone="neutral"
+                                label={t('kitchen:branchHours.scopeBranch')}
+                            />
+                        }
                     >
                         <OperatingWeekRows
                             testID="kitchen-branch-hours-rows"
@@ -510,6 +537,16 @@ function BranchOperatingEditor() {
                             key: 'cut-off',
                             label: t('kitchen:branchHours.cardCutOff'),
                             value: dayCount(summary.withCutOff),
+                        },
+                        {
+                            key: 'next-closure',
+                            label: t('kitchen:branchHours.summaryNextClosure'),
+                            value:
+                                nextClosure === null
+                                    ? t('kitchen:branchHours.summaryNoClosure')
+                                    : formatter.formatDate(`${nextClosure.closedFrom}T00:00:00`, {
+                                          dateStyle: 'medium',
+                                      }),
                         },
                     ]}
                     total={{
@@ -748,6 +785,100 @@ function ServiceTimingsSection({
         );
     };
 
+    /** Sets one field's draft, digits only, and marks the form unsaved. */
+    const edit = (key: ServiceTimingKey) => (next: string) => {
+        setEdits({ ...edits, [key]: next.replace(/[^0-9]/gu, '') });
+        guard.markDirty();
+    };
+
+    /**
+     * One setting as a row: its name (with the tip) at the start, a narrow box with its unit at the
+     * end. The box carries the same name, hidden, so it is still labelled for a screen reader.
+     */
+    const timingRow = ({
+        copy,
+        field,
+        value,
+        onChange,
+        unit,
+        required = false,
+        placeholder,
+    }: {
+        readonly copy: string;
+        readonly field: string;
+        readonly value: string;
+        readonly onChange: (next: string) => void;
+        readonly unit: string;
+        readonly required?: boolean;
+        readonly placeholder?: string | undefined;
+    }) => {
+        const label = t(`kitchen:serviceTimings.${copy}Label`);
+        const hint = t(`kitchen:serviceTimings.${copy}Hint`);
+        return (
+            <View
+                key={copy}
+                className="min-h-10 min-w-[300px] flex-1 basis-[420px] flex-row items-center justify-between gap-3"
+            >
+                <View className="min-w-0 flex-1 flex-row items-center gap-1">
+                    <Text variant="strong" numberOfLines={2}>
+                        {label}
+                        {required ? <Text tone="danger">{` ${REQUIRED_MARK}`}</Text> : null}
+                    </Text>
+                    <InfoTip
+                        label={label}
+                        text={hint}
+                        testID={`kitchen-service-timings-${copy}-info`}
+                    />
+                </View>
+                <View className="w-[120px]">
+                    <TextInputField
+                        testID={`kitchen-service-timings-${copy}`}
+                        id={`kitchen-service-timings-${copy}`}
+                        label={label}
+                        labelHidden
+                        hint={hint}
+                        size="sm"
+                        inputMode="numeric"
+                        autoCorrect={false}
+                        required={required}
+                        placeholder={placeholder}
+                        trailing={
+                            <Text variant="caption" tone="secondary">
+                                {unit}
+                            </Text>
+                        }
+                        value={value}
+                        {...server.flag(field)}
+                        onChangeText={onChange}
+                    />
+                </View>
+            </View>
+        );
+    };
+
+    const minutes = t('kitchen:serviceTimings.unit');
+    /** The three waits, in the order an order meets them. */
+    const steps = [
+        {
+            key: 'alarmAfterMinutes',
+            copy: 'alarm',
+            server: 'alarm_after_minutes',
+            dot: 'bg-success',
+        },
+        {
+            key: 'managerAlertAfterMinutes',
+            copy: 'manager',
+            server: 'manager_alert_after_minutes',
+            dot: 'bg-warning-border',
+        },
+        {
+            key: 'ownerAlertAfterMinutes',
+            copy: 'owner',
+            server: 'owner_alert_after_minutes',
+            dot: 'bg-danger',
+        },
+    ] as const;
+
     return (
         <>
             <FormSection
@@ -755,7 +886,13 @@ function ServiceTimingsSection({
                 testID="kitchen-service-timings"
                 title={t('kitchen:serviceTimings.title')}
                 description={t('kitchen:serviceTimings.description')}
-                printDescription
+                aside={
+                    <DeskChip
+                        testID="kitchen-service-timings-scope"
+                        tone="success"
+                        label={t('kitchen:serviceTimings.scopeKitchen')}
+                    />
+                }
                 actions={
                     <DeskButton
                         testID="kitchen-service-timings-save"
@@ -773,124 +910,172 @@ function ServiceTimingsSection({
                     title={t('kitchen:serviceTimings.saveError')}
                     body={server.unplaced ?? saveFailure?.message}
                 />
-                <FormGrid track="half" testID="kitchen-service-timings-grid">
-                    {SERVICE_TIMINGS.map(({ key, copy, server: field }) => (
-                        <TextInputField
-                            key={key}
-                            testID={`kitchen-service-timings-${copy}`}
-                            id={`kitchen-service-timings-${copy}`}
-                            label={t(`kitchen:serviceTimings.${copy}Label`)}
-                            hint={t(`kitchen:serviceTimings.${copy}Hint`)}
-                            size="sm"
-                            inputMode="numeric"
-                            autoCorrect={false}
-                            required
-                            trailing={
-                                <Text variant="caption" tone="secondary">
-                                    {t('kitchen:serviceTimings.unit')}
-                                </Text>
-                            }
-                            value={shown(key)}
-                            {...server.flag(field)}
-                            onChangeText={(next) => {
-                                setEdits({ ...edits, [key]: next.replace(/[^0-9]/gu, '') });
-                                guard.markDirty();
-                            }}
-                        />
-                    ))}
-                    <TextInputField
-                        testID="kitchen-service-timings-refund"
-                        id="kitchen-service-timings-refund"
-                        label={t('kitchen:serviceTimings.refundLabel')}
-                        hint={t('kitchen:serviceTimings.refundHint')}
-                        size="sm"
-                        inputMode="numeric"
-                        autoCorrect={false}
-                        required
-                        trailing={
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:serviceTimings.refundUnit')}
-                            </Text>
-                        }
-                        value={refundLimit}
-                        {...server.flag('refund_approval_above_minor')}
-                        onChangeText={(next) => {
-                            setEdits({
-                                ...edits,
-                                refundApprovalAboveMinor: next.replace(/[^0-9]/gu, ''),
-                            });
-                            guard.markDirty();
-                        }}
-                    />
-                    <TextInputField
-                        testID="kitchen-service-timings-capacity"
-                        id="kitchen-service-timings-capacity"
-                        label={t('kitchen:serviceTimings.capacityLabel')}
-                        hint={t('kitchen:serviceTimings.capacityHint')}
-                        size="sm"
-                        inputMode="numeric"
-                        autoCorrect={false}
-                        trailing={
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:serviceTimings.capacityUnit')}
-                            </Text>
-                        }
-                        value={windowLimit}
-                        {...server.flag('orders_per_window')}
-                        onChangeText={(next) => {
-                            setEdits({ ...edits, ordersPerWindow: next.replace(/[^0-9]/gu, '') });
-                            guard.markDirty();
-                        }}
-                    />
-                    <TextInputField
-                        testID="kitchen-service-timings-priceLimit"
-                        id="kitchen-service-timings-priceLimit"
-                        label={t('kitchen:serviceTimings.priceLimitLabel')}
-                        hint={t('kitchen:serviceTimings.priceLimitHint')}
-                        size="sm"
-                        inputMode="numeric"
-                        autoCorrect={false}
-                        trailing={
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:serviceTimings.percentUnit')}
-                            </Text>
-                        }
-                        value={priceLimit}
-                        {...server.flag('price_approval_above_percent')}
-                        onChangeText={(next) => {
-                            setEdits({
-                                ...edits,
-                                priceApprovalAbovePercent: next.replace(/[^0-9]/gu, ''),
-                            });
-                            guard.markDirty();
-                        }}
-                    />
-                    <TextInputField
-                        testID="kitchen-service-timings-marginTarget"
-                        id="kitchen-service-timings-marginTarget"
-                        label={t('kitchen:serviceTimings.marginTargetLabel')}
-                        hint={t('kitchen:serviceTimings.marginTargetHint')}
-                        size="sm"
-                        inputMode="numeric"
-                        autoCorrect={false}
-                        trailing={
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:serviceTimings.percentUnit')}
-                            </Text>
-                        }
-                        value={marginTarget}
-                        {...server.flag('dish_margin_target_percent')}
-                        onChangeText={(next) => {
-                            setEdits({
-                                ...edits,
-                                dishMarginTargetPercent: next.replace(/[^0-9]/gu, ''),
-                            });
-                            guard.markDirty();
-                        }}
-                    />
-                </FormGrid>
+                <View className="gap-3" testID="kitchen-service-timings-grid">
+                    <TimingGroup
+                        testID="kitchen-service-timings-group-orders"
+                        icon="calendar"
+                        title={t('kitchen:serviceTimings.groupOrders')}
+                    >
+                        <View className="flex-row flex-wrap gap-x-7 gap-y-1.5">
+                            {timingRow({
+                                copy: 'lead',
+                                field: 'order_lead_minutes',
+                                value: shown('orderLeadMinutes'),
+                                onChange: edit('orderLeadMinutes'),
+                                unit: minutes,
+                                required: true,
+                            })}
+                            {timingRow({
+                                copy: 'capacity',
+                                field: 'orders_per_window',
+                                value: windowLimit,
+                                onChange: edit('ordersPerWindow'),
+                                unit: t('kitchen:serviceTimings.capacityUnit'),
+                                placeholder: t('kitchen:serviceTimings.noLimit'),
+                            })}
+                        </View>
+                    </TimingGroup>
+
+                    {/*
+                     * The three waits as a chain, because their order is the rule: the display
+                     * alarms first, then the managers are told, then the owner. Each step must come
+                     * later than the one before it.
+                     */}
+                    <TimingGroup
+                        testID="kitchen-service-timings-group-waits"
+                        icon="bell"
+                        title={t('kitchen:serviceTimings.groupWaits')}
+                        hint={t('kitchen:serviceTimings.groupWaitsHint')}
+                    >
+                        <View className="flex-row flex-wrap items-center gap-2">
+                            {steps.map((step, index) => {
+                                const label = t(`kitchen:serviceTimings.${step.copy}Label`);
+                                return (
+                                    <View
+                                        key={step.key}
+                                        className="min-w-[180px] flex-1 flex-row items-center gap-2"
+                                    >
+                                        {index === 0 ? null : (
+                                            <Icon
+                                                name="chevronEnd"
+                                                size="sm"
+                                                className="text-content-secondary"
+                                            />
+                                        )}
+                                        <View className="min-w-0 flex-1 gap-1.5 rounded-xl bg-surface-raised px-3 py-2.5">
+                                            <View className="flex-row items-center gap-1.5">
+                                                <View
+                                                    aria-hidden
+                                                    className={`h-2 w-2 rounded-full ${step.dot}`}
+                                                />
+                                                <Text variant="strong" numberOfLines={1}>
+                                                    {label}
+                                                    <Text tone="danger">{` ${REQUIRED_MARK}`}</Text>
+                                                </Text>
+                                            </View>
+                                            <TextInputField
+                                                testID={`kitchen-service-timings-${step.copy}`}
+                                                id={`kitchen-service-timings-${step.copy}`}
+                                                label={label}
+                                                labelHidden
+                                                hint={t(`kitchen:serviceTimings.${step.copy}Hint`)}
+                                                size="sm"
+                                                inputMode="numeric"
+                                                autoCorrect={false}
+                                                required
+                                                trailing={
+                                                    <Text variant="caption" tone="secondary">
+                                                        {minutes}
+                                                    </Text>
+                                                }
+                                                value={shown(step.key)}
+                                                {...server.flag(step.server)}
+                                                onChangeText={edit(step.key)}
+                                            />
+                                        </View>
+                                    </View>
+                                );
+                            })}
+                        </View>
+                    </TimingGroup>
+
+                    <TimingGroup
+                        testID="kitchen-service-timings-group-owner"
+                        icon="shield"
+                        title={t('kitchen:serviceTimings.groupOwner')}
+                    >
+                        <View className="flex-row flex-wrap gap-x-7 gap-y-1.5">
+                            {timingRow({
+                                copy: 'refund',
+                                field: 'refund_approval_above_minor',
+                                value: refundLimit,
+                                onChange: edit('refundApprovalAboveMinor'),
+                                unit: t('kitchen:serviceTimings.refundUnit'),
+                                required: true,
+                            })}
+                            {timingRow({
+                                copy: 'priceLimit',
+                                field: 'price_approval_above_percent',
+                                value: priceLimit,
+                                onChange: edit('priceApprovalAbovePercent'),
+                                unit: t('kitchen:serviceTimings.percentUnit'),
+                                placeholder: t('kitchen:serviceTimings.off'),
+                            })}
+                            {timingRow({
+                                copy: 'marginTarget',
+                                field: 'dish_margin_target_percent',
+                                value: marginTarget,
+                                onChange: edit('dishMarginTargetPercent'),
+                                unit: t('kitchen:serviceTimings.percentUnit'),
+                                placeholder: t('kitchen:serviceTimings.off'),
+                            })}
+                        </View>
+                    </TimingGroup>
+                </View>
             </FormSection>
             <EditorGuardDialogs guard={guard} testID="kitchen-service-timings" />
         </>
+    );
+}
+
+/**
+ * One group of service timings: a sunken tray with a small mark and an uppercase name, then its
+ * settings (Opening hours option A, Commercial canvas 2026-11-23). The groups say what the eight
+ * numbers are for — taking orders, chasing an order that waits, and what needs the owner — so a row
+ * of eight equal boxes with wrapped labels is no longer the page.
+ */
+function TimingGroup({
+    title,
+    icon,
+    hint,
+    testID,
+    children,
+}: {
+    readonly title: string;
+    readonly icon: IconName;
+    readonly hint?: string | undefined;
+    readonly testID: string;
+    readonly children: ReactNode;
+}) {
+    return (
+        <View testID={testID} className="z-auto gap-2.5 rounded-2xl bg-surface-sunken p-3.5">
+            <View className="flex-row items-center gap-2">
+                <View className="h-7 w-7 items-center justify-center rounded-lg bg-surface-raised">
+                    <Icon name={icon} size="sm" className="text-content-on-brand-subtle" />
+                </View>
+                <Text
+                    variant="caption"
+                    tone="secondary"
+                    accessibilityRole="header"
+                    className="font-bold uppercase tracking-wider"
+                >
+                    {title}
+                </Text>
+                {hint === undefined ? null : (
+                    <InfoTip label={title} text={hint} testID={`${testID}-info`} />
+                )}
+            </View>
+            {children}
+        </View>
     );
 }

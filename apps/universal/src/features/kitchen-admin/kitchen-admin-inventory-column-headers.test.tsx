@@ -547,6 +547,7 @@ function quotationLine(
         quantity: '12.0000',
         unitAmountMinor: null,
         lineTotalMinor: null,
+        corporateUnitAmountMinor: null,
         note: `Line ${String(ordinal)} note`,
         ...overrides,
     };
@@ -653,7 +654,7 @@ describe('quotation headers', () => {
         await untilVisible('kitchen-quotations-detail-lines');
 
         const QUANTITIES = /^kitchen-quotation-line-test-quotation-line-\d+-quantity$/;
-        for (const column of ['line', 'quantity', 'unitPrice', 'lineTotal']) {
+        for (const column of ['line', 'quantity', 'corporateRate', 'unitPrice', 'lineTotal']) {
             expect(
                 screen.getByTestId(`kitchen-quotations-detail-lines-column-${column}-trigger`),
             ).toBeTruthy();

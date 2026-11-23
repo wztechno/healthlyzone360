@@ -121,8 +121,11 @@ import { TextLink } from '../catalogue/plan-controls.tsx';
  *
  * ## Phone first
  *
- * One column at every width. This is the only screen in the application whose device is known: it
- * is used one-handed, outdoors, while somebody is holding a bag. So every row is a card with a
+ * One column below `lg`. This is the only screen in the application whose device is known: it
+ * is used one-handed, outdoors, while somebody is holding a bag. From `lg` the same cards sit in a
+ * board instead — figures on top, then Waiting for the kitchen, Ready to pick up, On the road and
+ * the pool as four lanes (option A of the "Deliveries — to design" canvas, 23 Nov 2026), because a
+ * desk or tablet left the phone column floating in empty space. So every row is a card with a
  * full-width action rather than a table with a row menu, and the card itself is **not** pressable —
  * a card that takes `onPress` around a button is an axe `nested-interactive` violation and, worse,
  * a target that closes a delivery when a thumb misses the button.
@@ -200,11 +203,48 @@ export function DriverJobsScreen() {
     );
 }
 
+/**
+ * The four lanes of the wide run sheet, in the order a run moves through them.
+ *
+ * Only a run the driver holds is split by stage; the pool keeps its own lane, last and dashed,
+ * because claiming is a different act from working a run. `readyAt` decides waiting from ready —
+ * the same test the card uses to swap Picked up for "Waiting for the kitchen".
+ */
+export function laneOf(job: DriverJob): 'waiting' | 'ready' | 'road' {
+    if (job.status === 'in_transit') return 'road';
+    return job.readyAt === null ? 'waiting' : 'ready';
+}
+
+/**
+ * Cash on the caller's runs, or `null` when there is no one total to show.
+ *
+ * Runs in two currencies have no honest single sum, so the figure is left out rather than mixing
+ * them. A sheet with nothing to collect shows zero in the first run's currency.
+ */
+function cashTotal(
+    rows: readonly DriverJob[],
+): { minor: number; currency: DriverJob['currencyCode'] } | null {
+    const first = rows[0];
+    if (first === undefined) return null;
+    if (rows.some((job) => job.currencyCode !== first.currencyCode)) return null;
+    return {
+        minor: rows.reduce((sum, job) => sum + amountToCollect(job), 0),
+        currency: first.currencyCode,
+    };
+}
+
 function DriverJobs() {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const formatter = useFormatter();
     const { online } = useOnlineStatus();
+    /**
+     * From `lg` the run sheet is a board (canvas "Deliveries — to design", option A): a row of
+     * figures and four lanes. Below it stays the one phone column — the device this screen was
+     * written for, and still the one most drivers hold.
+     */
+    const { atLeast } = useBreakpoint();
+    const board = atLeast('lg');
 
     const jobs = useDriverJobsQuery(true, { refetchInterval: online ? DRIVER_POLL_MS : false });
     const deliver = useDeliverDriverJobMutation();
@@ -302,13 +342,91 @@ function DriverJobs() {
         );
     }
 
+    /** One of the caller's own runs, as a card: collect it, or deliver it once on the road. */
+    function ownCard(job: DriverJob) {
+        return (
+            <JobCard
+                key={job.id}
+                job={job}
+                locale={locale}
+                disabled={busy}
+                compact={board}
+                action={job.status === 'assigned' ? 'pickUp' : 'deliver'}
+                onAction={(picked) => {
+                    if (picked.status === 'assigned') {
+                        pickUp.mutate(picked.id);
+                    } else {
+                        openDeliver(picked);
+                    }
+                }}
+                onFail={job.status === 'in_transit' ? openFail : undefined}
+            />
+        );
+    }
+
+    /** A run from the pool, as a card whose one action is Claim. */
+    function poolCard(job: DriverJob) {
+        return (
+            <JobCard
+                key={job.id}
+                job={job}
+                locale={locale}
+                disabled={busy}
+                compact={board}
+                action="claim"
+                onAction={(picked) => {
+                    claim.mutate(picked.id);
+                }}
+            />
+        );
+    }
+
+    const cash = cashTotal(rows);
+    const onRoad = rows.filter((job) => laneOf(job) === 'road');
+
     return (
         <Stack
             space="md"
-            className="w-full max-w-[600px] flex-1 self-center p-4"
+            className={
+                board
+                    ? 'w-full max-w-[1400px] flex-1 self-center px-7 py-4'
+                    : 'w-full max-w-[600px] flex-1 self-center p-4'
+            }
             testID="driver-jobs"
         >
-            <Heading level={1}>{t('kitchen:driver.title')}</Heading>
+            <Inline space="md" align="end" justify="between">
+                <Heading level={1}>{t('kitchen:driver.title')}</Heading>
+                {board &&
+                !jobs.isPending &&
+                listFailure === null &&
+                (rows.length > 0 || available.length > 0) ? (
+                    <Inline space="sm" testID="driver-jobs-figures">
+                        <BoardFigure
+                            testID="driver-jobs-figure-mine"
+                            label={t('kitchen:driver.figure.mine')}
+                            value={formatter.formatNumber(rows.length)}
+                        />
+                        <BoardFigure
+                            testID="driver-jobs-figure-road"
+                            label={t('kitchen:driver.figure.road')}
+                            value={formatter.formatNumber(onRoad.length)}
+                        />
+                        <BoardFigure
+                            testID="driver-jobs-figure-available"
+                            label={t('kitchen:driver.figure.available')}
+                            value={formatter.formatNumber(available.length)}
+                        />
+                        {cash === null ? null : (
+                            <BoardFigure
+                                testID="driver-jobs-figure-cash"
+                                brand
+                                label={t('kitchen:driver.figure.cash')}
+                                value={moneyText(formatter, cash.minor, cash.currency)}
+                            />
+                        )}
+                    </Inline>
+                ) : null}
+            </Inline>
 
             {/*
              * A failed stamp is reported in exactly one place at a time: inside the dialog while it
@@ -356,6 +474,34 @@ function DriverJobs() {
                     }}
                     retrying={jobs.isFetching}
                 />
+            ) : board && (rows.length > 0 || available.length > 0) ? (
+                <View className="flex-row items-start gap-4" testID="driver-jobs-board">
+                    {(['waiting', 'ready', 'road'] as const).map((lane) => {
+                        const inLane = rows.filter((job) => laneOf(job) === lane);
+                        return (
+                            <BoardLane
+                                key={lane}
+                                testID={`driver-jobs-lane-${lane}`}
+                                title={t(`kitchen:driver.lane.${lane}`)}
+                                count={formatter.formatNumber(inLane.length)}
+                                dotClassName={LANE_DOT[lane]}
+                                emptyLabel={t('kitchen:driver.lane.empty')}
+                            >
+                                {inLane.map(ownCard)}
+                            </BoardLane>
+                        );
+                    })}
+                    <BoardLane
+                        pool
+                        testID="driver-jobs-available"
+                        title={t('kitchen:driver.availableTitle')}
+                        hint={t('kitchen:driver.availableHint')}
+                        count={formatter.formatNumber(available.length)}
+                        emptyLabel={t('kitchen:driver.lane.empty')}
+                    >
+                        {available.map(poolCard)}
+                    </BoardLane>
+                </View>
             ) : (
                 <>
                     <Heading level={2}>{t('kitchen:driver.mineTitle')}</Heading>
@@ -367,23 +513,7 @@ function DriverJobs() {
                         />
                     ) : (
                         <Stack space="sm" testID="driver-jobs-list">
-                            {rows.map((job) => (
-                                <JobCard
-                                    key={job.id}
-                                    job={job}
-                                    locale={locale}
-                                    disabled={busy}
-                                    action={job.status === 'assigned' ? 'pickUp' : 'deliver'}
-                                    onAction={(picked) => {
-                                        if (picked.status === 'assigned') {
-                                            pickUp.mutate(picked.id);
-                                        } else {
-                                            openDeliver(picked);
-                                        }
-                                    }}
-                                    onFail={job.status === 'in_transit' ? openFail : undefined}
-                                />
-                            ))}
+                            {rows.map(ownCard)}
                         </Stack>
                     )}
 
@@ -396,18 +526,7 @@ function DriverJobs() {
                                     text={t('kitchen:driver.availableHint')}
                                 />
                             </Inline>
-                            {available.map((job) => (
-                                <JobCard
-                                    key={job.id}
-                                    job={job}
-                                    locale={locale}
-                                    disabled={busy}
-                                    action="claim"
-                                    onAction={(picked) => {
-                                        claim.mutate(picked.id);
-                                    }}
-                                />
-                            ))}
+                            {available.map(poolCard)}
                         </Stack>
                     )}
                 </>
@@ -565,6 +684,119 @@ function DriverJobs() {
     );
 }
 
+/** Each lane's dot, in the order's own tones: amber waits, green is ready, blue is moving. */
+const LANE_DOT = {
+    waiting: 'bg-warning-border',
+    ready: 'bg-success',
+    road: 'bg-info',
+} as const;
+
+/** One figure in the board's top row. `brand` is the cash figure, the one a driver acts on. */
+function BoardFigure({
+    label,
+    value,
+    brand = false,
+    testID,
+}: {
+    readonly label: string;
+    readonly value: string;
+    readonly brand?: boolean;
+    readonly testID: string;
+}) {
+    return (
+        <View
+            testID={testID}
+            className={
+                brand
+                    ? 'min-w-[150px] rounded-2xl bg-surface-brand-subtle px-4 py-2.5'
+                    : 'min-w-[150px] rounded-2xl border border-stroke bg-surface-raised px-4 py-2.5'
+            }
+        >
+            <Text
+                variant="caption"
+                className={brand ? 'text-content-on-brand-subtle' : 'text-content-secondary'}
+            >
+                {label}
+            </Text>
+            <Text
+                variant="bodyStrong"
+                className={`font-display text-2xl tabular-nums ${brand ? 'text-content-on-brand-subtle' : ''}`}
+                testID={`${testID}-value`}
+            >
+                {value}
+            </Text>
+        </View>
+    );
+}
+
+/**
+ * One lane of the board: a heading with its count, then its cards, or a quiet line when empty.
+ *
+ * The pool lane is drawn dashed on the page rather than filled, because nothing in it is the
+ * driver's yet. Empty lanes stay on screen so the four stages keep their places.
+ */
+function BoardLane({
+    title,
+    count,
+    hint,
+    dotClassName,
+    emptyLabel,
+    pool = false,
+    testID,
+    children,
+}: {
+    readonly title: string;
+    readonly count: string;
+    readonly hint?: string | undefined;
+    readonly dotClassName?: string | undefined;
+    readonly emptyLabel: string;
+    readonly pool?: boolean;
+    readonly testID: string;
+    readonly children: ReactNode[];
+}) {
+    return (
+        <View
+            testID={testID}
+            className={
+                pool
+                    ? 'min-w-0 flex-1 gap-2.5 rounded-3xl border border-dashed border-stroke-strong p-3'
+                    : 'min-w-0 flex-1 gap-2.5 rounded-3xl bg-surface-sunken p-3'
+            }
+        >
+            <Inline space="xs" align="center" wrap={false}>
+                {dotClassName === undefined ? null : (
+                    <View aria-hidden className={`h-2 w-2 shrink-0 rounded-full ${dotClassName}`} />
+                )}
+                <Heading level={2} className="text-base">
+                    {title}
+                </Heading>
+                {hint === undefined ? null : <InfoTip label={title} text={hint} />}
+                <View className="rounded-full border border-stroke bg-surface-raised px-2">
+                    <Text
+                        variant="caption"
+                        className="font-semibold tabular-nums"
+                        testID={`${testID}-count`}
+                    >
+                        {count}
+                    </Text>
+                </View>
+            </Inline>
+            {children.length === 0 ? (
+                <Text
+                    variant="caption"
+                    tone="secondary"
+                    className="px-1 py-2"
+                    testID={`${testID}-empty`}
+                >
+                    {emptyLabel}
+                </Text>
+            ) : (
+                children
+            )}
+        </View>
+    );
+}
+
 interface DriverSheetProps {
     readonly open: boolean;
     readonly onClose: () => void;
@@ -674,6 +906,12 @@ interface JobCardProps {
     readonly onAction: (job: DriverJob) => void;
     /** Offered only on a run that is on the road. */
     readonly onFail?: ((job: DriverJob) => void) | undefined;
+    /**
+     * Drawn inside a board lane, a quarter of the page wide: a smaller number, and the status
+     * badge drops under it rather than breaking a long order number in two. The buttons stay
+     * stacked — side by side, a quarter-width lane cut both labels short.
+     */
+    readonly compact?: boolean;
 }
 
 /** A maps search for the parts of an address that were recorded, in the order given. */
@@ -688,7 +926,15 @@ function driverMapUrl(parts: readonly (string | null)[]): string {
  * The card takes no `onPress`. It holds a button, and a pressable card around a button is both an
  * axe `nested-interactive` violation and a way to deliver an order with a mistimed thumb.
  */
-function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardProps) {
+function JobCard({
+    job,
+    locale,
+    disabled,
+    action,
+    onAction,
+    onFail,
+    compact = false,
+}: JobCardProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const testID = `driver-job-${job.id}`;
@@ -717,10 +963,10 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
                     space="sm"
                     align="start"
                     justify="between"
-                    wrap={false}
+                    wrap={compact}
                     testID={`${testID}-statuses`}
                 >
-                    <Stack space="none" className="min-w-0 flex-1">
+                    <Stack space="none" className={compact ? 'shrink-0 grow' : 'min-w-0 flex-1'}>
                         <Text variant="caption" tone="secondary">
                             {t('kitchen:driver.orderLabel')}
                         </Text>
@@ -730,7 +976,7 @@ function JobCard({ job, locale, disabled, action, onAction, onFail }: JobCardPro
                          */}
                         <Heading
                             level={2}
-                            className="text-xl tabular-nums"
+                            className={compact ? 'text-lg tabular-nums' : 'text-xl tabular-nums'}
                             testID={`${testID}-order`}
                         >
                             {job.orderNumber ?? String(job.orderId)}

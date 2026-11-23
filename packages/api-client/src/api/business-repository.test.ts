@@ -203,4 +203,45 @@ describe('createApiBusinessRepository quotations', () => {
 
         expect(page.items[0]?.lines[0]?.name).toBe('Aioli Sauce');
     });
+
+    it('reads a priced quotation past its date as expired, and one still in date as quoted', async () => {
+        const programmeId = '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2a01';
+        const wire = (reference: string, expiresAt: string) => ({
+            id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2c01',
+            organisation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e2d01',
+            corporate_programme_id: programmeId,
+            reference,
+            status: 'quoted',
+            currency_code: 'USD',
+            notes: null,
+            decline_reason: null,
+            submitted_at: '2020-01-01T09:00:00Z',
+            quoted_at: '2020-01-02T09:00:00Z',
+            expires_at: expiresAt,
+            decided_at: null,
+            lock_version: 1,
+            lines: [],
+            created_at: '2020-01-01T08:00:00Z',
+            updated_at: '2020-01-02T09:00:00Z',
+        });
+
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: [
+                        wire('QUO-PAST', '2020-01-09T09:00:00Z'),
+                        wire('QUO-OPEN', new Date(Date.now() + 86_400_000).toISOString()),
+                    ],
+                    meta: {},
+                },
+            },
+        ]);
+
+        const page = await repository.listQuotations({
+            programmeId: CorporateProgrammeId.unsafe(programmeId),
+        });
+
+        expect(page.items.map((row) => row.state)).toEqual(['expired', 'quoted']);
+    });
 });

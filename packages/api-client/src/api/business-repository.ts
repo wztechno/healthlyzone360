@@ -185,7 +185,15 @@ function mapProgramme(wire: WireProgramme): CorporateProgramme {
     };
 }
 
-function mapQuotationState(status: string): QuotationState {
+/**
+ * The API flips `quoted` to `expired` on a sweep, and refuses a decision on a quotation past its
+ * date in the meantime. Between the two the wire still says `quoted`; the buyer is shown what the
+ * API will answer — expired — so no screen offers a decision that can only fail.
+ */
+function mapQuotationState(status: string, expiresAt: string | null): QuotationState {
+    if (status === 'quoted' && expiresAt !== null && Date.parse(expiresAt) <= Date.now()) {
+        return 'expired';
+    }
     switch (status) {
         case 'draft':
         case 'submitted':
@@ -236,7 +244,7 @@ function mapQuotation(wire: WireQuotation): Quotation {
     return {
         id: QuotationId.unsafe(wire.id),
         programmeId: CorporateProgrammeId.unsafe(wire.corporate_programme_id),
-        state: mapQuotationState(wire.status),
+        state: mapQuotationState(wire.status, wire.expires_at),
         reference: wire.reference,
         lines,
         requestedTotal,

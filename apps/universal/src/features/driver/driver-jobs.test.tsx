@@ -2,7 +2,7 @@ import { ApiError, apiFailure } from '@healthy360/api-client';
 import { conflictFailure } from '@healthy360/api-client/contracts';
 import type { DriverJob } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
-import { fireEvent, screen, waitFor } from '@testing-library/react-native';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react-native';
 import { Linking } from 'react-native';
 
 import {
@@ -11,6 +11,7 @@ import {
     testMeResponse,
     testMembership,
 } from '../../testing/session-fixtures.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { DriverJobsScreen } from './driver-jobs-screen.tsx';
 
@@ -757,6 +758,127 @@ describe('claiming a run from the pool', () => {
         // The sheet re-read on the failure too, so the lost run has left the pool.
         await waitFor(() => {
             expect(screen.queryByTestId('driver-jobs-available')).toBeNull();
+        });
+    });
+});
+
+describe('the run sheet as a board on a wide screen', () => {
+    const JOB_THREE = 'test-0000-delivery-job-0003';
+    const JOB_FOUR = 'test-0000-delivery-job-0004';
+
+    function boardSheet(): { mine: DriverJob[]; pool: DriverJob[] } {
+        return {
+            mine: [
+                // Held, but the kitchen has not marked it ready.
+                driverJob({ readyAt: null }),
+                // Held and ready: Picked up is offered.
+                driverJob({
+                    id: JOB_THREE,
+                    orderId: 'test-0000-order-0003' as OrderId,
+                    orderNumber: 'H360-2026-0150',
+                    paymentMethod: 'wish',
+                }),
+                // On the road.
+                driverJob({
+                    id: JOB_TWO,
+                    orderId: 'test-0000-order-0002' as OrderId,
+                    orderNumber: 'H360-2026-0149',
+                    status: 'in_transit',
+                    trackingStatus: 'en_route',
+                    pickedUpAt: '2026-08-16T06:55:00.000Z',
+                    amountDueMinor: 1250,
+                }),
+            ],
+            pool: [
+                driverJob({
+                    id: JOB_FOUR,
+                    orderId: 'test-0000-order-0004' as OrderId,
+                    orderNumber: 'H360-2026-0151',
+                    status: 'pending',
+                    assignedAt: null,
+                }),
+            ],
+        };
+    }
+
+    it('puts each run in the lane for its stage, with the pool last', async () => {
+        await withDeskWidth(async () => {
+            const sheet = boardSheet();
+            await renderRunSheet({ listJobs: () => sheet.mine, available: () => sheet.pool });
+
+            await waitFor(
+                () => {
+                    expect(screen.getByTestId('driver-jobs-board')).toBeTruthy();
+                },
+                { timeout: 5000 },
+            );
+            const waiting = within(screen.getByTestId('driver-jobs-lane-waiting'));
+            const ready = within(screen.getByTestId('driver-jobs-lane-ready'));
+            const road = within(screen.getByTestId('driver-jobs-lane-road'));
+            const pool = within(screen.getByTestId('driver-jobs-available'));
+
+            expect(waiting.getByTestId(`${jobTestId(JOB_ONE)}-waiting-for-kitchen`)).toBeTruthy();
+            expect(ready.getByTestId(`${jobTestId(JOB_THREE)}-pick-up`)).toBeTruthy();
+            // Deliver and Could not deliver are both on the card, side by side.
+            expect(road.getByTestId(`${jobTestId(JOB_TWO)}-deliver`)).toBeTruthy();
+            expect(road.getByTestId(`${jobTestId(JOB_TWO)}-fail`)).toBeTruthy();
+            expect(pool.getByTestId(`${jobTestId(JOB_FOUR)}-claim`)).toBeTruthy();
+
+            expect(screen.getByTestId('driver-jobs-lane-road-count')).toHaveTextContent('1');
+            // The phone column is not drawn as well.
+            expect(screen.queryByTestId('driver-jobs-list')).toBeNull();
+        });
+    });
+
+    it('adds up the cash on the caller\u2019s own runs, never the pool\u2019s', async () => {
+        await withDeskWidth(async () => {
+            const sheet = boardSheet();
+            await renderRunSheet({ listJobs: () => sheet.mine, available: () => sheet.pool });
+
+            await waitFor(
+                () => {
+                    expect(screen.getByTestId('driver-jobs-figures')).toBeTruthy();
+                },
+                { timeout: 5000 },
+            );
+            // $30.00 + $12.50; the WISH run owes nothing and the pool run is not theirs yet.
+            expect(screen.getByTestId('driver-jobs-figure-cash-value')).toHaveTextContent('$42.50');
+            expect(screen.getByTestId('driver-jobs-figure-mine-value')).toHaveTextContent('3');
+            expect(screen.getByTestId('driver-jobs-figure-road-value')).toHaveTextContent('1');
+            expect(screen.getByTestId('driver-jobs-figure-available-value')).toHaveTextContent('1');
+        });
+    });
+
+    it('keeps an empty lane on screen and says so', async () => {
+        await withDeskWidth(async () => {
+            await renderRunSheet({ listJobs: () => [driverJob()], available: () => [] });
+
+            await waitFor(
+                () => {
+                    expect(screen.getByTestId('driver-jobs-board')).toBeTruthy();
+                },
+                { timeout: 5000 },
+            );
+            expect(screen.getByTestId('driver-jobs-lane-road-empty')).toHaveTextContent(
+                'None right now',
+            );
+            expect(screen.getByTestId('driver-jobs-available-empty')).toBeTruthy();
+        });
+    });
+
+    it('shows the empty state, not four empty lanes, when there is nothing at all', async () => {
+        await withDeskWidth(async () => {
+            await renderRunSheet({ listJobs: () => [], available: () => [] });
+
+            await waitFor(
+                () => {
+                    expect(screen.getByTestId('driver-jobs-empty')).toBeTruthy();
+                },
+                { timeout: 5000 },
+            );
+            expect(screen.queryByTestId('driver-jobs-board')).toBeNull();
+            // A row of zeros above "Nothing to run" says nothing the empty state does not.
+            expect(screen.queryByTestId('driver-jobs-figures')).toBeNull();
         });
     });
 });

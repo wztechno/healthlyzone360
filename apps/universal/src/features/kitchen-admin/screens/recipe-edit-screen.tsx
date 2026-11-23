@@ -150,6 +150,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 import { InlineChecksButton } from '../inline-checks-button.tsx';
 import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { UnsavedMark } from '../unsaved-mark.tsx';
 /**
  * `/kitchen/recipes/{recipe}` — the recipe editor, as `Catalogue.dc.html` draws it (`isRecipeEdit`,
  * around line 313).
@@ -2213,8 +2214,7 @@ function RecipeEditor({
         });
     };
 
-    // The save bar takes the unsaved marker and Save; Publish stays in the header beside the
-    // version it publishes.
+    // Save and Publish sit in the header; the unsaved mark beside the title.
     const recipeWriting =
         creatingNow ||
         create.isPending ||
@@ -3076,12 +3076,7 @@ function RecipeEditor({
                                         </Text>
                                     ) : null}
                                     {guard.isDirty ? (
-                                        <Badge
-                                            variant="label"
-                                            testID="kitchen-recipe-editor-screen-dirty"
-                                            tone="warning"
-                                            label={t('kitchen:editor.unsaved')}
-                                        />
+                                        <UnsavedMark testID="kitchen-recipe-editor-screen-dirty" />
                                     ) : allSaved ? (
                                         // What the last Save did, said where the unsaved flag was, until
                                         // the next edit: every tab, the listing included, is on the server.

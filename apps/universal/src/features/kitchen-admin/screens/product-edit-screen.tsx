@@ -115,7 +115,7 @@ import {
 import { ImageSlot } from '../image-slot.tsx';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useFinishDetour } from '../finish-detour.ts';
-import { useSaveBar } from '../save-bar.tsx';
+import { UnsavedMark } from '../unsaved-mark.tsx';
 import {
     PacksHostContext,
     packsIssueLabel,
@@ -1509,26 +1509,6 @@ function ProductEditor({
         ...(data?.meta.status === 'published' ? { doneLabel: t(statusKey('published')) } : {}),
     };
 
-    // The save bar takes the unsaved marker and Save — unless a host page saves this listing.
-    const writing =
-        create.isPending || update.isPending || setChannels.isPending || photoSave.isPending;
-    const barDrawn = useSaveBar(
-        onRegisterSave !== undefined
-            ? null
-            : {
-                  dirty: guard.isDirty,
-                  creating: isCreating,
-                  save: {
-                      testID: 'kitchen-product-editor-screen-save',
-                      label: t('kitchen:common.saveDraft'),
-                      loading: writing,
-                      disabled: !canManage || writing,
-                      onPress: save,
-                  },
-                  testID: 'kitchen-product-editor-screen',
-              },
-    );
-
     /* ── loading, refusal and not-found ──────────────────────────────────────────────────────── */
 
     if (!isCreating && parsed === null) {
@@ -1636,16 +1616,9 @@ function ProductEditor({
         />
     );
 
-    const dirtyBadge =
-        guard.isDirty && !barDrawn ? (
-            <Badge
-                variant="label"
-                testID="kitchen-product-editor-screen-dirty"
-                tone="warning"
-                icon="warning"
-                label={t('kitchen:editor.unsaved')}
-            />
-        ) : null;
+    const dirtyBadge = guard.isDirty ? (
+        <UnsavedMark testID="kitchen-product-editor-screen-dirty" />
+    ) : null;
 
     const assessmentBadges = (
         <AssessmentBadges
@@ -1687,7 +1660,7 @@ function ProductEditor({
                 />
             )}
             {/* Saved by the host page's own Save when it took this listing's (`host-save.ts`). */}
-            {onRegisterSave !== undefined || barDrawn ? null : (
+            {onRegisterSave !== undefined ? null : (
                 <DeskButton
                     testID="kitchen-product-editor-screen-save"
                     variant={offersPublish ? 'secondary' : 'primary'}

@@ -8,6 +8,7 @@ use Healthy360\B2b\Models\CorporateProgramme;
 use Healthy360\B2b\Models\Quotation;
 use Healthy360\B2b\Models\QuotationLine;
 use Healthy360\B2b\Models\QuotationOrder;
+use Healthy360\B2b\Services\QuotationCorporateRates;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Orders\Models\Order;
 use Healthy360\Organisations\Models\Organisation;
@@ -35,7 +36,13 @@ final class QuotationPresenter
     private array $programmeNames = [];
 
     /**
+     * `$corporateRates` is the kitchen's side only ({@see QuotationCorporateRates}):
+     * when given, every line carries `corporate_unit_amount_minor`, null where
+     * nothing prices it. The buyer's reads leave it out — they saw the rate in
+     * their own catalogue.
+     *
      * @param  Collection<int, QuotationLine>|null  $lines
+     * @param  array<string, int>|null  $corporateRates  line id → today's corporate unit rate
      * @return array{
      *     id: string,
      *     organisation_id: string,
@@ -65,7 +72,7 @@ final class QuotationPresenter
      *     updated_at: string|null
      * }
      */
-    public function quotation(Quotation $quotation, ?Collection $lines = null): array
+    public function quotation(Quotation $quotation, ?Collection $lines = null, ?array $corporateRates = null): array
     {
         $lines ??= $quotation->lines()->get();
         $programme = $this->programmeName($quotation->corporate_programme_id);
@@ -99,7 +106,15 @@ final class QuotationPresenter
             'decided_at' => $quotation->decided_at?->toIso8601String(),
             'lock_version' => $quotation->lock_version,
             'lines' => array_values(
-                $lines->map(fn (QuotationLine $line): array => $this->line($line, $items[$line->catalogue_item_id] ?? null))->all(),
+                $lines->map(function (QuotationLine $line) use ($items, $corporateRates): array {
+                    $presented = $this->line($line, $items[$line->catalogue_item_id] ?? null);
+
+                    if ($corporateRates !== null) {
+                        $presented['corporate_unit_amount_minor'] = $corporateRates[(string) $line->getKey()] ?? null;
+                    }
+
+                    return $presented;
+                })->all(),
             ),
             'created_at' => $quotation->created_at?->toIso8601String(),
             'updated_at' => $quotation->updated_at?->toIso8601String(),

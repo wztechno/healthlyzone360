@@ -89,6 +89,7 @@ import { BackPill } from '../../../ui/back-pill.tsx';
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskToggleTile } from '../desk-kit/desk-toggle-tile.tsx';
+import { UnsavedMark } from '../unsaved-mark.tsx';
 /**
  * `/kitchen/plans/{plan}` — the commercial definition of a subscription plan.
  *
@@ -1297,12 +1298,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                     label={t('kitchen:plans.createChip')}
                                 />
                                 {guard.isDirty ? (
-                                    <Badge
-                                        variant="label"
-                                        testID="kitchen-plan-editor-screen-dirty"
-                                        tone="warning"
-                                        label={t('kitchen:editor.unsaved')}
-                                    />
+                                    <UnsavedMark testID="kitchen-plan-editor-screen-dirty" />
                                 ) : null}
                             </Inline>
                         }

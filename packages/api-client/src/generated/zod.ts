@@ -8977,6 +8977,7 @@ export const zQuotationLine = z.object({
     quantity: z.string(),
     unit_amount_minor: z.int().gte(0).nullable(),
     line_total_minor: z.int().gte(0).nullable(),
+    corporate_unit_amount_minor: z.int().gte(0).nullish(),
     note: z.string().max(255).nullable()
 });
 

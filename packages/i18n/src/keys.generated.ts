@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10904 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10930 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -3791,7 +3791,13 @@ export interface NamespaceKeys {
     | 'branchClosures.newBranchSave'
     | 'branchClosures.newBranchToast'
     | 'branchClosures.noteLabel'
+    | 'branchClosures.oneDay'
     | 'branchClosures.remove'
+    | 'branchClosures.removeAction'
+    | 'branchClosures.removeBody'
+    | 'branchClosures.removeTitle'
+    | 'branchClosures.removedToast'
+    | 'branchClosures.rowMenu'
     | 'branchClosures.saveError'
     | 'branchClosures.title'
     | 'branchClosures.toHint'
@@ -3828,8 +3834,11 @@ export interface NamespaceKeys {
     | 'branchHours.save'
     | 'branchHours.saveError'
     | 'branchHours.savedToast'
+    | 'branchHours.scopeBranch'
     | 'branchHours.summaryBranch'
     | 'branchHours.summaryDays'
+    | 'branchHours.summaryNextClosure'
+    | 'branchHours.summaryNoClosure'
     | 'branchHours.summaryTimeZone'
     | 'branchHours.summaryTitle'
     | 'branchHours.title'
@@ -4438,6 +4447,14 @@ export interface NamespaceKeys {
     | 'driver.failReasonLabel'
     | 'driver.failTitle'
     | 'driver.failedToast'
+    | 'driver.figure.available'
+    | 'driver.figure.cash'
+    | 'driver.figure.mine'
+    | 'driver.figure.road'
+    | 'driver.lane.empty'
+    | 'driver.lane.ready'
+    | 'driver.lane.road'
+    | 'driver.lane.waiting'
     | 'driver.loadErrorTitle'
     | 'driver.mineTitle'
     | 'driver.noAddress'
@@ -6274,7 +6291,9 @@ export interface NamespaceKeys {
     | 'ops.quotations.guidanceBody'
     | 'ops.quotations.guidanceTitle'
     | 'ops.quotations.lineColumn'
+    | 'ops.quotations.lineCorporateRate'
     | 'ops.quotations.lineCount'
+    | 'ops.quotations.lineNoCorporateRate'
     | 'ops.quotations.lineNotPriced'
     | 'ops.quotations.linePriceHint'
     | 'ops.quotations.linePriceInvalid'
@@ -8133,6 +8152,10 @@ export interface NamespaceKeys {
     | 'serviceTimings.capacityLabel'
     | 'serviceTimings.capacityUnit'
     | 'serviceTimings.description'
+    | 'serviceTimings.groupOrders'
+    | 'serviceTimings.groupOwner'
+    | 'serviceTimings.groupWaits'
+    | 'serviceTimings.groupWaitsHint'
     | 'serviceTimings.leadHint'
     | 'serviceTimings.leadLabel'
     | 'serviceTimings.loadErrorTitle'
@@ -8140,6 +8163,8 @@ export interface NamespaceKeys {
     | 'serviceTimings.managerLabel'
     | 'serviceTimings.marginTargetHint'
     | 'serviceTimings.marginTargetLabel'
+    | 'serviceTimings.noLimit'
+    | 'serviceTimings.off'
     | 'serviceTimings.ownerHint'
     | 'serviceTimings.ownerLabel'
     | 'serviceTimings.percentUnit'
@@ -8151,6 +8176,7 @@ export interface NamespaceKeys {
     | 'serviceTimings.save'
     | 'serviceTimings.saveError'
     | 'serviceTimings.savedToast'
+    | 'serviceTimings.scopeKitchen'
     | 'serviceTimings.title'
     | 'serviceTimings.unit'
     | 'setup.allSet'
@@ -14713,7 +14739,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:branchClosures.newBranchSave',
   'kitchen:branchClosures.newBranchToast',
   'kitchen:branchClosures.noteLabel',
+  'kitchen:branchClosures.oneDay',
   'kitchen:branchClosures.remove',
+  'kitchen:branchClosures.removeAction',
+  'kitchen:branchClosures.removeBody',
+  'kitchen:branchClosures.removeTitle',
+  'kitchen:branchClosures.removedToast',
+  'kitchen:branchClosures.rowMenu',
   'kitchen:branchClosures.saveError',
   'kitchen:branchClosures.title',
   'kitchen:branchClosures.toHint',
@@ -14750,8 +14782,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:branchHours.save',
   'kitchen:branchHours.saveError',
   'kitchen:branchHours.savedToast',
+  'kitchen:branchHours.scopeBranch',
   'kitchen:branchHours.summaryBranch',
   'kitchen:branchHours.summaryDays',
+  'kitchen:branchHours.summaryNextClosure',
+  'kitchen:branchHours.summaryNoClosure',
   'kitchen:branchHours.summaryTimeZone',
   'kitchen:branchHours.summaryTitle',
   'kitchen:branchHours.title',
@@ -15360,6 +15395,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.failReasonLabel',
   'kitchen:driver.failTitle',
   'kitchen:driver.failedToast',
+  'kitchen:driver.figure.available',
+  'kitchen:driver.figure.cash',
+  'kitchen:driver.figure.mine',
+  'kitchen:driver.figure.road',
+  'kitchen:driver.lane.empty',
+  'kitchen:driver.lane.ready',
+  'kitchen:driver.lane.road',
+  'kitchen:driver.lane.waiting',
   'kitchen:driver.loadErrorTitle',
   'kitchen:driver.mineTitle',
   'kitchen:driver.noAddress',
@@ -17196,7 +17239,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.guidanceBody',
   'kitchen:ops.quotations.guidanceTitle',
   'kitchen:ops.quotations.lineColumn',
+  'kitchen:ops.quotations.lineCorporateRate',
   'kitchen:ops.quotations.lineCount',
+  'kitchen:ops.quotations.lineNoCorporateRate',
   'kitchen:ops.quotations.lineNotPriced',
   'kitchen:ops.quotations.linePriceHint',
   'kitchen:ops.quotations.linePriceInvalid',
@@ -19055,6 +19100,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:serviceTimings.capacityLabel',
   'kitchen:serviceTimings.capacityUnit',
   'kitchen:serviceTimings.description',
+  'kitchen:serviceTimings.groupOrders',
+  'kitchen:serviceTimings.groupOwner',
+  'kitchen:serviceTimings.groupWaits',
+  'kitchen:serviceTimings.groupWaitsHint',
   'kitchen:serviceTimings.leadHint',
   'kitchen:serviceTimings.leadLabel',
   'kitchen:serviceTimings.loadErrorTitle',
@@ -19062,6 +19111,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:serviceTimings.managerLabel',
   'kitchen:serviceTimings.marginTargetHint',
   'kitchen:serviceTimings.marginTargetLabel',
+  'kitchen:serviceTimings.noLimit',
+  'kitchen:serviceTimings.off',
   'kitchen:serviceTimings.ownerHint',
   'kitchen:serviceTimings.ownerLabel',
   'kitchen:serviceTimings.percentUnit',
@@ -19073,6 +19124,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:serviceTimings.save',
   'kitchen:serviceTimings.saveError',
   'kitchen:serviceTimings.savedToast',
+  'kitchen:serviceTimings.scopeKitchen',
   'kitchen:serviceTimings.title',
   'kitchen:serviceTimings.unit',
   'kitchen:setup.allSet',

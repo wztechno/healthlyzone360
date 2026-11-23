@@ -16,13 +16,13 @@ import { View } from 'react-native';
 import { DeskButton } from '../features/kitchen-admin/desk-kit/desk-button.tsx';
 import { FailureToast } from '../features/kitchen-admin/failure-toast.tsx';
 import { UndoBar } from '../features/kitchen-admin/row-editor-shell.tsx';
-import { SaveBarProvider, SaveBarSlot, useSaveBar } from '../features/kitchen-admin/save-bar.tsx';
+import { UnsavedMark } from '../features/kitchen-admin/unsaved-mark.tsx';
 
 /**
  * `/showcase-feedback` — the kitchen's toasts, pop-ups and notice strips, from the Toasts / pop-ups /
  * banners canvas (2026-11-11), each as the admin draws it: the desk toast, the card pop-up, the
- * notice strip (the compact `Callout`), the dark system bar, the in-place undo, the save bar at the
- * page's foot and a refused write said as a toast.
+ * notice strip (the compact `Callout`), the dark system bar, the in-place undo, the unsaved mark
+ * beside an editor's title and a refused write said as a toast.
  *
  * Literal copy, like `/showcase`: a development page, never a customer one.
  */
@@ -69,9 +69,7 @@ export function FeedbackShowcaseScreen() {
     return (
         <ToastLookScope look="desk">
             <DensityProvider value="compact">
-                <SaveBarProvider>
-                    <Parts />
-                </SaveBarProvider>
+                <Parts />
             </DensityProvider>
         </ToastLookScope>
     );
@@ -83,19 +81,6 @@ function Parts() {
     const [dismissed, setDismissed] = useState(false);
     const [changes, setChanges] = useState(0);
     const [refused, setRefused] = useState<Error | null>(null);
-    useSaveBar({
-        dirty: changes > 0,
-        toFix: changes > 1 ? 2 : 0,
-        save: {
-            testID: 'feedback-showcase-save',
-            label: 'Save',
-            onPress: () => {
-                setChanges(0);
-                toast.show({ tone: 'success', message: 'Supplier saved' });
-            },
-        },
-        testID: 'feedback-showcase',
-    });
 
     return (
         <View className="mx-auto w-full max-w-[960px] p-6">
@@ -171,8 +156,22 @@ function Parts() {
 
                 <Stack space="sm">
                     <Text variant="label">
-                        Save bar — at the page's foot while there is something to save
+                        Unsaved changes — beside the editor's title, Save in the header
                     </Text>
+                    <Inline space="sm" align="center" justify="between" wrap>
+                        <Inline space="sm" align="center" wrap>
+                            <Text variant="title">Basmati rice</Text>
+                            {changes > 0 ? <UnsavedMark testID="feedback-showcase-dirty" /> : null}
+                        </Inline>
+                        <DeskButton
+                            testID="feedback-showcase-save"
+                            label="Save"
+                            onPress={() => {
+                                setChanges(0);
+                                toast.show({ tone: 'success', message: 'Supplier saved' });
+                            }}
+                        />
+                    </Inline>
                     <Inline space="sm" wrap>
                         <DeskButton
                             testID="feedback-showcase-edit"
@@ -210,9 +209,6 @@ function Parts() {
                     />
                 </Stack>
             </Stack>
-
-            {/* Beside the content, as in the kitchen, so it sticks to the foot of the page. */}
-            <SaveBarSlot />
 
             <Dialog
                 look="card"

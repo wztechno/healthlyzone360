@@ -101,6 +101,33 @@ final readonly class PriceResolver
         ?CarbonImmutable $date = null,
         ?CustomerAccount $buyer = null,
     ): ?ResolvedPrice {
+        return $this->currentForBuyerOrganisation(
+            $salesChannelId,
+            $this->agreementBuyerOf($buyer),
+            $catalogueItemId,
+            $catalogueItemVariantId,
+            $quantity,
+            $date,
+        );
+    }
+
+    /**
+     * `currentFor()` for a corporate buyer named by organisation rather than by
+     * a signed-in account — the kitchen's side of a quotation, which knows the
+     * buyer's organisation but is not that buyer. The answer is the same one
+     * that buyer's own catalogue shows: their agreement's list first, then the
+     * channel's public tariff.
+     *
+     * @param  string|null  $buyerOrganisationId  the corporate buyer; null prices as a stranger
+     */
+    public function currentForBuyerOrganisation(
+        string $salesChannelId,
+        ?string $buyerOrganisationId,
+        string $catalogueItemId,
+        ?string $catalogueItemVariantId = null,
+        int|float|string|null $quantity = null,
+        ?CarbonImmutable $date = null,
+    ): ?ResolvedPrice {
         $on = ($date ?? CarbonImmutable::now())->startOfDay();
         $wanted = $quantity === null ? 1.0 : (float) $quantity;
 
@@ -110,7 +137,7 @@ final readonly class PriceResolver
             return null;
         }
 
-        foreach ($this->listsFor($channel, $on, $buyer) as $priceList) {
+        foreach ($this->listsFor($channel, $on, $buyerOrganisationId) as $priceList) {
             $row = $this->bestRowIn($priceList, $channel->organisation_id, $catalogueItemId, $catalogueItemVariantId, $wanted, $on);
 
             if ($row !== null) {
@@ -162,7 +189,7 @@ final readonly class PriceResolver
         }
 
         $itemIds = array_map('strval', array_keys($variantsByItem));
-        $lists = $this->listsFor($channel, $on, $buyer);
+        $lists = $this->listsFor($channel, $on, $this->agreementBuyerOf($buyer));
 
         /** @var array<int, array<string, list<PriceListItem>>> $rowsByList list position → article id → rows */
         $rowsByList = [];
@@ -224,19 +251,16 @@ final readonly class PriceResolver
      *
      * @return list<PriceList>
      */
-    private function listsFor(SalesChannel $channel, CarbonImmutable $on, ?CustomerAccount $buyer = null): array
+    private function listsFor(SalesChannel $channel, CarbonImmutable $on, ?string $buyerOrganisationId = null): array
     {
         $ordered = [];
         $privateChannel = $channel->channel_kind->hasPrivatePricing();
-        $privateBuyer = $buyer !== null
-            && $buyer->account_type === CustomerAccountType::B2b
-            && $privateChannel;
 
         $agreementPriceListId = null;
 
-        if ($privateBuyer && $buyer->organisation_id !== null) {
+        if ($privateChannel && $buyerOrganisationId !== null) {
             $agreement = $this->agreements->activeAgreementFor(
-                $buyer->organisation_id,
+                $buyerOrganisationId,
                 $channel->organisation_id,
                 $on,
             );
@@ -296,6 +320,19 @@ final readonly class PriceResolver
         }
 
         return $ordered;
+    }
+
+    /**
+     * The organisation whose agreement may price for this shopper: a corporate
+     * (B2B) account's own organisation, and nobody else's.
+     */
+    private function agreementBuyerOf(?CustomerAccount $buyer): ?string
+    {
+        if ($buyer === null || $buyer->account_type !== CustomerAccountType::B2b) {
+            return null;
+        }
+
+        return $buyer->organisation_id;
     }
 
     /**
