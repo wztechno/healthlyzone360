@@ -2296,6 +2296,18 @@
             "refused": "Customer refused it",
             "unreachable": "Could not get there",
             "other": "Something else"
+        },
+        "lane": {
+            "waiting": "Waiting for the kitchen",
+            "ready": "Ready to pick up",
+            "road": "On the road",
+            "empty": "None right now"
+        },
+        "figure": {
+            "mine": "Your runs",
+            "road": "On the road",
+            "available": "Available",
+            "cash": "Cash to collect"
         }
     },
     "desk": {

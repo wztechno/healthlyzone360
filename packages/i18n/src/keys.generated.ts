@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10904 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10912 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4438,6 +4438,14 @@ export interface NamespaceKeys {
     | 'driver.failReasonLabel'
     | 'driver.failTitle'
     | 'driver.failedToast'
+    | 'driver.figure.available'
+    | 'driver.figure.cash'
+    | 'driver.figure.mine'
+    | 'driver.figure.road'
+    | 'driver.lane.empty'
+    | 'driver.lane.ready'
+    | 'driver.lane.road'
+    | 'driver.lane.waiting'
     | 'driver.loadErrorTitle'
     | 'driver.mineTitle'
     | 'driver.noAddress'
@@ -15360,6 +15368,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:driver.failReasonLabel',
   'kitchen:driver.failTitle',
   'kitchen:driver.failedToast',
+  'kitchen:driver.figure.available',
+  'kitchen:driver.figure.cash',
+  'kitchen:driver.figure.mine',
+  'kitchen:driver.figure.road',
+  'kitchen:driver.lane.empty',
+  'kitchen:driver.lane.ready',
+  'kitchen:driver.lane.road',
+  'kitchen:driver.lane.waiting',
   'kitchen:driver.loadErrorTitle',
   'kitchen:driver.mineTitle',
   'kitchen:driver.noAddress',
