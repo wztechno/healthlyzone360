@@ -51,6 +51,12 @@ export interface TextInputFieldProps
     readonly error?: string | undefined;
     /** A non-blocking caution under the field — see `FormField`. */
     readonly warning?: string | undefined;
+    /**
+     * The warning edge without a message under the field — for a caution its row already says in a
+     * line of its own (a delivery row's "More than the 2 Kg still on order."), where a second copy
+     * under a narrow cell would wrap and push the row's other fields out of line.
+     */
+    readonly caution?: boolean | undefined;
     readonly required?: boolean | undefined;
     readonly disabled?: boolean | undefined;
     readonly size?: InputSize | undefined;
@@ -198,6 +204,7 @@ export function TextInputField({
     hint,
     error,
     warning,
+    caution = false,
     required = false,
     disabled = false,
     size = 'md',
@@ -243,7 +250,7 @@ export function TextInputField({
                 <View
                     className={inputFrameClassName({
                         invalid: error !== undefined,
-                        caution: warning !== undefined,
+                        caution: warning !== undefined || caution,
                         focused,
                         disabled,
                         density,

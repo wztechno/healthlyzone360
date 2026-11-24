@@ -278,6 +278,9 @@ describe('going back from an operations page', () => {
             session: kitchenManagerSession(),
             repositories: receiptWorld(),
         });
+        // The receipt is four steps; its lines are step 3.
+        await untilVisible('kitchen-post-receipt-steps-lines');
+        await press('kitchen-post-receipt-steps-lines');
         await untilVisible(`${POST_LINES}-row-line-first-item`);
 
         await press('kitchen-procurement-post-cancel');
@@ -401,8 +404,13 @@ describe('pressing save with something wrong', () => {
             session: kitchenManagerSession(),
             repositories: receiptWorld(),
         });
+        // The receipt is four steps; its lines are step 3.
+        await untilVisible('kitchen-post-receipt-steps-lines');
+        await press('kitchen-post-receipt-steps-lines');
         await untilVisible(`${POST_LINES}-row-line-first-item`);
 
+        // Post sits on Check and post.
+        await press('kitchen-post-receipt-steps-check');
         await press('kitchen-procurement-post-confirm');
 
         expect(focusField).toHaveBeenCalledWith(
@@ -424,6 +432,9 @@ describe('pressing save with something wrong', () => {
                 },
             }),
         });
+        // The receipt is four steps; its lines are step 3.
+        await untilVisible('kitchen-post-receipt-steps-lines');
+        await press('kitchen-post-receipt-steps-lines');
         await untilVisible(`${POST_LINES}-row-line-first-item`);
 
         await press(`${POST_LINES}-row-line-first-item-trigger`);
@@ -433,7 +444,10 @@ describe('pressing save with something wrong', () => {
             );
         });
         await type(`${POST_LINES}-row-line-first-quantity-input`, '24');
+        await press('kitchen-post-receipt-steps-receipt');
         await type('kitchen-procurement-post-invoice-ref-input', 'INV-0001');
+        // Post sits on Check and post.
+        await press('kitchen-post-receipt-steps-check');
         await press('kitchen-procurement-post-confirm');
 
         // The invoice number sits above the lines, so it is where the reader is taken.

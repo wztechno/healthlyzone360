@@ -2087,6 +2087,15 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                             warning="Above 10%"
                             onChangeText={() => undefined}
                         />
+                        {/* `caution`: the edge alone, when the row says why in a line of its own. */}
+                        <TextInputField
+                            testID={id('caution-only')}
+                            id={id('caution-only')}
+                            size="sm"
+                            label="Received (Kg)"
+                            value="5"
+                            caution
+                        />
                         <QuantityInput
                             testID={id('half-readonly')}
                             id={id('half-readonly')}
@@ -3235,6 +3244,8 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         rows={CATALOGUE_ROWS}
                         rowKey={(row) => row.key}
                         onRowPress={(row) => setPressedRow(row.key)}
+                        // A pick list: the pressed row stays tinted as the choice.
+                        isRowSelected={(row) => row.key === pressedRow}
                     />
                 </View>
                 <Text testID={id('data-list-pressed')} variant="caption" tone="secondary">

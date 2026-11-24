@@ -260,6 +260,11 @@ export interface DataListProps<Row> {
     readonly density?: RowDensity | undefined;
     /** Opens the editor. The row body's behaviour is unchanged from today's list (§4.1). */
     readonly onRowPress?: ((row: Row) => void) | undefined;
+    /**
+     * The row a pick list has chosen — drawn on the brand's subtle fill and `aria-selected`, so the
+     * choice reads from the whole row, not only from a radio dot at its start.
+     */
+    readonly isRowSelected?: ((row: Row) => boolean) | undefined;
     readonly emptyState?: ReactNode | undefined;
     /**
      * The list sits inside a `rounded-panel` frame drawn by the caller. The header takes the frame's
@@ -393,6 +398,7 @@ export function DataList<Row>({
     label,
     density = 'md',
     onRowPress,
+    isRowSelected,
     emptyState,
     framed = false,
     flushTop = false,
@@ -668,9 +674,11 @@ export function DataList<Row>({
                            * corners, so its tint does not square them off. A row with a note
                            * hands both to the note, which closes the row instead.
                            */
+                          const selected = isRowSelected?.(row) === true;
                           const rowClass = cx(
                               ROW_HEIGHT_CLASS[density],
                               'flex-row items-center',
+                              selected ? 'bg-surface-brand-subtle' : null,
                               last || noted ? null : 'border-b border-stroke-subtle',
                               framed && last && !noted ? 'rounded-b-panel' : null,
                           );
@@ -692,6 +700,9 @@ export function DataList<Row>({
                                       key={key}
                                       role="row"
                                       testID={rowTestID}
+                                      aria-selected={
+                                          isRowSelected === undefined ? undefined : selected
+                                      }
                                       onPress={() => {
                                           onRowPress(row);
                                       }}
@@ -699,7 +710,10 @@ export function DataList<Row>({
                                       // chevron and no button — so it covers the whole track sum
                                       // rather than the port, which is what the `minWidth` above
                                       // buys.
-                                      className={cx(rowClass, 'hover:bg-surface-sunken')}
+                                      className={cx(
+                                          rowClass,
+                                          selected ? null : 'hover:bg-surface-sunken',
+                                      )}
                                   >
                                       {cells}
                                   </Pressable>

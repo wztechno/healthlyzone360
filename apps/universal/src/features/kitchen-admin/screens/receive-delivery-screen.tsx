@@ -1,18 +1,18 @@
+import { formatGtin } from '@healthy360/api-client/contracts';
 import type { ReceivableOrder } from '@healthy360/api-client/contracts';
 import {
     Checkbox,
     DataList,
-    DateField,
-    Dialog,
     EmptyState,
     ErrorState,
-    FormSection,
-    Inline,
+    Icon,
     IssueTrayFrame,
+    SearchInput,
     Skeleton,
     Stack,
     Text,
     TextInputField,
+    cx,
     useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
@@ -37,7 +37,7 @@ import {
     useReceivableOrdersQuery,
     useStockItemsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { useAccessState } from '../../../session/session-provider.tsx';
+import { useAccessState, useSession } from '../../../session/session-provider.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_ORDER_SUPPLIES_PERMISSION,
@@ -63,7 +63,6 @@ import type {
     ReceiveLineDraft,
     ScannedPack,
 } from '../receive-delivery-model.ts';
-import { ReceiveLineTrace } from '../receive-line-trace.tsx';
 import { ReceiveScanBar, placedScanNotice } from '../receive-scan-bar.tsx';
 import type { PlacedScan } from '../receive-scan-bar.tsx';
 import { focusFirstRefusal } from '../record-form-opening.tsx';
@@ -76,6 +75,10 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskDateField } from '../desk-kit/desk-date-field.tsx';
+import { ReviewBox, StepCard } from '../process-parts.tsx';
+import { ProcessSteps } from '../process-steps.tsx';
+import type { ProcessStep } from '../process-steps.tsx';
 /**
  * `/kitchen/procurement/receive` — booking in a delivery against an issued order (SUP5, §7).
  *
@@ -143,6 +146,8 @@ export function ReceiveDeliveryScreen({ order }: ReceiveDeliveryScreenProps) {
 const RECEIPT_CURRENCY = 'USD';
 
 /** The ids Post and a server refusal take the reader to. */
+const RECEIVED_ON_ID = 'kitchen-receive-received-on-field';
+const INVOICE_DATE_ID = 'kitchen-receive-invoice-date-field';
 const DOCUMENT_REF_ID = 'kitchen-receive-document-ref';
 const INVOICE_REF_ID = 'kitchen-receive-invoice-ref';
 const OVER_CONFIRM_ID = 'kitchen-receive-over-confirm';
@@ -151,6 +156,25 @@ const CLOSE_SHORT_REASON_ID = 'kitchen-receive-close-short-reason';
 
 function lineFieldId(index: number, field: 'quantity' | 'price' | 'trace'): string {
     return `kitchen-receive-line-${String(index)}-${field}`;
+}
+
+/** The server fields that sit on the Delivery step; every other refusal is a line's. */
+const DELIVERY_FIELDS: ReadonlySet<string> = new Set([
+    'received_on',
+    'invoice_date',
+    'document_ref',
+    'supplier_invoice_ref',
+]);
+
+/** The four steps the form is walked in (Procurement boards, 2026-11-24). */
+type ReceiveStep = 'order' | 'delivery' | 'lines' | 'check';
+
+/** One thing that stops the post: where it is, and what the To fix list calls it. */
+interface ReceiveProblem {
+    readonly key: string;
+    readonly step: ReceiveStep;
+    readonly label: string;
+    readonly fieldId?: string | undefined;
 }
 
 function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
@@ -165,6 +189,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
     );
     const toast = useToast();
     const access = useAccessState();
+    const { me } = useSession();
     const branchId = access.branch?.id ?? null;
     const canOpenOrder = useCan(INVENTORY_ORDER_SUPPLIES_PERMISSION);
 
@@ -197,7 +222,8 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
         latestLines.current = lines;
     }, [lines]);
     const [chargesOpen, setChargesOpen] = useState(false);
-    const [confirming, setConfirming] = useState(false);
+    // Opened from an order, the order is fixed and the form opens on the paperwork.
+    const [step, setStep] = useState<ReceiveStep>(order === undefined ? 'order' : 'delivery');
     // Blanks that have to be filled are marked once Post has been pressed, and live from then on.
     const [attempted, setAttempted] = useState(false);
     // The rows the last post sent, by their place on screen: the server names a line by its
@@ -285,22 +311,27 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                         aria-checked={picked}
                         aria-label={row.number}
                         testID={`kitchen-receive-order-picker-${String(row.id)}`}
-                        className={`h-4 w-4 items-center justify-center rounded-full border-2 ${
-                            picked ? 'border-surface-brand' : 'border-stroke-strong'
-                        }`}
-                    >
-                        {picked ? <View className="h-2 w-2 rounded-full bg-surface-brand" /> : null}
-                    </View>
+                        className={cx(
+                            'h-5 w-5 rounded-full bg-surface-raised',
+                            picked
+                                ? 'border-[6px] border-surface-brand'
+                                : 'border-2 border-stroke-strong',
+                        )}
+                    />
                 );
             },
         },
         {
             key: 'number',
             label: t('kitchen:ops.supplyOrders.columnNumber'),
-            width: 130,
+            width: 150,
             priority: 99,
             grow: false,
-            render: (row) => <Text variant="mono">{row.number}</Text>,
+            render: (row) => (
+                <Text className="text-[13px] font-bold tabular-nums text-content-primary">
+                    {row.number}
+                </Text>
+            ),
         },
         {
             key: 'supplier',
@@ -308,7 +339,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             width: 200,
             priority: 90,
             render: (row) => (
-                <Text numberOfLines={1}>
+                <Text numberOfLines={1} className="text-[13px] font-semibold text-content-primary">
                     {row.supplier?.nameEn ?? t('kitchen:ops.procurement.noSupplier')}
                 </Text>
             ),
@@ -316,7 +347,8 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
         {
             key: 'issued',
             label: t('kitchen:ops.receiving.columnIssued'),
-            width: 150,
+            width: 160,
+            grow: false,
             priority: 60,
             render: (row) => (
                 <Text tone="secondary" numberOfLines={1}>
@@ -331,11 +363,12 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
         {
             key: 'toCome',
             label: t('kitchen:ops.supplyOrders.columnOutstanding'),
-            width: 140,
+            width: 150,
             priority: 80,
+            grow: false,
             align: 'end',
             render: (row) => (
-                <Text className="tabular-nums">
+                <Text className="text-[13px] font-bold tabular-nums text-content-primary">
                     {t('kitchen:ops.procurement.awaitingLines', {
                         count: row.outstandingLineCount,
                     })}
@@ -344,7 +377,18 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
         },
     ];
 
+    /** Every edit goes through these, so the page knows it holds unsaved work. */
+    function editHeader(update: (current: ReceiveHeaderDraft) => ReceiveHeaderDraft) {
+        guard.markDirty();
+        setHeader(update);
+    }
+    function editConfirmations(update: (current: ReceiveConfirmations) => ReceiveConfirmations) {
+        guard.markDirty();
+        setConfirmations(update);
+    }
+
     function patchLine(index: number, patch: Partial<ReceiveLineDraft>) {
+        guard.markDirty();
         setLines((current) =>
             current.map((line, position) => (position === index ? { ...line, ...patch } : line)),
         );
@@ -378,6 +422,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             },
         });
         latestLines.current = placed.drafts;
+        guard.markDirty();
         setLines(placed.drafts);
         setScanPlaced(
             placed.keptApart || placed.needsQuantity
@@ -402,7 +447,12 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
      */
     const quantityErrors = new Map<number, string>();
     const priceErrors = new Map<number, string>();
-    const problems: { readonly key: string; readonly fieldId?: string | undefined }[] = [];
+    const problems: ReceiveProblem[] = [];
+    const lineIssue = (index: number, field: 'issueFieldQuantity' | 'issueFieldUnitPrice') =>
+        t('kitchen:ops.procurement.issueLine', {
+            line: index + 1,
+            fields: t(`kitchen:ops.procurement.${field}`),
+        });
     lines.forEach((line, index) => {
         if (line.quantity.trim() !== '' && readQuantity(line.quantity) === null) {
             const issue = readOrderQuantity(line.quantity).issue;
@@ -418,34 +468,74 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             );
             problems.push({
                 key: `quantity-${String(index)}`,
+                step: 'lines',
+                label: lineIssue(index, 'issueFieldQuantity'),
                 fieldId: lineFieldId(index, 'quantity'),
             });
         }
         if (line.unitPrice.trim() !== '' && readAmount(line.unitPrice) === null) {
             priceErrors.set(index, t('kitchen:ops.procurement.lineUnitPriceInvalid'));
-            problems.push({ key: `price-${String(index)}`, fieldId: lineFieldId(index, 'price') });
+            problems.push({
+                key: `price-${String(index)}`,
+                step: 'lines',
+                label: lineIssue(index, 'issueFieldUnitPrice'),
+                fieldId: lineFieldId(index, 'price'),
+            });
         }
         // Lots matter only on a row that posts. The lot field says what is wrong with it; it has
         // no id of its own to be taken to.
         if ((readQuantity(line.quantity) ?? 0) <= 0) return;
-        if (!lotIsReadable(line.supplierLot)) problems.push({ key: `lot-${String(index)}` });
+        if (!lotIsReadable(line.supplierLot)) {
+            problems.push({
+                key: `lot-${String(index)}`,
+                step: 'lines',
+                label: t('kitchen:barcodes.issueLotUnreadable', { line: index + 1 }),
+                fieldId: `${lineFieldId(index, 'trace')}-lot`,
+            });
+        }
         if (lotCheckPending(line)) {
             problems.push({
                 key: `lot-check-${String(index)}`,
+                step: 'lines',
+                label: t('kitchen:barcodes.issueLotCheck', { line: index + 1 }),
                 fieldId: `${lineFieldId(index, 'trace')}-lot-checked`,
             });
         }
     });
     const nothingDelivered = lines.length > 0 && state.deliveredLineCount === 0;
     if (nothingDelivered && quantityErrors.size === 0) {
-        problems.push({ key: 'nothing', fieldId: lineFieldId(0, 'quantity') });
+        problems.push({
+            key: 'nothing',
+            step: 'lines',
+            label: t('kitchen:ops.receiving.issueNothing'),
+            fieldId: lineFieldId(0, 'quantity'),
+        });
         if (attempted) quantityErrors.set(0, t('kitchen:forms.lineQuantityMissing'));
     }
     const overUnconfirmed = state.hasOverReceipt && !confirmations.overReceiptConfirmed;
-    if (overUnconfirmed) problems.push({ key: 'over', fieldId: OVER_CONFIRM_ID });
-    if (state.needsVarianceNote) problems.push({ key: 'note', fieldId: VARIANCE_NOTE_ID });
+    if (overUnconfirmed) {
+        problems.push({
+            key: 'over',
+            step: 'lines',
+            label: t('kitchen:ops.procurement.issueOverReceipt'),
+            fieldId: OVER_CONFIRM_ID,
+        });
+    }
+    if (state.needsVarianceNote) {
+        problems.push({
+            key: 'note',
+            step: 'lines',
+            label: t('kitchen:ops.procurement.issueVarianceNote'),
+            fieldId: VARIANCE_NOTE_ID,
+        });
+    }
     if (state.needsCloseShortReason) {
-        problems.push({ key: 'close-short', fieldId: CLOSE_SHORT_REASON_ID });
+        problems.push({
+            key: 'close-short',
+            step: 'lines',
+            label: t('kitchen:ops.receiving.issueCloseShortReason'),
+            fieldId: CLOSE_SHORT_REASON_ID,
+        });
     }
 
     /*
@@ -454,6 +544,14 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
      */
     const serverTargets = (indexes: readonly number[]): Record<string, ServerFieldTarget> => {
         const targets: Record<string, ServerFieldTarget> = {
+            received_on: {
+                label: t('kitchen:ops.receiving.fieldReceivedOn'),
+                fieldId: RECEIVED_ON_ID,
+            },
+            invoice_date: {
+                label: t('kitchen:ops.receiving.fieldInvoiceDate'),
+                fieldId: INVOICE_DATE_ID,
+            },
             document_ref: {
                 label: t('kitchen:ops.receiving.fieldDocumentRef'),
                 fieldId: DOCUMENT_REF_ID,
@@ -503,16 +601,24 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
         return posted === -1 ? undefined : server.errorFor(`lines.${String(posted)}.${field}`);
     };
 
+    /** Opens a step, then — once it is drawn — takes the reader to a field on it. */
+    function goTo(next: ReceiveStep, fieldId?: string) {
+        setStep(next);
+        // focusField waits a frame, by which time the step is drawn.
+        if (fieldId !== undefined) focusField(fieldId);
+    }
+
+    /** Post posts at once: what the old confirmation said is drawn on Check and post. */
     function attemptPost() {
         setAttempted(true);
         if (problems.length > 0 || !state.canSubmit) {
             // Each field says what is wrong with it; Post takes the reader to the first.
-            const first = problems.find((problem) => problem.fieldId !== undefined);
-            if (first?.fieldId !== undefined) focusField(first.fieldId);
+            const first = problems[0];
+            if (first !== undefined) goTo(first.step, first.fieldId);
             nudgeTray();
             return;
         }
-        setConfirming(true);
+        submit();
     }
 
     function submit() {
@@ -534,7 +640,8 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             }),
             {
                 onSuccess: (result) => {
-                    setConfirming(false);
+                    // Posted: nothing is left unsaved, so leaving must not ask.
+                    guard.markClean();
                     toast.show({
                         testID: 'kitchen-receive-posted-toast',
                         tone: 'success',
@@ -568,11 +675,17 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                         });
                     }
                 },
-                // A refusal closes the confirmation, so the tray's card is in sight; one that names
-                // a field takes the reader there.
+                // A refusal that names a field opens that field's step and takes the reader
+                // there; one that names nothing stays on Check and post, with the tray's card.
                 onError: (error) => {
-                    focusFirstRefusal(error, serverTargets(posted));
-                    setConfirming(false);
+                    const targets = serverTargets(posted);
+                    const refused = serverFieldErrors(toFailure(error), targets);
+                    const named = Object.keys(targets).find(
+                        (field) => refused.errorFor(field) !== undefined,
+                    );
+                    if (named === undefined) return;
+                    setStep(DELIVERY_FIELDS.has(named) ? 'delivery' : 'lines');
+                    focusFirstRefusal(error, targets);
                 },
             },
         );
@@ -601,7 +714,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                       label: t('kitchen:ops.receiving.overReceiptTitle'),
                       action: {
                           onPress: () => {
-                              focusField(overUnconfirmed ? OVER_CONFIRM_ID : VARIANCE_NOTE_ID);
+                              goTo('lines', overUnconfirmed ? OVER_CONFIRM_ID : VARIANCE_NOTE_ID);
                           },
                       },
                       testID: 'kitchen-receive-over-receipt',
@@ -618,7 +731,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                           label: t('kitchen:barcodes.issueLotCheck', { line: index + 1 }),
                           action: {
                               onPress: () => {
-                                  focusField(`${lineFieldId(index, 'trace')}-lot-checked`);
+                                  goTo('lines', `${lineFieldId(index, 'trace')}-lot-checked`);
                               },
                           },
                           testID: `kitchen-receive-lot-check-${String(index)}`,
@@ -650,6 +763,358 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
         ],
     };
 
+    /* ── the steps ──────────────────────────────────────────────────────────────────────────── */
+
+    // The branch the stock lands in, by name, for "Stock at Main Kitchen rises by".
+    const branchName = (() => {
+        if (access.branch === undefined) return null;
+        for (const membership of me?.memberships ?? []) {
+            const found = membership.branches.find(
+                (candidate) => String(candidate.id) === String(access.branch?.id),
+            );
+            if (found !== undefined) return found.name;
+        }
+        return null;
+    })();
+
+    const fixes: ReceiveProblem[] =
+        selectedOrder === null
+            ? [
+                  {
+                      key: 'order',
+                      step: 'order',
+                      label: t('kitchen:ops.procurement.issueNoOrder'),
+                  },
+                  ...problems,
+              ]
+            : problems;
+    // A step's count shows once Post has been pressed, or while Check and post is open.
+    const showCounts = attempted || step === 'check';
+    const issuesOn = (key: ReceiveStep) =>
+        showCounts ? fixes.filter((fix) => fix.step === key).length : 0;
+
+    const outcome: {
+        readonly label: string;
+        readonly tone: 'warning' | 'info' | 'success';
+        readonly testID: string;
+    } = state.hasOverReceipt
+        ? {
+              label: t('kitchen:ops.receiving.confirmOver'),
+              tone: 'warning',
+              testID: 'kitchen-receive-confirm-over',
+          }
+        : confirmations.closeShort
+          ? {
+                label: t('kitchen:ops.receiving.confirmCloseShort'),
+                tone: 'warning',
+                testID: 'kitchen-receive-confirm-close-short',
+            }
+          : state.hasShortfall
+            ? {
+                  label: t('kitchen:ops.receiving.confirmPartial'),
+                  tone: 'info',
+                  testID: 'kitchen-receive-confirm-partial',
+              }
+            : {
+                  label: t('kitchen:ops.receiving.confirmComplete'),
+                  tone: 'success',
+                  testID: 'kitchen-receive-confirm-complete',
+              };
+
+    const summary = t('kitchen:ops.receiving.summary', {
+        delivered: state.deliveredLineCount,
+        skipped: state.skippedLineCount,
+    });
+    const steps: readonly ProcessStep<ReceiveStep>[] = [
+        {
+            key: 'order',
+            label: t('kitchen:ops.receiving.sectionOrder'),
+            caption:
+                selectedOrder === null
+                    ? t('kitchen:ops.receiving.captionChooseOrder')
+                    : selectedOrder.number,
+            done: order !== undefined || (selectedOrder !== null && step !== 'order'),
+            issues: issuesOn('order'),
+            issuesLabel: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('order') }),
+        },
+        {
+            key: 'delivery',
+            label: t('kitchen:ops.receiving.sectionDelivery'),
+            caption: t('kitchen:ops.receiving.captionDelivery'),
+            done: (step === 'lines' || step === 'check') && issuesOn('delivery') === 0,
+            issues: issuesOn('delivery'),
+            issuesLabel: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('delivery') }),
+        },
+        {
+            key: 'lines',
+            label: t('kitchen:ops.receiving.linesTitle'),
+            caption: summary,
+            done: step === 'check' && issuesOn('lines') === 0,
+            issues: issuesOn('lines'),
+            issuesLabel: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('lines') }),
+        },
+        {
+            key: 'check',
+            label: t('kitchen:ops.receiving.stepCheck'),
+            caption: outcome.label,
+            captionTone: outcome.tone === 'warning' ? 'warning' : undefined,
+        },
+    ];
+
+    const filedOn =
+        header.receivedOn === ''
+            ? todayIsoDate()
+            : formatter.formatDate(header.receivedOn, { dateStyle: 'medium' });
+    const rising = lines.filter((line) => (readQuantity(line.quantity) ?? 0) > 0);
+
+    const unitOf = (line: ReceiveLineDraft) => unitCodeLabel(line.unitCode, t);
+    const lineColumns: DataListColumn<ReceiveLineDraft>[] = [
+        {
+            key: 'item',
+            label: t('kitchen:ops.receiving.columnItem'),
+            width: 220,
+            priority: 100,
+            render: (line) => (
+                <Text className="py-2 !text-sm !font-bold leading-[18px] text-content-primary">
+                    {line.itemLabel}
+                </Text>
+            ),
+        },
+        {
+            key: 'toCome',
+            label: t('kitchen:ops.supplyOrders.columnOutstanding'),
+            width: 112,
+            priority: 98,
+            grow: false,
+            render: (line) => (
+                <View className="h-9 flex-row items-center gap-1">
+                    <Text className="text-[15px] font-bold tabular-nums text-content-primary">
+                        {line.outstandingQuantity}
+                    </Text>
+                    <Text className="text-[13px] font-medium text-content-secondary">
+                        {unitOf(line)}
+                    </Text>
+                </View>
+            ),
+        },
+        {
+            key: 'received',
+            label: t('kitchen:ops.receiving.columnReceived'),
+            width: 104,
+            priority: 99,
+            grow: false,
+            render: (line) => {
+                const index = lines.indexOf(line);
+                return (
+                    <TextInputField
+                        testID={`kitchen-receive-line-${String(index)}-quantity`}
+                        id={lineFieldId(index, 'quantity')}
+                        label={t('kitchen:ops.receiving.fieldLineQuantity', {
+                            unit: unitOf(line),
+                        })}
+                        labelHidden
+                        size="sm"
+                        value={line.quantity}
+                        placeholder={t('kitchen:fields.quantityPlaceholder')}
+                        keyboardType="decimal-pad"
+                        className="w-full"
+                        caution={exceedsOutstanding(line, lines)}
+                        trailing={
+                            <Text className="text-xs font-medium text-content-secondary">
+                                {unitOf(line)}
+                            </Text>
+                        }
+                        {...((quantityErrors.get(index) ?? serverLineError(index, 'quantity')) ===
+                        undefined
+                            ? {}
+                            : {
+                                  error:
+                                      quantityErrors.get(index) ??
+                                      serverLineError(index, 'quantity'),
+                              })}
+                        onChangeText={(next) => {
+                            // A typed quantity is a person's, and no scan edits it from here on.
+                            patchLine(index, { quantity: next, quantitySource: 'typed' });
+                        }}
+                    />
+                );
+            },
+        },
+        {
+            key: 'price',
+            label: t('kitchen:ops.receiving.fieldLineUnitPrice', { currency: RECEIPT_CURRENCY }),
+            width: 128,
+            priority: 90,
+            grow: false,
+            render: (line) => {
+                const index = lines.indexOf(line);
+                // Visible to every manage holder — §5's blind-write model. Reads stay redacted;
+                // writing what the paper says does not.
+                return (
+                    <TextInputField
+                        testID={`kitchen-receive-line-${String(index)}-price`}
+                        id={lineFieldId(index, 'price')}
+                        label={t('kitchen:ops.receiving.fieldLineUnitPrice', {
+                            currency: RECEIPT_CURRENCY,
+                        })}
+                        labelHidden
+                        size="sm"
+                        value={line.unitPrice}
+                        placeholder={t('kitchen:fields.unitPricePlaceholder')}
+                        keyboardType="decimal-pad"
+                        className="w-full"
+                        {...((priceErrors.get(index) ??
+                            serverLineError(index, 'unit_price_amount')) === undefined
+                            ? {}
+                            : {
+                                  error:
+                                      priceErrors.get(index) ??
+                                      serverLineError(index, 'unit_price_amount'),
+                              })}
+                        onChangeText={(next) => {
+                            patchLine(index, { unitPrice: next });
+                        }}
+                    />
+                );
+            },
+        },
+        {
+            key: 'lot',
+            label: t('kitchen:barcodes.lotLabel'),
+            width: 150,
+            priority: 80,
+            render: (line) => {
+                const index = lines.indexOf(line);
+                const traceId = lineFieldId(index, 'trace');
+                return (
+                    <TextInputField
+                        testID={`${traceId}-lot`}
+                        id={`${traceId}-lot`}
+                        size="sm"
+                        label={t('kitchen:barcodes.lotLabel')}
+                        labelHidden
+                        placeholder={t('kitchen:barcodes.lotPlaceholder')}
+                        className="w-full"
+                        value={line.supplierLot ?? ''}
+                        maxLength={20}
+                        autoCorrect={false}
+                        autoCapitalize="none"
+                        {...(lotIsReadable(line.supplierLot)
+                            ? {}
+                            : { error: t('kitchen:barcodes.lotUnreadable') })}
+                        onChangeText={(next) => {
+                            patchLine(index, { supplierLot: next, lotUnverified: false });
+                        }}
+                    />
+                );
+            },
+        },
+        {
+            key: 'expires',
+            label: t('kitchen:barcodes.expiresLabel'),
+            width: 132,
+            priority: 70,
+            grow: false,
+            render: (line) => {
+                const index = lines.indexOf(line);
+                return (
+                    <DeskDateField
+                        testID={`${lineFieldId(index, 'trace')}-expires`}
+                        label={t('kitchen:barcodes.expiresLabel')}
+                        labelHidden
+                        clearable
+                        className="w-full"
+                        value={line.expiresOn ?? ''}
+                        onChange={(next) => {
+                            patchLine(index, { expiresOn: next ?? '' });
+                        }}
+                    />
+                );
+            },
+        },
+        {
+            key: 'bestBefore',
+            label: t('kitchen:barcodes.bestBeforeLabel'),
+            width: 132,
+            priority: 60,
+            grow: false,
+            render: (line) => {
+                const index = lines.indexOf(line);
+                return (
+                    <DeskDateField
+                        testID={`${lineFieldId(index, 'trace')}-best-before`}
+                        label={t('kitchen:barcodes.bestBeforeLabel')}
+                        labelHidden
+                        clearable
+                        align="end"
+                        className="w-full"
+                        value={line.bestBeforeOn ?? ''}
+                        onChange={(next) => {
+                            patchLine(index, { bestBeforeOn: next ?? '' });
+                        }}
+                    />
+                );
+            },
+        },
+    ];
+
+    /** What a row says under its fields: more than was ordered, the scanned product, the lot tick. */
+    const lineNote = (line: ReceiveLineDraft) => {
+        const index = lines.indexOf(line);
+        const traceId = lineFieldId(index, 'trace');
+        const over = exceedsOutstanding(line, lines);
+        const gtin = line.gtin ?? null;
+        const unplanned = line.purchaseOrderLineId === null;
+        if (!over && gtin === null && line.lotUnverified !== true && !unplanned) return null;
+        return (
+            <View className="gap-1 px-3.5 pb-3">
+                {over ? (
+                    <RowMessage
+                        testID={`kitchen-receive-line-${String(index)}-over`}
+                        text={t('kitchen:ops.receiving.lineOverReceipt', {
+                            quantity: line.outstandingQuantity,
+                            unit: unitOf(line),
+                        })}
+                    />
+                ) : null}
+                {unplanned ? (
+                    <RowMessage
+                        testID={`kitchen-receive-line-${String(index)}-unplanned`}
+                        text={t('kitchen:ops.procurement.unplannedTitle')}
+                    />
+                ) : null}
+                {gtin === null ? null : (
+                    <Text
+                        testID={`${traceId}-gtin`}
+                        className="text-xs font-medium text-content-secondary"
+                    >
+                        {t('kitchen:barcodes.scannedProduct', {
+                            gtin: `⁦${formatGtin(gtin)}⁩`,
+                        })}
+                    </Text>
+                )}
+                {line.lotUnverified === true ? (
+                    <View className="flex-row flex-wrap items-center gap-2">
+                        {lotCheckPending(line) ? (
+                            <RowMessage text={t('kitchen:barcodes.lotUnverified')} />
+                        ) : null}
+                        <Checkbox
+                            testID={`${traceId}-lot-checked`}
+                            id={`${traceId}-lot-checked`}
+                            checked={line.lotConfirmed === true}
+                            label={t('kitchen:barcodes.lotChecked')}
+                            onChange={(checked) => {
+                                patchLine(index, { lotConfirmed: checked });
+                            }}
+                        />
+                    </View>
+                ) : null}
+            </View>
+        );
+    };
+
+    const field = 'min-w-[160px] flex-1';
+
     return (
         <IssueTrayFrame tray={selectedOrder === null ? null : trayContent} controller={issueTray}>
             <EditorFrame
@@ -663,32 +1128,41 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                             {t('kitchen:ops.receiving.subtitle')}
                         </Text>
                     ) : (
-                        <Inline
-                            space="sm"
-                            align="center"
-                            wrap
+                        <Text
                             testID="kitchen-receive-order-header"
+                            className="text-[13px] font-medium tabular-nums text-content-secondary"
                         >
-                            <Text variant="mono">{selectedOrder.number}</Text>
-                            <Text variant="caption" tone="secondary">
-                                {selectedOrder.supplier?.nameEn ??
-                                    t('kitchen:ops.procurement.noSupplier')}
+                            <Text className="font-bold text-content-primary">
+                                {selectedOrder.number}
                             </Text>
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:ops.receiving.outstandingLineCount', {
-                                    count: selectedOrder.outstandingLineCount,
-                                })}
-                            </Text>
-                        </Inline>
+                            {` · ${
+                                selectedOrder.supplier?.nameEn ??
+                                t('kitchen:ops.procurement.noSupplier')
+                            } · ${t('kitchen:ops.receiving.outstandingLineCount', {
+                                count: selectedOrder.outstandingLineCount,
+                            })}`}
+                        </Text>
                     )
                 }
                 guard={guard}
                 concurrency={concurrency}
                 onSaveDraft={attemptPost}
                 saveLabel={t('kitchen:ops.receiving.post')}
-                // A problem on the form does not disable Post: pressing it takes you there.
-                saveDisabled={branchId === null || selectedOrder === null}
-                hideSave={selectedOrder === null}
+                // Post sits in the header on every step, beside Back. Pressed before the
+                // delivery is ready it posts nothing and opens the first thing to fix.
+                hideSave
+                primaryAction={
+                    selectedOrder === null ? undefined : (
+                        <DeskButton
+                            testID="kitchen-receive-post"
+                            label={t('kitchen:ops.receiving.post')}
+                            iconStart={<Icon name="check" size="sm" />}
+                            loading={postReceipt.isPending}
+                            disabled={branchId === null}
+                            onPress={attemptPost}
+                        />
+                    )
+                }
                 onBack={back.leave}
                 backLabel={t('kitchen:ops.receiving.backToProcurement')}
             >
@@ -713,33 +1187,44 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                         title={t('kitchen:ops.receiving.emptyTitle')}
                         body={t('kitchen:ops.receiving.emptyBody')}
                     />
+                ) : order !== undefined && selectedOrder === null ? (
+                    <EmptyState
+                        testID="kitchen-receive-order-missing"
+                        title={t('kitchen:ops.receiving.orderMissingTitle')}
+                        body={t('kitchen:ops.receiving.orderMissingBody')}
+                    />
                 ) : (
-                    <Stack space="none" testID="kitchen-receive-content">
-                        {/*
-                         * With `?order=` the supplier and branch are fixed from the order (§7) and
-                         * the header states them rather than offering them; without it, this is the
-                         * picker. Either way there is exactly one order on screen.
-                         */}
-                        {order === undefined ? (
-                            <FormSection
-                                first
-                                variant="panel"
+                    <View testID="kitchen-receive-content" className="pb-2">
+                        <ProcessSteps<ReceiveStep>
+                            testID="kitchen-receive-steps"
+                            label={t('kitchen:ops.receiving.stepsLabel')}
+                            steps={steps}
+                            value={step}
+                            onChange={setStep}
+                        />
+
+                        {step === 'order' ? (
+                            <StepCard
                                 testID="kitchen-receive-order-section"
                                 title={t('kitchen:ops.receiving.sectionOrder')}
+                                actions={
+                                    order === undefined ? (
+                                        <SearchInput
+                                            testID="kitchen-receive-order-find"
+                                            size="sm"
+                                            lens
+                                            className="w-[340px]"
+                                            label={t('kitchen:ops.receiving.findOrderLabel')}
+                                            placeholder={t(
+                                                'kitchen:ops.receiving.findOrderPlaceholder',
+                                            )}
+                                            value={orderQuery}
+                                            onChangeText={setOrderQuery}
+                                        />
+                                    ) : undefined
+                                }
                             >
-                                <Stack space="sm">
-                                    <TextInputField
-                                        testID="kitchen-receive-order-find"
-                                        id="kitchen-receive-order-find"
-                                        size="sm"
-                                        label={t('kitchen:ops.receiving.findOrderLabel')}
-                                        labelHidden
-                                        placeholder={t(
-                                            'kitchen:ops.receiving.findOrderPlaceholder',
-                                        )}
-                                        value={orderQuery}
-                                        onChangeText={setOrderQuery}
-                                    />
+                                {order === undefined ? (
                                     <DataList<ReceivableOrder>
                                         testID="kitchen-receive-order-picker"
                                         label={t('kitchen:ops.receiving.fieldOrder')}
@@ -749,483 +1234,548 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         density="sm"
                                         onRowPress={(row) => {
                                             setSelectedOrderId(String(row.id));
+                                            setStep('delivery');
                                         }}
+                                        isRowSelected={(row) => String(row.id) === selectedOrderId}
+                                        emptyState={
+                                            <Text tone="secondary" className="p-4">
+                                                {t('kitchen:ops.receiving.noOrderMatch')}
+                                            </Text>
+                                        }
                                     />
-                                </Stack>
-                            </FormSection>
-                        ) : selectedOrder === null ? (
-                            <EmptyState
-                                testID="kitchen-receive-order-missing"
-                                title={t('kitchen:ops.receiving.orderMissingTitle')}
-                                body={t('kitchen:ops.receiving.orderMissingBody')}
-                            />
+                                ) : selectedOrder === null ? null : (
+                                    <View
+                                        testID="kitchen-receive-order-fixed"
+                                        className="flex-row flex-wrap items-center gap-3.5 rounded-2xl bg-surface-sunken px-4 py-3.5"
+                                    >
+                                        <Text className="font-display text-base font-bold tabular-nums text-content-primary">
+                                            {selectedOrder.number}
+                                        </Text>
+                                        <Text className="text-sm font-semibold text-content-primary">
+                                            {selectedOrder.supplier?.nameEn ??
+                                                t('kitchen:ops.procurement.noSupplier')}
+                                        </Text>
+                                        <Text className="text-[13px] font-medium text-content-secondary">
+                                            {[
+                                                selectedOrder.issuedAt === null
+                                                    ? null
+                                                    : t('kitchen:ops.procurement.awaitingIssued', {
+                                                          date: formatter.formatDate(
+                                                              selectedOrder.issuedAt,
+                                                              { dateStyle: 'medium' },
+                                                          ),
+                                                      }),
+                                                t('kitchen:ops.receiving.outstandingLineCount', {
+                                                    count: selectedOrder.outstandingLineCount,
+                                                }),
+                                            ]
+                                                .filter((part) => part !== null)
+                                                .join(' · ')}
+                                        </Text>
+                                        <View className="ms-auto">
+                                            <DeskChip
+                                                tone="neutral"
+                                                label={t('kitchen:ops.receiving.orderFixed')}
+                                            />
+                                        </View>
+                                    </View>
+                                )}
+                            </StepCard>
                         ) : null}
 
-                        {selectedOrder === null ? null : (
-                            <Stack space="none" testID="kitchen-receive-form">
-                                <FormSection
-                                    first={order !== undefined}
-                                    variant="panel"
-                                    testID="kitchen-receive-delivery-section"
-                                    title={t('kitchen:ops.receiving.sectionDelivery')}
-                                >
-                                    <Inline space="sm" align="start" wrap>
-                                        <DateField
-                                            testID="kitchen-receive-received-on"
-                                            label={t('kitchen:ops.receiving.fieldReceivedOn')}
-                                            hint={t('kitchen:ops.receiving.fieldReceivedOnHint')}
-                                            value={header.receivedOn}
-                                            max={todayIsoDate()}
-                                            onChange={(next) => {
-                                                setHeader((current) => ({
-                                                    ...current,
-                                                    receivedOn: next ?? '',
-                                                }));
-                                            }}
-                                        />
-                                        <TextInputField
-                                            testID="kitchen-receive-document-ref"
-                                            id={DOCUMENT_REF_ID}
-                                            {...server.flag('document_ref')}
-                                            label={t('kitchen:ops.receiving.fieldDocumentRef')}
-                                            placeholder={t(
-                                                'kitchen:ops.receiving.documentRefPlaceholder',
-                                            )}
-                                            value={header.documentRef}
-                                            onChangeText={(next) => {
-                                                setHeader((current) => ({
-                                                    ...current,
-                                                    documentRef: next,
-                                                }));
-                                            }}
-                                            className="min-w-[180px] flex-1"
-                                        />
-                                        <TextInputField
-                                            testID="kitchen-receive-invoice-ref"
-                                            id={INVOICE_REF_ID}
-                                            {...server.flag('supplier_invoice_ref')}
-                                            label={t('kitchen:ops.receiving.fieldInvoiceRef')}
-                                            hint={t('kitchen:ops.receiving.fieldInvoiceRefHint')}
-                                            placeholder={t(
-                                                'kitchen:ops.receiving.invoiceRefPlaceholder',
-                                            )}
-                                            value={header.supplierInvoiceRef}
-                                            onChangeText={(next) => {
-                                                setHeader((current) => ({
-                                                    ...current,
-                                                    supplierInvoiceRef: next,
-                                                }));
-                                            }}
-                                            className="min-w-[180px] flex-1"
-                                        />
-                                        <DateField
-                                            testID="kitchen-receive-invoice-date"
-                                            label={t('kitchen:ops.receiving.fieldInvoiceDate')}
-                                            value={header.invoiceDate}
-                                            onChange={(next) => {
-                                                setHeader((current) => ({
-                                                    ...current,
-                                                    invoiceDate: next ?? '',
-                                                }));
-                                            }}
-                                        />
-                                    </Inline>
-                                </FormSection>
+                        {step === 'delivery' && selectedOrder !== null ? (
+                            <StepCard
+                                testID="kitchen-receive-delivery-section"
+                                title={t('kitchen:ops.receiving.sectionDelivery')}
+                            >
+                                <View className="flex-row flex-wrap items-start gap-3">
+                                    <DeskDateField
+                                        testID="kitchen-receive-received-on"
+                                        id={RECEIVED_ON_ID}
+                                        {...server.flag('received_on')}
+                                        label={t('kitchen:ops.receiving.fieldReceivedOn')}
+                                        hint={t('kitchen:ops.receiving.fieldReceivedOnHint')}
+                                        value={header.receivedOn}
+                                        max={todayIsoDate()}
+                                        className={field}
+                                        onChange={(next) => {
+                                            editHeader((current) => ({
+                                                ...current,
+                                                receivedOn: next ?? '',
+                                            }));
+                                        }}
+                                    />
+                                    <TextInputField
+                                        testID="kitchen-receive-document-ref"
+                                        id={DOCUMENT_REF_ID}
+                                        {...server.flag('document_ref')}
+                                        label={t('kitchen:ops.receiving.fieldDocumentRef')}
+                                        placeholder={t(
+                                            'kitchen:ops.receiving.documentRefPlaceholder',
+                                        )}
+                                        value={header.documentRef}
+                                        onChangeText={(next) => {
+                                            editHeader((current) => ({
+                                                ...current,
+                                                documentRef: next,
+                                            }));
+                                        }}
+                                        className={field}
+                                    />
+                                    <TextInputField
+                                        testID="kitchen-receive-invoice-ref"
+                                        id={INVOICE_REF_ID}
+                                        {...server.flag('supplier_invoice_ref')}
+                                        label={t('kitchen:ops.receiving.fieldInvoiceRef')}
+                                        hint={t('kitchen:ops.receiving.fieldInvoiceRefHint')}
+                                        placeholder={t(
+                                            'kitchen:ops.receiving.invoiceRefPlaceholder',
+                                        )}
+                                        value={header.supplierInvoiceRef}
+                                        onChangeText={(next) => {
+                                            editHeader((current) => ({
+                                                ...current,
+                                                supplierInvoiceRef: next,
+                                            }));
+                                        }}
+                                        className={field}
+                                    />
+                                    <DeskDateField
+                                        testID="kitchen-receive-invoice-date"
+                                        id={INVOICE_DATE_ID}
+                                        {...server.flag('invoice_date')}
+                                        clearable
+                                        align="end"
+                                        label={t('kitchen:ops.receiving.fieldInvoiceDate')}
+                                        value={header.invoiceDate}
+                                        className={field}
+                                        onChange={(next) => {
+                                            editHeader((current) => ({
+                                                ...current,
+                                                invoiceDate: next ?? '',
+                                            }));
+                                        }}
+                                    />
+                                </View>
 
-                                <FormSection
-                                    variant="panel"
-                                    testID="kitchen-receive-lines-section"
-                                    title={t('kitchen:ops.receiving.linesTitle')}
+                                <View
+                                    testID="kitchen-receive-charges"
+                                    className="mt-[18px] border-t border-stroke-subtle pt-4"
                                 >
+                                    <View className="flex-row flex-wrap items-center gap-2.5">
+                                        <Text
+                                            role="heading"
+                                            aria-level={3}
+                                            className="text-sm font-bold text-content-primary"
+                                        >
+                                            {t('kitchen:ops.receiving.sectionCharges')}
+                                        </Text>
+                                        <View className="ms-auto">
+                                            <DeskButton
+                                                testID="kitchen-receive-charges-toggle"
+                                                size="sm"
+                                                variant="secondary"
+                                                aria-expanded={chargesOpen}
+                                                label={
+                                                    chargesOpen
+                                                        ? t('kitchen:ops.receiving.hideCharges')
+                                                        : t('kitchen:ops.receiving.showCharges')
+                                                }
+                                                iconEnd={
+                                                    <Icon
+                                                        name={
+                                                            chargesOpen
+                                                                ? 'chevronUp'
+                                                                : 'chevronDown'
+                                                        }
+                                                        size="sm"
+                                                    />
+                                                }
+                                                onPress={() => {
+                                                    setChargesOpen((open) => !open);
+                                                }}
+                                            />
+                                        </View>
+                                    </View>
+                                    {chargesOpen ? (
+                                        <View
+                                            testID="kitchen-receive-charges-fields"
+                                            className="mt-3.5 flex-row flex-wrap items-start gap-3"
+                                        >
+                                            {(
+                                                [
+                                                    ['discountAmount', 'fieldDiscount'],
+                                                    ['taxAmount', 'fieldTax'],
+                                                    ['deliveryAmount', 'fieldDelivery'],
+                                                    ['otherChargesAmount', 'fieldOtherCharges'],
+                                                    ['invoiceTotalAmount', 'fieldInvoiceTotal'],
+                                                ] as const
+                                            ).map(([key, labelKey]) => (
+                                                <TextInputField
+                                                    key={key}
+                                                    testID={`kitchen-receive-${key}`}
+                                                    label={t(`kitchen:ops.receiving.${labelKey}`, {
+                                                        currency: RECEIPT_CURRENCY,
+                                                    })}
+                                                    placeholder={t(
+                                                        'kitchen:fields.amountPlaceholder',
+                                                    )}
+                                                    value={header[key]}
+                                                    keyboardType="decimal-pad"
+                                                    onChangeText={(next) => {
+                                                        editHeader((current) => ({
+                                                            ...current,
+                                                            [key]: next,
+                                                        }));
+                                                    }}
+                                                    className="min-w-[140px] flex-1"
+                                                />
+                                            ))}
+                                        </View>
+                                    ) : null}
+                                </View>
+                            </StepCard>
+                        ) : null}
+
+                        {step === 'lines' && selectedOrder !== null ? (
+                            <StepCard
+                                testID="kitchen-receive-lines-section"
+                                title={t('kitchen:ops.receiving.linesTitle')}
+                                count={summary}
+                                actions={
                                     <ReceiveScanBar
                                         testID="kitchen-receive-scan"
                                         stockItems={stockItems.data ?? []}
                                         onScanned={placeScan}
                                         notice={scanNotice}
+                                        inHeader
                                     />
-                                    <Stack space="sm" testID="kitchen-receive-lines">
-                                        {lines.map((line, index) => (
-                                            <Stack
-                                                key={line.key}
-                                                space="xs"
-                                                className="rounded-xl border border-stroke-subtle p-snug"
-                                                testID={`kitchen-receive-line-${String(index)}`}
-                                            >
-                                                <Inline space="sm" align="center" wrap>
-                                                    <Text
-                                                        variant="bodyStrong"
-                                                        className="min-w-[200px] flex-1"
-                                                    >
-                                                        {line.itemLabel}
-                                                    </Text>
-                                                    <Text variant="caption" tone="secondary">
-                                                        {t(
-                                                            'kitchen:ops.receiving.outstandingLabel',
-                                                            {
-                                                                quantity: line.outstandingQuantity,
-                                                                unit: unitCodeLabel(
-                                                                    line.unitCode,
-                                                                    t,
-                                                                ),
-                                                            },
-                                                        )}
-                                                    </Text>
-                                                </Inline>
-                                                <Inline space="sm" align="start" wrap>
-                                                    <TextInputField
-                                                        testID={`kitchen-receive-line-${String(index)}-quantity`}
-                                                        id={lineFieldId(index, 'quantity')}
-                                                        error={
-                                                            quantityErrors.get(index) ??
-                                                            serverLineError(index, 'quantity')
-                                                        }
-                                                        label={t(
-                                                            'kitchen:ops.receiving.fieldLineQuantity',
-                                                            {
-                                                                unit: unitCodeLabel(
-                                                                    line.unitCode,
-                                                                    t,
-                                                                ),
-                                                            },
-                                                        )}
-                                                        placeholder={t(
-                                                            'kitchen:fields.quantityPlaceholder',
-                                                        )}
-                                                        value={line.quantity}
-                                                        keyboardType="decimal-pad"
-                                                        onChangeText={(next) => {
-                                                            // A typed quantity is a person's, and no
-                                                            // scan edits it from here on.
-                                                            patchLine(index, {
-                                                                quantity: next,
-                                                                quantitySource: 'typed',
-                                                            });
-                                                        }}
-                                                        className="min-w-[140px]"
-                                                    />
-                                                    {/*
-                                                     * Visible to every manage holder — §5's blind-write
-                                                     * model, and the reversal of the old dialog's
-                                                     * `canViewCosts` gate on the inputs. Reads stay
-                                                     * redacted; writing what the paper says does not.
-                                                     */}
-                                                    <TextInputField
-                                                        testID={`kitchen-receive-line-${String(index)}-price`}
-                                                        id={lineFieldId(index, 'price')}
-                                                        error={
-                                                            priceErrors.get(index) ??
-                                                            serverLineError(
-                                                                index,
-                                                                'unit_price_amount',
-                                                            )
-                                                        }
-                                                        label={t(
-                                                            'kitchen:ops.receiving.fieldLineUnitPrice',
-                                                            { currency: RECEIPT_CURRENCY },
-                                                        )}
-                                                        hint={t(
-                                                            'kitchen:ops.receiving.fieldLineUnitPriceHint',
-                                                        )}
-                                                        placeholder={t(
-                                                            'kitchen:fields.unitPricePlaceholder',
-                                                        )}
-                                                        value={line.unitPrice}
-                                                        keyboardType="decimal-pad"
-                                                        onChangeText={(next) => {
-                                                            patchLine(index, { unitPrice: next });
-                                                        }}
-                                                        className="min-w-[140px]"
-                                                    />
-                                                </Inline>
-                                                <ReceiveLineTrace
-                                                    testID={`kitchen-receive-line-${String(index)}-trace`}
-                                                    trace={line}
-                                                    onChange={(patch) => {
-                                                        patchLine(index, patch);
-                                                    }}
-                                                />
-                                                {exceedsOutstanding(line, lines) ? (
-                                                    <Text
-                                                        tone="danger"
-                                                        variant="caption"
-                                                        testID={`kitchen-receive-line-${String(index)}-over`}
-                                                    >
-                                                        {t(
-                                                            'kitchen:ops.receiving.lineOverReceipt',
-                                                            {
-                                                                quantity: line.outstandingQuantity,
-                                                                unit: unitCodeLabel(
-                                                                    line.unitCode,
-                                                                    t,
-                                                                ),
-                                                            },
-                                                        )}
-                                                    </Text>
-                                                ) : null}
-                                            </Stack>
-                                        ))}
-                                    </Stack>
+                                }
+                            >
+                                <DataList<ReceiveLineDraft>
+                                    testID="kitchen-receive-lines"
+                                    label={t('kitchen:ops.receiving.linesTitle')}
+                                    columns={lineColumns}
+                                    rows={lines}
+                                    rowKey={(line) => line.key}
+                                    density="sm"
+                                    rowNote={lineNote}
+                                />
 
-                                    {/* Said in the tray; the answer is given here, under the lines. */}
-                                    {state.hasOverReceipt ? (
-                                        <Checkbox
-                                            testID="kitchen-receive-over-confirm"
-                                            id={OVER_CONFIRM_ID}
-                                            {...(attempted && overUnconfirmed
-                                                ? {
-                                                      error: t(
-                                                          'kitchen:ops.procurement.issueOverReceipt',
-                                                      ),
-                                                  }
-                                                : server.flag('over_receipt_confirmed'))}
-                                            checked={confirmations.overReceiptConfirmed}
-                                            label={t('kitchen:ops.receiving.overReceiptConfirm')}
-                                            onChange={(checked) => {
-                                                setConfirmations((current) => ({
-                                                    ...current,
-                                                    overReceiptConfirmed: checked,
-                                                }));
-                                            }}
-                                        />
-                                    ) : null}
-
-                                    {state.hasOverReceipt || state.hasUnplannedLine ? (
-                                        <TextInputField
-                                            testID="kitchen-receive-variance-note"
-                                            id={VARIANCE_NOTE_ID}
-                                            {...(attempted && state.needsVarianceNote
-                                                ? { error: t('kitchen:forms.required') }
-                                                : server.flag('variance_note'))}
-                                            label={t('kitchen:ops.receiving.fieldVarianceNote')}
-                                            placeholder={t(
-                                                'kitchen:ops.receiving.varianceNotePlaceholder',
-                                            )}
-                                            required
-                                            value={confirmations.varianceNote}
-                                            onChangeText={(next) => {
-                                                setConfirmations((current) => ({
-                                                    ...current,
-                                                    varianceNote: next,
-                                                }));
-                                            }}
-                                        />
-                                    ) : null}
-
-                                    {state.hasShortfall ? (
-                                        <Stack space="sm" testID="kitchen-receive-close-short">
-                                            <Checkbox
-                                                testID="kitchen-receive-close-short-toggle"
-                                                checked={confirmations.closeShort}
-                                                label={t('kitchen:ops.receiving.closeShortLabel')}
-                                                description={t(
-                                                    'kitchen:ops.receiving.closeShortHint',
-                                                )}
-                                                onChange={(checked) => {
-                                                    setConfirmations((current) => ({
-                                                        ...current,
-                                                        closeShort: checked,
-                                                    }));
-                                                }}
-                                            />
-                                            {confirmations.closeShort ? (
+                                {state.hasOverReceipt ||
+                                state.hasUnplannedLine ||
+                                state.hasShortfall ? (
+                                    <View
+                                        testID="kitchen-receive-differs"
+                                        className="mt-3 rounded-2xl bg-surface-sunken"
+                                    >
+                                        {state.hasOverReceipt || state.hasUnplannedLine ? (
+                                            <View className="flex-row flex-wrap items-start gap-4 px-4 py-3.5">
+                                                {/* Said in the tray; the answer is given here. */}
+                                                <View className="min-w-[240px] flex-1 pt-6">
+                                                    {state.hasOverReceipt ? (
+                                                        <Checkbox
+                                                            testID="kitchen-receive-over-confirm"
+                                                            id={OVER_CONFIRM_ID}
+                                                            {...(attempted && overUnconfirmed
+                                                                ? {
+                                                                      error: t(
+                                                                          'kitchen:ops.procurement.issueOverReceipt',
+                                                                      ),
+                                                                  }
+                                                                : server.flag(
+                                                                      'over_receipt_confirmed',
+                                                                  ))}
+                                                            checked={
+                                                                confirmations.overReceiptConfirmed
+                                                            }
+                                                            label={t(
+                                                                'kitchen:ops.receiving.overReceiptConfirm',
+                                                            )}
+                                                            onChange={(checked) => {
+                                                                editConfirmations((current) => ({
+                                                                    ...current,
+                                                                    overReceiptConfirmed: checked,
+                                                                }));
+                                                            }}
+                                                        />
+                                                    ) : null}
+                                                </View>
                                                 <TextInputField
-                                                    testID="kitchen-receive-close-short-reason"
-                                                    id={CLOSE_SHORT_REASON_ID}
-                                                    {...(attempted && state.needsCloseShortReason
+                                                    className="min-w-[240px] flex-1"
+                                                    testID="kitchen-receive-variance-note"
+                                                    id={VARIANCE_NOTE_ID}
+                                                    {...(attempted && state.needsVarianceNote
                                                         ? { error: t('kitchen:forms.required') }
-                                                        : server.flag('close_short_reason'))}
+                                                        : server.flag('variance_note'))}
                                                     label={t(
-                                                        'kitchen:ops.receiving.fieldCloseShortReason',
+                                                        'kitchen:ops.receiving.fieldVarianceNote',
                                                     )}
                                                     placeholder={t(
-                                                        'kitchen:ops.receiving.closeShortReasonPlaceholder',
+                                                        'kitchen:ops.receiving.varianceNotePlaceholder',
                                                     )}
                                                     required
-                                                    value={confirmations.closeShortReason}
+                                                    value={confirmations.varianceNote}
                                                     onChangeText={(next) => {
-                                                        setConfirmations((current) => ({
+                                                        editConfirmations((current) => ({
                                                             ...current,
-                                                            closeShortReason: next,
+                                                            varianceNote: next,
                                                         }));
                                                     }}
                                                 />
-                                            ) : null}
-                                        </Stack>
-                                    ) : null}
-                                </FormSection>
-
-                                <FormSection
-                                    variant="panel"
-                                    testID="kitchen-receive-charges-section"
-                                    title={t('kitchen:ops.receiving.sectionCharges')}
-                                >
-                                    <Stack space="sm" testID="kitchen-receive-charges">
-                                        <DeskButton
-                                            testID="kitchen-receive-charges-toggle"
-                                            size="sm"
-                                            variant="ghost"
-                                            label={
-                                                chargesOpen
-                                                    ? t('kitchen:ops.receiving.hideCharges')
-                                                    : t('kitchen:ops.receiving.showCharges')
-                                            }
-                                            onPress={() => {
-                                                setChargesOpen((open) => !open);
-                                            }}
-                                        />
-                                        {chargesOpen ? (
-                                            <Stack
-                                                space="sm"
-                                                testID="kitchen-receive-charges-fields"
-                                            >
-                                                <Inline space="sm" align="start" wrap>
-                                                    {(
-                                                        [
-                                                            ['discountAmount', 'fieldDiscount'],
-                                                            ['taxAmount', 'fieldTax'],
-                                                            ['deliveryAmount', 'fieldDelivery'],
-                                                            [
-                                                                'otherChargesAmount',
-                                                                'fieldOtherCharges',
-                                                            ],
-                                                            [
-                                                                'invoiceTotalAmount',
-                                                                'fieldInvoiceTotal',
-                                                            ],
-                                                        ] as const
-                                                    ).map(([field, labelKey]) => (
-                                                        <TextInputField
-                                                            key={field}
-                                                            testID={`kitchen-receive-${field}`}
-                                                            label={t(
-                                                                `kitchen:ops.receiving.${labelKey}`,
-                                                                { currency: RECEIPT_CURRENCY },
-                                                            )}
-                                                            placeholder={t(
-                                                                'kitchen:fields.amountPlaceholder',
-                                                            )}
-                                                            value={header[field]}
-                                                            keyboardType="decimal-pad"
-                                                            onChangeText={(next) => {
-                                                                setHeader((current) => ({
-                                                                    ...current,
-                                                                    [field]: next,
-                                                                }));
-                                                            }}
-                                                            className="min-w-[140px]"
-                                                        />
-                                                    ))}
-                                                </Inline>
-                                            </Stack>
+                                            </View>
                                         ) : null}
-                                    </Stack>
-                                </FormSection>
+                                        {state.hasShortfall ? (
+                                            <View
+                                                testID="kitchen-receive-close-short"
+                                                className={cx(
+                                                    'flex-row flex-wrap items-start gap-4 px-4 py-3.5',
+                                                    state.hasOverReceipt || state.hasUnplannedLine
+                                                        ? 'border-t border-stroke-subtle'
+                                                        : null,
+                                                )}
+                                            >
+                                                <View className="min-w-[240px] flex-1">
+                                                    <Checkbox
+                                                        testID="kitchen-receive-close-short-toggle"
+                                                        checked={confirmations.closeShort}
+                                                        label={t(
+                                                            'kitchen:ops.receiving.closeShortLabel',
+                                                        )}
+                                                        description={t(
+                                                            'kitchen:ops.receiving.closeShortHint',
+                                                        )}
+                                                        onChange={(checked) => {
+                                                            editConfirmations((current) => ({
+                                                                ...current,
+                                                                closeShort: checked,
+                                                            }));
+                                                        }}
+                                                    />
+                                                </View>
+                                                {confirmations.closeShort ? (
+                                                    <TextInputField
+                                                        className="min-w-[240px] flex-1"
+                                                        testID="kitchen-receive-close-short-reason"
+                                                        id={CLOSE_SHORT_REASON_ID}
+                                                        {...(attempted &&
+                                                        state.needsCloseShortReason
+                                                            ? {
+                                                                  error: t(
+                                                                      'kitchen:forms.required',
+                                                                  ),
+                                                              }
+                                                            : server.flag('close_short_reason'))}
+                                                        label={t(
+                                                            'kitchen:ops.receiving.fieldCloseShortReason',
+                                                        )}
+                                                        placeholder={t(
+                                                            'kitchen:ops.receiving.closeShortReasonPlaceholder',
+                                                        )}
+                                                        required
+                                                        value={confirmations.closeShortReason}
+                                                        onChangeText={(next) => {
+                                                            editConfirmations((current) => ({
+                                                                ...current,
+                                                                closeShortReason: next,
+                                                            }));
+                                                        }}
+                                                    />
+                                                ) : null}
+                                            </View>
+                                        ) : null}
+                                    </View>
+                                ) : null}
+                            </StepCard>
+                        ) : null}
 
-                                <Inline space="sm" align="center" wrap>
-                                    <Text
-                                        variant="caption"
-                                        tone="secondary"
-                                        testID="kitchen-receive-summary"
-                                    >
-                                        {t('kitchen:ops.receiving.summary', {
-                                            delivered: state.deliveredLineCount,
-                                            skipped: state.skippedLineCount,
-                                        })}
-                                    </Text>
-                                </Inline>
-                            </Stack>
-                        )}
-                    </Stack>
+                        {step === 'check' && selectedOrder !== null ? (
+                            <StepCard
+                                testID="kitchen-receive-check-section"
+                                title={t('kitchen:ops.receiving.stepCheck')}
+                            >
+                                <View className="flex-row flex-wrap items-start gap-3">
+                                    <View className="min-w-[320px] flex-[1.25] gap-3">
+                                        <ReviewBox
+                                            testID="kitchen-receive-confirm"
+                                            title={t('kitchen:ops.receiving.thisDelivery')}
+                                            trailing={
+                                                <DeskChip
+                                                    tone={outcome.tone}
+                                                    testID={outcome.testID}
+                                                    label={outcome.label}
+                                                />
+                                            }
+                                        >
+                                            <View className="mt-1 gap-1.5">
+                                                <ConfirmRow
+                                                    icon="package"
+                                                    testID="kitchen-receive-confirm-stock"
+                                                    text={t('kitchen:ops.receiving.confirmStock', {
+                                                        count: state.deliveredLineCount,
+                                                    })}
+                                                    strong
+                                                />
+                                                <ConfirmRow
+                                                    icon="banknote"
+                                                    testID="kitchen-receive-confirm-money"
+                                                    text={
+                                                        lines.some(
+                                                            (line) => line.unitPrice.trim() !== '',
+                                                        )
+                                                            ? t(
+                                                                  'kitchen:ops.receiving.confirmMoneySome',
+                                                              )
+                                                            : t(
+                                                                  'kitchen:ops.receiving.confirmMoneyNone',
+                                                              )
+                                                    }
+                                                />
+                                                {state.skippedLineCount > 0 ? (
+                                                    <ConfirmRow
+                                                        icon="minus"
+                                                        testID="kitchen-receive-confirm-skipped"
+                                                        text={t(
+                                                            'kitchen:ops.receiving.confirmSkipped',
+                                                            { count: state.skippedLineCount },
+                                                        )}
+                                                    />
+                                                ) : null}
+                                            </View>
+                                            <Text className="mt-2.5 text-[13px] font-medium text-content-secondary">
+                                                {t('kitchen:ops.receiving.confirmDate', {
+                                                    date: filedOn,
+                                                })}
+                                            </Text>
+                                        </ReviewBox>
+                                        <ReviewBox
+                                            testID="kitchen-receive-rises"
+                                            title={
+                                                branchName === null
+                                                    ? t(
+                                                          'kitchen:ops.procurement.risesTitleNoBranch',
+                                                      )
+                                                    : t('kitchen:ops.procurement.risesTitle', {
+                                                          branch: branchName,
+                                                      })
+                                            }
+                                        >
+                                            <View className="flex-row flex-wrap gap-1.5">
+                                                {rising.map((line) => (
+                                                    <View
+                                                        key={line.key}
+                                                        className="h-7 flex-row items-center gap-1.5 rounded-full bg-surface-brand-subtle px-2.5"
+                                                    >
+                                                        <Icon
+                                                            name="plus"
+                                                            size="sm"
+                                                            className="text-content-on-brand-subtle"
+                                                        />
+                                                        <Text className="text-xs font-semibold text-content-on-brand-subtle">
+                                                            {line.itemLabel.split(' — ').at(-1)}
+                                                        </Text>
+                                                        <Text className="text-xs font-bold tabular-nums text-content-on-brand-subtle">
+                                                            {t(
+                                                                'kitchen:ops.procurement.risesQuantity',
+                                                                {
+                                                                    quantity: line.quantity.trim(),
+                                                                    unit: unitOf(line),
+                                                                },
+                                                            )}
+                                                        </Text>
+                                                    </View>
+                                                ))}
+                                            </View>
+                                        </ReviewBox>
+                                    </View>
+                                    {fixes.length === 0 ? null : (
+                                        <View className="min-w-[260px] flex-1">
+                                            <ReviewBox
+                                                testID="kitchen-receive-fixes"
+                                                title={t('kitchen:ops.receiving.toFix')}
+                                            >
+                                                <View className="gap-1.5">
+                                                    {fixes.map((fix) => (
+                                                        <View
+                                                            key={fix.key}
+                                                            testID={`kitchen-receive-fix-${fix.key}`}
+                                                            className="min-h-11 flex-row items-center gap-2.5 rounded-xl bg-danger-subtle py-1.5 pe-1.5 ps-3"
+                                                        >
+                                                            <View className="h-2 w-2 rounded-full bg-danger-strong" />
+                                                            <Text className="min-w-0 flex-1 text-[13px] font-semibold text-danger-on-subtle">
+                                                                {fix.label}
+                                                            </Text>
+                                                            <DeskButton
+                                                                testID={`kitchen-receive-fix-${fix.key}-go`}
+                                                                size="sm"
+                                                                variant="secondary"
+                                                                label={t(
+                                                                    'kitchen:ops.receiving.fix',
+                                                                )}
+                                                                onPress={() => {
+                                                                    goTo(fix.step, fix.fieldId);
+                                                                }}
+                                                            />
+                                                        </View>
+                                                    ))}
+                                                </View>
+                                            </ReviewBox>
+                                        </View>
+                                    )}
+                                </View>
+                            </StepCard>
+                        ) : null}
+                    </View>
                 )}
             </EditorFrame>
-
-            {/*
-             * §7: the confirmation distinguishes stock quantity from financial values and states
-             * that posting raises stock immediately. Two separate sentences, because only the first
-             * is irreversible — an unpriced receipt is a job for later, not a mistake.
-             */}
-            <Dialog
-                look="card"
-                testID="kitchen-receive-confirm-dialog"
-                open={confirming}
-                onClose={() => {
-                    setConfirming(false);
-                }}
-                title={t('kitchen:ops.receiving.confirmTitle')}
-                actions={
-                    <>
-                        <DeskButton
-                            testID="kitchen-receive-confirm-cancel"
-                            variant="quiet"
-                            label={t('kitchen:common.cancel')}
-                            onPress={() => {
-                                setConfirming(false);
-                            }}
-                        />
-                        <DeskButton
-                            testID="kitchen-receive-confirm-post"
-                            label={t('kitchen:ops.receiving.post')}
-                            loading={postReceipt.isPending}
-                            onPress={submit}
-                        />
-                    </>
-                }
-            >
-                <Stack space="sm">
-                    <Text testID="kitchen-receive-confirm-stock">
-                        {t('kitchen:ops.receiving.confirmStock', {
-                            count: state.deliveredLineCount,
-                        })}
-                    </Text>
-                    <Text testID="kitchen-receive-confirm-money" tone="secondary">
-                        {lines.some((line) => line.unitPrice.trim() !== '')
-                            ? t('kitchen:ops.receiving.confirmMoneySome')
-                            : t('kitchen:ops.receiving.confirmMoneyNone')}
-                    </Text>
-                    {state.skippedLineCount > 0 ? (
-                        <Text tone="secondary" testID="kitchen-receive-confirm-skipped">
-                            {t('kitchen:ops.receiving.confirmSkipped', {
-                                count: state.skippedLineCount,
-                            })}
-                        </Text>
-                    ) : null}
-                    {state.hasOverReceipt ? (
-                        <DeskChip
-                            tone="warning"
-                            testID="kitchen-receive-confirm-over"
-                            label={t('kitchen:ops.receiving.confirmOver')}
-                        />
-                    ) : confirmations.closeShort ? (
-                        <DeskChip
-                            tone="warning"
-                            testID="kitchen-receive-confirm-close-short"
-                            label={t('kitchen:ops.receiving.confirmCloseShort')}
-                        />
-                    ) : state.hasShortfall ? (
-                        <DeskChip
-                            tone="info"
-                            testID="kitchen-receive-confirm-partial"
-                            label={t('kitchen:ops.receiving.confirmPartial')}
-                        />
-                    ) : (
-                        <DeskChip
-                            tone="success"
-                            testID="kitchen-receive-confirm-complete"
-                            label={t('kitchen:ops.receiving.confirmComplete')}
-                        />
-                    )}
-                    <Text variant="caption" tone="secondary">
-                        {t('kitchen:ops.receiving.confirmDate', {
-                            date:
-                                header.receivedOn === ''
-                                    ? todayIsoDate()
-                                    : formatter.formatDate(header.receivedOn, {
-                                          dateStyle: 'medium',
-                                      }),
-                        })}
-                    </Text>
-                </Stack>
-            </Dialog>
         </IssueTrayFrame>
+    );
+}
+
+/** One line of the review: what posting does, with its icon in a round well. */
+function ConfirmRow({
+    icon,
+    text,
+    strong = false,
+    testID,
+}: {
+    readonly icon: 'package' | 'banknote' | 'minus';
+    readonly text: string;
+    readonly strong?: boolean | undefined;
+    readonly testID: string;
+}) {
+    return (
+        <View className="min-h-[46px] flex-row items-center gap-3 rounded-[14px] bg-surface-sunken px-3 py-1.5">
+            <View className="h-[30px] w-[30px] items-center justify-center rounded-full bg-surface-raised">
+                <Icon
+                    name={icon}
+                    size="sm"
+                    className={strong ? 'text-content-on-brand-subtle' : 'text-content-secondary'}
+                />
+            </View>
+            <Text
+                testID={testID}
+                className={cx(
+                    'min-w-0 flex-1 text-sm',
+                    strong
+                        ? 'font-bold text-content-primary'
+                        : 'font-medium text-content-secondary',
+                )}
+            >
+                {text}
+            </Text>
+        </View>
+    );
+}
+
+/** A row's own warning, under its fields: an amber dot and the sentence. */
+function RowMessage({ text, testID }: { readonly text: string; readonly testID?: string }) {
+    return (
+        <View className="flex-row items-center gap-2">
+            <View className="h-2 w-2 rounded-full bg-warning-strong" />
+            <Text testID={testID} className="text-xs font-semibold text-warning-on-subtle">
+                {text}
+            </Text>
+        </View>
     );
 }

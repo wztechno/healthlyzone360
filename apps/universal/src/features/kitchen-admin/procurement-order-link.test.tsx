@@ -279,15 +279,18 @@ describe('after posting a delivery', () => {
             },
         });
 
+        // Opened from the order, the form starts on the paperwork; the lines are step 3.
+        await untilVisible('kitchen-receive-steps-lines');
+        await press('kitchen-receive-steps-lines');
         await untilVisible('kitchen-receive-line-0-quantity-input');
         await waitFor(() => {
             expect(screen.getByTestId('kitchen-receive-line-0-quantity-input').props.value).toBe(
                 '50',
             );
         });
-        await press('kitchen-receive-screen-save');
-        await untilVisible('kitchen-receive-confirm-post');
-        await press('kitchen-receive-confirm-post');
+        // Post sits on Check and post and posts at once.
+        await press('kitchen-receive-steps-check');
+        await press('kitchen-receive-post');
         await waitFor(() => {
             expect(posted).toHaveLength(1);
         });

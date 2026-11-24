@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10975 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10992 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -4028,6 +4028,8 @@ export interface NamespaceKeys {
     | 'conflict.title'
     | 'containment.contains'
     | 'containment.mayContain'
+    | 'dateField.placeholder'
+    | 'dateField.today'
     | 'deliveryWindows.emptyBody'
     | 'deliveryWindows.emptyTitle'
     | 'deliveryWindows.intro'
@@ -5809,6 +5811,7 @@ export interface NamespaceKeys {
     | 'ops.procurement.awaitingLines'
     | 'ops.procurement.awaitingReceive'
     | 'ops.procurement.awaitingTitle'
+    | 'ops.procurement.captionAgainstOrder'
     | 'ops.procurement.columnCostStatus'
     | 'ops.procurement.columnLines'
     | 'ops.procurement.columnOrder'
@@ -6343,11 +6346,15 @@ export interface NamespaceKeys {
     | 'ops.quotations.viewKind'
     | 'ops.readyForApi'
     | 'ops.receiving.backToProcurement'
+    | 'ops.receiving.captionChooseOrder'
+    | 'ops.receiving.captionDelivery'
     | 'ops.receiving.chipPostsStock'
     | 'ops.receiving.closeShortHint'
     | 'ops.receiving.closeShortLabel'
     | 'ops.receiving.closeShortReasonPlaceholder'
     | 'ops.receiving.columnIssued'
+    | 'ops.receiving.columnItem'
+    | 'ops.receiving.columnReceived'
     | 'ops.receiving.confirmCloseShort'
     | 'ops.receiving.confirmComplete'
     | 'ops.receiving.confirmDate'
@@ -6383,10 +6390,15 @@ export interface NamespaceKeys {
     | 'ops.receiving.fieldVarianceNote'
     | 'ops.receiving.findOrderLabel'
     | 'ops.receiving.findOrderPlaceholder'
+    | 'ops.receiving.fix'
     | 'ops.receiving.hideCharges'
     | 'ops.receiving.invoiceRefPlaceholder'
+    | 'ops.receiving.issueCloseShortReason'
+    | 'ops.receiving.issueNothing'
     | 'ops.receiving.lineOverReceipt'
     | 'ops.receiving.linesTitle'
+    | 'ops.receiving.noOrderMatch'
+    | 'ops.receiving.orderFixed'
     | 'ops.receiving.orderMissingBody'
     | 'ops.receiving.orderMissingTitle'
     | 'ops.receiving.outstandingLabel'
@@ -6401,9 +6413,14 @@ export interface NamespaceKeys {
     | 'ops.receiving.sectionDelivery'
     | 'ops.receiving.sectionOrder'
     | 'ops.receiving.showCharges'
+    | 'ops.receiving.stepCheck'
+    | 'ops.receiving.stepIssues'
+    | 'ops.receiving.stepsLabel'
     | 'ops.receiving.subtitle'
     | 'ops.receiving.summary'
+    | 'ops.receiving.thisDelivery'
     | 'ops.receiving.title'
+    | 'ops.receiving.toFix'
     | 'ops.receiving.unpricedToast'
     | 'ops.receiving.varianceNotePlaceholder'
     | 'ops.requirements.branchRequiredBody'
@@ -15021,6 +15038,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:conflict.title',
   'kitchen:containment.contains',
   'kitchen:containment.mayContain',
+  'kitchen:dateField.placeholder',
+  'kitchen:dateField.today',
   'kitchen:deliveryWindows.emptyBody',
   'kitchen:deliveryWindows.emptyTitle',
   'kitchen:deliveryWindows.intro',
@@ -16802,6 +16821,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.procurement.awaitingLines',
   'kitchen:ops.procurement.awaitingReceive',
   'kitchen:ops.procurement.awaitingTitle',
+  'kitchen:ops.procurement.captionAgainstOrder',
   'kitchen:ops.procurement.columnCostStatus',
   'kitchen:ops.procurement.columnLines',
   'kitchen:ops.procurement.columnOrder',
@@ -17336,11 +17356,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.quotations.viewKind',
   'kitchen:ops.readyForApi',
   'kitchen:ops.receiving.backToProcurement',
+  'kitchen:ops.receiving.captionChooseOrder',
+  'kitchen:ops.receiving.captionDelivery',
   'kitchen:ops.receiving.chipPostsStock',
   'kitchen:ops.receiving.closeShortHint',
   'kitchen:ops.receiving.closeShortLabel',
   'kitchen:ops.receiving.closeShortReasonPlaceholder',
   'kitchen:ops.receiving.columnIssued',
+  'kitchen:ops.receiving.columnItem',
+  'kitchen:ops.receiving.columnReceived',
   'kitchen:ops.receiving.confirmCloseShort',
   'kitchen:ops.receiving.confirmComplete',
   'kitchen:ops.receiving.confirmDate',
@@ -17376,10 +17400,15 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.fieldVarianceNote',
   'kitchen:ops.receiving.findOrderLabel',
   'kitchen:ops.receiving.findOrderPlaceholder',
+  'kitchen:ops.receiving.fix',
   'kitchen:ops.receiving.hideCharges',
   'kitchen:ops.receiving.invoiceRefPlaceholder',
+  'kitchen:ops.receiving.issueCloseShortReason',
+  'kitchen:ops.receiving.issueNothing',
   'kitchen:ops.receiving.lineOverReceipt',
   'kitchen:ops.receiving.linesTitle',
+  'kitchen:ops.receiving.noOrderMatch',
+  'kitchen:ops.receiving.orderFixed',
   'kitchen:ops.receiving.orderMissingBody',
   'kitchen:ops.receiving.orderMissingTitle',
   'kitchen:ops.receiving.outstandingLabel',
@@ -17394,9 +17423,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.receiving.sectionDelivery',
   'kitchen:ops.receiving.sectionOrder',
   'kitchen:ops.receiving.showCharges',
+  'kitchen:ops.receiving.stepCheck',
+  'kitchen:ops.receiving.stepIssues',
+  'kitchen:ops.receiving.stepsLabel',
   'kitchen:ops.receiving.subtitle',
   'kitchen:ops.receiving.summary',
+  'kitchen:ops.receiving.thisDelivery',
   'kitchen:ops.receiving.title',
+  'kitchen:ops.receiving.toFix',
   'kitchen:ops.receiving.unpricedToast',
   'kitchen:ops.receiving.varianceNotePlaceholder',
   'kitchen:ops.requirements.branchRequiredBody',
