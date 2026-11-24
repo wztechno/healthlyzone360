@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10930 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10975 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -10206,9 +10206,11 @@ export interface NamespaceKeys {
     | 'b2b.actions.draftAgreement'
     | 'b2b.actions.requestInformation'
     | 'b2b.agreement.creditLimit'
+    | 'b2b.agreement.earlier'
     | 'b2b.agreement.edit'
     | 'b2b.agreement.minimumOrder'
     | 'b2b.agreement.none'
+    | 'b2b.agreement.notSet'
     | 'b2b.agreement.paymentTerms'
     | 'b2b.agreement.revise'
     | 'b2b.agreement.reviseBody'
@@ -10220,6 +10222,7 @@ export interface NamespaceKeys {
     | 'b2b.agreement.signedBy'
     | 'b2b.agreement.title'
     | 'b2b.agreement.version'
+    | 'b2b.agreement.versionShort'
     | 'b2b.agreementStatus.active'
     | 'b2b.agreementStatus.draft'
     | 'b2b.agreementStatus.pending_signature'
@@ -10230,6 +10233,7 @@ export interface NamespaceKeys {
     | 'b2b.approve.documentsWarning'
     | 'b2b.approve.title'
     | 'b2b.cancel'
+    | 'b2b.caption'
     | 'b2b.claimed'
     | 'b2b.column.company'
     | 'b2b.column.country'
@@ -10251,19 +10255,24 @@ export interface NamespaceKeys {
     | 'b2b.decline.applicantMessageHint'
     | 'b2b.decline.body'
     | 'b2b.decline.title'
+    | 'b2b.detail.application'
     | 'b2b.detail.back'
     | 'b2b.detail.conflictBody'
     | 'b2b.detail.conflictTitle'
     | 'b2b.detail.duplicatesBody'
     | 'b2b.detail.duplicatesTitle'
     | 'b2b.detail.errorTitle'
+    | 'b2b.detail.notGiven'
     | 'b2b.detail.reference'
     | 'b2b.detail.reload'
     | 'b2b.documents.accept'
+    | 'b2b.documents.acceptedCount'
     | 'b2b.documents.expired'
     | 'b2b.documents.mismatch'
     | 'b2b.documents.missing'
+    | 'b2b.documents.missingChip'
     | 'b2b.documents.none'
+    | 'b2b.documents.notUploaded'
     | 'b2b.documents.note'
     | 'b2b.documents.reason'
     | 'b2b.documents.reject'
@@ -10296,6 +10305,13 @@ export interface NamespaceKeys {
     | 'b2b.emptyBody'
     | 'b2b.emptyQueueBody'
     | 'b2b.emptyTitle'
+    | 'b2b.history.decided.approved'
+    | 'b2b.history.decided.declined'
+    | 'b2b.history.decided.withdrawn'
+    | 'b2b.history.opened'
+    | 'b2b.history.signed'
+    | 'b2b.history.submitted'
+    | 'b2b.history.title'
     | 'b2b.internalNoteHint'
     | 'b2b.invitations.body'
     | 'b2b.invitations.none'
@@ -10318,6 +10334,7 @@ export interface NamespaceKeys {
     | 'b2b.next.decide.title'
     | 'b2b.next.draft_agreement.body'
     | 'b2b.next.draft_agreement.title'
+    | 'b2b.next.label'
     | 'b2b.next.provision.body'
     | 'b2b.next.provision.title'
     | 'b2b.next.provisioned.body'
@@ -10330,6 +10347,7 @@ export interface NamespaceKeys {
     | 'b2b.next.waiting_signature.title'
     | 'b2b.no'
     | 'b2b.open'
+    | 'b2b.openShort'
     | 'b2b.provision.account'
     | 'b2b.provision.body'
     | 'b2b.provision.confirm'
@@ -10369,9 +10387,18 @@ export interface NamespaceKeys {
     | 'b2b.unclaimed'
     | 'b2b.unnamed'
     | 'b2b.yes'
+    | 'common.cancel'
+    | 'common.listSeparator'
+    | 'create.asideTitle'
+    | 'create.beforeYouCreate'
     | 'create.branchNameHint'
     | 'create.branchNameLabel'
     | 'create.branchNamePlaceholder'
+    | 'create.branchTitle'
+    | 'create.checkBranch'
+    | 'create.checkName'
+    | 'create.checkRegion'
+    | 'create.checkSlug'
     | 'create.cityLabel'
     | 'create.cityPlaceholder'
     | 'create.countryLabel'
@@ -10379,12 +10406,16 @@ export interface NamespaceKeys {
     | 'create.created'
     | 'create.currencyLabel'
     | 'create.currencyPlaceholder'
+    | 'create.failedTitle'
+    | 'create.kitchenTitle'
     | 'create.languageLabel'
     | 'create.languagePlaceholder'
     | 'create.nameLabel'
     | 'create.namePlaceholderAr'
     | 'create.namePlaceholderEn'
+    | 'create.notSaved'
     | 'create.ownerNext'
+    | 'create.regionTitle'
     | 'create.slugHint'
     | 'create.slugLabel'
     | 'create.slugPlaceholder'
@@ -10409,11 +10440,14 @@ export interface NamespaceKeys {
     | 'detail.cataloguePublished'
     | 'detail.catalogueTitle'
     | 'detail.errorTitle'
+    | 'detail.kind'
     | 'detail.noCity'
     | 'detail.notFound'
     | 'detail.suspendedNoReason'
     | 'detail.suspendedOn'
     | 'detail.suspendedTitle'
+    | 'invite.dialogTitle'
+    | 'invite.emailHint'
     | 'invite.emailLabel'
     | 'invite.emailPlaceholder'
     | 'invite.messageHint'
@@ -10430,6 +10464,7 @@ export interface NamespaceKeys {
     | 'invite.supersedes'
     | 'invite.title'
     | 'kitchens.branchCount'
+    | 'kitchens.caption'
     | 'kitchens.column.branches'
     | 'kitchens.column.catalogue'
     | 'kitchens.column.kitchen'
@@ -10439,18 +10474,24 @@ export interface NamespaceKeys {
     | 'kitchens.emptyBody'
     | 'kitchens.emptyTitle'
     | 'kitchens.errorTitle'
+    | 'kitchens.groupToken'
     | 'kitchens.loadMore'
     | 'kitchens.noOwner'
     | 'kitchens.open'
     | 'kitchens.ownerCount'
     | 'kitchens.publishedCount'
+    | 'kitchens.rowActions'
     | 'kitchens.searchLabel'
     | 'kitchens.searchPlaceholder'
+    | 'kitchens.showAll'
+    | 'kitchens.statAll'
     | 'kitchens.statusAny'
     | 'kitchens.statusLabel'
     | 'kitchens.subtitle'
     | 'kitchens.title'
+    | 'kitchens.view'
     | 'lifecycle.closedNote'
+    | 'lifecycle.closedTitle'
     | 'lifecycle.reactivate'
     | 'lifecycle.reactivateBody'
     | 'lifecycle.reactivateConfirm'
@@ -10467,8 +10508,11 @@ export interface NamespaceKeys {
     | 'lifecycle.suspended'
     | 'lifecycle.suspending'
     | 'nav.b2b'
+    | 'nav.group'
     | 'nav.kitchens'
+    | 'nav.onboarding'
     | 'nav.showcase'
+    | 'nav.tenants'
     | 'owners.column.email'
     | 'owners.column.person'
     | 'owners.column.status'
@@ -10483,6 +10527,7 @@ export interface NamespaceKeys {
     | 'owners.revoked'
     | 'owners.revokedLast'
     | 'owners.revoking'
+    | 'owners.status.active'
     | 'owners.subtitle'
     | 'owners.title'
     | 'owners.unnamed'
@@ -21149,9 +21194,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:b2b.actions.draftAgreement',
   'platformAdmin:b2b.actions.requestInformation',
   'platformAdmin:b2b.agreement.creditLimit',
+  'platformAdmin:b2b.agreement.earlier',
   'platformAdmin:b2b.agreement.edit',
   'platformAdmin:b2b.agreement.minimumOrder',
   'platformAdmin:b2b.agreement.none',
+  'platformAdmin:b2b.agreement.notSet',
   'platformAdmin:b2b.agreement.paymentTerms',
   'platformAdmin:b2b.agreement.revise',
   'platformAdmin:b2b.agreement.reviseBody',
@@ -21163,6 +21210,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:b2b.agreement.signedBy',
   'platformAdmin:b2b.agreement.title',
   'platformAdmin:b2b.agreement.version',
+  'platformAdmin:b2b.agreement.versionShort',
   'platformAdmin:b2b.agreementStatus.active',
   'platformAdmin:b2b.agreementStatus.draft',
   'platformAdmin:b2b.agreementStatus.pending_signature',
@@ -21173,6 +21221,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:b2b.approve.documentsWarning',
   'platformAdmin:b2b.approve.title',
   'platformAdmin:b2b.cancel',
+  'platformAdmin:b2b.caption',
   'platformAdmin:b2b.claimed',
   'platformAdmin:b2b.column.company',
   'platformAdmin:b2b.column.country',
@@ -21194,19 +21243,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:b2b.decline.applicantMessageHint',
   'platformAdmin:b2b.decline.body',
   'platformAdmin:b2b.decline.title',
+  'platformAdmin:b2b.detail.application',
   'platformAdmin:b2b.detail.back',
   'platformAdmin:b2b.detail.conflictBody',
   'platformAdmin:b2b.detail.conflictTitle',
   'platformAdmin:b2b.detail.duplicatesBody',
   'platformAdmin:b2b.detail.duplicatesTitle',
   'platformAdmin:b2b.detail.errorTitle',
+  'platformAdmin:b2b.detail.notGiven',
   'platformAdmin:b2b.detail.reference',
   'platformAdmin:b2b.detail.reload',
   'platformAdmin:b2b.documents.accept',
+  'platformAdmin:b2b.documents.acceptedCount',
   'platformAdmin:b2b.documents.expired',
   'platformAdmin:b2b.documents.mismatch',
   'platformAdmin:b2b.documents.missing',
+  'platformAdmin:b2b.documents.missingChip',
   'platformAdmin:b2b.documents.none',
+  'platformAdmin:b2b.documents.notUploaded',
   'platformAdmin:b2b.documents.note',
   'platformAdmin:b2b.documents.reason',
   'platformAdmin:b2b.documents.reject',
@@ -21239,6 +21293,13 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:b2b.emptyBody',
   'platformAdmin:b2b.emptyQueueBody',
   'platformAdmin:b2b.emptyTitle',
+  'platformAdmin:b2b.history.decided.approved',
+  'platformAdmin:b2b.history.decided.declined',
+  'platformAdmin:b2b.history.decided.withdrawn',
+  'platformAdmin:b2b.history.opened',
+  'platformAdmin:b2b.history.signed',
+  'platformAdmin:b2b.history.submitted',
+  'platformAdmin:b2b.history.title',
   'platformAdmin:b2b.internalNoteHint',
   'platformAdmin:b2b.invitations.body',
   'platformAdmin:b2b.invitations.none',
@@ -21261,6 +21322,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:b2b.next.decide.title',
   'platformAdmin:b2b.next.draft_agreement.body',
   'platformAdmin:b2b.next.draft_agreement.title',
+  'platformAdmin:b2b.next.label',
   'platformAdmin:b2b.next.provision.body',
   'platformAdmin:b2b.next.provision.title',
   'platformAdmin:b2b.next.provisioned.body',
@@ -21273,6 +21335,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:b2b.next.waiting_signature.title',
   'platformAdmin:b2b.no',
   'platformAdmin:b2b.open',
+  'platformAdmin:b2b.openShort',
   'platformAdmin:b2b.provision.account',
   'platformAdmin:b2b.provision.body',
   'platformAdmin:b2b.provision.confirm',
@@ -21312,9 +21375,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:b2b.unclaimed',
   'platformAdmin:b2b.unnamed',
   'platformAdmin:b2b.yes',
+  'platformAdmin:common.cancel',
+  'platformAdmin:common.listSeparator',
+  'platformAdmin:create.asideTitle',
+  'platformAdmin:create.beforeYouCreate',
   'platformAdmin:create.branchNameHint',
   'platformAdmin:create.branchNameLabel',
   'platformAdmin:create.branchNamePlaceholder',
+  'platformAdmin:create.branchTitle',
+  'platformAdmin:create.checkBranch',
+  'platformAdmin:create.checkName',
+  'platformAdmin:create.checkRegion',
+  'platformAdmin:create.checkSlug',
   'platformAdmin:create.cityLabel',
   'platformAdmin:create.cityPlaceholder',
   'platformAdmin:create.countryLabel',
@@ -21322,12 +21394,16 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:create.created',
   'platformAdmin:create.currencyLabel',
   'platformAdmin:create.currencyPlaceholder',
+  'platformAdmin:create.failedTitle',
+  'platformAdmin:create.kitchenTitle',
   'platformAdmin:create.languageLabel',
   'platformAdmin:create.languagePlaceholder',
   'platformAdmin:create.nameLabel',
   'platformAdmin:create.namePlaceholderAr',
   'platformAdmin:create.namePlaceholderEn',
+  'platformAdmin:create.notSaved',
   'platformAdmin:create.ownerNext',
+  'platformAdmin:create.regionTitle',
   'platformAdmin:create.slugHint',
   'platformAdmin:create.slugLabel',
   'platformAdmin:create.slugPlaceholder',
@@ -21352,11 +21428,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:detail.cataloguePublished',
   'platformAdmin:detail.catalogueTitle',
   'platformAdmin:detail.errorTitle',
+  'platformAdmin:detail.kind',
   'platformAdmin:detail.noCity',
   'platformAdmin:detail.notFound',
   'platformAdmin:detail.suspendedNoReason',
   'platformAdmin:detail.suspendedOn',
   'platformAdmin:detail.suspendedTitle',
+  'platformAdmin:invite.dialogTitle',
+  'platformAdmin:invite.emailHint',
   'platformAdmin:invite.emailLabel',
   'platformAdmin:invite.emailPlaceholder',
   'platformAdmin:invite.messageHint',
@@ -21373,6 +21452,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:invite.supersedes',
   'platformAdmin:invite.title',
   'platformAdmin:kitchens.branchCount',
+  'platformAdmin:kitchens.caption',
   'platformAdmin:kitchens.column.branches',
   'platformAdmin:kitchens.column.catalogue',
   'platformAdmin:kitchens.column.kitchen',
@@ -21382,18 +21462,24 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:kitchens.emptyBody',
   'platformAdmin:kitchens.emptyTitle',
   'platformAdmin:kitchens.errorTitle',
+  'platformAdmin:kitchens.groupToken',
   'platformAdmin:kitchens.loadMore',
   'platformAdmin:kitchens.noOwner',
   'platformAdmin:kitchens.open',
   'platformAdmin:kitchens.ownerCount',
   'platformAdmin:kitchens.publishedCount',
+  'platformAdmin:kitchens.rowActions',
   'platformAdmin:kitchens.searchLabel',
   'platformAdmin:kitchens.searchPlaceholder',
+  'platformAdmin:kitchens.showAll',
+  'platformAdmin:kitchens.statAll',
   'platformAdmin:kitchens.statusAny',
   'platformAdmin:kitchens.statusLabel',
   'platformAdmin:kitchens.subtitle',
   'platformAdmin:kitchens.title',
+  'platformAdmin:kitchens.view',
   'platformAdmin:lifecycle.closedNote',
+  'platformAdmin:lifecycle.closedTitle',
   'platformAdmin:lifecycle.reactivate',
   'platformAdmin:lifecycle.reactivateBody',
   'platformAdmin:lifecycle.reactivateConfirm',
@@ -21410,8 +21496,11 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:lifecycle.suspended',
   'platformAdmin:lifecycle.suspending',
   'platformAdmin:nav.b2b',
+  'platformAdmin:nav.group',
   'platformAdmin:nav.kitchens',
+  'platformAdmin:nav.onboarding',
   'platformAdmin:nav.showcase',
+  'platformAdmin:nav.tenants',
   'platformAdmin:owners.column.email',
   'platformAdmin:owners.column.person',
   'platformAdmin:owners.column.status',
@@ -21426,6 +21515,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'platformAdmin:owners.revoked',
   'platformAdmin:owners.revokedLast',
   'platformAdmin:owners.revoking',
+  'platformAdmin:owners.status.active',
   'platformAdmin:owners.subtitle',
   'platformAdmin:owners.title',
   'platformAdmin:owners.unnamed',

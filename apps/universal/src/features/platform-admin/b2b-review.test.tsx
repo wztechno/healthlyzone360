@@ -224,11 +224,12 @@ describe('the queue', () => {
         });
 
         expect(await screen.findByText('Cedars Catering SAL')).toBeTruthy();
+        // The whole queue is read once and filtered on screen, so the figures count all of it.
         expect(repositories.platformB2b.listApplications).toHaveBeenCalledWith(
-            expect.objectContaining({ status: 'submitted' }),
+            expect.not.objectContaining({ status: expect.anything() }),
         );
 
-        await fireEvent.press(screen.getByTestId('platform-b2b-application-app-1-open'));
+        await fireEvent.press(screen.getByTestId('platform-b2b-applications-table-row-app-1'));
         expect(routerMock.__push).toHaveBeenCalledWith('/platform-admin/b2b/app-1');
     });
 

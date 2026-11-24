@@ -1,54 +1,74 @@
-import type { KitchenTenantStatus, PlatformKitchenSummary } from '@healthy360/api-client/contracts';
-import { KITCHEN_TENANT_STATUSES } from '@healthy360/api-client/contracts';
+import type {
+    KitchenTenantStatus,
+    PlatformKitchenOwner,
+    PlatformKitchenSummary,
+} from '@healthy360/api-client/contracts';
+import { isReactivatable, isTradingStatus } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Button,
-    Card,
+    Callout,
+    Cascade,
     EmptyState,
     ErrorState,
-    Heading,
     Icon,
-    Inline,
-    Select,
-    Stack,
-    Table,
     TableSkeleton,
     Text,
-    TextInputField,
 } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
-import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import type { MenuItem } from '@healthy360/design-system';
+import { useFormatter } from '@healthy360/i18n';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import { usePlatformKitchensQuery } from '../../../data/platform-admin-hooks.ts';
-import { kitchenRowTestId, tenantStatusKey, tenantStatusTone } from '../format.ts';
+import {
+    usePlatformKitchenQuery,
+    usePlatformKitchensQuery,
+} from '../../../data/platform-admin-hooks.ts';
+import { useTrailLeaf } from '../../../shell/area-trail.tsx';
+import { CATALOGUE_ROW_ICONS } from '../../kitchen-admin/catalogue/catalogue-list-item.tsx';
+import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
+import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
+import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
+import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
+import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.tsx';
+import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
+import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
+import { kitchenRowTestId, ownerRowTestId, tenantStatusKey, tenantStatusTone } from '../format.ts';
+import {
+    EndMembershipDialog,
+    InviteOwnerDialog,
+    ReactivateKitchenDialog,
+    SuspendKitchenDialog,
+} from '../kitchen-dialogs.tsx';
+import type { KitchenTarget } from '../kitchen-dialogs.tsx';
+import { PLATFORM_NEW_KITCHEN_HREF } from '../platform-admin-chrome.tsx';
 
 /**
- * `/platform-admin` — every kitchen on the platform.
+ * `/platform-admin` — every kitchen on the platform, in the kitchen admin's list look (Platform
+ * admin canvas, Kitchens board, 2026-11-23):
+ *
+ * - **The lens:** All kitchens, then one figure per status, Add a kitchen at the end, the search,
+ *   the filter in force and "N of M".
+ * - **The table:** Kitchen (name over slug), Status, Owners, Branches and Published. A kitchen with
+ *   no owner says so on its row in amber — it is the most actionable thing this list can tell an
+ *   operator, and a `0` in a column is how it goes unnoticed for a month. A row opens the kitchen;
+ *   its ⋯ menu has View, Invite an owner, and Suspend or Reactivate.
+ * - **The kitchen** opens as the record pop-up over the list (`?view=<slug>`), as every admin View
+ *   does: its catalogue as figures, its owners and branches as tables, Reactivate or Suspend at
+ *   its foot.
+ *
+ * ## The whole list is read, then filtered here
+ *
+ * A platform has tens of kitchens, not thousands. Every page is fetched once, so the figures count
+ * the platform rather than the page in view, and the status filter and search answer at once.
  *
  * ## The gate is the area's, not this screen's
  *
- * Unlike the kitchen workspace's lists, which tighten their area baseline with a per-screen
- * permission, this screen adds nothing: `platform-admin`'s baseline already names
- * `organisation.manage_platform`, and there is no narrower authority inside the console to express.
- * The `<Gate>` is still here rather than left to the layout so that a direct render of the screen
- * in a test refuses the same way the route does.
- *
- * ## Filtering is server-side and sorting is not offered
- *
- * `status` and `query` go to the API, so a filtered list is a filtered *list* rather than a filtered
- * page. Sorting is deliberately absent: the endpoint answers newest-first and a client-side sort
- * over a cursor page would silently mean "sorted within what you have fetched", which the ingredient
- * list has to live with because it inherited it and this one does not have to inherit.
- *
- * ## A kitchen with no owner is called out on the row
- *
- * Not in a footnote. It is the single most actionable thing this list can tell an operator — a
- * kitchen nobody can open — and burying it inside a `0` in an owners column is how it goes unnoticed
- * for a month.
+ * `platform-admin`'s baseline already names `organisation.manage_platform`. The `<Gate>` is here
+ * so a direct render in a test refuses the same way the route does.
  */
 export function PlatformKitchensScreen() {
     return (
@@ -58,50 +78,123 @@ export function PlatformKitchensScreen() {
     );
 }
 
+const FILTERS = ['all', 'active', 'suspended', 'pending', 'closed'] as const;
+type FilterKey = (typeof FILTERS)[number];
+
+const FILTER_TONES: Readonly<Record<KitchenTenantStatus, LensTone>> = {
+    active: 'success',
+    suspended: 'danger',
+    pending: 'neutral',
+    closed: 'neutral',
+};
+
+type KitchenDialog =
+    | { readonly kind: 'suspend'; readonly kitchen: KitchenTarget }
+    | { readonly kind: 'reactivate'; readonly kitchen: KitchenTarget }
+    | { readonly kind: 'invite'; readonly kitchen: KitchenTarget }
+    | {
+          readonly kind: 'end';
+          readonly kitchen: KitchenTarget;
+          readonly owner: PlatformKitchenOwner;
+          readonly lastOwner: boolean;
+      };
+
+function targetOf(kitchen: PlatformKitchenSummary): KitchenTarget {
+    return { slug: kitchen.slug, name: kitchen.name, lockVersion: kitchen.lockVersion };
+}
+
 function KitchensList() {
     const { t } = useTranslation();
     const router = useRouter();
+    const formatter = useFormatter();
+    const params = useLocalSearchParams<{ view?: string }>();
+    const viewing = typeof params.view === 'string' && params.view !== '' ? params.view : null;
 
-    const [query, setQuery] = useState('');
-    const [status, setStatus] = useState<KitchenTenantStatus | null>(null);
+    const [filter, setFilter] = useState<FilterKey>('all');
+    const [search, setSearch] = useState('');
+    const [dialog, setDialog] = useState<KitchenDialog | null>(null);
 
-    const trimmed = query.trim();
-    const filter = useMemo(
-        () => ({
-            ...(trimmed === '' ? {} : { query: trimmed }),
-            ...(status === null ? {} : { status }),
-        }),
-        [trimmed, status],
-    );
+    const kitchens = usePlatformKitchensQuery({});
+    const { hasNextPage, isFetchingNextPage, fetchNextPage } = kitchens;
+    useEffect(() => {
+        if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+    }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-    const kitchens = usePlatformKitchensQuery(filter);
-    const rows = useMemo(
+    const all = useMemo(
         () => (kitchens.data?.pages ?? []).flatMap((page) => page.items),
         [kitchens.data?.pages],
     );
+    const rows = useMemo(() => {
+        const needle = search.trim().toLowerCase();
+        return all.filter(
+            (row) =>
+                (filter === 'all' || row.status === filter) &&
+                (needle === '' ||
+                    row.name.toLowerCase().includes(needle) ||
+                    row.slug.toLowerCase().includes(needle)),
+        );
+    }, [all, filter, search]);
 
-    const columns: readonly TableColumn<PlatformKitchenSummary>[] = [
+    const pending = kitchens.isPending;
+    const failure = toFailure(kitchens.error);
+    const unfiltered = filter === 'all' && search.trim() === '';
+    const clearFilters = () => {
+        setFilter('all');
+        setSearch('');
+    };
+    const open = (slug: string | null) => {
+        router.setParams({ view: slug ?? undefined } as never);
+    };
+    const count = (key: FilterKey) =>
+        key === 'all' ? all.length : all.filter((row) => row.status === key).length;
+    const filterLabel = (key: Exclude<FilterKey, 'all'>) => t(tenantStatusKey(key));
+
+    const figures = FILTERS.map((value, index): LensFigure => ({
+        key: value,
+        label: value === 'all' ? t('platformAdmin:kitchens.statAll') : filterLabel(value),
+        value: pending ? null : count(value),
+        ...(value === 'all' ? {} : { tone: FILTER_TONES[value] }),
+        separated: index === 1,
+        active: filter === value,
+        onPress: () => {
+            setFilter(value);
+        },
+    }));
+
+    const columns: readonly CatalogueColumn<PlatformKitchenSummary>[] = [
         {
             key: 'kitchen',
-            header: t('platformAdmin:kitchens.column.kitchen'),
-            rowHeader: true,
-            flex: 2,
+            role: 'title',
+            label: t('platformAdmin:kitchens.column.kitchen'),
+            width: 260,
+            min: 200,
+            grow: true,
+            priority: 100,
+            value: (row) => row.name,
             render: (row) => (
-                <Stack space="none">
-                    <Text variant="bodyStrong" testID={`${kitchenRowTestId(row.id)}-name`}>
+                <View className="min-w-0 flex-col">
+                    <Text
+                        variant="bodyStrong"
+                        numberOfLines={1}
+                        testID={`${kitchenRowTestId(row.id)}-name`}
+                    >
                         {row.name}
                     </Text>
-                    <Text variant="caption" tone="secondary">
+                    <Text variant="caption" tone="secondary" numberOfLines={1}>
                         {row.slug}
                     </Text>
-                </Stack>
+                </View>
             ),
         },
         {
             key: 'status',
-            header: t('platformAdmin:kitchens.column.status'),
+            role: 'status',
+            label: t('platformAdmin:kitchens.column.status'),
+            width: 140,
+            priority: 90,
+            value: (row) => t(tenantStatusKey(row.status)),
             render: (row) => (
-                <Badge
+                <DeskChip
                     testID={`${kitchenRowTestId(row.id)}-status`}
                     tone={tenantStatusTone(row.status)}
                     label={t(tenantStatusKey(row.status))}
@@ -110,13 +203,19 @@ function KitchensList() {
         },
         {
             key: 'owners',
-            header: t('platformAdmin:kitchens.column.owners'),
+            role: 'meta',
+            label: t('platformAdmin:kitchens.column.owners'),
+            width: 150,
+            priority: 85,
+            value: (row) =>
+                row.ownerCount === 0
+                    ? t('platformAdmin:kitchens.noOwner')
+                    : t('platformAdmin:kitchens.ownerCount', { count: row.ownerCount }),
             render: (row) =>
                 row.ownerCount === 0 ? (
-                    <Badge
+                    <DeskChip
                         testID={`${kitchenRowTestId(row.id)}-no-owner`}
                         tone="warning"
-                        icon="warning"
                         label={t('platformAdmin:kitchens.noOwner')}
                     />
                 ) : (
@@ -127,163 +226,566 @@ function KitchensList() {
         },
         {
             key: 'branches',
-            header: t('platformAdmin:kitchens.column.branches'),
+            role: 'meta',
+            label: t('platformAdmin:kitchens.column.branches'),
+            width: 130,
+            priority: 70,
+            value: (row) => t('platformAdmin:kitchens.branchCount', { count: row.branchCount }),
             render: (row) => (
-                <Text testID={`${kitchenRowTestId(row.id)}-branches`} tone="secondary">
+                <Text tone="secondary" testID={`${kitchenRowTestId(row.id)}-branches`}>
                     {t('platformAdmin:kitchens.branchCount', { count: row.branchCount })}
                 </Text>
             ),
         },
         {
             key: 'catalogue',
-            header: t('platformAdmin:kitchens.column.catalogue'),
+            role: 'meta',
+            label: t('platformAdmin:kitchens.column.catalogue'),
+            width: 130,
+            priority: 60,
+            value: (row) =>
+                t('platformAdmin:kitchens.publishedCount', { count: row.catalogue.published }),
             render: (row) => (
-                <Text testID={`${kitchenRowTestId(row.id)}-published`} tone="secondary">
-                    {t('platformAdmin:kitchens.publishedCount', { count: row.catalogue.published })}
+                <Text tone="secondary" testID={`${kitchenRowTestId(row.id)}-published`}>
+                    {t('platformAdmin:kitchens.publishedCount', {
+                        count: row.catalogue.published,
+                    })}
                 </Text>
             ),
         },
     ];
 
-    const failure = toFailure(kitchens.error);
-    const filtered = trimmed !== '' || status !== null;
+    const joined = !pending && failure === null && rows.length > 0;
+    const filterToken =
+        filter === 'all'
+            ? null
+            : t('platformAdmin:kitchens.groupToken', { group: filterLabel(filter) });
 
     return (
-        <Stack space="lg" testID="platform-admin-kitchens-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="platform-admin-kitchens-title">
-                    {t('platformAdmin:kitchens.title')}
-                </Heading>
-                <Text tone="secondary" testID="platform-admin-kitchens-subtitle">
-                    {t('platformAdmin:kitchens.subtitle')}
-                </Text>
-            </Stack>
-
-            <Card padding="md" testID="platform-admin-kitchens-toolbar">
-                <Stack space="sm">
-                    <TextInputField
-                        testID="platform-admin-kitchens-search"
-                        label={t('platformAdmin:kitchens.searchLabel')}
-                        placeholder={t('platformAdmin:kitchens.searchPlaceholder')}
-                        value={query}
-                        onChangeText={setQuery}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                    />
-
-                    <Select<KitchenTenantStatus>
-                        testID="platform-admin-kitchens-status"
-                        label={t('platformAdmin:kitchens.statusLabel')}
-                        placeholder={t('platformAdmin:kitchens.statusAny')}
-                        value={status}
-                        options={KITCHEN_TENANT_STATUSES.map((value) => ({
-                            value,
-                            label: t(tenantStatusKey(value)),
-                        }))}
-                        onChange={(next) => {
-                            // Selecting the value that is already applied clears it. `Select` has no
-                            // "none" option and adding one would put a sentinel string into a typed
-                            // union; toggling is the smaller lie and the more useful behaviour.
-                            setStatus((current) => (current === next ? null : next));
-                        }}
-                    />
-
-                    <Inline space="sm" wrap>
-                        <Button
+        <Cascade space="md" testID="platform-admin-kitchens-screen">
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="platform-admin-kitchens-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={figures}
+                    actions={
+                        <DeskButton
                             testID="platform-admin-kitchens-create"
+                            size="sm"
                             label={t('platformAdmin:kitchens.create')}
                             iconStart={<Icon name="plus" size="sm" />}
                             onPress={() => {
-                                router.push('/platform-admin/kitchens/new' as never);
-                            }}
-                        />
-                        {filtered ? (
-                            <Button
-                                testID="platform-admin-kitchens-clear"
-                                variant="ghost"
-                                label={t('platformAdmin:kitchens.statusAny')}
-                                onPress={() => {
-                                    setQuery('');
-                                    setStatus(null);
-                                }}
-                            />
-                        ) : null}
-                    </Inline>
-                </Stack>
-            </Card>
-
-            {kitchens.isPending ? (
-                <TableSkeleton
-                    testID="platform-admin-kitchens-loading"
-                    partTestID="platform-admin-kitchens"
-                    rows={4}
-                />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="platform-admin-kitchens-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void kitchens.refetch();
-                    }}
-                    retrying={kitchens.isFetching}
-                />
-            ) : rows.length === 0 ? (
-                <EmptyState
-                    testID="platform-admin-kitchens-empty"
-                    title={t('platformAdmin:kitchens.emptyTitle')}
-                    body={t('platformAdmin:kitchens.emptyBody')}
-                    actions={
-                        <Button
-                            testID="platform-admin-kitchens-empty-clear"
-                            variant="secondary"
-                            label={t('platformAdmin:kitchens.statusAny')}
-                            onPress={() => {
-                                setQuery('');
-                                setStatus(null);
+                                router.push(PLATFORM_NEW_KITCHEN_HREF as never);
                             }}
                         />
                     }
+                    search={search}
+                    onSearchChange={setSearch}
+                    searchLabel={t('platformAdmin:kitchens.searchLabel')}
+                    searchPlaceholder={t('platformAdmin:kitchens.searchPlaceholder')}
+                    tokens={
+                        filterToken === null
+                            ? []
+                            : [
+                                  {
+                                      key: 'group',
+                                      label: filterToken,
+                                      removeLabel: t('kitchen:toolbar.removeFilter', {
+                                          filter: filterToken,
+                                      }),
+                                      onRemove: () => {
+                                          setFilter('all');
+                                      },
+                                  },
+                              ]
+                    }
+                    result={
+                        pending
+                            ? null
+                            : t('kitchen:lens.result', { shown: rows.length, total: all.length })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered ? {} : { onClear: clearFilters })}
                 />
-            ) : (
-                <Stack space="sm">
-                    <Table<PlatformKitchenSummary>
+
+                {pending ? (
+                    <TableSkeleton
+                        testID="platform-admin-kitchens-loading"
+                        partTestID="platform-admin-kitchens"
+                        rows={4}
+                    />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="platform-admin-kitchens-error"
+                        title={t('platformAdmin:kitchens.errorTitle')}
+                        failure={failure}
+                        onRetry={() => {
+                            void kitchens.refetch();
+                        }}
+                        retrying={kitchens.isFetching}
+                    />
+                ) : rows.length === 0 ? (
+                    <EmptyState
+                        testID="platform-admin-kitchens-empty"
+                        title={t('platformAdmin:kitchens.emptyTitle')}
+                        {...(unfiltered
+                            ? {}
+                            : {
+                                  actions: (
+                                      <Button
+                                          testID="platform-admin-kitchens-empty-clear"
+                                          size="sm"
+                                          variant="secondary"
+                                          label={t('platformAdmin:kitchens.showAll')}
+                                          onPress={clearFilters}
+                                      />
+                                  ),
+                              })}
+                    />
+                ) : (
+                    <CatalogueList<PlatformKitchenSummary>
                         testID="platform-admin-kitchens-table"
-                        caption={t('platformAdmin:kitchens.title')}
-                        captionHidden
+                        joined
+                        label={t('platformAdmin:kitchens.caption')}
                         columns={columns}
                         rows={rows}
                         rowKey={(row) => String(row.id)}
-                        rowAction={{
-                            header: t('platformAdmin:kitchens.column.kitchen'),
-                            render: (row) => (
-                                <Button
-                                    testID={`${kitchenRowTestId(row.id)}-open`}
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('platformAdmin:kitchens.open', { name: row.name })}
-                                    onPress={() => {
-                                        router.push(
-                                            `/platform-admin/kitchens/${row.slug}` as never,
-                                        );
-                                    }}
-                                />
-                            ),
+                        density="sm"
+                        onRowPress={(row) => {
+                            open(row.slug);
                         }}
+                        rowActionsLabel={t('platformAdmin:kitchens.rowActions')}
+                        rowActionsLook="desk"
+                        rowActions={(row): readonly MenuItem[] => [
+                            {
+                                key: 'view',
+                                label: t('platformAdmin:kitchens.view'),
+                                icon: CATALOGUE_ROW_ICONS.view,
+                                testID: `${kitchenRowTestId(row.id)}-view`,
+                                onSelect: () => {
+                                    open(row.slug);
+                                },
+                            },
+                            {
+                                key: 'invite',
+                                label: t('platformAdmin:invite.title'),
+                                icon: 'send',
+                                testID: `${kitchenRowTestId(row.id)}-invite`,
+                                onSelect: () => {
+                                    setDialog({ kind: 'invite', kitchen: targetOf(row) });
+                                },
+                            },
+                            ...(isReactivatable(row.status)
+                                ? [
+                                      {
+                                          key: 'reactivate',
+                                          label: t('platformAdmin:lifecycle.reactivate'),
+                                          icon: 'play' as const,
+                                          testID: `${kitchenRowTestId(row.id)}-reactivate`,
+                                          onSelect: () => {
+                                              setDialog({
+                                                  kind: 'reactivate',
+                                                  kitchen: targetOf(row),
+                                              });
+                                          },
+                                      },
+                                  ]
+                                : []),
+                            ...(isTradingStatus(row.status)
+                                ? [
+                                      {
+                                          key: 'suspend',
+                                          label: t('platformAdmin:lifecycle.suspend'),
+                                          icon: 'pause' as const,
+                                          tone: 'danger' as const,
+                                          testID: `${kitchenRowTestId(row.id)}-suspend`,
+                                          onSelect: () => {
+                                              setDialog({
+                                                  kind: 'suspend',
+                                                  kitchen: targetOf(row),
+                                              });
+                                          },
+                                      },
+                                  ]
+                                : []),
+                        ]}
                     />
+                )}
+            </View>
 
-                    {kitchens.hasNextPage ? (
-                        <Button
-                            testID="platform-admin-kitchens-more"
-                            variant="secondary"
-                            label={t('platformAdmin:kitchens.loadMore')}
-                            loading={kitchens.isFetchingNextPage}
-                            onPress={() => {
-                                void kitchens.fetchNextPage();
-                            }}
-                        />
-                    ) : null}
-                </Stack>
+            {viewing === null ? null : (
+                <KitchenSheet
+                    slug={viewing}
+                    onClose={() => {
+                        open(null);
+                    }}
+                    onDialog={setDialog}
+                    formatDate={(value) => formatter.formatDate(value, { dateStyle: 'medium' })}
+                />
             )}
-        </Stack>
+
+            {dialog === null ? null : dialog.kind === 'suspend' ? (
+                <SuspendKitchenDialog
+                    kitchen={dialog.kitchen}
+                    onClose={() => {
+                        setDialog(null);
+                    }}
+                />
+            ) : dialog.kind === 'reactivate' ? (
+                <ReactivateKitchenDialog
+                    kitchen={dialog.kitchen}
+                    onClose={() => {
+                        setDialog(null);
+                    }}
+                />
+            ) : dialog.kind === 'invite' ? (
+                <InviteOwnerDialog
+                    kitchen={dialog.kitchen}
+                    onClose={() => {
+                        setDialog(null);
+                    }}
+                />
+            ) : (
+                <EndMembershipDialog
+                    kitchen={dialog.kitchen}
+                    owner={dialog.owner}
+                    lastOwner={dialog.lastOwner}
+                    onClose={() => {
+                        setDialog(null);
+                    }}
+                />
+            )}
+        </Cascade>
+    );
+}
+
+/**
+ * One kitchen as the record pop-up (option A, no canopy): its name, status and region; the
+ * catalogue as five figures; its owners and branches as tables; Reactivate or Suspend at its foot.
+ * Read by slug, so a link to `?view=<slug>` opens it whether or not its row is loaded.
+ */
+function KitchenSheet({
+    slug,
+    onClose,
+    onDialog,
+    formatDate,
+}: {
+    readonly slug: string;
+    readonly onClose: () => void;
+    readonly onDialog: (dialog: KitchenDialog) => void;
+    readonly formatDate: (value: string) => string;
+}) {
+    const { t } = useTranslation();
+    const kitchen = usePlatformKitchenQuery(slug);
+    const record = kitchen.data;
+    useTrailLeaf(record?.name ?? null, onClose);
+    // A stale link — a slug that names nothing — closes rather than holding an empty pop-up.
+    const gone = kitchen.isError;
+    useEffect(() => {
+        if (gone) onClose();
+    }, [gone, onClose]);
+
+    // The list stays readable under a record that is still loading.
+    if (record === undefined) return null;
+
+    const testID = 'platform-admin-kitchen';
+    const target = targetOf(record);
+    const owners = record.owners;
+
+    const ownerColumns: readonly CatalogueColumn<PlatformKitchenOwner>[] = [
+        {
+            key: 'person',
+            role: 'title',
+            label: t('platformAdmin:owners.column.person'),
+            width: 200,
+            grow: true,
+            priority: 100,
+            value: (owner) => owner.name ?? t('platformAdmin:owners.unnamed'),
+            render: (owner) => (
+                <Text
+                    variant="bodyStrong"
+                    numberOfLines={1}
+                    testID={`${ownerRowTestId(owner.membershipId)}-name`}
+                >
+                    {owner.name ?? t('platformAdmin:owners.unnamed')}
+                </Text>
+            ),
+        },
+        {
+            key: 'email',
+            role: 'meta',
+            label: t('platformAdmin:owners.column.email'),
+            width: 240,
+            grow: true,
+            priority: 90,
+            value: (owner) => owner.email,
+            render: (owner) => (
+                <Text
+                    tone="secondary"
+                    numberOfLines={1}
+                    testID={`${ownerRowTestId(owner.membershipId)}-email`}
+                >
+                    {owner.email}
+                </Text>
+            ),
+        },
+        {
+            key: 'status',
+            role: 'status',
+            label: t('platformAdmin:owners.column.status'),
+            width: 120,
+            priority: 80,
+            value: (owner) => t(`platformAdmin:owners.status.${owner.status}`, owner.status),
+            render: (owner) => (
+                <DeskChip
+                    testID={`${ownerRowTestId(owner.membershipId)}-status`}
+                    tone="success"
+                    label={t(`platformAdmin:owners.status.${owner.status}`, owner.status)}
+                />
+            ),
+        },
+    ];
+
+    const branchColumns: readonly CatalogueColumn<(typeof record.branches)[number]>[] = [
+        {
+            key: 'name',
+            role: 'title',
+            label: t('platformAdmin:detail.branchColumn.name'),
+            width: 200,
+            grow: true,
+            priority: 100,
+            value: (branch) => branch.name,
+        },
+        {
+            key: 'city',
+            role: 'meta',
+            label: t('platformAdmin:detail.branchColumn.city'),
+            width: 160,
+            priority: 80,
+            value: (branch) => branch.city ?? t('platformAdmin:detail.noCity'),
+        },
+        {
+            key: 'timezone',
+            role: 'meta',
+            label: t('platformAdmin:detail.branchColumn.timezone'),
+            width: 160,
+            priority: 70,
+            value: (branch) => branch.timezone,
+        },
+        {
+            key: 'status',
+            role: 'status',
+            label: t('platformAdmin:detail.branchColumn.status'),
+            width: 110,
+            priority: 90,
+            value: (branch) => t(`platformAdmin:detail.branchStatus.${branch.status}`),
+            render: (branch) => (
+                <DeskChip
+                    tone={branch.status === 'active' ? 'success' : 'neutral'}
+                    label={t(`platformAdmin:detail.branchStatus.${branch.status}`)}
+                />
+            ),
+        },
+    ];
+
+    const catalogueFigure = (key: string, label: string, value: number) => ({
+        key,
+        label,
+        value: String(value),
+    });
+
+    return (
+        <RecordViewPage
+            look="sheet"
+            testID={testID}
+            onBack={onClose}
+            eyebrow={t('platformAdmin:detail.kind')}
+            title={record.name}
+            kind={t('platformAdmin:kitchens.branchCount', { count: record.branchCount })}
+            status={{
+                label: t(tenantStatusKey(record.status)),
+                tone: tenantStatusTone(record.status),
+            }}
+            statusLines={[`${record.slug} · ${record.countryCode} · ${record.currencyCode}`]}
+            headIcon="store"
+            figureKeys={['meals', 'products', 'plans', 'published', 'draft']}
+            fields={[
+                catalogueFigure(
+                    'meals',
+                    t('platformAdmin:detail.catalogueMeals'),
+                    record.catalogue.meals,
+                ),
+                catalogueFigure(
+                    'products',
+                    t('platformAdmin:detail.catalogueProducts'),
+                    record.catalogue.products,
+                ),
+                catalogueFigure(
+                    'plans',
+                    t('platformAdmin:detail.cataloguePlans'),
+                    record.catalogue.plans,
+                ),
+                catalogueFigure(
+                    'published',
+                    t('platformAdmin:detail.cataloguePublished'),
+                    record.catalogue.published,
+                ),
+                catalogueFigure(
+                    'draft',
+                    t('platformAdmin:detail.catalogueDraft'),
+                    record.catalogue.draft,
+                ),
+            ]}
+            banner={
+                record.status === 'suspended' ? (
+                    <Callout
+                        testID={`${testID}-suspended`}
+                        tone="danger"
+                        icon="pause"
+                        title={t('platformAdmin:detail.suspendedTitle')}
+                        body={[
+                            record.suspendedAt === null
+                                ? null
+                                : t('platformAdmin:detail.suspendedOn', {
+                                      date: formatDate(record.suspendedAt),
+                                  }),
+                            record.suspensionReason ?? t('platformAdmin:detail.suspendedNoReason'),
+                        ]
+                            .filter((part): part is string => part !== null)
+                            .join(' · ')}
+                    />
+                ) : record.status === 'closed' ? (
+                    <Callout
+                        testID={`${testID}-closed-note`}
+                        tone="info"
+                        icon="lock"
+                        title={t('platformAdmin:lifecycle.closedTitle')}
+                        body={t('platformAdmin:lifecycle.closedNote')}
+                    />
+                ) : undefined
+            }
+            linesWide
+            linesTitle={t('platformAdmin:owners.title')}
+            linesCount={
+                owners.length === 0
+                    ? undefined
+                    : t('platformAdmin:kitchens.ownerCount', { count: owners.length })
+            }
+            lines={
+                owners.length === 0 ? (
+                    <Callout
+                        testID={`${testID}-owners-empty`}
+                        tone="warning"
+                        icon="warning"
+                        title={t('platformAdmin:owners.emptyTitle')}
+                        body={t('platformAdmin:owners.emptyBody')}
+                        actions={
+                            <DeskButton
+                                testID={`${testID}-owners-invite`}
+                                size="sm"
+                                label={t('platformAdmin:invite.title')}
+                                onPress={() => {
+                                    onDialog({ kind: 'invite', kitchen: target });
+                                }}
+                            />
+                        }
+                    />
+                ) : (
+                    <View className="overflow-hidden rounded-[14px] border border-stroke-subtle">
+                        <CatalogueList<PlatformKitchenOwner>
+                            testID={`${testID}-owners-table`}
+                            label={t('platformAdmin:owners.title')}
+                            columns={ownerColumns}
+                            rows={owners}
+                            rowKey={(owner) => String(owner.membershipId)}
+                            density="sm"
+                            rowEntrance={false}
+                            joined
+                            rowActionsLabel={t('platformAdmin:kitchens.rowActions')}
+                            rowActionsLook="desk"
+                            rowActions={(owner): readonly MenuItem[] => [
+                                {
+                                    key: 'revoke',
+                                    label: t('platformAdmin:owners.revoke'),
+                                    icon: 'close',
+                                    tone: 'danger',
+                                    testID: `${ownerRowTestId(owner.membershipId)}-revoke`,
+                                    onSelect: () => {
+                                        onDialog({
+                                            kind: 'end',
+                                            kitchen: target,
+                                            owner,
+                                            lastOwner: owners.length === 1,
+                                        });
+                                    },
+                                },
+                            ]}
+                        />
+                    </View>
+                )
+            }
+            sections={[
+                {
+                    key: 'branches',
+                    title: t('platformAdmin:detail.branchesTitle'),
+                    content: (
+                        <View className="overflow-hidden rounded-[14px] border border-stroke-subtle">
+                            <CatalogueList
+                                testID={`${testID}-branches-table`}
+                                label={t('platformAdmin:detail.branchesTitle')}
+                                columns={branchColumns}
+                                rows={record.branches}
+                                rowKey={(branch) => String(branch.id)}
+                                density="sm"
+                                rowEntrance={false}
+                                joined
+                                rowActionsLabel={t('platformAdmin:kitchens.rowActions')}
+                            />
+                        </View>
+                    ),
+                },
+            ]}
+            {...(isReactivatable(record.status)
+                ? {
+                      primaryAction: {
+                          testID: `${testID}-reactivate`,
+                          label: t('platformAdmin:lifecycle.reactivate'),
+                          icon: 'play' as const,
+                          onPress: () => {
+                              onDialog({ kind: 'reactivate', kitchen: target });
+                          },
+                      },
+                  }
+                : record.status === 'closed'
+                  ? {}
+                  : {
+                        primaryAction: {
+                            testID: `${testID}-invite`,
+                            label: t('platformAdmin:invite.title'),
+                            icon: 'send' as const,
+                            onPress: () => {
+                                onDialog({ kind: 'invite', kitchen: target });
+                            },
+                        },
+                    })}
+            {...(isTradingStatus(record.status)
+                ? {
+                      actions: [
+                          {
+                              key: 'suspend',
+                              label: t('platformAdmin:lifecycle.suspend'),
+                              icon: 'pause' as const,
+                              tone: 'danger' as const,
+                              testID: `${testID}-suspend`,
+                              onSelect: () => {
+                                  onDialog({ kind: 'suspend', kitchen: target });
+                              },
+                          },
+                      ],
+                  }
+                : {})}
+        />
     );
 }

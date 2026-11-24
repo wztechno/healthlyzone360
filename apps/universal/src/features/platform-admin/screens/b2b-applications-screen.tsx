@@ -3,28 +3,33 @@ import type {
     PlatformB2bApplicationSummary,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
     Button,
-    Card,
+    Cascade,
     EmptyState,
     ErrorState,
-    Heading,
-    Stack,
-    Table,
     TableSkeleton,
-    Tabs,
     Text,
-    TextInputField,
+    useToast,
 } from '@healthy360/design-system';
-import type { TableColumn } from '@healthy360/design-system';
+import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
-import { Gate } from '../../../access/gate.tsx';
+import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
-import { usePlatformB2bApplicationsQuery } from '../../../data/platform-b2b-hooks.ts';
+import {
+    useClaimApplicationMutation,
+    usePlatformB2bApplicationsQuery,
+} from '../../../data/platform-b2b-hooks.ts';
+import { CATALOGUE_ROW_ICONS } from '../../kitchen-admin/catalogue/catalogue-list-item.tsx';
+import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
+import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
+import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
+import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
+import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import {
     applicationRowTestId,
     applicationStatusKey,
@@ -33,27 +38,19 @@ import {
 import { platformB2bApplicationHref } from '../platform-admin-chrome.tsx';
 
 /**
- * `/platform-admin/b2b` — the B2B onboarding queue.
+ * `/platform-admin/b2b` — companies asking to buy wholesale, in the kitchen admin's list look
+ * (Platform admin canvas, B2B applications board, 2026-11-23):
  *
- * Tabs by status, **Submitted first**, because that is the work nobody has picked up. The server
- * answers oldest first: a queue is fair in the order things arrived. "All" means everything except
- * drafts, which are not a reviewer's business until they are sent.
+ * - **The lens:** All, then one figure per status — Submitted first, because that is the queue a
+ *   reviewer picks up from and what the list opens on — the search, the filter in force and
+ *   "N of M".
+ * - **The table:** Company (name over reference), Country, Submitted, Status and Reviewer. A row
+ *   opens the application; its ⋯ menu has Open and, while nobody has picked it up, Claim.
  *
- * Gated on `b2b_application.view_platform` on top of the console's baseline: working this queue
- * is a separate authority from administering kitchens.
+ * Every page is read once and filtered here, as the kitchen list is: the figures then count the
+ * queue rather than the page in view. "All" is the server's unfiltered list, which leaves drafts
+ * out — an application nobody has submitted is not the platform's yet.
  */
-
-const TABS = [
-    'submitted',
-    'in_review',
-    'info_requested',
-    'approved',
-    'declined',
-    'withdrawn',
-    'all',
-] as const;
-type QueueTab = (typeof TABS)[number];
-
 export function PlatformB2bApplicationsScreen() {
     return (
         <Gate
@@ -66,187 +63,319 @@ export function PlatformB2bApplicationsScreen() {
     );
 }
 
+const FILTERS = [
+    'all',
+    'submitted',
+    'in_review',
+    'info_requested',
+    'approved',
+    'declined',
+    'withdrawn',
+] as const;
+type FilterKey = (typeof FILTERS)[number];
+type QueueStatus = Exclude<FilterKey, 'all'>;
+
+const FILTER_TONES: Readonly<Record<QueueStatus, LensTone>> = {
+    submitted: 'info',
+    in_review: 'brand',
+    info_requested: 'warning',
+    approved: 'success',
+    declined: 'danger',
+    withdrawn: 'neutral',
+};
+
+const REVIEW = 'b2b_application.review_platform';
+
 function ApplicationsQueue() {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
+    const toast = useToast();
+    const canReview = useCan(REVIEW);
+    const claim = useClaimApplicationMutation();
 
-    const [tab, setTab] = useState<QueueTab>('submitted');
-    const [query, setQuery] = useState('');
-    const trimmed = query.trim();
+    const [filter, setFilter] = useState<FilterKey>('submitted');
+    const [search, setSearch] = useState('');
 
-    const filter = useMemo(
-        () => ({
-            ...(tab === 'all' ? {} : { status: tab as PlatformApplicationStatus }),
-            ...(trimmed === '' ? {} : { query: trimmed }),
-        }),
-        [tab, trimmed],
-    );
+    const applications = usePlatformB2bApplicationsQuery({});
+    const { hasNextPage, isFetchingNextPage, fetchNextPage } = applications;
+    useEffect(() => {
+        if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+    }, [fetchNextPage, hasNextPage, isFetchingNextPage]);
 
-    const applications = usePlatformB2bApplicationsQuery(filter);
-    const rows = useMemo(
+    const all = useMemo(
         () => (applications.data?.pages ?? []).flatMap((page) => page.items),
         [applications.data?.pages],
     );
-    const failure = toFailure(applications.error);
+    const companyOf = (row: PlatformB2bApplicationSummary) =>
+        row.legalName ?? row.tradingName ?? t('platformAdmin:b2b.unnamed');
+    const rows = useMemo(() => {
+        const needle = search.trim().toLowerCase();
+        return all.filter(
+            (row) =>
+                (filter === 'all' || row.status === filter) &&
+                (needle === '' ||
+                    row.reference.toLowerCase().includes(needle) ||
+                    (row.legalName ?? '').toLowerCase().includes(needle) ||
+                    (row.tradingName ?? '').toLowerCase().includes(needle)),
+        );
+    }, [all, filter, search]);
 
-    const columns: readonly TableColumn<PlatformB2bApplicationSummary>[] = [
+    const pending = applications.isPending;
+    const failure = toFailure(applications.error);
+    const searched = search.trim() !== '';
+    const clearFilters = () => {
+        setFilter('all');
+        setSearch('');
+    };
+    const openApplication = (row: PlatformB2bApplicationSummary) => {
+        router.push(platformB2bApplicationHref(row.id) as never);
+    };
+    const statusLabel = (status: PlatformApplicationStatus) => t(applicationStatusKey(status));
+    const count = (key: FilterKey) =>
+        key === 'all' ? all.length : all.filter((row) => row.status === key).length;
+    const dateText = (value: string | null) =>
+        value === null ? '—' : formatter.formatDate(value, { dateStyle: 'medium' });
+
+    const figures = FILTERS.map((value, index): LensFigure => ({
+        key: value,
+        label: value === 'all' ? t('platformAdmin:b2b.tabAll') : statusLabel(value),
+        value: pending ? null : count(value),
+        ...(value === 'all' ? {} : { tone: FILTER_TONES[value] }),
+        separated: index === 1,
+        active: filter === value,
+        onPress: () => {
+            setFilter(value);
+        },
+    }));
+
+    const columns: readonly CatalogueColumn<PlatformB2bApplicationSummary>[] = [
         {
             key: 'company',
-            header: t('platformAdmin:b2b.column.company'),
-            rowHeader: true,
-            flex: 2,
+            role: 'title',
+            label: t('platformAdmin:b2b.column.company'),
+            width: 260,
+            min: 200,
+            grow: true,
+            priority: 100,
+            value: companyOf,
             render: (row) => (
-                <Stack space="none">
-                    <Text variant="bodyStrong" testID={`${applicationRowTestId(row.id)}-name`}>
-                        {row.legalName ?? row.tradingName ?? t('platformAdmin:b2b.unnamed')}
+                <View className="min-w-0 flex-col">
+                    <Text
+                        variant="bodyStrong"
+                        numberOfLines={1}
+                        testID={`${applicationRowTestId(row.id)}-name`}
+                    >
+                        {companyOf(row)}
                     </Text>
-                    <Text variant="caption" tone="secondary">
+                    <Text
+                        variant="caption"
+                        tone="secondary"
+                        numberOfLines={1}
+                        className="tabular-nums"
+                    >
                         {row.reference}
                     </Text>
-                </Stack>
+                </View>
             ),
         },
         {
             key: 'country',
-            header: t('platformAdmin:b2b.column.country'),
-            render: (row) => <Text tone="secondary">{row.countryCode ?? '—'}</Text>,
+            role: 'meta',
+            label: t('platformAdmin:b2b.column.country'),
+            width: 110,
+            priority: 60,
+            value: (row) => row.countryCode ?? '—',
         },
         {
             key: 'submitted',
-            header: t('platformAdmin:b2b.column.submitted'),
+            role: 'meta',
+            label: t('platformAdmin:b2b.column.submitted'),
+            width: 140,
+            priority: 70,
+            value: (row) => dateText(row.submittedAt),
             render: (row) => (
                 <Text tone="secondary" className="tabular-nums">
-                    {row.submittedAt === null ? '—' : formatter.formatDate(row.submittedAt)}
+                    {dateText(row.submittedAt)}
                 </Text>
             ),
         },
         {
             key: 'status',
-            header: t('platformAdmin:b2b.column.status'),
+            role: 'status',
+            label: t('platformAdmin:b2b.column.status'),
+            width: 190,
+            priority: 90,
+            value: (row) => statusLabel(row.status),
             render: (row) => (
-                <Badge
+                <DeskChip
                     testID={`${applicationRowTestId(row.id)}-status`}
                     tone={applicationStatusTone(row.status)}
-                    label={t(applicationStatusKey(row.status))}
+                    label={statusLabel(row.status)}
                 />
             ),
         },
         {
             key: 'reviewer',
-            header: t('platformAdmin:b2b.column.reviewer'),
+            role: 'meta',
+            label: t('platformAdmin:b2b.column.reviewer'),
+            width: 150,
+            priority: 65,
+            value: (row) =>
+                row.reviewedBy === null
+                    ? t('platformAdmin:b2b.unclaimed')
+                    : t('platformAdmin:b2b.claimed'),
             render: (row) => (
-                <Text tone="secondary">
-                    {row.reviewedBy === null
-                        ? t('platformAdmin:b2b.unclaimed')
-                        : t('platformAdmin:b2b.claimed')}
-                </Text>
+                <DeskChip
+                    testID={`${applicationRowTestId(row.id)}-reviewer`}
+                    tone={row.reviewedBy === null ? 'warning' : 'neutral'}
+                    label={
+                        row.reviewedBy === null
+                            ? t('platformAdmin:b2b.unclaimed')
+                            : t('platformAdmin:b2b.claimed')
+                    }
+                />
             ),
         },
     ];
 
+    const joined = !pending && failure === null && rows.length > 0;
+    const filterToken =
+        filter === 'all'
+            ? null
+            : t('platformAdmin:kitchens.groupToken', { group: statusLabel(filter) });
+
     return (
-        <Stack space="lg" testID="platform-b2b-applications-screen">
-            <Stack space="xs">
-                <Heading level={1} testID="platform-b2b-applications-title">
-                    {t('platformAdmin:b2b.title')}
-                </Heading>
-                <Text tone="secondary">{t('platformAdmin:b2b.subtitle')}</Text>
-            </Stack>
-
-            <Card padding="md" testID="platform-b2b-applications-toolbar">
-                <Stack space="sm">
-                    <Tabs<QueueTab>
-                        testID="platform-b2b-applications-tabs"
-                        label={t('platformAdmin:b2b.tabsLabel')}
-                        value={tab}
-                        onChange={setTab}
-                        items={TABS.map((value) => ({
-                            value,
-                            label:
-                                value === 'all'
-                                    ? t('platformAdmin:b2b.tabAll')
-                                    : t(applicationStatusKey(value)),
-                            testID: `platform-b2b-tab-${value}`,
-                        }))}
-                    />
-                    <TextInputField
-                        testID="platform-b2b-applications-search"
-                        label={t('platformAdmin:b2b.searchLabel')}
-                        placeholder={t('platformAdmin:b2b.searchPlaceholder')}
-                        value={query}
-                        onChangeText={setQuery}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                    />
-                </Stack>
-            </Card>
-
-            {applications.isPending ? (
-                <TableSkeleton
-                    testID="platform-b2b-applications-loading"
-                    partTestID="platform-b2b-applications"
-                    rows={4}
-                />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="platform-b2b-applications-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void applications.refetch();
-                    }}
-                    retrying={applications.isFetching}
-                />
-            ) : rows.length === 0 ? (
-                <EmptyState
-                    testID="platform-b2b-applications-empty"
-                    title={t('platformAdmin:b2b.emptyTitle')}
-                    body={
-                        tab === 'submitted' && trimmed === ''
-                            ? t('platformAdmin:b2b.emptyQueueBody')
-                            : t('platformAdmin:b2b.emptyBody')
+        <Cascade space="md" testID="platform-b2b-applications-screen">
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="platform-b2b-applications-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={figures}
+                    search={search}
+                    onSearchChange={setSearch}
+                    searchLabel={t('platformAdmin:b2b.searchLabel')}
+                    searchPlaceholder={t('platformAdmin:b2b.searchPlaceholder')}
+                    tokens={
+                        filterToken === null
+                            ? []
+                            : [
+                                  {
+                                      key: 'group',
+                                      label: filterToken,
+                                      removeLabel: t('kitchen:toolbar.removeFilter', {
+                                          filter: filterToken,
+                                      }),
+                                      onRemove: () => {
+                                          setFilter('all');
+                                      },
+                                  },
+                              ]
                     }
+                    result={
+                        pending
+                            ? null
+                            : t('kitchen:lens.result', { shown: rows.length, total: all.length })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(filter === 'all' && !searched ? {} : { onClear: clearFilters })}
                 />
-            ) : (
-                <Stack space="sm">
-                    <Table<PlatformB2bApplicationSummary>
+
+                {pending ? (
+                    <TableSkeleton
+                        testID="platform-b2b-applications-loading"
+                        partTestID="platform-b2b-applications"
+                        rows={4}
+                    />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="platform-b2b-applications-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void applications.refetch();
+                        }}
+                        retrying={applications.isFetching}
+                    />
+                ) : rows.length === 0 ? (
+                    <EmptyState
+                        testID="platform-b2b-applications-empty"
+                        title={t('platformAdmin:b2b.emptyTitle')}
+                        body={
+                            filter === 'submitted' && !searched
+                                ? t('platformAdmin:b2b.emptyQueueBody')
+                                : t('platformAdmin:b2b.emptyBody')
+                        }
+                        {...(filter === 'all' && !searched
+                            ? {}
+                            : {
+                                  actions: (
+                                      <Button
+                                          testID="platform-b2b-applications-show-all"
+                                          size="sm"
+                                          variant="secondary"
+                                          label={t('platformAdmin:kitchens.showAll')}
+                                          onPress={clearFilters}
+                                      />
+                                  ),
+                              })}
+                    />
+                ) : (
+                    <CatalogueList<PlatformB2bApplicationSummary>
                         testID="platform-b2b-applications-table"
-                        caption={t('platformAdmin:b2b.title')}
-                        captionHidden
+                        joined
+                        label={t('platformAdmin:b2b.caption')}
                         columns={columns}
                         rows={rows}
                         rowKey={(row) => row.id}
-                        rowAction={{
-                            header: t('platformAdmin:b2b.column.company'),
-                            render: (row) => (
-                                <Button
-                                    testID={`${applicationRowTestId(row.id)}-open`}
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('platformAdmin:b2b.open', {
-                                        reference: row.reference,
-                                    })}
-                                    onPress={() => {
-                                        router.push(platformB2bApplicationHref(row.id) as never);
-                                    }}
-                                />
-                            ),
-                        }}
+                        density="sm"
+                        onRowPress={openApplication}
+                        rowActionsLabel={t('platformAdmin:kitchens.rowActions')}
+                        rowActionsLook="desk"
+                        rowActions={(row): readonly MenuItem[] => [
+                            {
+                                key: 'open',
+                                label: t('platformAdmin:b2b.openShort'),
+                                icon: CATALOGUE_ROW_ICONS.view,
+                                testID: `${applicationRowTestId(row.id)}-open`,
+                                onSelect: () => {
+                                    openApplication(row);
+                                },
+                            },
+                            ...(canReview && row.status === 'submitted' && row.reviewedBy === null
+                                ? [
+                                      {
+                                          key: 'claim',
+                                          label: t('platformAdmin:b2b.actions.claim'),
+                                          icon: 'handshake' as const,
+                                          testID: `${applicationRowTestId(row.id)}-claim`,
+                                          onSelect: () => {
+                                              claim.mutate(
+                                                  {
+                                                      applicationId: row.id,
+                                                      lockVersion: row.lockVersion,
+                                                  },
+                                                  {
+                                                      onSuccess: () => {
+                                                          toast.show({
+                                                              testID: 'platform-b2b-claimed-toast',
+                                                              tone: 'success',
+                                                              message: t(
+                                                                  'platformAdmin:b2b.toast.claimed',
+                                                              ),
+                                                          });
+                                                      },
+                                                  },
+                                              );
+                                          },
+                                      },
+                                  ]
+                                : []),
+                        ]}
                     />
-
-                    {applications.hasNextPage ? (
-                        <Button
-                            testID="platform-b2b-applications-more"
-                            variant="secondary"
-                            label={t('platformAdmin:kitchens.loadMore')}
-                            loading={applications.isFetchingNextPage}
-                            onPress={() => {
-                                void applications.fetchNextPage();
-                            }}
-                        />
-                    ) : null}
-                </Stack>
-            )}
-        </Stack>
+                )}
+            </View>
+        </Cascade>
     );
 }

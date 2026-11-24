@@ -6,17 +6,17 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { B2B_PAYMENT_TERMS } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Checkbox,
-    Drawer,
+    DatePickerButton,
+    Dialog,
     Select,
-    Stack,
     Text,
     TextInputField,
 } from '@healthy360/design-system';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
 import { useUnsavedGuardFor } from '../../navigation/use-unsaved-guard.ts';
@@ -26,9 +26,11 @@ import {
     useSellerPriceListsQuery,
     useUpdateAgreementMutation,
 } from '../../data/platform-b2b-hooks.ts';
+import { DeskButton } from '../kitchen-admin/desk-kit/desk-button.tsx';
 
 /**
- * The reviewer's agreement form, in a drawer beside the application it is for.
+ * The reviewer's agreement form, as a window in the centre of the page over the application it is
+ * for (Platform admin canvas, 2026-11-23: a centred pop-up rather than a side drawer).
  *
  * ## The seller is a price list
  *
@@ -198,47 +200,49 @@ export function AgreementEditor({
 
     return (
         <>
-            <Drawer
+            <Dialog
                 testID="platform-b2b-agreement-editor"
                 open={open}
+                size="square"
                 onClose={close}
                 title={
                     agreement === null
                         ? t('platformAdmin:b2b.editor.newTitle')
                         : t('platformAdmin:b2b.editor.editTitle', { version: agreement.version })
                 }
-                footer={
-                    <Stack space="sm">
-                        <Button
+                actions={
+                    <>
+                        <DeskButton
+                            testID="platform-b2b-agreement-cancel"
+                            variant="quiet"
+                            label={t('platformAdmin:b2b.cancel')}
+                            onPress={close}
+                        />
+                        <DeskButton
                             testID="platform-b2b-agreement-save"
                             label={t('platformAdmin:b2b.editor.save')}
                             disabled={form.title.trim() === '' || invalid}
                             loading={saving}
                             onPress={save}
                         />
-                        <Button
-                            testID="platform-b2b-agreement-cancel"
-                            variant="quiet"
-                            label={t('platformAdmin:b2b.cancel')}
-                            onPress={close}
-                        />
-                    </Stack>
+                    </>
                 }
             >
-                <Stack space="md">
-                    <Text tone="secondary">{t('platformAdmin:b2b.editor.intro')}</Text>
-
+                <View className="z-auto flex-col gap-3.5">
                     {failure === null || failure.code === 'validation.failed' ? null : (
                         <Callout
                             testID="platform-b2b-agreement-error"
                             role="alert"
                             tone="danger"
+                            icon="warning"
                             title={failure.message}
                         />
                     )}
 
                     <TextInputField
                         testID="platform-b2b-agreement-title"
+                        id="platform-b2b-agreement-title"
+                        size="sm"
                         label={t('platformAdmin:b2b.editor.title')}
                         value={form.title}
                         onChangeText={(value) => {
@@ -272,96 +276,136 @@ export function AgreementEditor({
                         />
                     ) : null}
 
-                    <Select<B2BPaymentTerms>
-                        testID="platform-b2b-agreement-payment-terms"
-                        label={t('platformAdmin:b2b.agreement.paymentTerms')}
-                        value={form.paymentTerms}
-                        options={B2B_PAYMENT_TERMS.map((value) => ({
-                            value,
-                            label: t(`b2bApplication:paymentTerms.${value}`),
-                        }))}
-                        onChange={(value) => {
-                            set('paymentTerms', value);
-                        }}
-                        error={fieldError('payment_terms')}
-                        {...(application.sections.trade_terms.requestedPaymentTerms === null
-                            ? {}
-                            : {
-                                  hint: t('platformAdmin:b2b.editor.requested', {
-                                      value: t(
-                                          `b2bApplication:paymentTerms.${application.sections.trade_terms.requestedPaymentTerms}`,
-                                      ),
-                                  }),
-                              })}
-                    />
+                    <View className="z-auto flex-row flex-wrap gap-x-3 gap-y-3.5">
+                        <View className="z-auto min-w-[160px] flex-1">
+                            <Select<B2BPaymentTerms>
+                                testID="platform-b2b-agreement-payment-terms"
+                                label={t('platformAdmin:b2b.agreement.paymentTerms')}
+                                value={form.paymentTerms}
+                                options={B2B_PAYMENT_TERMS.map((value) => ({
+                                    value,
+                                    label: t(`b2bApplication:paymentTerms.${value}`),
+                                }))}
+                                onChange={(value) => {
+                                    set('paymentTerms', value);
+                                }}
+                                error={fieldError('payment_terms')}
+                                {...(application.sections.trade_terms.requestedPaymentTerms === null
+                                    ? {}
+                                    : {
+                                          hint: t('platformAdmin:b2b.editor.requested', {
+                                              value: t(
+                                                  `b2bApplication:paymentTerms.${application.sections.trade_terms.requestedPaymentTerms}`,
+                                              ),
+                                          }),
+                                      })}
+                            />
+                        </View>
+                        <View className="min-w-[160px] flex-1">
+                            <TextInputField
+                                testID="platform-b2b-agreement-credit-limit"
+                                id="platform-b2b-agreement-credit-limit"
+                                size="sm"
+                                label={t('platformAdmin:b2b.agreement.creditLimit')}
+                                hint={
+                                    chosen === null
+                                        ? undefined
+                                        : t('platformAdmin:b2b.editor.inCurrency', {
+                                              currency: chosen.currencyCode,
+                                          })
+                                }
+                                value={form.creditLimit}
+                                onChangeText={(value) => {
+                                    set('creditLimit', value);
+                                }}
+                                keyboardType="decimal-pad"
+                                error={numberError('creditLimit', 'credit_limit_minor')}
+                            />
+                        </View>
+                        <View className="min-w-[160px] flex-1">
+                            <TextInputField
+                                testID="platform-b2b-agreement-minimum-order"
+                                id="platform-b2b-agreement-minimum-order"
+                                size="sm"
+                                label={t('platformAdmin:b2b.agreement.minimumOrder')}
+                                value={form.minimumOrder}
+                                onChangeText={(value) => {
+                                    set('minimumOrder', value);
+                                }}
+                                keyboardType="decimal-pad"
+                                error={numberError('minimumOrder', 'minimum_order_minor')}
+                            />
+                        </View>
+                    </View>
 
-                    <TextInputField
-                        testID="platform-b2b-agreement-credit-limit"
-                        label={t('platformAdmin:b2b.agreement.creditLimit')}
-                        hint={
-                            chosen === null
-                                ? undefined
-                                : t('platformAdmin:b2b.editor.inCurrency', {
-                                      currency: chosen.currencyCode,
-                                  })
-                        }
-                        value={form.creditLimit}
-                        onChangeText={(value) => {
-                            set('creditLimit', value);
-                        }}
-                        keyboardType="decimal-pad"
-                        error={numberError('creditLimit', 'credit_limit_minor')}
-                    />
-                    <TextInputField
-                        testID="platform-b2b-agreement-minimum-order"
-                        label={t('platformAdmin:b2b.agreement.minimumOrder')}
-                        value={form.minimumOrder}
-                        onChangeText={(value) => {
-                            set('minimumOrder', value);
-                        }}
-                        keyboardType="decimal-pad"
-                        error={numberError('minimumOrder', 'minimum_order_minor')}
-                    />
-                    <TextInputField
-                        testID="platform-b2b-agreement-lead-time"
-                        label={t('platformAdmin:b2b.editor.leadTime')}
-                        value={form.leadTimeDays}
-                        onChangeText={(value) => {
-                            set('leadTimeDays', value);
-                        }}
-                        keyboardType="number-pad"
-                        error={numberError('leadTimeDays', 'delivery_lead_time_days')}
-                    />
-                    <TextInputField
-                        testID="platform-b2b-agreement-notice"
-                        label={t('platformAdmin:b2b.editor.noticePeriod')}
-                        value={form.noticePeriodDays}
-                        onChangeText={(value) => {
-                            set('noticePeriodDays', value);
-                        }}
-                        keyboardType="number-pad"
-                        error={numberError('noticePeriodDays', 'notice_period_days')}
-                    />
-                    <TextInputField
-                        testID="platform-b2b-agreement-starts-on"
-                        label={t('platformAdmin:b2b.editor.startsOn')}
-                        placeholder={t('platformAdmin:b2b.editor.datePlaceholder')}
-                        value={form.startsOn}
-                        onChangeText={(value) => {
-                            set('startsOn', value);
-                        }}
-                        error={fieldError('starts_on')}
-                    />
-                    <TextInputField
-                        testID="platform-b2b-agreement-ends-on"
-                        label={t('platformAdmin:b2b.editor.endsOn')}
-                        placeholder={t('platformAdmin:b2b.editor.datePlaceholder')}
-                        value={form.endsOn}
-                        onChangeText={(value) => {
-                            set('endsOn', value);
-                        }}
-                        error={fieldError('ends_on')}
-                    />
+                    <View className="z-auto flex-row flex-wrap gap-x-3 gap-y-3.5">
+                        <View className="min-w-[160px] flex-1">
+                            <TextInputField
+                                testID="platform-b2b-agreement-lead-time"
+                                id="platform-b2b-agreement-lead-time"
+                                size="sm"
+                                label={t('platformAdmin:b2b.editor.leadTime')}
+                                value={form.leadTimeDays}
+                                onChangeText={(value) => {
+                                    set('leadTimeDays', value);
+                                }}
+                                keyboardType="number-pad"
+                                error={numberError('leadTimeDays', 'delivery_lead_time_days')}
+                            />
+                        </View>
+                        <View className="min-w-[160px] flex-1">
+                            <TextInputField
+                                testID="platform-b2b-agreement-notice"
+                                id="platform-b2b-agreement-notice"
+                                size="sm"
+                                label={t('platformAdmin:b2b.editor.noticePeriod')}
+                                value={form.noticePeriodDays}
+                                onChangeText={(value) => {
+                                    set('noticePeriodDays', value);
+                                }}
+                                keyboardType="number-pad"
+                                error={numberError('noticePeriodDays', 'notice_period_days')}
+                            />
+                        </View>
+                        <View className="min-w-[160px] flex-1" />
+                    </View>
+
+                    <View className="z-auto flex-row flex-wrap gap-x-3 gap-y-3.5">
+                        <View className="z-auto min-w-[200px] flex-1 flex-col gap-1">
+                            <DatePickerButton
+                                testID="platform-b2b-agreement-starts-on"
+                                label={t('platformAdmin:b2b.editor.startsOn')}
+                                labelVisible
+                                placeholder={t('platformAdmin:b2b.editor.datePlaceholder')}
+                                value={form.startsOn}
+                                onChange={(value) => {
+                                    set('startsOn', value);
+                                }}
+                                onClear={() => {
+                                    set('startsOn', '');
+                                }}
+                            />
+                            <FieldError message={fieldError('starts_on')} />
+                        </View>
+                        <View className="z-auto min-w-[200px] flex-1 flex-col gap-1">
+                            <DatePickerButton
+                                testID="platform-b2b-agreement-ends-on"
+                                label={t('platformAdmin:b2b.editor.endsOn')}
+                                labelVisible
+                                placeholder={t('platformAdmin:b2b.editor.datePlaceholder')}
+                                value={form.endsOn}
+                                {...(form.startsOn === '' ? {} : { min: form.startsOn })}
+                                onChange={(value) => {
+                                    set('endsOn', value);
+                                }}
+                                onClear={() => {
+                                    set('endsOn', '');
+                                }}
+                            />
+                            <FieldError message={fieldError('ends_on')} />
+                        </View>
+                    </View>
+
                     <Checkbox
                         testID="platform-b2b-agreement-auto-renews"
                         label={t('platformAdmin:b2b.editor.autoRenews')}
@@ -372,6 +416,8 @@ export function AgreementEditor({
                     />
                     <TextInputField
                         testID="platform-b2b-agreement-summary"
+                        id="platform-b2b-agreement-summary"
+                        size="sm"
                         label={t('platformAdmin:b2b.editor.summary')}
                         hint={t('platformAdmin:b2b.editor.summaryHint')}
                         value={form.termsSummary}
@@ -381,9 +427,19 @@ export function AgreementEditor({
                         multiline
                         error={fieldError('terms_summary')}
                     />
-                </Stack>
-            </Drawer>
+                </View>
+            </Dialog>
             <UnsavedChangesDialog guard={guard} testID="platform-b2b-agreement-unsaved" />
         </>
+    );
+}
+
+/** What the server said about a date, under its picker — the picker carries no error line. */
+function FieldError({ message }: { readonly message: string | undefined }) {
+    if (message === undefined) return null;
+    return (
+        <Text variant="caption" tone="danger" role="alert">
+            {message}
+        </Text>
     );
 }
