@@ -1236,7 +1236,8 @@
             "discardBody_two": "لم يُسجَّل شيء. المغادرة تُفقدك بيانات المستند والبندين اللذين أدخلتهما — ويبقى المخزون كما هو تمامًا.",
             "discardBody_few": "لم يُسجَّل شيء. المغادرة تُفقدك بيانات المستند و{{count}} بنود أدخلتها — ويبقى المخزون كما هو تمامًا.",
             "discardBody_many": "لم يُسجَّل شيء. المغادرة تُفقدك بيانات المستند و{{count}} بندًا أدخلته — ويبقى المخزون كما هو تمامًا.",
-            "discardBody_other": "لم يُسجَّل شيء. المغادرة تُفقدك بيانات المستند و{{count}} بند أدخلته — ويبقى المخزون كما هو تمامًا."
+            "discardBody_other": "لم يُسجَّل شيء. المغادرة تُفقدك بيانات المستند و{{count}} بند أدخلته — ويبقى المخزون كما هو تمامًا.",
+            "captionAgainstOrder": "مقابل طلب"
         },
         "receiving": {
             "title": "استلام توصيلة",
@@ -1319,7 +1320,26 @@
             "backToProcurement": "العودة إلى المشتريات",
             "sectionOrder": "الطلب",
             "sectionDelivery": "التسليم",
-            "sectionCharges": "رسوم الفاتورة"
+            "sectionCharges": "رسوم الفاتورة",
+            "stepsLabel": "الخطوات",
+            "stepCheck": "المراجعة والترحيل",
+            "captionChooseOrder": "اختر طلبًا",
+            "captionDelivery": "المستندات والرسوم",
+            "stepIssues_zero": "لا شيء للإصلاح",
+            "stepIssues_one": "أمر واحد للإصلاح",
+            "stepIssues_two": "أمران للإصلاح",
+            "stepIssues_few": "{{count}} أمور للإصلاح",
+            "stepIssues_many": "{{count}} أمرًا للإصلاح",
+            "stepIssues_other": "{{count}} أمر للإصلاح",
+            "noOrderMatch": "لا يوجد طلب يطابق هذا البحث",
+            "orderFixed": "مفتوح من الطلب",
+            "columnItem": "الصنف",
+            "columnReceived": "المستلَم",
+            "thisDelivery": "هذه الشحنة",
+            "toFix": "للإصلاح",
+            "fix": "إصلاح",
+            "issueNothing": "لم يصل شيء — أدخل كمية",
+            "issueCloseShortReason": "سبب شطب الباقي — مطلوب"
         },
         "unpricedReceipts": {
             "title": "أسعار غير مكتملة",
@@ -6762,5 +6782,9 @@
         "perHundredGrams": "لكل 100 غ",
         "marginNote": "لكل {{unit}} · هامش {{percent}} %",
         "ofTotal": "من {{total}}"
+    },
+    "dateField": {
+        "placeholder": "اختر يومًا",
+        "today": "اليوم"
     }
 }

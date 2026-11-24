@@ -1073,7 +1073,8 @@
             "supplierNameRequired": "A supplier needs a name.",
             "discardTitle": "Discard this receipt?",
             "discardBody_one": "Nothing has been posted. Leaving loses the paperwork and the {{count}} line you typed — stock stays exactly as it is.",
-            "discardBody_other": "Nothing has been posted. Leaving loses the paperwork and the {{count}} lines you typed — stock stays exactly as it is."
+            "discardBody_other": "Nothing has been posted. Leaving loses the paperwork and the {{count}} lines you typed — stock stays exactly as it is.",
+            "captionAgainstOrder": "Against an order"
         },
         "receiving": {
             "title": "Receive a delivery",
@@ -1144,7 +1145,22 @@
             "backToProcurement": "Back to procurement",
             "sectionOrder": "Order",
             "sectionDelivery": "Delivery",
-            "sectionCharges": "Invoice charges"
+            "sectionCharges": "Invoice charges",
+            "stepsLabel": "Steps",
+            "stepCheck": "Check and post",
+            "captionChooseOrder": "Choose one",
+            "captionDelivery": "Paperwork and charges",
+            "stepIssues_one": "{{count}} to fix",
+            "stepIssues_other": "{{count}} to fix",
+            "noOrderMatch": "No order matches that search",
+            "orderFixed": "Opened from the order",
+            "columnItem": "Item",
+            "columnReceived": "Received",
+            "thisDelivery": "This delivery",
+            "toFix": "To fix",
+            "fix": "Fix",
+            "issueNothing": "Nothing arrived — enter a quantity",
+            "issueCloseShortReason": "Why the rest is being written off — required"
         },
         "unpricedReceipts": {
             "title": "Prices to finish",
@@ -5995,5 +6011,9 @@
         "perHundredGrams": "per 100 g",
         "marginNote": "per {{unit}} · margin {{percent}} %",
         "ofTotal": "of {{total}}"
+    },
+    "dateField": {
+        "placeholder": "Pick a day",
+        "today": "Today"
     }
 }
