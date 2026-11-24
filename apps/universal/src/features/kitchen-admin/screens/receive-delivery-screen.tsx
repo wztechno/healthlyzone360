@@ -76,7 +76,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskDateField } from '../desk-kit/desk-date-field.tsx';
-import { PostBar, ReviewBox, StepCard } from '../process-parts.tsx';
+import { ReviewBox, StepCard } from '../process-parts.tsx';
 import { ProcessSteps } from '../process-steps.tsx';
 import type { ProcessStep } from '../process-steps.tsx';
 /**
@@ -1148,8 +1148,21 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                 concurrency={concurrency}
                 onSaveDraft={attemptPost}
                 saveLabel={t('kitchen:ops.receiving.post')}
-                // Post sits on the bar at the foot of Check and post, not in the header.
+                // Post sits in the header on every step, beside Back. Pressed before the
+                // delivery is ready it posts nothing and opens the first thing to fix.
                 hideSave
+                primaryAction={
+                    selectedOrder === null ? undefined : (
+                        <DeskButton
+                            testID="kitchen-receive-post"
+                            label={t('kitchen:ops.receiving.post')}
+                            iconStart={<Icon name="check" size="sm" />}
+                            loading={postReceipt.isPending}
+                            disabled={branchId === null}
+                            onPress={attemptPost}
+                        />
+                    )
+                }
                 onBack={back.leave}
                 backLabel={t('kitchen:ops.receiving.backToProcurement')}
             >
@@ -1715,26 +1728,6 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                     </View>
                 )}
             </EditorFrame>
-
-            {selectedOrder === null ? null : (
-                <PostBar
-                    testID="kitchen-receive-bar"
-                    summary={summary}
-                    action={
-                        step === 'check' ? (
-                            <DeskButton
-                                testID="kitchen-receive-post"
-                                size="lg"
-                                label={t('kitchen:ops.receiving.post')}
-                                iconStart={<Icon name="check" size="sm" />}
-                                loading={postReceipt.isPending}
-                                disabled={branchId === null}
-                                onPress={attemptPost}
-                            />
-                        ) : undefined
-                    }
-                />
-            )}
         </IssueTrayFrame>
     );
 }

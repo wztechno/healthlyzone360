@@ -92,7 +92,7 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskDateField } from '../desk-kit/desk-date-field.tsx';
-import { PostBar, ReviewBox, StepCard } from '../process-parts.tsx';
+import { ReviewBox, StepCard } from '../process-parts.tsx';
 import { ProcessSteps } from '../process-steps.tsx';
 import type { ProcessStep } from '../process-steps.tsx';
 /**
@@ -1187,6 +1187,18 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                     guard.intercept(back.leave);
                                 }}
                             />
+                            {/* Post sits up here on every step. Pressed before the receipt is
+                                ready it posts nothing and opens the first thing to fix. */}
+                            {loading ? null : (
+                                <DeskButton
+                                    testID="kitchen-procurement-post-confirm"
+                                    label={postLabel}
+                                    iconStart={<Icon name="check" size="sm" />}
+                                    loading={postReceipt.isPending}
+                                    disabled={postReceipt.isPending}
+                                    onPress={attemptPost}
+                                />
+                            )}
                         </>
                     }
                 />
@@ -1708,44 +1720,6 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                             </StepCard>
                         ) : null}
                     </View>
-                )}
-
-                {loading ? null : (
-                    <PostBar
-                        testID="kitchen-post-receipt-bar"
-                        summary={lineSummary}
-                        figure={
-                            canViewCosts ? (
-                                <>
-                                    <Text className="text-[13px] font-semibold text-content-secondary">
-                                        {t('kitchen:ops.procurement.receiptTotal')}
-                                    </Text>
-                                    <Text
-                                        testID="kitchen-post-receipt-bar-total"
-                                        className="font-display !text-[22px] font-bold tabular-nums text-content-primary"
-                                    >
-                                        {formatAmount(receiptTotal)}
-                                    </Text>
-                                    <Text className="text-[13px] font-semibold text-content-secondary">
-                                        {RECEIPT_CURRENCY}
-                                    </Text>
-                                </>
-                            ) : undefined
-                        }
-                        action={
-                            step === 'check' ? (
-                                <DeskButton
-                                    testID="kitchen-procurement-post-confirm"
-                                    size="lg"
-                                    label={postLabel}
-                                    iconStart={<Icon name="check" size="sm" />}
-                                    loading={postReceipt.isPending}
-                                    disabled={postReceipt.isPending}
-                                    onPress={attemptPost}
-                                />
-                            ) : undefined
-                        }
-                    />
                 )}
 
                 <NewSupplierDialog
