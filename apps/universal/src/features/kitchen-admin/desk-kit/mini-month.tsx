@@ -199,7 +199,7 @@ export function DeskDateButton({
     );
 }
 
-function MonthPanel({
+export function MonthPanel({
     month,
     value,
     today,
