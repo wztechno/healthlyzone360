@@ -47,6 +47,11 @@ export interface ReceiveScanBarProps {
     readonly onScanned: (pack: ScannedPack) => void;
     /** What the screen has to say about the last scan it placed — a lot kept apart, a pack to type. */
     readonly notice?: ScanNotice | null | undefined;
+    /**
+     * Drawn in a card's title row (the stepped Receive a delivery): no visible label — the
+     * placeholder says what it takes — and a wider field.
+     */
+    readonly inHeader?: boolean | undefined;
 }
 
 /** The screen's word on the last scan it placed, and the row it is about. */
@@ -97,7 +102,13 @@ export function placedScanNotice(
         : null;
 }
 
-export function ReceiveScanBar({ testID, stockItems, onScanned, notice }: ReceiveScanBarProps) {
+export function ReceiveScanBar({
+    testID,
+    stockItems,
+    onScanned,
+    notice,
+    inHeader = false,
+}: ReceiveScanBarProps) {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const resolveScan = useResolveBarcodeScan();
@@ -174,8 +185,9 @@ export function ReceiveScanBar({ testID, stockItems, onScanned, notice }: Receiv
                 testID={`${testID}-code`}
                 id={`${testID}-code`}
                 size="sm"
-                className="w-field"
+                className={inHeader ? 'w-[340px]' : 'w-field'}
                 label={t('kitchen:barcodes.scanLabel')}
+                labelHidden={inHeader}
                 placeholder={t('kitchen:barcodes.scanPlaceholder')}
                 value={code}
                 autoCorrect={false}
