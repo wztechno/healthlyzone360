@@ -2,7 +2,6 @@ import type {
     ApiFailure,
     B2BAgreement,
     B2BApplicationSection,
-    B2BApplicationSections,
     KycRejectionReason,
     PlatformB2bApplication,
     PlatformKycDocument,
@@ -13,29 +12,27 @@ import {
     KYC_REJECTION_REASONS,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Callout,
-    Card,
+    Cascade,
     Checkbox,
     Dialog,
     ErrorState,
-    Heading,
-    Inline,
+    Icon,
     RecordSkeleton,
     Select,
-    Stack,
-    StepProgress,
     Text,
     TextInputField,
+    cx,
+    useContentWidth,
     useToast,
 } from '@healthy360/design-system';
+import type { IconName } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Linking } from 'react-native';
+import { Linking, Text as RNText, View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -54,6 +51,12 @@ import {
     useReviseAgreementMutation,
     useSendAgreementMutation,
 } from '../../../data/platform-b2b-hooks.ts';
+import { useTrailLeaf } from '../../../shell/area-trail.tsx';
+import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
+import { SheetCard, SheetFacts } from '../../kitchen-admin/catalogue/record-sheet.tsx';
+import type { SheetFact } from '../../kitchen-admin/catalogue/record-sheet.tsx';
+import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
+import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import { AgreementEditor } from '../agreement-editor.tsx';
 import {
     REVIEW_STAGES,
@@ -64,17 +67,32 @@ import {
     reviewStage,
 } from '../b2b-review.ts';
 import type { ReviewStep } from '../b2b-review.ts';
-import { PLATFORM_B2B_HREF, platformB2bApplicationHref } from '../platform-admin-chrome.tsx';
+import { platformB2bApplicationHref } from '../platform-admin-chrome.tsx';
+
+const REVIEW = 'b2b_application.review_platform';
+const DECIDE = 'b2b_application.decide_platform';
+const PROVISION = 'b2b_application.provision_platform';
+const KYC_VIEW = 'kyc_document.view_platform';
+
+/** The side column's width beside the application, the board's 340px. */
+const RAIL_WIDTH = 340;
+/** Below this the side column runs under the application. */
+const BESIDE_MIN_WIDTH = 900;
 
 /**
- * `/platform-admin/b2b/{application}` — one application, from claim to provisioning.
+ * `/platform-admin/b2b/{application}` — one application, from claim to provisioning. The Platform
+ * admin canvas's minimal review board (2026-11-23), top to bottom:
  *
- * ## One next move, stated
- *
- * The card at the top names the single move the state allows and, beside it, who the application
- * is waiting on when it is not the reviewer. `nextReviewStep` (in `../b2b-review.ts`) is the table;
- * each control is also gated on the permission its route demands, so a reviewer who may read the
- * queue but not decide sees the state and not the button.
+ * - **The opening:** the company and its status, the reference and country under them.
+ * - **The step line:** Submitted › In review › Approved › Agreement sent › Signed › Account open,
+ *   as numbered pills — green when done, amber for where it is now.
+ * - **The next step:** what to do now and its buttons, in one band at the top. `nextReviewStep`
+ *   (in `../b2b-review.ts`) is the table; each button is also gated on the permission its route
+ *   demands, so a reviewer who may read the queue but not decide sees the state and not the button.
+ * - **The application:** one card of only the facts the company gave, under hairlines; everything
+ *   it left out goes in a single grey "Not given" box rather than rows of dashes.
+ * - **Documents:** a row per document with its status, and a row for each required one missing.
+ * - **Beside it:** the agreement, a short history, and — once the account is open — the invitations.
  *
  * ## The order is the owner's (2026-10-26)
  *
@@ -89,12 +107,6 @@ import { PLATFORM_B2B_HREF, platformB2bApplicationHref } from '../platform-admin
  * one the next write sends. A stale write comes back as `resource.conflict` and the callout offers
  * a reload rather than retrying blind.
  */
-
-const REVIEW = 'b2b_application.review_platform';
-const DECIDE = 'b2b_application.decide_platform';
-const PROVISION = 'b2b_application.provision_platform';
-const KYC_VIEW = 'kyc_document.view_platform';
-
 export function PlatformB2bApplicationScreen() {
     return (
         <Gate
@@ -110,10 +122,15 @@ export function PlatformB2bApplicationScreen() {
 type OpenDialog =
     'request-information' | 'approve' | 'decline' | 'send' | 'revise' | 'provision' | null;
 
+/** The kinds the server requires today. Shown as a warning on approval, never enforced here. */
+const REQUIRED_KINDS = new Set(['commercial_registration', 'signatory_identification']);
+
 function ApplicationFile() {
     const { t } = useTranslation();
     const router = useRouter();
     const toast = useToast();
+    const { width: contentWidth } = useContentWidth();
+    const beside = contentWidth >= BESIDE_MIN_WIDTH;
     const params = useLocalSearchParams<{ application?: string }>();
     const applicationId = typeof params.application === 'string' ? params.application : undefined;
 
@@ -133,6 +150,12 @@ function ApplicationFile() {
     const canProvision = useCan(PROVISION);
 
     const record = application.data;
+    const company =
+        record === undefined
+            ? null
+            : (record.legalName ?? record.tradingName ?? t('platformAdmin:b2b.unnamed'));
+    useTrailLeaf(record === undefined ? null : record.reference);
+
     const versions = agreements.data ?? [];
     const loadFailure = toFailure(application.error);
     const writeFailure =
@@ -152,27 +175,23 @@ function ApplicationFile() {
         );
     }
 
-    if (loadFailure !== null || record === undefined) {
+    if (loadFailure !== null || record === undefined || company === null) {
         return (
-            <Stack space="md" testID="platform-b2b-application-error-screen">
-                <BackButton />
-                <ErrorState
-                    testID="platform-b2b-application-error"
-                    failure={loadFailure ?? apiFailure('resource.not_found')}
-                    title={t('platformAdmin:b2b.detail.errorTitle')}
-                    onRetry={() => {
-                        void application.refetch();
-                    }}
-                    retrying={application.isFetching}
-                />
-            </Stack>
+            <ErrorState
+                testID="platform-b2b-application-error"
+                failure={loadFailure ?? apiFailure('resource.not_found')}
+                title={t('platformAdmin:b2b.detail.errorTitle')}
+                onRetry={() => {
+                    void application.refetch();
+                }}
+                retrying={application.isFetching}
+            />
         );
     }
 
     const step = nextReviewStep(record, versions);
     const stage = reviewStage(record, versions);
     const stageIndex = stage === null ? -1 : REVIEW_STAGES.indexOf(stage);
-    const company = record.legalName ?? record.tradingName ?? t('platformAdmin:b2b.unnamed');
     const unacceptedRequired =
         record.documents.filter(
             (document) =>
@@ -182,41 +201,39 @@ function ApplicationFile() {
         ).length + record.missingDocumentKinds.length;
 
     return (
-        <Stack space="lg" testID="platform-b2b-application-screen">
-            <BackButton />
-
-            <Stack space="xs">
-                <Inline space="sm" align="center" wrap>
-                    <Heading level={1} testID="platform-b2b-application-title">
-                        {company}
-                    </Heading>
-                    <Badge
-                        testID="platform-b2b-application-status"
-                        tone={applicationStatusTone(record.status)}
-                        label={t(applicationStatusKey(record.status))}
-                    />
-                </Inline>
-                <Text tone="secondary">
-                    {t('platformAdmin:b2b.detail.reference', { reference: record.reference })}
+        <Cascade space="md" testID="platform-b2b-application-screen">
+            <View className="flex-col gap-1">
+                <CataloguePageHeader
+                    titleLook="board"
+                    testID="platform-b2b-application-header"
+                    titleTestID="platform-b2b-application-title"
+                    title={company}
+                    titleAside={
+                        <DeskChip
+                            testID="platform-b2b-application-status"
+                            size="lg"
+                            tone={applicationStatusTone(record.status)}
+                            label={t(applicationStatusKey(record.status))}
+                        />
+                    }
+                />
+                <Text
+                    tone="secondary"
+                    variant="caption"
+                    className="tabular-nums"
+                    testID="platform-b2b-application-reference"
+                >
+                    {[record.reference, record.countryCode]
+                        .filter((part): part is string => part !== null && part !== '')
+                        .join(' · ')}
                 </Text>
-            </Stack>
+            </View>
 
             {stageIndex >= 0 ? (
-                <StepProgress
-                    testID="platform-b2b-application-stages"
-                    label={t('platformAdmin:b2b.stages.label')}
-                    steps={REVIEW_STAGES.map((key) => ({
-                        key,
-                        label: t(`platformAdmin:b2b.stages.${key}`),
-                    }))}
+                <StageLine
                     current={stageIndex}
-                    completed={
-                        new Set(
-                            REVIEW_STAGES.map((_, index) => index).filter(
-                                (index) => index < stageIndex || stage === 'provisioned',
-                            ),
-                        )
-                    }
+                    finished={stage === 'provisioned'}
+                    label={t('platformAdmin:b2b.stages.label')}
                 />
             ) : null}
 
@@ -230,7 +247,7 @@ function ApplicationFile() {
                 />
             )}
 
-            <NextStepCard
+            <NextStepBand
                 step={step}
                 canReview={canReview}
                 canDecide={canDecide}
@@ -258,14 +275,15 @@ function ApplicationFile() {
                 <Callout
                     testID="platform-b2b-application-duplicates"
                     tone="warning"
+                    icon="warning"
                     title={t('platformAdmin:b2b.detail.duplicatesTitle', {
                         count: record.duplicateApplications.length,
                     })}
                     body={t('platformAdmin:b2b.detail.duplicatesBody')}
                     actions={
-                        <Inline space="sm" wrap>
+                        <View className="flex-row flex-wrap gap-2">
                             {record.duplicateApplications.map((duplicate) => (
-                                <Button
+                                <DeskButton
                                     key={duplicate.id}
                                     testID={`platform-b2b-duplicate-${duplicate.id}`}
                                     size="sm"
@@ -278,26 +296,27 @@ function ApplicationFile() {
                                     }}
                                 />
                             ))}
-                        </Inline>
+                        </View>
                     }
                 />
             )}
 
-            <DecisionCard application={record} />
-
-            <AgreementCard agreements={versions} />
-
-            {record.provisionedOrganisationId === null ? null : (
-                <InvitationsCard applicationId={record.id} canResend={canProvision} />
-            )}
-
-            <SectionsCard sections={record.sections} />
-
-            <ContactsCard application={record} />
-
-            <LocationsCard application={record} />
-
-            <DocumentsCard application={record} />
+            <View className={cx('z-auto gap-4', beside ? 'flex-row items-start' : 'flex-col')}>
+                <View className="z-auto min-w-0 flex-1 flex-col gap-4">
+                    <ApplicationCard application={record} />
+                    <DocumentsCard application={record} />
+                </View>
+                <View
+                    className="z-auto flex-col gap-4"
+                    style={beside ? { width: RAIL_WIDTH } : undefined}
+                >
+                    <AgreementCard agreements={versions} />
+                    <HistoryCard application={record} agreements={versions} />
+                    {record.provisionedOrganisationId === null ? null : (
+                        <InvitationsCard applicationId={record.id} canResend={canProvision} />
+                    )}
+                </View>
+            </View>
 
             <RequestInformationDialog
                 application={record}
@@ -408,12 +427,30 @@ function ApplicationFile() {
                     });
                 }}
             >
-                <Stack space="xs" testID="platform-b2b-provision-consequences">
-                    <Text>{t('platformAdmin:b2b.provision.organisation', { company })}</Text>
-                    <Text>{t('platformAdmin:b2b.provision.account')}</Text>
-                    <Text>{t('platformAdmin:b2b.provision.owner')}</Text>
-                    <Text>{t('platformAdmin:b2b.provision.invitations')}</Text>
-                </Stack>
+                <View testID="platform-b2b-provision-consequences" className="flex-col gap-2">
+                    {[
+                        t('platformAdmin:b2b.provision.organisation', { company }),
+                        t('platformAdmin:b2b.provision.account'),
+                        t('platformAdmin:b2b.provision.owner'),
+                        t('platformAdmin:b2b.provision.invitations'),
+                    ].map((line) => (
+                        <View key={line} className="flex-row items-center gap-2.5">
+                            <View
+                                aria-hidden
+                                className="h-6 w-6 items-center justify-center rounded-full bg-surface-brand-subtle"
+                            >
+                                <Icon
+                                    name="check"
+                                    size="sm"
+                                    className="text-content-on-brand-subtle"
+                                />
+                            </View>
+                            <Text variant="bodyStrong" className="min-w-0 flex-1">
+                                {line}
+                            </Text>
+                        </View>
+                    ))}
+                </View>
             </ConfirmDialog>
 
             {editing === null ? null : (
@@ -427,26 +464,90 @@ function ApplicationFile() {
                     }}
                 />
             )}
-        </Stack>
+        </Cascade>
     );
 }
 
-/** The kinds the server requires today. Shown as a warning on approval, never enforced here. */
-const REQUIRED_KINDS = new Set(['commercial_registration', 'signatory_identification']);
-
-function BackButton() {
+/**
+ * Where the application is, as numbered pills: green with a tick once a step is done, amber for
+ * the step it is on, grey for the steps still to come.
+ */
+function StageLine({
+    current,
+    finished,
+    label,
+}: {
+    readonly current: number;
+    readonly finished: boolean;
+    readonly label: string;
+}) {
     const { t } = useTranslation();
-    const router = useRouter();
-
+    const formatter = useFormatter();
     return (
-        <Button
-            testID="platform-b2b-application-back"
-            variant="ghost"
-            label={t('platformAdmin:b2b.detail.back')}
-            onPress={() => {
-                router.push(PLATFORM_B2B_HREF as never);
-            }}
-        />
+        <View
+            testID="platform-b2b-application-stages"
+            role="list"
+            aria-label={label}
+            className="flex-row flex-wrap items-center gap-1.5"
+        >
+            {REVIEW_STAGES.map((key, index) => {
+                const done = index < current || finished;
+                const now = !done && index === current;
+                return (
+                    <View
+                        key={key}
+                        testID={`platform-b2b-stage-${key}`}
+                        role="listitem"
+                        aria-current={now ? 'step' : undefined}
+                        className={cx(
+                            'h-8 flex-row items-center gap-2 rounded-full pe-3.5 ps-1.5',
+                            done
+                                ? 'bg-surface-brand-subtle'
+                                : now
+                                  ? 'bg-warning-subtle'
+                                  : 'bg-surface-sunken',
+                        )}
+                    >
+                        <View
+                            aria-hidden
+                            className={cx(
+                                'h-[22px] w-[22px] items-center justify-center rounded-full',
+                                done
+                                    ? 'bg-surface-brand'
+                                    : now
+                                      ? 'bg-warning-strong'
+                                      : 'bg-surface-raised',
+                            )}
+                        >
+                            {done ? (
+                                <Icon name="check" size="sm" className="text-content-on-brand" />
+                            ) : (
+                                <RNText
+                                    className={cx(
+                                        'text-[11px] font-bold tabular-nums',
+                                        now ? 'text-content-on-brand' : 'text-content-secondary',
+                                    )}
+                                >
+                                    {formatter.formatNumber(index + 1)}
+                                </RNText>
+                            )}
+                        </View>
+                        <RNText
+                            className={cx(
+                                'text-[13px] font-semibold',
+                                done
+                                    ? 'text-content-on-brand-subtle'
+                                    : now
+                                      ? 'text-warning-on-subtle'
+                                      : 'text-content-secondary',
+                            )}
+                        >
+                            {t(`platformAdmin:b2b.stages.${key}`)}
+                        </RNText>
+                    </View>
+                );
+            })}
+        </View>
     );
 }
 
@@ -465,11 +566,12 @@ function FailureCallout({
             testID="platform-b2b-application-write-error"
             role="alert"
             tone={conflict ? 'warning' : 'danger'}
+            icon="warning"
             title={conflict ? t('platformAdmin:b2b.detail.conflictTitle') : failure.message}
             {...(conflict ? { body: t('platformAdmin:b2b.detail.conflictBody') } : {})}
             actions={
                 conflict ? (
-                    <Button
+                    <DeskButton
                         testID="platform-b2b-application-reload"
                         size="sm"
                         variant="secondary"
@@ -482,7 +584,34 @@ function FailureCallout({
     );
 }
 
-function NextStepCard({
+type BandTone = 'act' | 'wait' | 'done' | 'closed';
+
+const BAND: Readonly<
+    Record<BandTone, { readonly icon: IconName; readonly box: string; readonly ink: string }>
+> = {
+    act: { icon: 'pen', box: 'bg-warning-subtle', ink: 'text-warning-on-subtle' },
+    wait: { icon: 'clock', box: 'bg-info-subtle', ink: 'text-info-on-subtle' },
+    done: { icon: 'check', box: 'bg-surface-brand-subtle', ink: 'text-content-on-brand-subtle' },
+    closed: { icon: 'ban', box: 'bg-surface-sunken', ink: 'text-content-secondary' },
+};
+
+function bandTone(step: ReviewStep): BandTone {
+    switch (step.kind) {
+        case 'claim':
+        case 'waiting_applicant':
+        case 'waiting_signature':
+            return 'wait';
+        case 'provisioned':
+            return 'done';
+        case 'closed':
+            return 'closed';
+        default:
+            return 'act';
+    }
+}
+
+/** What to do now: the step's title and one line, with its buttons at the end of the band. */
+function NextStepBand({
     step,
     canReview,
     canDecide,
@@ -502,15 +631,29 @@ function NextStepCard({
     readonly onEditAgreement: (agreement: B2BAgreement | 'new') => void;
 }) {
     const { t } = useTranslation();
+    const tone = BAND[bandTone(step)];
+
+    const decline = canDecide ? (
+        <DeskButton
+            testID="platform-b2b-decline"
+            size="sm"
+            variant="dangerOutline"
+            label={t('platformAdmin:b2b.actions.decline')}
+            onPress={() => {
+                onOpen('decline');
+            }}
+        />
+    ) : null;
 
     let actions: ReactNode;
-
     switch (step.kind) {
         case 'claim':
             actions = canReview ? (
-                <Button
+                <DeskButton
                     testID="platform-b2b-claim"
+                    size="sm"
                     label={t('platformAdmin:b2b.actions.claim')}
+                    iconStart={<Icon name="handshake" size="sm" />}
                     loading={claiming}
                     onPress={onClaim}
                 />
@@ -518,19 +661,12 @@ function NextStepCard({
             break;
         case 'decide':
             actions = (
-                <Inline space="sm" wrap>
-                    {canDecide ? (
-                        <Button
-                            testID="platform-b2b-approve"
-                            label={t('platformAdmin:b2b.actions.approve')}
-                            onPress={() => {
-                                onOpen('approve');
-                            }}
-                        />
-                    ) : null}
+                <>
+                    {decline}
                     {canReview ? (
-                        <Button
+                        <DeskButton
                             testID="platform-b2b-request-information"
+                            size="sm"
                             variant="secondary"
                             label={t('platformAdmin:b2b.actions.requestInformation')}
                             onPress={() => {
@@ -539,35 +675,29 @@ function NextStepCard({
                         />
                     ) : null}
                     {canDecide ? (
-                        <Button
-                            testID="platform-b2b-decline"
-                            variant="danger"
-                            label={t('platformAdmin:b2b.actions.decline')}
+                        <DeskButton
+                            testID="platform-b2b-approve"
+                            size="sm"
+                            label={t('platformAdmin:b2b.actions.approve')}
+                            iconStart={<Icon name="check" size="sm" />}
                             onPress={() => {
-                                onOpen('decline');
+                                onOpen('approve');
                             }}
                         />
                     ) : null}
-                </Inline>
+                </>
             );
             break;
         case 'waiting_applicant':
-            actions = canDecide ? (
-                <Button
-                    testID="platform-b2b-decline"
-                    variant="danger"
-                    label={t('platformAdmin:b2b.actions.decline')}
-                    onPress={() => {
-                        onOpen('decline');
-                    }}
-                />
-            ) : null;
+            actions = decline;
             break;
         case 'draft_agreement':
             actions = canDecide ? (
-                <Button
+                <DeskButton
                     testID="platform-b2b-draft-agreement"
+                    size="sm"
                     label={t('platformAdmin:b2b.actions.draftAgreement')}
+                    iconStart={<Icon name="fileText" size="sm" />}
                     onPress={() => {
                         onEditAgreement('new');
                     }}
@@ -576,29 +706,33 @@ function NextStepCard({
             break;
         case 'send_agreement':
             actions = canDecide ? (
-                <Inline space="sm" wrap>
-                    <Button
-                        testID="platform-b2b-send-agreement"
-                        label={t('platformAdmin:b2b.agreement.send')}
-                        onPress={() => {
-                            onOpen('send');
-                        }}
-                    />
-                    <Button
+                <>
+                    <DeskButton
                         testID="platform-b2b-edit-agreement"
+                        size="sm"
                         variant="secondary"
                         label={t('platformAdmin:b2b.agreement.edit')}
                         onPress={() => {
                             onEditAgreement(step.agreement);
                         }}
                     />
-                </Inline>
+                    <DeskButton
+                        testID="platform-b2b-send-agreement"
+                        size="sm"
+                        label={t('platformAdmin:b2b.agreement.send')}
+                        iconStart={<Icon name="send" size="sm" />}
+                        onPress={() => {
+                            onOpen('send');
+                        }}
+                    />
+                </>
             ) : null;
             break;
         case 'waiting_signature':
             actions = canDecide ? (
-                <Button
+                <DeskButton
                     testID="platform-b2b-revise-agreement"
+                    size="sm"
                     variant="secondary"
                     label={t('platformAdmin:b2b.agreement.revise')}
                     onPress={() => {
@@ -609,9 +743,11 @@ function NextStepCard({
             break;
         case 'provision':
             actions = canProvision ? (
-                <Button
+                <DeskButton
                     testID="platform-b2b-provision"
+                    size="sm"
                     label={t('platformAdmin:b2b.provision.confirm')}
+                    iconStart={<Icon name="building" size="sm" />}
                     onPress={() => {
                         onOpen('provision');
                     }}
@@ -623,212 +759,30 @@ function NextStepCard({
     }
 
     return (
-        <Card padding="md" testID="platform-b2b-next-step">
-            <Stack space="sm">
+        <View
+            testID="platform-b2b-next-step"
+            role="region"
+            aria-label={t('platformAdmin:b2b.next.label')}
+            className="flex-row flex-wrap items-center gap-4 rounded-[20px] border border-stroke-subtle bg-surface-raised px-4 py-4"
+        >
+            <View
+                aria-hidden
+                className={cx('h-11 w-11 items-center justify-center rounded-[14px]', tone.box)}
+            >
+                <Icon name={tone.icon} size="md" className={tone.ink} />
+            </View>
+            <View className="min-w-[220px] flex-1 flex-col">
                 <Text variant="bodyStrong" testID="platform-b2b-next-step-title">
                     {t(`platformAdmin:b2b.next.${step.kind}.title`)}
                 </Text>
-                <Text tone="secondary">{t(`platformAdmin:b2b.next.${step.kind}.body`)}</Text>
-                {actions}
-            </Stack>
-        </Card>
-    );
-}
-
-function DecisionCard({ application }: { readonly application: PlatformB2bApplication }) {
-    const { t } = useTranslation();
-    const formatter = useFormatter();
-
-    const rows: readonly [string, string | null][] = [
-        [
-            t('platformAdmin:b2b.decision.submitted'),
-            application.submittedAt === null ? null : formatter.formatDate(application.submittedAt),
-        ],
-        [
-            t('platformAdmin:b2b.decision.decided'),
-            application.decidedAt === null ? null : formatter.formatDate(application.decidedAt),
-        ],
-        [t('platformAdmin:b2b.decision.informationRequest'), application.informationRequest],
-        [t('platformAdmin:b2b.decision.applicantMessage'), application.applicantMessage],
-        [t('platformAdmin:b2b.decision.internalNote'), application.decisionNote],
-    ];
-
-    return (
-        <Card padding="md" testID="platform-b2b-decision">
-            <Stack space="sm">
-                <Heading level={2}>{t('platformAdmin:b2b.decision.title')}</Heading>
-                <FieldRows rows={rows} />
-            </Stack>
-        </Card>
-    );
-}
-
-function AgreementCard({ agreements }: { readonly agreements: readonly B2BAgreement[] }) {
-    const { t, i18n } = useTranslation();
-    const formatter = useFormatter();
-
-    return (
-        <Card padding="md" testID="platform-b2b-agreement">
-            <Stack space="sm">
-                <Heading level={2}>{t('platformAdmin:b2b.agreement.title')}</Heading>
-                {agreements.length === 0 ? (
-                    <Text tone="secondary">{t('platformAdmin:b2b.agreement.none')}</Text>
-                ) : (
-                    agreements.map((agreement) => {
-                        const money = (minor: number | null) =>
-                            minor === null || agreement.terms.currencyCode === null
-                                ? null
-                                : formatter.formatCurrency(
-                                      minor / 100,
-                                      agreement.terms.currencyCode,
-                                  );
-                        const seller =
-                            agreement.seller === null
-                                ? null
-                                : `${agreement.seller.organisationName} — ${
-                                      i18n.language === 'ar' &&
-                                      agreement.seller.priceListNameAr !== null
-                                          ? agreement.seller.priceListNameAr
-                                          : agreement.seller.priceListNameEn
-                                  }`;
-
-                        return (
-                            <Stack
-                                key={agreement.id}
-                                space="xs"
-                                testID={`platform-b2b-agreement-${agreement.version}`}
-                            >
-                                <Inline space="sm" align="center" wrap>
-                                    <Text variant="bodyStrong">
-                                        {t('platformAdmin:b2b.agreement.version', {
-                                            version: agreement.version,
-                                            title: agreement.title,
-                                        })}
-                                    </Text>
-                                    <Badge
-                                        testID={`platform-b2b-agreement-${agreement.version}-status`}
-                                        tone={
-                                            agreement.status === 'active'
-                                                ? 'success'
-                                                : agreement.status === 'terminated'
-                                                  ? 'neutral'
-                                                  : 'info'
-                                        }
-                                        label={t(
-                                            `platformAdmin:b2b.agreementStatus.${agreement.status}`,
-                                        )}
-                                    />
-                                </Inline>
-                                <FieldRows
-                                    rows={[
-                                        [t('platformAdmin:b2b.agreement.seller'), seller],
-                                        [
-                                            t('platformAdmin:b2b.agreement.paymentTerms'),
-                                            agreement.terms.paymentTerms === null
-                                                ? null
-                                                : t(
-                                                      `b2bApplication:paymentTerms.${agreement.terms.paymentTerms}`,
-                                                  ),
-                                        ],
-                                        [
-                                            t('platformAdmin:b2b.agreement.creditLimit'),
-                                            money(agreement.terms.creditLimitMinor),
-                                        ],
-                                        [
-                                            t('platformAdmin:b2b.agreement.minimumOrder'),
-                                            money(agreement.terms.minimumOrderMinor),
-                                        ],
-                                        [
-                                            t('platformAdmin:b2b.agreement.signedBy'),
-                                            agreement.signature === null
-                                                ? null
-                                                : `${agreement.signature.typedName}, ${agreement.signature.signatoryTitle}`,
-                                        ],
-                                    ]}
-                                />
-                            </Stack>
-                        );
-                    })
-                )}
-            </Stack>
-        </Card>
-    );
-}
-
-function InvitationsCard({
-    applicationId,
-    canResend,
-}: {
-    readonly applicationId: string;
-    readonly canResend: boolean;
-}) {
-    const { t } = useTranslation();
-    const toast = useToast();
-    const invitations = usePlatformB2bInvitationsQuery(applicationId);
-    const resend = useResendInvitationMutation();
-
-    return (
-        <Card padding="md" testID="platform-b2b-invitations">
-            <Stack space="sm">
-                <Heading level={2}>{t('platformAdmin:b2b.invitations.title')}</Heading>
-                <Text tone="secondary">{t('platformAdmin:b2b.invitations.body')}</Text>
-                {(invitations.data ?? []).length === 0 ? (
-                    <Text tone="secondary">{t('platformAdmin:b2b.invitations.none')}</Text>
-                ) : (
-                    (invitations.data ?? []).map((invitation) => (
-                        <Inline key={invitation.id} space="sm" align="center" wrap>
-                            <Text testID={`platform-b2b-invitation-${invitation.id}`}>
-                                {invitation.email}
-                            </Text>
-                            <Badge
-                                tone={
-                                    invitation.status === 'accepted'
-                                        ? 'success'
-                                        : invitation.status === 'live'
-                                          ? 'info'
-                                          : 'neutral'
-                                }
-                                label={t(
-                                    `platformAdmin:b2b.invitations.status.${invitation.status}`,
-                                )}
-                            />
-                            {canResend &&
-                            (invitation.status === 'live' || invitation.status === 'expired') ? (
-                                <Button
-                                    testID={`platform-b2b-invitation-${invitation.id}-resend`}
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('platformAdmin:b2b.invitations.resend')}
-                                    loading={
-                                        resend.isPending &&
-                                        resend.variables?.invitationId === invitation.id
-                                    }
-                                    onPress={() => {
-                                        resend.mutate(
-                                            { applicationId, invitationId: invitation.id },
-                                            {
-                                                onSuccess: () => {
-                                                    toast.show({
-                                                        testID: 'platform-b2b-resent-toast',
-                                                        tone: 'success',
-                                                        message: t(
-                                                            'platformAdmin:b2b.invitations.resent',
-                                                            {
-                                                                email: invitation.email,
-                                                            },
-                                                        ),
-                                                    });
-                                                },
-                                            },
-                                        );
-                                    }}
-                                />
-                            ) : null}
-                        </Inline>
-                    ))
-                )}
-            </Stack>
-        </Card>
+                <Text variant="caption" tone="secondary">
+                    {t(`platformAdmin:b2b.next.${step.kind}.body`)}
+                </Text>
+            </View>
+            {actions === null ? null : (
+                <View className="flex-row flex-wrap items-center justify-end gap-2">{actions}</View>
+            )}
+        </View>
     );
 }
 
@@ -840,9 +794,14 @@ const SECTION_VOCABULARY: Readonly<Record<string, string>> = {
     preferredDeliveryWindow: 'deliveryWindows',
 };
 
-function SectionsCard({ sections }: { readonly sections: B2BApplicationSections }) {
+/**
+ * The application as one card: a group per section with only the fields the company filled, the
+ * people and places it named, and one grey box listing everything it left out.
+ */
+function ApplicationCard({ application }: { readonly application: PlatformB2bApplication }) {
     const { t } = useTranslation();
     const formatter = useFormatter();
+    const sections = application.sections;
 
     const display = (key: string, value: unknown): string | null => {
         if (value === null || value === undefined || value === '') return null;
@@ -869,102 +828,425 @@ function SectionsCard({ sections }: { readonly sections: B2BApplicationSections 
         return String(value);
     };
 
+    const missing: string[] = [];
+    const groups = B2B_APPLICATION_SECTIONS.map((section) => {
+        const facts: SheetFact[] = [];
+        for (const [key, value] of Object.entries(sections[section])) {
+            const label = t(`b2bApplication:fields.${key}`);
+            const shown = display(key, value);
+            if (shown === null) missing.push(label);
+            else facts.push({ key, label, value: shown });
+        }
+        return { section, facts };
+    });
+    if (application.contacts.length === 0) missing.push(t('platformAdmin:b2b.contacts.title'));
+    if (application.locations.length === 0) missing.push(t('platformAdmin:b2b.locations.title'));
+
     return (
-        <Card padding="md" testID="platform-b2b-sections">
-            <Stack space="lg">
-                {B2B_APPLICATION_SECTIONS.map((section) => (
-                    <Stack key={section} space="sm" testID={`platform-b2b-section-${section}`}>
-                        <Heading level={2}>{t(`b2bApplication:sections.${section}.title`)}</Heading>
-                        <FieldRows
-                            rows={Object.entries(sections[section]).map(([key, value]) => [
-                                t(`b2bApplication:fields.${key}`),
-                                display(key, value),
-                            ])}
+        <SheetCard testID="platform-b2b-sections" title={t('platformAdmin:b2b.detail.application')}>
+            {groups
+                .filter((group) => group.facts.length > 0)
+                .map((group) => (
+                    <View
+                        key={group.section}
+                        testID={`platform-b2b-section-${group.section}`}
+                        className="mt-1 flex-col"
+                    >
+                        <GroupLabel label={t(`b2bApplication:sections.${group.section}.title`)} />
+                        <SheetFacts
+                            testID={`platform-b2b-section-${group.section}-field`}
+                            facts={group.facts}
                         />
-                    </Stack>
+                    </View>
                 ))}
-            </Stack>
-        </Card>
+
+            {application.contacts.length === 0 ? null : (
+                <View testID="platform-b2b-contacts" className="mt-1 flex-col">
+                    <GroupLabel label={t('platformAdmin:b2b.contacts.title')} />
+                    <SheetFacts
+                        testID="platform-b2b-contacts-field"
+                        facts={application.contacts.map((contact, index) => ({
+                            key: `${contact.role}-${String(index)}`,
+                            label: t(`platformAdmin:b2b.contacts.roles.${contact.role}`),
+                            value: [contact.name, contact.title, contact.email, contact.phone]
+                                .filter((part) => part !== null && part !== '')
+                                .join(' · '),
+                        }))}
+                    />
+                </View>
+            )}
+
+            {application.locations.length === 0 ? null : (
+                <View testID="platform-b2b-locations" className="mt-1 flex-col">
+                    <GroupLabel label={t('platformAdmin:b2b.locations.title')} />
+                    <SheetFacts
+                        testID="platform-b2b-locations-field"
+                        facts={application.locations.map((location, index) => ({
+                            key: `${location.label}-${String(index)}`,
+                            label: [
+                                location.label,
+                                location.isPrimary ? t('platformAdmin:b2b.locations.primary') : '',
+                                location.isBillingAddress
+                                    ? t('platformAdmin:b2b.locations.billing')
+                                    : '',
+                            ]
+                                .filter((part) => part !== '')
+                                .join(' · '),
+                            value: [
+                                location.addressLine1,
+                                location.addressLine2,
+                                location.city,
+                                location.countryCode,
+                            ]
+                                .filter((part) => part !== null && part !== '')
+                                .join(', '),
+                        }))}
+                    />
+                </View>
+            )}
+
+            {missing.length === 0 ? null : (
+                <View
+                    testID="platform-b2b-not-given"
+                    className="mt-2 flex-col gap-0.5 rounded-[14px] bg-surface-sunken px-3.5 py-3"
+                >
+                    <Text variant="caption" className="font-bold">
+                        {t('platformAdmin:b2b.detail.notGiven')}
+                    </Text>
+                    <Text variant="caption" tone="secondary">
+                        {missing.join(t('platformAdmin:common.listSeparator'))}
+                    </Text>
+                </View>
+            )}
+        </SheetCard>
     );
 }
 
-function ContactsCard({ application }: { readonly application: PlatformB2bApplication }) {
-    const { t } = useTranslation();
+function GroupLabel({ label }: { readonly label: string }) {
+    return (
+        <RNText className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-content-secondary text-start">
+            {label}
+        </RNText>
+    );
+}
+
+/** The agreement as it stands: its version, status and the terms set so far. */
+function AgreementCard({ agreements }: { readonly agreements: readonly B2BAgreement[] }) {
+    const { t, i18n } = useTranslation();
+    const formatter = useFormatter();
+    const agreement = liveAgreement(agreements);
+    const earlier = agreements.filter((candidate) => candidate.id !== agreement?.id).length;
+
+    if (agreement === null) {
+        return (
+            <SheetCard
+                testID="platform-b2b-agreement"
+                title={t('platformAdmin:b2b.agreement.title')}
+            >
+                <Text tone="secondary">{t('platformAdmin:b2b.agreement.none')}</Text>
+            </SheetCard>
+        );
+    }
+
+    const money = (minor: number | null) =>
+        minor === null || agreement.terms.currencyCode === null
+            ? null
+            : formatter.formatCurrency(minor / 100, agreement.terms.currencyCode);
+    const seller =
+        agreement.seller === null
+            ? null
+            : `${agreement.seller.organisationName} — ${
+                  i18n.language === 'ar' && agreement.seller.priceListNameAr !== null
+                      ? agreement.seller.priceListNameAr
+                      : agreement.seller.priceListNameEn
+              }`;
+    const terms: readonly (readonly [string, string, string | null])[] = [
+        ['seller', t('platformAdmin:b2b.agreement.seller'), seller],
+        [
+            'payment',
+            t('platformAdmin:b2b.agreement.paymentTerms'),
+            agreement.terms.paymentTerms === null
+                ? null
+                : t(`b2bApplication:paymentTerms.${agreement.terms.paymentTerms}`),
+        ],
+        [
+            'credit',
+            t('platformAdmin:b2b.agreement.creditLimit'),
+            money(agreement.terms.creditLimitMinor),
+        ],
+        [
+            'minimum',
+            t('platformAdmin:b2b.agreement.minimumOrder'),
+            money(agreement.terms.minimumOrderMinor),
+        ],
+        [
+            'signed',
+            t('platformAdmin:b2b.agreement.signedBy'),
+            agreement.signature === null
+                ? null
+                : `${agreement.signature.typedName}, ${agreement.signature.signatoryTitle}`,
+        ],
+    ];
+    const set = terms.filter(([, , value]) => value !== null);
+    const unset = terms.filter(([, , value]) => value === null).map(([, label]) => label);
 
     return (
-        <Card padding="md" testID="platform-b2b-contacts">
-            <Stack space="sm">
-                <Heading level={2}>{t('platformAdmin:b2b.contacts.title')}</Heading>
-                {application.contacts.length === 0 ? (
-                    <Text tone="secondary">{t('platformAdmin:b2b.contacts.none')}</Text>
-                ) : (
-                    application.contacts.map((contact, index) => (
-                        <Stack key={`${contact.role}-${String(index)}`} space="none">
-                            <Inline space="sm" align="center" wrap>
-                                <Text variant="bodyStrong">{contact.name}</Text>
-                                <Badge
-                                    tone="neutral"
-                                    label={t(`platformAdmin:b2b.contacts.roles.${contact.role}`)}
-                                />
-                            </Inline>
-                            <Text tone="secondary">
-                                {[contact.title, contact.email, contact.phone]
-                                    .filter((part) => part !== null)
-                                    .join(' · ')}
-                            </Text>
-                        </Stack>
-                    ))
+        <SheetCard
+            testID="platform-b2b-agreement"
+            title={t('platformAdmin:b2b.agreement.title')}
+            trailing={
+                <Text tone="secondary" variant="label">
+                    {t('platformAdmin:b2b.agreement.versionShort', { version: agreement.version })}
+                </Text>
+            }
+        >
+            <View
+                testID={`platform-b2b-agreement-${String(agreement.version)}`}
+                className="flex-col gap-2"
+            >
+                <View className="flex-row flex-wrap items-center justify-between gap-2">
+                    <Text variant="bodyStrong" className="min-w-0 flex-1">
+                        {agreement.title}
+                    </Text>
+                    <DeskChip
+                        testID={`platform-b2b-agreement-${String(agreement.version)}-status`}
+                        tone={
+                            agreement.status === 'active'
+                                ? 'success'
+                                : agreement.status === 'terminated'
+                                  ? 'neutral'
+                                  : 'info'
+                        }
+                        label={t(`platformAdmin:b2b.agreementStatus.${agreement.status}`)}
+                    />
+                </View>
+                {set.length === 0 ? null : (
+                    <SheetFacts
+                        testID="platform-b2b-agreement-terms"
+                        facts={set.map(([key, label, value]) => ({
+                            key,
+                            label,
+                            value: value ?? '',
+                        }))}
+                    />
                 )}
-            </Stack>
-        </Card>
+                {unset.length === 0 ? null : (
+                    <Text variant="caption" tone="secondary">
+                        {t('platformAdmin:b2b.agreement.notSet', {
+                            fields: unset.join(t('platformAdmin:common.listSeparator')),
+                        })}
+                    </Text>
+                )}
+                {earlier === 0 ? null : (
+                    <Text variant="caption" tone="secondary">
+                        {t('platformAdmin:b2b.agreement.earlier', { count: earlier })}
+                    </Text>
+                )}
+            </View>
+        </SheetCard>
     );
 }
 
-function LocationsCard({ application }: { readonly application: PlatformB2bApplication }) {
+/** What has happened to the application, oldest first, with the words that went with it. */
+function HistoryCard({
+    application,
+    agreements,
+}: {
+    readonly application: PlatformB2bApplication;
+    readonly agreements: readonly B2BAgreement[];
+}) {
     const { t } = useTranslation();
+    const formatter = useFormatter();
+    const date = (value: string) => formatter.formatDate(value, { dateStyle: 'medium' });
+    const signature = liveAgreement(agreements)?.signature ?? null;
+
+    const events: {
+        readonly key: string;
+        readonly label: string;
+        readonly at: string | null;
+        readonly note: string | null;
+    }[] = [];
+    if (application.submittedAt !== null) {
+        events.push({
+            key: 'submitted',
+            label: t('platformAdmin:b2b.history.submitted'),
+            at: date(application.submittedAt),
+            note: null,
+        });
+    }
+    if (application.informationRequest !== null) {
+        events.push({
+            key: 'information',
+            label: t('platformAdmin:b2b.decision.informationRequest'),
+            at: null,
+            note: application.informationRequest,
+        });
+    }
+    if (application.decidedAt !== null) {
+        events.push({
+            key: 'decided',
+            label: t(`platformAdmin:b2b.history.decided.${application.status}`, {
+                defaultValue: t('platformAdmin:b2b.decision.decided'),
+            }),
+            at: date(application.decidedAt),
+            note: application.applicantMessage,
+        });
+    }
+    if (application.decisionNote !== null) {
+        events.push({
+            key: 'note',
+            label: t('platformAdmin:b2b.decision.internalNote'),
+            at: null,
+            note: application.decisionNote,
+        });
+    }
+    if (signature !== null) {
+        events.push({
+            key: 'signed',
+            label: t('platformAdmin:b2b.history.signed', { name: signature.typedName }),
+            at: date(signature.signedAt),
+            note: null,
+        });
+    }
+    if (application.provisionedOrganisationId !== null) {
+        events.push({
+            key: 'opened',
+            label: t('platformAdmin:b2b.history.opened'),
+            at: null,
+            note: null,
+        });
+    }
 
     return (
-        <Card padding="md" testID="platform-b2b-locations">
-            <Stack space="sm">
-                <Heading level={2}>{t('platformAdmin:b2b.locations.title')}</Heading>
-                {application.locations.length === 0 ? (
-                    <Text tone="secondary">{t('platformAdmin:b2b.locations.none')}</Text>
-                ) : (
-                    application.locations.map((location, index) => (
-                        <Stack key={`${location.label}-${String(index)}`} space="none">
-                            <Inline space="sm" align="center" wrap>
-                                <Text variant="bodyStrong">{location.label}</Text>
-                                {location.isPrimary ? (
-                                    <Badge
-                                        tone="info"
-                                        label={t('platformAdmin:b2b.locations.primary')}
-                                    />
-                                ) : null}
-                                {location.isBillingAddress ? (
-                                    <Badge
-                                        tone="neutral"
-                                        label={t('platformAdmin:b2b.locations.billing')}
-                                    />
-                                ) : null}
-                            </Inline>
-                            <Text tone="secondary">
-                                {[
-                                    location.addressLine1,
-                                    location.addressLine2,
-                                    location.city,
-                                    location.countryCode,
-                                ]
-                                    .filter((part) => part !== null && part !== '')
-                                    .join(', ')}
-                            </Text>
-                        </Stack>
-                    ))
-                )}
-            </Stack>
-        </Card>
+        <SheetCard testID="platform-b2b-decision" title={t('platformAdmin:b2b.history.title')}>
+            <View role="list" className="flex-col">
+                {events.map((event, index) => (
+                    <View
+                        key={event.key}
+                        testID={`platform-b2b-history-${event.key}`}
+                        role="listitem"
+                        className="flex-row gap-3"
+                    >
+                        <View aria-hidden className="w-2 items-center">
+                            <View className="mt-1.5 h-2 w-2 rounded-full bg-surface-brand" />
+                            {index === events.length - 1 ? null : (
+                                <View className="mt-1 w-0.5 flex-1 rounded-full bg-stroke-subtle" />
+                            )}
+                        </View>
+                        <View
+                            className={cx(
+                                'min-w-0 flex-1 flex-col',
+                                index === events.length - 1 ? null : 'pb-3.5',
+                            )}
+                        >
+                            <View className="flex-row items-baseline justify-between gap-2">
+                                <Text variant="bodyStrong" className="min-w-0 flex-1">
+                                    {event.label}
+                                </Text>
+                                {event.at === null ? null : (
+                                    <Text
+                                        variant="caption"
+                                        tone="secondary"
+                                        className="tabular-nums"
+                                    >
+                                        {event.at}
+                                    </Text>
+                                )}
+                            </View>
+                            {event.note === null ? null : (
+                                <Text variant="caption" tone="secondary">
+                                    {event.note}
+                                </Text>
+                            )}
+                        </View>
+                    </View>
+                ))}
+            </View>
+        </SheetCard>
     );
 }
 
+function InvitationsCard({
+    applicationId,
+    canResend,
+}: {
+    readonly applicationId: string;
+    readonly canResend: boolean;
+}) {
+    const { t } = useTranslation();
+    const toast = useToast();
+    const invitations = usePlatformB2bInvitationsQuery(applicationId);
+    const resend = useResendInvitationMutation();
+    const rows = invitations.data ?? [];
+
+    return (
+        <SheetCard
+            testID="platform-b2b-invitations"
+            title={t('platformAdmin:b2b.invitations.title')}
+        >
+            {rows.length === 0 ? (
+                <Text tone="secondary">{t('platformAdmin:b2b.invitations.none')}</Text>
+            ) : (
+                rows.map((invitation) => (
+                    <View
+                        key={invitation.id}
+                        className="flex-row flex-wrap items-center gap-2 border-t border-stroke-subtle py-2.5"
+                    >
+                        <Text
+                            testID={`platform-b2b-invitation-${invitation.id}`}
+                            numberOfLines={1}
+                            className="min-w-0 flex-1"
+                        >
+                            {invitation.email}
+                        </Text>
+                        <DeskChip
+                            tone={
+                                invitation.status === 'accepted'
+                                    ? 'success'
+                                    : invitation.status === 'live'
+                                      ? 'info'
+                                      : 'neutral'
+                            }
+                            label={t(`platformAdmin:b2b.invitations.status.${invitation.status}`)}
+                        />
+                        {canResend &&
+                        (invitation.status === 'live' || invitation.status === 'expired') ? (
+                            <DeskButton
+                                testID={`platform-b2b-invitation-${invitation.id}-resend`}
+                                size="sm"
+                                variant="quiet"
+                                label={t('platformAdmin:b2b.invitations.resend')}
+                                loading={
+                                    resend.isPending &&
+                                    resend.variables?.invitationId === invitation.id
+                                }
+                                onPress={() => {
+                                    resend.mutate(
+                                        { applicationId, invitationId: invitation.id },
+                                        {
+                                            onSuccess: () => {
+                                                toast.show({
+                                                    testID: 'platform-b2b-resent-toast',
+                                                    tone: 'success',
+                                                    message: t(
+                                                        'platformAdmin:b2b.invitations.resent',
+                                                        { email: invitation.email },
+                                                    ),
+                                                });
+                                            },
+                                        },
+                                    );
+                                }}
+                            />
+                        ) : null}
+                    </View>
+                ))
+            )}
+        </SheetCard>
+    );
+}
+
+/** A row per document with its status, and a row for each required one not uploaded. */
 function DocumentsCard({ application }: { readonly application: PlatformB2bApplication }) {
     const { t } = useTranslation();
     const canView = useCan(KYC_VIEW);
@@ -979,47 +1261,57 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
     const current = application.documents.filter(
         (document) => document.reviewStatus !== 'superseded',
     );
+    const accepted = current.filter((document) => document.reviewStatus === 'accepted').length;
+    const total = current.length + application.missingDocumentKinds.length;
 
     return (
-        <Card padding="md" testID="platform-b2b-documents">
-            <Stack space="sm">
-                <Heading level={2}>{t('b2bApplication:documents.title')}</Heading>
-
-                {application.missingDocumentKinds.length === 0 ? null : (
-                    <Callout
-                        testID="platform-b2b-documents-missing"
-                        tone="warning"
-                        title={t('platformAdmin:b2b.documents.missing', {
-                            kinds: application.missingDocumentKinds
-                                .map((kind) => t(`b2bApplication:documents.kinds.${kind}`))
-                                .join(', '),
+        <SheetCard
+            testID="platform-b2b-documents"
+            title={t('b2bApplication:documents.title')}
+            trailing={
+                total === 0 ? undefined : (
+                    <Text tone="secondary" variant="label">
+                        {t('platformAdmin:b2b.documents.acceptedCount', {
+                            accepted,
+                            total,
                         })}
-                    />
-                )}
+                    </Text>
+                )
+            }
+        >
+            {failure === null ? null : (
+                <Callout
+                    testID="platform-b2b-documents-error"
+                    role="alert"
+                    tone="danger"
+                    icon="warning"
+                    title={failure.message}
+                />
+            )}
 
-                {failure === null ? null : (
-                    <Callout
-                        testID="platform-b2b-documents-error"
-                        role="alert"
-                        tone="danger"
-                        title={failure.message}
-                    />
-                )}
-
-                {current.length === 0 ? (
-                    <Text tone="secondary">{t('platformAdmin:b2b.documents.none')}</Text>
-                ) : (
-                    current.map((document) => (
-                        <Stack
+            {total === 0 ? (
+                <Text tone="secondary">{t('platformAdmin:b2b.documents.none')}</Text>
+            ) : (
+                <View className="flex-col">
+                    {current.map((document, index) => (
+                        <View
                             key={document.id}
-                            space="xs"
                             testID={`platform-b2b-document-${document.id}`}
+                            className={cx(
+                                'flex-row flex-wrap items-center gap-3 py-3',
+                                index === 0 ? null : 'border-t border-stroke-subtle',
+                            )}
                         >
-                            <Inline space="sm" align="center" wrap>
+                            <View className="min-w-[180px] flex-1 flex-col">
                                 <Text variant="bodyStrong">
                                     {t(`b2bApplication:documents.kinds.${document.kind}`)}
                                 </Text>
-                                <Badge
+                                <Text variant="caption" tone="secondary" numberOfLines={1}>
+                                    {document.fileName}
+                                </Text>
+                            </View>
+                            <View className="flex-row flex-wrap items-center gap-1.5">
+                                <DeskChip
                                     testID={`platform-b2b-document-${document.id}-status`}
                                     tone={
                                         document.reviewStatus === 'accepted'
@@ -1033,26 +1325,24 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                                     )}
                                 />
                                 {document.mediaTypeMismatch ? (
-                                    <Badge
+                                    <DeskChip
                                         tone="warning"
-                                        icon="warning"
                                         label={t('platformAdmin:b2b.documents.mismatch')}
                                     />
                                 ) : null}
                                 {document.hasExpired ? (
-                                    <Badge
+                                    <DeskChip
                                         tone="warning"
                                         label={t('platformAdmin:b2b.documents.expired')}
                                     />
                                 ) : null}
-                            </Inline>
-                            <Text tone="secondary">{document.fileName}</Text>
-                            <Inline space="sm" wrap>
+                            </View>
+                            <View className="flex-row items-center gap-1">
                                 {canView ? (
-                                    <Button
+                                    <DeskButton
                                         testID={`platform-b2b-document-${document.id}-view`}
                                         size="sm"
-                                        variant="secondary"
+                                        variant="quiet"
                                         label={t('platformAdmin:b2b.documents.view')}
                                         loading={
                                             download.isPending &&
@@ -1075,9 +1365,21 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                                 ) : null}
                                 {canReview && document.reviewStatus === 'pending' ? (
                                     <>
-                                        <Button
+                                        <DeskButton
+                                            testID={`platform-b2b-document-${document.id}-reject`}
+                                            size="sm"
+                                            variant="quiet"
+                                            label={t('platformAdmin:b2b.documents.reject')}
+                                            onPress={() => {
+                                                setRejecting(document);
+                                                setReason(null);
+                                                setNote('');
+                                            }}
+                                        />
+                                        <DeskButton
                                             testID={`platform-b2b-document-${document.id}-accept`}
                                             size="sm"
+                                            variant="secondary"
                                             label={t('platformAdmin:b2b.documents.accept')}
                                             loading={
                                                 review.isPending &&
@@ -1090,28 +1392,43 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                                                 });
                                             }}
                                         />
-                                        <Button
-                                            testID={`platform-b2b-document-${document.id}-reject`}
-                                            size="sm"
-                                            variant="danger"
-                                            label={t('platformAdmin:b2b.documents.reject')}
-                                            onPress={() => {
-                                                setRejecting(document);
-                                                setReason(null);
-                                                setNote('');
-                                            }}
-                                        />
                                     </>
                                 ) : null}
-                            </Inline>
-                        </Stack>
-                    ))
-                )}
-            </Stack>
+                            </View>
+                        </View>
+                    ))}
+                    {application.missingDocumentKinds.map((kind, index) => (
+                        <View
+                            key={kind}
+                            testID={`platform-b2b-document-missing-${kind}`}
+                            className={cx(
+                                'flex-row flex-wrap items-center gap-3 py-3',
+                                current.length === 0 && index === 0
+                                    ? null
+                                    : 'border-t border-stroke-subtle',
+                            )}
+                        >
+                            <View className="min-w-[180px] flex-1 flex-col">
+                                <Text variant="bodyStrong">
+                                    {t(`b2bApplication:documents.kinds.${kind}`)}
+                                </Text>
+                                <Text variant="caption" tone="secondary">
+                                    {t('platformAdmin:b2b.documents.notUploaded')}
+                                </Text>
+                            </View>
+                            <DeskChip
+                                tone="warning"
+                                label={t('platformAdmin:b2b.documents.missingChip')}
+                            />
+                        </View>
+                    ))}
+                </View>
+            )}
 
             <Dialog
                 testID="platform-b2b-reject-dialog"
                 open={rejecting !== null}
+                look="card"
                 onClose={() => {
                     setRejecting(null);
                 }}
@@ -1119,7 +1436,7 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                 description={t('platformAdmin:b2b.documents.rejectBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="platform-b2b-reject-cancel"
                             variant="quiet"
                             label={t('platformAdmin:b2b.cancel')}
@@ -1127,7 +1444,7 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                                 setRejecting(null);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="platform-b2b-reject-confirm"
                             variant="danger"
                             label={t('platformAdmin:b2b.documents.reject')}
@@ -1153,7 +1470,7 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                     </>
                 }
             >
-                <Stack space="sm">
+                <View className="flex-col gap-3.5">
                     <Select<KycRejectionReason>
                         testID="platform-b2b-reject-reason"
                         label={t('platformAdmin:b2b.documents.reason')}
@@ -1166,14 +1483,16 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                     />
                     <TextInputField
                         testID="platform-b2b-reject-note"
+                        id="platform-b2b-reject-note"
+                        size="sm"
                         label={t('platformAdmin:b2b.documents.note')}
                         value={note}
                         onChangeText={setNote}
                         multiline
                     />
-                </Stack>
+                </View>
             </Dialog>
-        </Card>
+        </SheetCard>
     );
 }
 
@@ -1196,18 +1515,19 @@ function RequestInformationDialog({
         <Dialog
             testID="platform-b2b-request-dialog"
             open={open}
+            look="card"
             onClose={onClose}
             title={t('platformAdmin:b2b.request.title')}
             description={t('platformAdmin:b2b.request.body')}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID="platform-b2b-request-cancel"
                         variant="quiet"
                         label={t('platformAdmin:b2b.cancel')}
                         onPress={onClose}
                     />
-                    <Button
+                    <DeskButton
                         testID="platform-b2b-request-confirm"
                         label={t('platformAdmin:b2b.request.confirm')}
                         disabled={message.trim() === ''}
@@ -1227,12 +1547,14 @@ function RequestInformationDialog({
                 </>
             }
         >
-            <Stack space="sm">
+            <View className="flex-col gap-3.5">
                 {failure === null ? null : (
-                    <Callout role="alert" tone="danger" title={failure.message} />
+                    <Callout role="alert" tone="danger" icon="warning" title={failure.message} />
                 )}
                 <TextInputField
                     testID="platform-b2b-request-message"
+                    id="platform-b2b-request-message"
+                    size="sm"
                     label={t('platformAdmin:b2b.request.message')}
                     hint={t('platformAdmin:b2b.request.messageHint')}
                     value={message}
@@ -1240,23 +1562,27 @@ function RequestInformationDialog({
                     multiline
                     required
                 />
-                <Text variant="bodyStrong">{t('platformAdmin:b2b.request.sections')}</Text>
-                {B2B_APPLICATION_SECTIONS.map((section) => (
-                    <Checkbox
-                        key={section}
-                        testID={`platform-b2b-request-section-${section}`}
-                        label={t(`b2bApplication:sections.${section}.title`)}
-                        checked={sections.includes(section)}
-                        onChange={(checked) => {
-                            setSections((current) =>
-                                checked
-                                    ? [...current, section]
-                                    : current.filter((item) => item !== section),
-                            );
-                        }}
-                    />
-                ))}
-            </Stack>
+                <View className="flex-col gap-1">
+                    <Text variant="caption" className="font-semibold" tone="secondary">
+                        {t('platformAdmin:b2b.request.sections')}
+                    </Text>
+                    {B2B_APPLICATION_SECTIONS.map((section) => (
+                        <Checkbox
+                            key={section}
+                            testID={`platform-b2b-request-section-${section}`}
+                            label={t(`b2bApplication:sections.${section}.title`)}
+                            checked={sections.includes(section)}
+                            onChange={(checked) => {
+                                setSections((current) =>
+                                    checked
+                                        ? [...current, section]
+                                        : current.filter((item) => item !== section),
+                                );
+                            }}
+                        />
+                    ))}
+                </View>
+            </View>
         </Dialog>
     );
 }
@@ -1282,18 +1608,19 @@ function ApproveDialog({
         <Dialog
             testID="platform-b2b-approve-dialog"
             open={open}
+            look="card"
             onClose={onClose}
             title={t('platformAdmin:b2b.approve.title')}
             description={t('platformAdmin:b2b.approve.body')}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID="platform-b2b-approve-cancel"
                         variant="quiet"
                         label={t('platformAdmin:b2b.cancel')}
                         onPress={onClose}
                     />
-                    <Button
+                    <DeskButton
                         testID="platform-b2b-approve-confirm"
                         label={t('platformAdmin:b2b.actions.approve')}
                         loading={approve.isPending}
@@ -1316,21 +1643,24 @@ function ApproveDialog({
                 </>
             }
         >
-            <Stack space="sm">
+            <View className="flex-col gap-3.5">
                 {unacceptedRequired === 0 ? null : (
                     <Callout
                         testID="platform-b2b-approve-documents-warning"
                         tone="warning"
+                        icon="warning"
                         title={t('platformAdmin:b2b.approve.documentsWarning', {
                             count: unacceptedRequired,
                         })}
                     />
                 )}
                 {failure === null ? null : (
-                    <Callout role="alert" tone="danger" title={failure.message} />
+                    <Callout role="alert" tone="danger" icon="warning" title={failure.message} />
                 )}
                 <TextInputField
                     testID="platform-b2b-approve-applicant-message"
+                    id="platform-b2b-approve-applicant-message"
+                    size="sm"
                     label={t('platformAdmin:b2b.decision.applicantMessage')}
                     hint={t('platformAdmin:b2b.approve.applicantMessageHint')}
                     value={applicantMessage}
@@ -1339,13 +1669,15 @@ function ApproveDialog({
                 />
                 <TextInputField
                     testID="platform-b2b-approve-internal-note"
+                    id="platform-b2b-approve-internal-note"
+                    size="sm"
                     label={t('platformAdmin:b2b.decision.internalNote')}
                     hint={t('platformAdmin:b2b.internalNoteHint')}
                     value={internalNote}
                     onChangeText={setInternalNote}
                     multiline
                 />
-            </Stack>
+            </View>
         </Dialog>
     );
 }
@@ -1369,18 +1701,19 @@ function DeclineDialog({
         <Dialog
             testID="platform-b2b-decline-dialog"
             open={open}
+            look="card"
             onClose={onClose}
             title={t('platformAdmin:b2b.decline.title')}
             description={t('platformAdmin:b2b.decline.body')}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID="platform-b2b-decline-cancel"
                         variant="quiet"
                         label={t('platformAdmin:b2b.cancel')}
                         onPress={onClose}
                     />
-                    <Button
+                    <DeskButton
                         testID="platform-b2b-decline-confirm"
                         variant="danger"
                         label={t('platformAdmin:b2b.actions.decline')}
@@ -1403,12 +1736,14 @@ function DeclineDialog({
                 </>
             }
         >
-            <Stack space="sm">
+            <View className="flex-col gap-3.5">
                 {failure === null ? null : (
-                    <Callout role="alert" tone="danger" title={failure.message} />
+                    <Callout role="alert" tone="danger" icon="warning" title={failure.message} />
                 )}
                 <TextInputField
                     testID="platform-b2b-decline-applicant-message"
+                    id="platform-b2b-decline-applicant-message"
+                    size="sm"
                     label={t('platformAdmin:b2b.decision.applicantMessage')}
                     hint={t('platformAdmin:b2b.decline.applicantMessageHint')}
                     value={applicantMessage}
@@ -1418,13 +1753,15 @@ function DeclineDialog({
                 />
                 <TextInputField
                     testID="platform-b2b-decline-internal-note"
+                    id="platform-b2b-decline-internal-note"
+                    size="sm"
                     label={t('platformAdmin:b2b.decision.internalNote')}
                     hint={t('platformAdmin:b2b.internalNoteHint')}
                     value={internalNote}
                     onChangeText={setInternalNote}
                     multiline
                 />
-            </Stack>
+            </View>
         </Dialog>
     );
 }
@@ -1456,18 +1793,19 @@ function ConfirmDialog({
         <Dialog
             testID={testID}
             open={open}
+            look="card"
             onClose={onClose}
             title={title}
             description={body}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID={`${testID}-cancel`}
                         variant="quiet"
                         label={t('platformAdmin:b2b.cancel')}
                         onPress={onClose}
                     />
-                    <Button
+                    <DeskButton
                         testID={`${testID}-confirm`}
                         label={confirmLabel}
                         loading={loading}
@@ -1478,21 +1816,5 @@ function ConfirmDialog({
         >
             {children}
         </Dialog>
-    );
-}
-
-/** Label/value pairs; an empty value reads as a dash rather than vanishing. */
-function FieldRows({ rows }: { readonly rows: readonly (readonly [string, string | null])[] }) {
-    return (
-        <Stack space="xs">
-            {rows.map(([label, value]) => (
-                <Inline key={label} space="sm" wrap>
-                    <Text tone="secondary" className="min-w-40">
-                        {label}
-                    </Text>
-                    <Text>{value ?? '—'}</Text>
-                </Inline>
-            ))}
-        </Stack>
     );
 }

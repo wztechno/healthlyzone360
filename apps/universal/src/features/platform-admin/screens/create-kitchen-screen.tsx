@@ -1,49 +1,49 @@
 import type { LocalisedText } from '@healthy360/api-client/contracts';
 import {
-    Button,
-    Card,
-    Heading,
-    Inline,
-    Stack,
+    Callout,
+    Cascade,
+    FormSection,
     Text,
     TextInputField,
+    cx,
+    useContentWidth,
     useToast,
 } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useCreateKitchenMutation } from '../../../data/platform-admin-hooks.ts';
 import { useUnsavedGuardFor } from '../../../navigation/use-unsaved-guard.ts';
 import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
+import { SendChecklist } from '../../business/corporate-parts.tsx';
+import type { SendCheck } from '../../business/corporate-parts.tsx';
 import { BilingualField } from '../../kitchen-admin/bilingual-field.tsx';
+import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
+import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
+import { PLATFORM_KITCHENS_HREF, platformKitchenHref } from '../platform-admin-chrome.tsx';
 
 /**
- * `/platform-admin/kitchens/new` — bring a kitchen onto the platform.
+ * `/platform-admin/kitchens/new` — bring a kitchen onto the platform. From the Platform admin
+ * canvas's Add a kitchen board (2026-11-23), in the kitchen's editor look, as Corporate's New
+ * quotation is:
  *
- * ## The bilingual field is reused, not reimplemented
+ * - **The opening:** the title, "Not saved yet" while there is something to lose, Cancel and
+ *   Create kitchen.
+ * - **Kitchen:** the name in English and Arabic, and the slug — typed by hand, never generated
+ *   from the name, because it cannot change once the kitchen exists.
+ * - **Region:** country, currency, language and timezone, seeded with sensible defaults.
+ * - **First branch:** its name and city.
+ * - **The aside**, sticky beside the form: this kitchen in a few facts, *Before you create* ticked
+ *   off as the form becomes complete, and Create kitchen again.
  *
- * `BilingualField` lives under `features/kitchen-admin/` because that is where it was first needed,
- * and importing it across feature folders is deliberate. What it encodes — a writing direction
- * pinned per *language* rather than per interface, so an English-reading operator gets a
- * left-to-right caret in the English box and a right-to-left one in the Arabic box — is a rule about
- * bilingual data on this platform, not a rule about kitchens managing themselves. A copy here would
- * be a second place to get that wrong.
- *
- * ## The slug is typed, never derived
- *
- * A slug generated from the name would be helpful exactly once and wrong forever after: it appears
- * in marketplace links, it cannot be changed, and a kitchen renaming itself must not silently move.
- * Making the operator type it is what makes it a decision.
- *
- * ## Field errors come from the server
- *
- * The only client-side validation is "the required boxes have something in them", which is what the
- * submit button's `disabled` expresses. Everything real — is this slug taken, is this a country the
- * platform operates in — is the server's answer, and duplicating it here would produce two
- * validators that disagree the first time the reference data changes.
+ * Creating makes the organisation, its first branch and a web sales channel; the next thing to do
+ * is always to invite its owner, so the operator lands on the new kitchen's pop-up. The only check
+ * here is that the required fields are filled — the server owns every other rule, and its errors
+ * land on the fields they name.
  */
 export function CreateKitchenScreen() {
     return (
@@ -53,11 +53,18 @@ export function CreateKitchenScreen() {
     );
 }
 
+/** The aside's width beside the form, the board's 300px. */
+const ASIDE_WIDTH = 300;
+/** Below this the aside runs under the form. */
+const BESIDE_MIN_WIDTH = 900;
+
 function CreateKitchenForm() {
     const { t } = useTranslation();
     const router = useRouter();
     const toast = useToast();
     const create = useCreateKitchenMutation();
+    const { width: contentWidth } = useContentWidth();
+    const beside = contentWidth >= BESIDE_MIN_WIDTH;
 
     const [name, setName] = useState<LocalisedText>({ en: '', ar: '' });
     const [slug, setSlug] = useState('');
@@ -69,56 +76,99 @@ function CreateKitchenForm() {
     const [city, setCity] = useState('');
 
     // Anything typed is work to lose; the defaults (country, currency, language, zone) are not.
-    const guard = useUnsavedGuardFor(
+    const dirty =
         !create.isSuccess &&
-            (name.en.trim() !== '' ||
-                name.ar.trim() !== '' ||
-                slug.trim() !== '' ||
-                branchName.trim() !== '' ||
-                city.trim() !== ''),
-        { message: t('common:unsaved.browserPrompt') },
-    );
+        (name.en.trim() !== '' ||
+            name.ar.trim() !== '' ||
+            slug.trim() !== '' ||
+            branchName.trim() !== '' ||
+            city.trim() !== '');
+    const guard = useUnsavedGuardFor(dirty, { message: t('common:unsaved.browserPrompt') });
 
     const failure = toFailure(create.error);
     const fieldError = (field: string): string | undefined =>
         failure?.code === 'validation.failed' ? failure.fields[field]?.[0] : undefined;
+    const errorFor = (field: string) => {
+        const error = fieldError(field);
+        return error === undefined ? {} : { error };
+    };
 
-    const ready =
-        name.en.trim() !== '' &&
-        name.ar.trim() !== '' &&
-        slug.trim() !== '' &&
+    const named = name.en.trim() !== '' && name.ar.trim() !== '';
+    const region =
         country.trim() !== '' &&
         currency.trim() !== '' &&
         language.trim() !== '' &&
-        timezone.trim() !== '' &&
-        branchName.trim() !== '';
+        timezone.trim() !== '';
+    const ready = named && slug.trim() !== '' && region && branchName.trim() !== '';
 
-    return (
-        <Stack space="lg" testID="platform-admin-create-screen">
-            <Button
-                testID="platform-admin-create-back"
-                variant="ghost"
-                label={t('platformAdmin:detail.backToList')}
-                onPress={() => {
-                    guard.intercept(() => {
-                        router.push('/platform-admin' as never);
+    const toList = () => {
+        router.push(PLATFORM_KITCHENS_HREF as never);
+    };
+
+    const submit = () => {
+        if (!ready) return;
+        create.mutate(
+            {
+                nameEn: name.en.trim(),
+                nameAr: name.ar.trim(),
+                slug: slug.trim().toLowerCase(),
+                countryCode: country.trim().toUpperCase(),
+                currencyCode: currency.trim().toUpperCase(),
+                languageCode: language.trim().toLowerCase(),
+                timezone: timezone.trim(),
+                branchName: branchName.trim(),
+                ...(city.trim() === '' ? {} : { city: city.trim() }),
+            },
+            {
+                onSuccess: (kitchen) => {
+                    toast.show({
+                        testID: 'platform-admin-created-toast',
+                        tone: 'success',
+                        message: t('platformAdmin:create.created', { name: kitchen.name }),
                     });
-                }}
-            />
+                    // Straight to the new kitchen: inviting its owner is always what comes next.
+                    router.replace(platformKitchenHref(kitchen.slug) as never);
+                },
+            },
+        );
+    };
 
-            <Stack space="xs">
-                <Heading level={1} testID="platform-admin-create-title">
-                    {t('platformAdmin:create.title')}
-                </Heading>
-                <Text tone="secondary" testID="platform-admin-create-subtitle">
-                    {t('platformAdmin:create.subtitle')}
-                </Text>
-            </Stack>
+    const createButton = (testID: string, block: boolean) => (
+        <DeskButton
+            testID={testID}
+            label={t('platformAdmin:create.submit')}
+            block={block}
+            {...(block ? { size: 'lg' as const } : { size: 'sm' as const })}
+            disabled={!ready}
+            loading={create.isPending}
+            onPress={submit}
+        />
+    );
 
-            <Card padding="md">
-                <Stack space="md">
+    const dash = '—';
+    const checks: readonly SendCheck[] = [
+        { key: 'name', ok: named, label: t('platformAdmin:create.checkName') },
+        { key: 'slug', ok: slug.trim() !== '', label: t('platformAdmin:create.checkSlug') },
+        { key: 'region', ok: region, label: t('platformAdmin:create.checkRegion') },
+        {
+            key: 'branch',
+            ok: branchName.trim() !== '',
+            label: t('platformAdmin:create.checkBranch'),
+        },
+    ];
+
+    const form = (
+        <View className="z-auto min-w-0 flex-1 flex-col gap-3">
+            <FormSection
+                first
+                variant="panel"
+                testID="platform-admin-create-kitchen-section"
+                title={t('platformAdmin:create.kitchenTitle')}
+            >
+                <View className="flex-col gap-3.5">
                     <BilingualField
                         testID="platform-admin-create-name"
+                        layout="fill"
                         fieldLabel={t('platformAdmin:create.nameLabel')}
                         placeholder={{
                             en: t('platformAdmin:create.namePlaceholderEn'),
@@ -127,147 +177,259 @@ function CreateKitchenForm() {
                         value={name}
                         onChange={setName}
                         requiredEnglish
+                        requiredArabic
                         {...(fieldError('name_en') === undefined
                             ? {}
                             : { englishError: fieldError('name_en') })}
+                        {...(fieldError('name_ar') === undefined
+                            ? {}
+                            : { arabicError: fieldError('name_ar') })}
                     />
+                    <View className="w-full md:w-1/2">
+                        <TextInputField
+                            testID="platform-admin-create-slug"
+                            id="platform-admin-create-slug"
+                            size="sm"
+                            label={t('platformAdmin:create.slugLabel')}
+                            placeholder={t('platformAdmin:create.slugPlaceholder')}
+                            hint={t('platformAdmin:create.slugHint')}
+                            value={slug}
+                            onChangeText={setSlug}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            required
+                            {...errorFor('slug')}
+                        />
+                    </View>
+                </View>
+            </FormSection>
 
-                    <TextInputField
-                        testID="platform-admin-create-slug"
+            <FormSection
+                variant="panel"
+                testID="platform-admin-create-region-section"
+                title={t('platformAdmin:create.regionTitle')}
+            >
+                <View className="flex-row flex-wrap gap-x-3 gap-y-3.5">
+                    <View className="w-[132px]">
+                        <TextInputField
+                            testID="platform-admin-create-country"
+                            id="platform-admin-create-country"
+                            size="sm"
+                            label={t('platformAdmin:create.countryLabel')}
+                            placeholder={t('platformAdmin:create.countryPlaceholder')}
+                            value={country}
+                            onChangeText={setCountry}
+                            autoCapitalize="characters"
+                            autoCorrect={false}
+                            maxLength={2}
+                            required
+                            {...errorFor('country_code')}
+                        />
+                    </View>
+                    <View className="w-[132px]">
+                        <TextInputField
+                            testID="platform-admin-create-currency"
+                            id="platform-admin-create-currency"
+                            size="sm"
+                            label={t('platformAdmin:create.currencyLabel')}
+                            placeholder={t('platformAdmin:create.currencyPlaceholder')}
+                            value={currency}
+                            onChangeText={setCurrency}
+                            autoCapitalize="characters"
+                            autoCorrect={false}
+                            maxLength={3}
+                            required
+                            {...errorFor('default_currency_code')}
+                        />
+                    </View>
+                    <View className="w-[132px]">
+                        <TextInputField
+                            testID="platform-admin-create-language"
+                            id="platform-admin-create-language"
+                            size="sm"
+                            label={t('platformAdmin:create.languageLabel')}
+                            placeholder={t('platformAdmin:create.languagePlaceholder')}
+                            value={language}
+                            onChangeText={setLanguage}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            maxLength={2}
+                            required
+                            {...errorFor('default_language_code')}
+                        />
+                    </View>
+                    <View className="w-full min-w-[220px] md:flex-1">
+                        <TextInputField
+                            testID="platform-admin-create-timezone"
+                            id="platform-admin-create-timezone"
+                            size="sm"
+                            label={t('platformAdmin:create.timezoneLabel')}
+                            placeholder={t('platformAdmin:create.timezonePlaceholder')}
+                            value={timezone}
+                            onChangeText={setTimezone}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            required
+                            {...errorFor('timezone')}
+                        />
+                    </View>
+                </View>
+            </FormSection>
+
+            <FormSection
+                variant="panel"
+                testID="platform-admin-create-branch-section"
+                title={t('platformAdmin:create.branchTitle')}
+            >
+                <View className="flex-row flex-wrap gap-x-3 gap-y-3.5">
+                    <View className="w-full min-w-[220px] md:flex-1">
+                        <TextInputField
+                            testID="platform-admin-create-branch"
+                            id="platform-admin-create-branch"
+                            size="sm"
+                            label={t('platformAdmin:create.branchNameLabel')}
+                            placeholder={t('platformAdmin:create.branchNamePlaceholder')}
+                            hint={t('platformAdmin:create.branchNameHint')}
+                            value={branchName}
+                            onChangeText={setBranchName}
+                            required
+                            {...errorFor('branch_name')}
+                        />
+                    </View>
+                    <View className="w-full min-w-[220px] md:flex-1">
+                        <TextInputField
+                            testID="platform-admin-create-city"
+                            id="platform-admin-create-city"
+                            size="sm"
+                            label={t('platformAdmin:create.cityLabel')}
+                            placeholder={t('platformAdmin:create.cityPlaceholder')}
+                            value={city}
+                            onChangeText={setCity}
+                            {...errorFor('city')}
+                        />
+                    </View>
+                </View>
+            </FormSection>
+
+            {failure === null || failure.code === 'validation.failed' ? null : (
+                <Callout
+                    testID="platform-admin-create-failure"
+                    role="alert"
+                    tone="danger"
+                    icon="warning"
+                    title={t('platformAdmin:create.failedTitle')}
+                    body={failure.message}
+                />
+            )}
+        </View>
+    );
+
+    const aside = (
+        <View
+            testID="platform-admin-create-panel"
+            role="complementary"
+            aria-label={t('platformAdmin:create.asideTitle')}
+            style={beside ? { width: ASIDE_WIDTH } : undefined}
+            className="z-auto self-start web:sticky web:top-0"
+        >
+            <FormSection first variant="panel" title={t('platformAdmin:create.asideTitle')}>
+                <View className="flex-col">
+                    <Fact
+                        label={t('platformAdmin:create.nameLabel')}
+                        value={name.en.trim() === '' ? dash : name.en.trim()}
+                    />
+                    <Fact
                         label={t('platformAdmin:create.slugLabel')}
-                        placeholder={t('platformAdmin:create.slugPlaceholder')}
-                        hint={t('platformAdmin:create.slugHint')}
-                        value={slug}
-                        onChangeText={setSlug}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        required
-                        {...(fieldError('slug') === undefined ? {} : { error: fieldError('slug') })}
+                        value={slug.trim() === '' ? dash : slug.trim().toLowerCase()}
                     />
-
-                    <TextInputField
-                        testID="platform-admin-create-country"
-                        label={t('platformAdmin:create.countryLabel')}
-                        placeholder={t('platformAdmin:create.countryPlaceholder')}
-                        value={country}
-                        onChangeText={setCountry}
-                        autoCapitalize="characters"
-                        autoCorrect={false}
-                        maxLength={2}
-                        required
-                        {...(fieldError('country_code') === undefined
-                            ? {}
-                            : { error: fieldError('country_code') })}
+                    <Fact
+                        label={t('platformAdmin:create.regionTitle')}
+                        value={[country, currency, language]
+                            .map((part) => part.trim())
+                            .filter((part) => part !== '')
+                            .join(' · ')}
                     />
-
-                    <TextInputField
-                        testID="platform-admin-create-currency"
-                        label={t('platformAdmin:create.currencyLabel')}
-                        placeholder={t('platformAdmin:create.currencyPlaceholder')}
-                        value={currency}
-                        onChangeText={setCurrency}
-                        autoCapitalize="characters"
-                        autoCorrect={false}
-                        maxLength={3}
-                        required
-                        {...(fieldError('default_currency_code') === undefined
-                            ? {}
-                            : { error: fieldError('default_currency_code') })}
-                    />
-
-                    <TextInputField
-                        testID="platform-admin-create-language"
-                        label={t('platformAdmin:create.languageLabel')}
-                        placeholder={t('platformAdmin:create.languagePlaceholder')}
-                        value={language}
-                        onChangeText={setLanguage}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        maxLength={2}
-                        required
-                        {...(fieldError('default_language_code') === undefined
-                            ? {}
-                            : { error: fieldError('default_language_code') })}
-                    />
-
-                    <TextInputField
-                        testID="platform-admin-create-timezone"
+                    <Fact
                         label={t('platformAdmin:create.timezoneLabel')}
-                        placeholder={t('platformAdmin:create.timezonePlaceholder')}
-                        value={timezone}
-                        onChangeText={setTimezone}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        required
-                        {...(fieldError('timezone') === undefined
-                            ? {}
-                            : { error: fieldError('timezone') })}
+                        value={timezone.trim() === '' ? dash : timezone.trim()}
                     />
-
-                    <TextInputField
-                        testID="platform-admin-create-branch"
-                        label={t('platformAdmin:create.branchNameLabel')}
-                        placeholder={t('platformAdmin:create.branchNamePlaceholder')}
-                        hint={t('platformAdmin:create.branchNameHint')}
-                        value={branchName}
-                        onChangeText={setBranchName}
-                        required
-                        {...(fieldError('branch_name') === undefined
-                            ? {}
-                            : { error: fieldError('branch_name') })}
+                    <Fact
+                        label={t('platformAdmin:create.branchTitle')}
+                        value={
+                            branchName.trim() === ''
+                                ? dash
+                                : [branchName.trim(), city.trim()]
+                                      .filter((part) => part !== '')
+                                      .join(', ')
+                        }
                     />
-
-                    <TextInputField
-                        testID="platform-admin-create-city"
-                        label={t('platformAdmin:create.cityLabel')}
-                        placeholder={t('platformAdmin:create.cityPlaceholder')}
-                        value={city}
-                        onChangeText={setCity}
+                    <SendChecklist
+                        testID="platform-admin-create-checks"
+                        title={t('platformAdmin:create.beforeYouCreate')}
+                        checks={checks}
                     />
+                    <View className="mt-3">
+                        {createButton('platform-admin-create-submit', true)}
+                    </View>
+                </View>
+            </FormSection>
+        </View>
+    );
 
-                    <Inline space="sm" wrap>
-                        <Button
-                            testID="platform-admin-create-submit"
-                            label={t('platformAdmin:create.submit')}
-                            loading={create.isPending}
-                            disabled={!ready}
+    return (
+        <Cascade space="md" testID="platform-admin-create-screen">
+            <CataloguePageHeader
+                titleLook="board"
+                testID="platform-admin-create-header"
+                titleTestID="platform-admin-create-title"
+                title={t('platformAdmin:create.title')}
+                titleAside={
+                    dirty ? (
+                        <View
+                            testID="platform-admin-create-dirty"
+                            className="h-[26px] flex-row items-center gap-1.5 rounded-full bg-warning-subtle px-2.5"
+                        >
+                            <View aria-hidden className="h-2 w-2 rounded-full bg-warning-strong" />
+                            <Text variant="caption" className="font-bold text-warning-on-subtle">
+                                {t('platformAdmin:create.notSaved')}
+                            </Text>
+                        </View>
+                    ) : undefined
+                }
+                primaryAction={
+                    <View className="flex-row flex-wrap items-center justify-end gap-2">
+                        <DeskButton
+                            testID="platform-admin-create-cancel"
+                            variant="secondary"
+                            size="sm"
+                            label={t('platformAdmin:common.cancel')}
                             onPress={() => {
-                                create.mutate(
-                                    {
-                                        nameEn: name.en.trim(),
-                                        nameAr: name.ar.trim(),
-                                        slug: slug.trim().toLowerCase(),
-                                        countryCode: country.trim().toUpperCase(),
-                                        currencyCode: currency.trim().toUpperCase(),
-                                        languageCode: language.trim().toLowerCase(),
-                                        timezone: timezone.trim(),
-                                        branchName: branchName.trim(),
-                                        ...(city.trim() === '' ? {} : { city: city.trim() }),
-                                    },
-                                    {
-                                        onSuccess: (kitchen) => {
-                                            toast.show({
-                                                testID: 'platform-admin-created-toast',
-                                                tone: 'success',
-                                                message: t('platformAdmin:create.created', {
-                                                    name: kitchen.name,
-                                                }),
-                                            });
-                                            // Straight to the new kitchen, because the next thing
-                                            // to do is always invite its owner and that form is
-                                            // there.
-                                            router.replace(
-                                                `/platform-admin/kitchens/${kitchen.slug}` as never,
-                                            );
-                                        },
-                                    },
-                                );
+                                guard.intercept(toList);
                             }}
                         />
-                    </Inline>
-                </Stack>
-            </Card>
+                        {createButton('platform-admin-create-send', false)}
+                    </View>
+                }
+            />
+
+            <View className={cx('z-auto gap-4', beside ? 'flex-row items-start' : 'flex-col')}>
+                {form}
+                {aside}
+            </View>
             <UnsavedChangesDialog guard={guard} testID="platform-admin-create-unsaved" />
-        </Stack>
+        </Cascade>
+    );
+}
+
+function Fact({ label, value }: { readonly label: string; readonly value: string }) {
+    return (
+        <View className="flex-row justify-between gap-2.5 py-1">
+            <Text variant="caption" tone="secondary">
+                {label}
+            </Text>
+            <Text variant="caption" className="min-w-0 shrink font-semibold tabular-nums text-end">
+                {value}
+            </Text>
+        </View>
     );
 }

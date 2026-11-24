@@ -176,21 +176,25 @@ export interface SendCheck {
  */
 export function SendChecklist({
     checks,
+    title,
     testID,
 }: {
     readonly checks: readonly SendCheck[];
+    /** Translated. The list's heading — "Before you send" unless the form says otherwise. */
+    readonly title?: string | undefined;
     readonly testID: string;
 }) {
     const { t } = useTranslation();
+    const heading = title ?? t('business:builder.beforeYouSend');
     return (
         <View
             testID={testID}
             className="mt-2.5 flex-col border-t border-stroke-subtle pt-2.5"
             role="list"
-            aria-label={t('business:builder.beforeYouSend')}
+            aria-label={heading}
         >
             <RNText className="mb-1 text-[13px] font-bold text-content-primary text-start">
-                {t('business:builder.beforeYouSend')}
+                {heading}
             </RNText>
             {checks.map((check) => (
                 <View

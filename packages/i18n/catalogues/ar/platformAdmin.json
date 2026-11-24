@@ -3,7 +3,10 @@
     "nav": {
         "kitchens": "المطابخ",
         "showcase": "نظام التصميم",
-        "b2b": "طلبات الأعمال"
+        "b2b": "طلبات الأعمال",
+        "group": "المنصّة",
+        "tenants": "المستأجرون",
+        "onboarding": "الانضمام"
     },
     "kitchens": {
         "title": "مؤسّسات المطابخ",
@@ -43,7 +46,13 @@
         "publishedCount_many": "{{count}} عنصرًا",
         "publishedCount_other": "{{count}} عنصر",
         "noOwner": "بلا مالك",
-        "open": "فتح {{name}}"
+        "open": "فتح {{name}}",
+        "statAll": "كل المطابخ",
+        "groupToken": "عرض: {{group}}",
+        "showAll": "عرض الكل",
+        "caption": "المطابخ",
+        "rowActions": "الإجراءات",
+        "view": "عرض"
     },
     "status": {
         "active": "يعمل",
@@ -75,7 +84,8 @@
             "active": "مفتوح",
             "closed": "مُغلق"
         },
-        "noCity": "غير مسجّلة"
+        "noCity": "غير مسجّلة",
+        "kind": "مطبخ"
     },
     "owners": {
         "title": "المالكون",
@@ -101,7 +111,10 @@
         "remaining_two": "بقي مالكان.",
         "remaining_few": "بقي {{count}} مالكين.",
         "remaining_many": "بقي {{count}} مالكًا.",
-        "remaining_other": "بقي {{count}} مالك."
+        "remaining_other": "بقي {{count}} مالك.",
+        "status": {
+            "active": "نشط"
+        }
     },
     "invite": {
         "title": "دعوة مالك",
@@ -118,7 +131,9 @@
         "submitting": "جارٍ الإرسال…",
         "sent": "أُرسلت الدعوة إلى {{email}}. تنتهي صلاحيتها في {{date}}.",
         "sentNotMailed": "أُنشئت الدعوة لـ {{email}}، لكن تعذّر إرسال البريد. أعد الإرسال للمحاولة مرّة أخرى.",
-        "supersedes": "دعوة العنوان نفسه مرّة أخرى تحلّ محلّ أي دعوة ما زالت قائمة."
+        "supersedes": "دعوة العنوان نفسه مرّة أخرى تحلّ محلّ أي دعوة ما زالت قائمة.",
+        "dialogTitle": "دعوة مالك إلى {{name}}",
+        "emailHint": "يسجّل الدخول بهذا العنوان ليقبل الدعوة. دعوته مرّة أخرى تحلّ محلّ أي دعوة ما زالت مفتوحة."
     },
     "lifecycle": {
         "suspend": "إيقاف",
@@ -136,7 +151,8 @@
         "reactivateBody": "يعود المطبخ إلى السوق ويستطيع النشر والبيع مجدّدًا، ويُمسح سبب الإيقاف.",
         "reactivateConfirm": "إعادة التفعيل",
         "reactivated": "عاد {{name}} إلى العمل.",
-        "closedNote": "المؤسّسة المُغلقة أُنهيت علاقتها بالمنصّة، ولا يمكن إعادة تفعيلها."
+        "closedNote": "المؤسّسة المُغلقة أُنهيت علاقتها بالمنصّة، ولا يمكن إعادة تفعيلها.",
+        "closedTitle": "مغلق"
     },
     "create": {
         "title": "إضافة مطبخ",
@@ -163,7 +179,18 @@
         "submit": "إنشاء المطبخ",
         "submitting": "جارٍ الإنشاء…",
         "created": "{{name}} جاهز. ادعُ مالكًا لتسليمه.",
-        "ownerNext": "دعوة مالك"
+        "ownerNext": "دعوة مالك",
+        "kitchenTitle": "المطبخ",
+        "regionTitle": "المنطقة",
+        "branchTitle": "الفرع الأول",
+        "asideTitle": "هذا المطبخ",
+        "beforeYouCreate": "قبل الإنشاء",
+        "notSaved": "لم يُحفظ بعد",
+        "failedTitle": "لم يُنشأ المطبخ",
+        "checkName": "اسم بالإنجليزية والعربية",
+        "checkSlug": "معرّف لرابطه في السوق",
+        "checkRegion": "البلد والعملة واللغة والمنطقة الزمنية",
+        "checkBranch": "فرع أول"
     },
     "b2b": {
         "title": "طلبات حسابات الأعمال",
@@ -212,7 +239,9 @@
             "duplicatesTitle_two": "يوجد طلبان آخران بنفس رقم السجل أو الرقم الضريبي",
             "duplicatesTitle_few": "توجد {{count}} طلبات أخرى بنفس رقم السجل أو الرقم الضريبي",
             "duplicatesTitle_many": "يوجد {{count}} طلبًا آخر بنفس رقم السجل أو الرقم الضريبي",
-            "duplicatesTitle_other": "يوجد {{count}} طلب آخر بنفس رقم السجل أو الرقم الضريبي"
+            "duplicatesTitle_other": "يوجد {{count}} طلب آخر بنفس رقم السجل أو الرقم الضريبي",
+            "application": "الطلب",
+            "notGiven": "غير مذكور"
         },
         "stages": {
             "label": "أين وصل هذا الطلب",
@@ -266,7 +295,8 @@
             "closed": {
                 "title": "مُغلق",
                 "body": "رُفض هذا الطلب أو سُحب. لا يمكن فعل شيء آخر به."
-            }
+            },
+            "label": "الخطوة التالية"
         },
         "toast": {
             "claimed": "تم الاستلام. المراجعة لك.",
@@ -301,7 +331,15 @@
             "sendBody": "يصل مقدّم الطلب رابط لقراءتها وتوقيعها. بعد ذلك، تغيير الشروط يعني إصدار نسخة جديدة.",
             "reviseTitle": "تعديل الاتفاقية؟",
             "reviseBody": "تُسحب النسخة المنتظرة للتوقيع وتُحفظ في السجل، وتُفتح مسودة جديدة بنفس الشروط لتعدّلها.",
-            "paymentTerms": "شروط الدفع"
+            "paymentTerms": "شروط الدفع",
+            "versionShort": "الإصدار {{version}}",
+            "notSet": "لم يُحدَّد بعد: {{fields}}",
+            "earlier_zero": "لا إصدارات سابقة",
+            "earlier_one": "إصدار سابق واحد",
+            "earlier_two": "إصداران سابقان",
+            "earlier_few": "{{count}} إصدارات سابقة",
+            "earlier_many": "{{count}} إصدارًا سابقًا",
+            "earlier_other": "{{count}} إصدار سابق"
         },
         "agreementStatus": {
             "draft": "مسودة",
@@ -350,7 +388,10 @@
             "rejectTitle": "رفض هذا المستند؟",
             "rejectBody": "يرى مقدّم الطلب السبب ويمكنه رفع بديل.",
             "reason": "السبب",
-            "note": "ملاحظة لمقدّم الطلب"
+            "note": "ملاحظة لمقدّم الطلب",
+            "acceptedCount": "{{accepted}} من {{total}} مقبولة",
+            "notUploaded": "لم يُرفع شيء",
+            "missingChip": "ناقص"
         },
         "request": {
             "title": "طلب معلومات إضافية",
@@ -409,6 +450,23 @@
             "summary": "ملخص الشروط",
             "summaryHint": "يظهر للمفوّض بالتوقيع فوق الشروط.",
             "notANumber": "أدخل رقمًا، صفرًا أو أكثر."
+        },
+        "caption": "طلبات الأعمال",
+        "openShort": "فتح",
+        "history": {
+            "title": "السجلّ",
+            "submitted": "قُدِّم",
+            "decided": {
+                "approved": "تمت الموافقة",
+                "declined": "رُفض",
+                "withdrawn": "سُحب"
+            },
+            "signed": "وقّعه {{name}}",
+            "opened": "فُتح الحساب"
         }
+    },
+    "common": {
+        "cancel": "إلغاء",
+        "listSeparator": "، "
     }
 }
