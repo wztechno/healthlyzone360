@@ -62,10 +62,42 @@ jest.mock('expo-router', () => {
     };
 });
 
+/*
+ * The form is four steps and draws one at a time (Procurement boards, 2026-11-24). The helpers open
+ * the step a control sits on before touching it, the way a reader clicks its name in the step row.
+ */
+const STEP_OF: readonly (readonly [string, string])[] = [
+    ['kitchen-procurement-post-order', 'arrival'],
+    ['kitchen-procurement-post-orders-empty', 'arrival'],
+    ['kitchen-post-receipt-arrival', 'arrival'],
+    ['kitchen-post-receipt-open-orders', 'arrival'],
+    ['kitchen-procurement-post-supplier', 'receipt'],
+    ['kitchen-procurement-post-new-supplier', 'receipt'],
+    ['kitchen-procurement-post-document-ref', 'receipt'],
+    ['kitchen-procurement-post-invoice-ref', 'receipt'],
+    ['kitchen-procurement-post-received-on', 'receipt'],
+    ['kitchen-post-receipt-details', 'receipt'],
+    ['kitchen-procurement-post-confirm', 'check'],
+    ['kitchen-post-receipt-summary', 'check'],
+    ['kitchen-post-receipt-rises', 'check'],
+    ['kitchen-post-receipt-fixes', 'check'],
+    ['kitchen-procurement-post-', 'lines'],
+    ['kitchen-post-receipt-', 'lines'],
+];
+
+function openStepFor(testID: string) {
+    if (screen.queryByTestId(testID) !== null) return;
+    const step = STEP_OF.find(([prefix]) => testID.startsWith(prefix))?.[1];
+    const tab =
+        step === undefined ? null : screen.queryByTestId(`kitchen-post-receipt-steps-${step}`);
+    if (tab !== null) fireEvent.press(tab);
+}
+
 /** Waits for an element, with the contention headroom the other kitchen suites document. */
 function untilVisible(testID: string) {
     return waitFor(
         () => {
+            openStepFor(testID);
             expect(screen.getByTestId(testID)).toBeTruthy();
         },
         { timeout: 10_000 },
@@ -73,6 +105,9 @@ function untilVisible(testID: string) {
 }
 
 async function press(testID: string) {
+    await act(async () => {
+        openStepFor(testID);
+    });
     await act(async () => {
         fireEvent.press(screen.getByTestId(testID));
     });
@@ -86,6 +121,9 @@ async function choose(selectTestID: string, value: string) {
 }
 
 async function type(testID: string, text: string) {
+    await act(async () => {
+        openStepFor(testID);
+    });
     await act(async () => {
         fireEvent.changeText(screen.getByTestId(testID), text);
     });
@@ -232,7 +270,8 @@ describe('post a goods receipt — a market purchase', () => {
         });
 
         await untilVisible(`${LINES}-row-line-first-item`);
-        expect(screen.getByTestId('kitchen-post-receipt-rises-empty')).toBeTruthy();
+        // The summary is the last step's: opened, it has nothing rising yet.
+        await untilVisible('kitchen-post-receipt-rises-empty');
 
         // Pressed with an empty line: the tray names it, a card per field, and nothing is sent.
         await press('kitchen-procurement-post-confirm');
@@ -459,6 +498,8 @@ describe('post a goods receipt — a market purchase', () => {
         expect(screen.getByTestId('kitchen-procurement-post-invoice-ref-error')).toHaveTextContent(
             'The invoice number is too long.',
         );
+        // The refusal opened the Receipt step, the first it names; the line's is on Lines.
+        await press('kitchen-post-receipt-steps-lines');
         expect(screen.getAllByText('The quantity must be at least 0.0001.').length).toBeGreaterThan(
             0,
         );
@@ -582,7 +623,10 @@ describe('post a goods receipt — a delivery against an order', () => {
         expect(screen.getByTestId(`${LINES}-row-order-line-po-line-quinoa-quantity`)).toBeTruthy();
         expect(screen.queryByTestId(`${LINES}-row-order-line-po-line-oil-quantity`)).toBeNull();
         expect(screen.getByTestId(`${chickenRow}-quantity-input`).props.value).toBe('24');
-        expect(screen.getByText('Delivery on SO-2026-0035')).toBeTruthy();
+        // The step row names the order the delivery is against.
+        expect(screen.getByTestId('kitchen-post-receipt-steps-arrival-caption')).toHaveTextContent(
+            'SO-2026-0035',
+        );
 
         // More chicken than was still on order.
         await type(`${chickenRow}-quantity-input`, '30');

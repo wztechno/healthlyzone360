@@ -105,7 +105,10 @@ export function RecordSummaryAside({
             role="complementary"
             aria-label={title}
             style={width === null ? undefined : { width }}
-            className="z-auto self-start web:sticky web:top-0"
+            // Under the form (no width) it runs the full width, as the prop says.
+            className={
+                width === null ? 'z-auto self-stretch' : 'z-auto self-start web:sticky web:top-0'
+            }
         >
             <FormSection first variant={variant} testID={`${testID}-card`} title={title}>
                 <View className="flex-col gap-base">
