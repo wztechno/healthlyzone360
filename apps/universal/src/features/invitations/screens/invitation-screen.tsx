@@ -20,6 +20,7 @@ import {
     useInvitationQuery,
 } from '../../../data/invitations-hooks.ts';
 import { recordResumeIntent } from '../../marketplace/resume-intent.ts';
+import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
 import { daysUntil, resolveInvitationView } from '../invitation-state.ts';
 
@@ -46,11 +47,16 @@ import { daysUntil, resolveInvitationView } from '../invitation-state.ts';
  * the authority — two addresses can mask alike, so a local *match* is a hypothesis and a server
  * refusal turns the screen into the mismatch state rather than into an error toast.
  *
- * ## Sign-in leaves a breadcrumb rather than a redirect
+ * ## Signing in comes straight back
  *
- * `recordResumeIntent` is the marketplace's mechanism and the reason it is client-side rather than
- * a `?next=` parameter applies here unchanged. Nothing redirects automatically: the person signs
- * in, and the consumer home offers "Continue to …" pointing back at this exact link, token and all.
+ * Sign in, Create an account and Confirm my email address all leave carrying `?returnTo=` for this
+ * exact link, token and all — the same return the gate and checkout use. Sign-in finishes on it;
+ * registration hands it to `/verify-email`, whose Continue finishes on it. Before this the page left
+ * with nothing, and a new owner who had just confirmed their address landed on the shop home with
+ * no way back but the email.
+ *
+ * `recordResumeIntent` is still written as the fallback: if the person wanders off mid-way, the
+ * consumer home offers "Continue to …" pointing here.
  */
 
 export interface InvitationScreenProps {
@@ -90,7 +96,7 @@ export function InvitationScreen({ token }: InvitationScreenProps) {
         // The breadcrumb points at *this* page, not at the destination: it records where to come
         // back to, and the token is part of that address.
         recordResumeIntent({ href: here, labelKey: 'invitations:title' });
-        router.push(destination as never);
+        router.push(withReturnTo(destination, here) as never);
     };
 
     if (view.kind === 'loading') {
@@ -235,7 +241,7 @@ export function InvitationScreen({ token }: InvitationScreenProps) {
                             label={t('invitations:unverified.verify')}
                             onPress={() => {
                                 recordResumeIntent({ href: here, labelKey: 'invitations:title' });
-                                router.push('/verify-email' as never);
+                                router.push(withReturnTo('/verify-email', here) as never);
                             }}
                         />
                     }
@@ -269,7 +275,7 @@ export function InvitationScreen({ token }: InvitationScreenProps) {
                                 recordResumeIntent({ href: here, labelKey: 'invitations:title' });
                                 logout.mutate(undefined, {
                                     onSuccess: () => {
-                                        router.push('/sign-in' as never);
+                                        router.push(withReturnTo('/sign-in', here) as never);
                                     },
                                 });
                             }}
