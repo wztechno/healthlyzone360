@@ -1,9 +1,9 @@
-import { Icon, Text } from '@healthy360/design-system';
+import { Button, Icon, Text } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { View } from 'react-native';
 
 import { CompactRecordPopup } from '../features/kitchen-admin/catalogue/compact-record-popup.tsx';
-import { DeskButton, DeskChip } from '../features/kitchen-admin/desk-kit/index.ts';
+import { DeskChip } from '../features/kitchen-admin/desk-kit/index.ts';
 import { InfoCard, StageTrack } from '../features/kitchen-admin/orders/order-popup-parts.tsx';
 import type { OrderStage } from '../features/kitchen-admin/orders/order-popup-parts.tsx';
 
@@ -74,13 +74,13 @@ export function OrderPopupProposal({
                     <StageTrack
                         label="Where the order is"
                         stages={stages}
-                        next={<DeskButton label="Mark delivered" />}
+                        next={<Button label="Mark delivered" />}
                     />
                     <View className="flex-row flex-wrap gap-3">
                         <InfoCard
                             icon="person"
                             title="Customer"
-                            action={<DeskButton variant="quiet" label="Call" />}
+                            action={<Button variant="quiet" label="Call" />}
                         >
                             <Text variant="strong">Karim Saleh</Text>
                             <Text variant="caption" tone="secondary" className="tabular-nums">
@@ -90,7 +90,7 @@ export function OrderPopupProposal({
                         <InfoCard
                             icon="truck"
                             title="Delivery"
-                            action={<DeskButton variant="quiet" label="Change driver" />}
+                            action={<Button variant="quiet" label="Change driver" />}
                         >
                             <Text variant="strong">Today · Lunch, 12:00–14:00</Text>
                             <Text variant="caption" tone="secondary">
@@ -103,7 +103,7 @@ export function OrderPopupProposal({
                         <InfoCard
                             icon="banknote"
                             title="Money"
-                            action={<DeskButton variant="quiet" label="Record a payment" />}
+                            action={<Button variant="quiet" label="Record a payment" />}
                             warn
                         >
                             <Text variant="strong" tone="warning">
@@ -166,11 +166,11 @@ export function OrderPopupProposal({
             }
             footer={
                 <>
-                    <DeskButton variant="secondary" label="Print ticket" />
-                    <DeskButton variant="secondary" label="Edit order" />
+                    <Button variant="secondary" label="Print ticket" />
+                    <Button variant="secondary" label="Edit order" />
                 </>
             }
-            footerEnd={<DeskButton variant="dangerOutline" label="Cancel order" />}
+            footerEnd={<Button variant="dangerOutline" label="Cancel order" />}
             onClose={onClose}
         />
     );

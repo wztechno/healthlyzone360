@@ -1,16 +1,5 @@
 import type { ProductionOrderLine } from '@healthy360/api-client/contracts';
-import {
-    DataList,
-    DateField,
-    Dialog,
-    Heading,
-    InfoTip,
-    Inline,
-    QuantityInput,
-    Stack,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
+import { Button, DataList, DateField, Dialog, Heading, InfoTip, Inline, QuantityInput, Stack, Text, TextInputField } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
@@ -30,7 +19,6 @@ import {
     withLineQuantity,
 } from './completion-model.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * What the cook says actually happened (PROD1).
  *
@@ -261,14 +249,14 @@ export function BatchSettlementDialog({
             }
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID={`${testID}-cancel`}
                         variant="quiet"
                         size="sm"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID={`${testID}-submit`}
                         variant={mode === 'abandon' ? 'danger' : 'primary'}
                         size="sm"

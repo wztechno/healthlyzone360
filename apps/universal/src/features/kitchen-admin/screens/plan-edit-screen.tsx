@@ -1,27 +1,6 @@
 import { isValidationFailure } from '@healthy360/api-client/contracts';
 import type { LocalisedText, PlanAdmin } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Callout,
-    Cascade,
-    Dialog,
-    ErrorState,
-    FormGrid,
-    FormSection,
-    FormSkeleton,
-    Icon,
-    InfoTip,
-    Inline,
-    IssueTrayFrame,
-    IssueUnanchored,
-    Stack,
-    Tabs,
-    Text,
-    TextInputField,
-    useFormSteps,
-    useIssueTrayController,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Callout, Cascade, Dialog, ErrorState, FormGrid, FormSection, FormSkeleton, Icon, InfoTip, Inline, IssueTrayFrame, IssueUnanchored, Stack, Tabs, Text, TextInputField, useFormSteps, useIssueTrayController, useToast } from '@healthy360/design-system';
 import type { GridSpanProps, IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
 import { DIET_CLASSIFICATIONS, SubscriptionPlanId } from '@healthy360/domain-types';
 import type { DietClassification } from '@healthy360/domain-types';
@@ -86,7 +65,6 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskToggleTile } from '../desk-kit/desk-toggle-tile.tsx';
 import { UnsavedMark } from '../unsaved-mark.tsx';
@@ -1304,7 +1282,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                         }
                         primaryAction={
                             <Inline space="xs" align="center" wrap justify="end">
-                                <DeskButton
+                                <Button
                                     testID="kitchen-plan-editor-screen-back"
                                     variant="secondary"
                                     label={t('kitchen:editor.cancel')}
@@ -1314,7 +1292,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                 />
                                 {/* Publication is never offered before the plan exists. */}
                                 {isCreating || !canManage ? null : isPublished ? (
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-plan-retire"
                                         variant="secondary"
                                         label={t('kitchen:plans.retire')}
@@ -1323,7 +1301,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                         }}
                                     />
                                 ) : (
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-plan-publish"
                                         label={t('kitchen:publish.action')}
                                         onPress={() => {
@@ -1337,7 +1315,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                  * a save bar at the foot (the user's choice, 2026-11-15): the
                                  * marker and Save sit with Cancel, as on the recipe editor.
                                  */}
-                                <DeskButton
+                                <Button
                                     testID="kitchen-plan-editor-screen-save"
                                     // The design's own word for this button (Commercial §3.3).
                                     label={t('kitchen:plans.savePlan')}
@@ -1594,7 +1572,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                             actions={
                                 canManage ? (
                                     <Inline space="xs" wrap>
-                                        <DeskButton
+                                        <Button
                                             testID="kitchen-plan-variants-add"
                                             size="sm"
                                             variant="secondary"
@@ -1611,7 +1589,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                             }}
                                         />
                                         {isCreating ? null : (
-                                            <DeskButton
+                                            <Button
                                                 testID="kitchen-plan-variants-save"
                                                 size="sm"
                                                 label={t('kitchen:plans.saveVariants')}
@@ -1664,7 +1642,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                             actions={
                                 canManage ? (
                                     <Inline space="xs" wrap>
-                                        <DeskButton
+                                        <Button
                                             testID="kitchen-plan-durations-add"
                                             size="sm"
                                             variant="secondary"
@@ -1681,7 +1659,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                             }}
                                         />
                                         {isCreating ? null : (
-                                            <DeskButton
+                                            <Button
                                                 testID="kitchen-plan-durations-save"
                                                 size="sm"
                                                 label={t('kitchen:plans.saveDurations')}
@@ -1729,7 +1707,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                             testID="kitchen-plan-prices"
                             title={t('kitchen:plans.sectionPrices')}
                             actions={
-                                <DeskButton
+                                <Button
                                     testID="kitchen-plan-prices-open"
                                     size="sm"
                                     variant="ghost"
@@ -1796,7 +1774,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                     description={t('kitchen:plans.publishBody')}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-plan-publish-cancel"
                                 variant="quiet"
                                 label={t('kitchen:common.cancel')}
@@ -1804,7 +1782,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                     setShowPublish(false);
                                 }}
                             />
-                            <DeskButton
+                            <Button
                                 testID="kitchen-plan-publish-confirm"
                                 label={t('kitchen:publish.confirm')}
                                 loading={publish.isPending}
@@ -1925,7 +1903,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                     description={t('kitchen:plans.retireBody')}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-plan-retire-cancel"
                                 variant="quiet"
                                 label={t('kitchen:common.cancel')}
@@ -1933,7 +1911,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                     setShowRetire(false);
                                 }}
                             />
-                            <DeskButton
+                            <Button
                                 testID="kitchen-plan-retire-confirm"
                                 variant="danger"
                                 label={t('kitchen:plans.retireConfirm')}
@@ -1983,13 +1961,13 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                     description={t('kitchen:unsaved.body')}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-plan-editor-screen-unsaved-keep"
                                 variant="quiet"
                                 label={t('kitchen:unsaved.keepEditing')}
                                 onPress={guard.cancelDiscard}
                             />
-                            <DeskButton
+                            <Button
                                 testID="kitchen-plan-editor-screen-unsaved-discard"
                                 variant="danger"
                                 label={t('kitchen:unsaved.discard')}
@@ -2009,13 +1987,13 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                     description={t('kitchen:conflict.body')}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-plan-editor-screen-conflict-keep"
                                 variant="quiet"
                                 label={t('kitchen:conflict.keepEditing')}
                                 onPress={concurrency.keepEditing}
                             />
-                            <DeskButton
+                            <Button
                                 testID="kitchen-plan-editor-screen-conflict-reload"
                                 variant="danger"
                                 label={t('kitchen:conflict.reload')}

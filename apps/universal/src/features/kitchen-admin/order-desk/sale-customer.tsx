@@ -1,19 +1,5 @@
 import type { OrderDeskCustomer, ServiceArea } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Callout,
-    EmptyState,
-    ErrorState,
-    FormGrid,
-    FormSection,
-    Icon,
-    Inline,
-    SearchInput,
-    Select,
-    Skeleton,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
+import { Badge, Button, Callout, EmptyState, ErrorState, FormGrid, FormSection, Icon, Inline, SearchInput, Select, Skeleton, Text, TextInputField } from '@healthy360/design-system';
 import { fieldWidth } from '@healthy360/design-tokens';
 import { useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
@@ -44,7 +30,7 @@ import {
     normaliseDeskPhone,
 } from './desk-phone.ts';
 import { useDebouncedValue } from './use-debounced-value.ts';
-import { DeskButton, DeskChip } from '../desk-kit/index.ts';
+import { DeskChip } from '../desk-kit/index.ts';
 
 /**
  * Who the sale is for, and where a delivery goes. The customer card opens the sale, above the menu;
@@ -355,7 +341,7 @@ export function CustomerSection({
                           title={t('kitchen:desk.sale.customerDuplicatesTitle')}
                           body={duplicateName(duplicate)}
                           actions={
-                              <DeskButton
+                              <Button
                                   testID={`kitchen-order-desk-sale-customer-duplicate-${duplicate.id}-choose`}
                                   variant="secondary"
                                   label={t('kitchen:desk.sale.customerUseInstead')}
@@ -386,7 +372,7 @@ export function CustomerSection({
                     title={t('kitchen:desk.refusal.phone_required')}
                     actions={
                         chosen.origin === 'self_service' ? undefined : (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-order-desk-sale-customer-add-phone"
                                 variant="secondary"
                                 label={t('kitchen:desk.sale.customerAddPhone')}
@@ -403,7 +389,7 @@ export function CustomerSection({
     );
 
     const actions = walkIn ? (
-        <DeskButton
+        <Button
             testID="kitchen-order-desk-sale-walk-in-change"
             variant="secondary"
             label={t('kitchen:desk.sale.change')}
@@ -413,7 +399,7 @@ export function CustomerSection({
         <Inline space="xs">
             {/* A registered customer's name is theirs: the row policy refuses the write. */}
             {chosen?.origin === 'self_service' ? null : (
-                <DeskButton
+                <Button
                     testID="kitchen-order-desk-sale-customer-edit"
                     variant="secondary"
                     label={t('kitchen:desk.sale.customerEdit')}
@@ -422,7 +408,7 @@ export function CustomerSection({
                     }}
                 />
             )}
-            <DeskButton
+            <Button
                 testID="kitchen-order-desk-sale-customer-change"
                 variant="secondary"
                 label={t('kitchen:desk.sale.change')}
@@ -508,7 +494,7 @@ export function CustomerSection({
                     )}
 
                     <Inline space="xs" wrap>
-                        <DeskButton
+                        <Button
                             testID="kitchen-order-desk-sale-customer-edit-save"
                             label={t('kitchen:desk.sale.customerEditSave')}
                             loading={update.isPending}
@@ -521,7 +507,7 @@ export function CustomerSection({
                                 saveEdit(chosen);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-order-desk-sale-customer-edit-cancel"
                             variant="secondary"
                             label={t('kitchen:desk.sale.customerCancelCreate')}
@@ -598,7 +584,7 @@ export function CustomerSection({
                         {creating ? null : (
                             <Inline space="xs">
                                 {rows.length > 0 ? null : (
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-order-desk-sale-customer-new"
                                         variant="secondary"
                                         label={t('kitchen:desk.sale.customerNew')}
@@ -607,7 +593,7 @@ export function CustomerSection({
                                     />
                                 )}
                                 {walkInOffered ? (
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-order-desk-sale-walk-in"
                                         variant="secondary"
                                         label={t('kitchen:desk.sale.walkInChoose')}
@@ -811,7 +797,7 @@ export function CustomerSection({
                                     />
                                 </View>
                                 <Inline space="xs" wrap>
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-order-desk-sale-customer-create"
                                         label={t('kitchen:desk.sale.customerCreate')}
                                         loading={create.isPending}
@@ -845,7 +831,7 @@ export function CustomerSection({
                                             );
                                         }}
                                     />
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-order-desk-sale-customer-cancel"
                                         variant="secondary"
                                         label={t('kitchen:desk.sale.customerCancelCreate')}
@@ -948,7 +934,7 @@ export function AddressSection({
                 {...(folded
                     ? {
                           actions: (
-                              <DeskButton
+                              <Button
                                   testID="kitchen-order-desk-sale-address-undeliverable-fix"
                                   variant="secondary"
                                   label={t('kitchen:desk.sale.change')}
@@ -985,7 +971,7 @@ export function AddressSection({
             description={folded ? undefined : t('kitchen:desk.sale.addressNoteBody')}
             actions={
                 folded ? (
-                    <DeskButton
+                    <Button
                         testID="kitchen-order-desk-sale-address-change"
                         variant="secondary"
                         label={t('kitchen:desk.sale.change')}
@@ -1022,7 +1008,7 @@ export function AddressSection({
                                                 .join(' · ') || EM_DASH}
                                         </Text>
                                     </View>
-                                    <DeskButton
+                                    <Button
                                         testID={`kitchen-order-desk-sale-address-on-file-${address.id}-choose`}
                                         variant="quiet"
                                         label={t('kitchen:desk.sale.customerChoose')}
@@ -1098,7 +1084,7 @@ export function AddressSection({
                     )}
 
                     <Inline space="xs">
-                        <DeskButton
+                        <Button
                             testID="kitchen-order-desk-sale-address-save"
                             label={t('kitchen:desk.sale.addressSave')}
                             loading={save.isPending}

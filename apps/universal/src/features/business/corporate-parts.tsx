@@ -1,4 +1,4 @@
-import { Icon } from '@healthy360/design-system';
+import { Button, Icon } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -134,28 +134,20 @@ export function PickedLinesBar({
                         : shown}
                 </RNText>
             </View>
-            <Pressable
+            <Button
                 testID={`${testID}-clear`}
-                role="button"
-                accessibilityRole="button"
+                variant="inverseOutline"
+                size="sm"
+                label={t('business:picked.clear')}
                 onPress={onClear}
-                className="h-desk-toolbar flex-row items-center rounded-full border border-content-inverse/30 px-3 hover:bg-content-inverse/15 web:transition-colors"
-            >
-                <RNText className="text-[13px] font-semibold text-content-inverse">
-                    {t('business:picked.clear')}
-                </RNText>
-            </Pressable>
-            <Pressable
+            />
+            <Button
                 testID={`${testID}-ask`}
-                role="button"
-                accessibilityRole="button"
+                variant="inverse"
+                size="sm"
+                label={t('business:picked.ask')}
                 onPress={onAsk}
-                className="h-desk-toolbar flex-row items-center rounded-full bg-stage-green px-4 hover:opacity-90 web:transition-opacity"
-            >
-                <RNText className="text-[13px] font-semibold text-surface-canopy">
-                    {t('business:picked.ask')}
-                </RNText>
-            </Pressable>
+            />
         </View>
     );
 }

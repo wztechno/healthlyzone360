@@ -1,5 +1,5 @@
 import type { StaffAlert, StaffAlertType } from '@healthy360/api-client/contracts';
-import { DensityProvider, Icon, useToast } from '@healthy360/design-system';
+import { Button, DensityProvider, Icon, useToast } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { usePathname, useRouter } from 'expo-router';
@@ -15,7 +15,6 @@ import {
     useStaffAlertsQuery,
 } from '../data/staff-alerts-hooks.ts';
 import { playAlertTone } from '../features/kds/alert-tone.ts';
-import { DeskButton } from '../features/kitchen-admin/desk-kit/desk-button.tsx';
 import { DeskChip } from '../features/kitchen-admin/desk-kit/desk-chip.tsx';
 import { ORDER_SUPERVISE_PERMISSION } from '../features/kitchen-admin/entity-registry.ts';
 import { withReturnTo } from '../navigation/return-to.ts';
@@ -225,7 +224,7 @@ function AlertRow({
                     {unread ? t('kitchen:alerts.unreadDetail', { when }) : when}
                 </RNText>
                 <View className="flex-row pt-1">
-                    <DeskButton
+                    <Button
                         testID="staff-alerts-panel-open"
                         variant={unread ? 'primary' : 'quiet'}
                         label={t('kitchen:alerts.open')}
@@ -381,7 +380,7 @@ function AlertsBell() {
                             )}
                             <View className="flex-1" />
                             {unreadCount === 0 ? null : (
-                                <DeskButton
+                                <Button
                                     testID="staff-alerts-mark-all"
                                     variant="quiet"
                                     label={t('kitchen:alerts.markAllRead')}

@@ -1,13 +1,5 @@
 import type { DuplicateStockGroup } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    Dialog,
-    EmptyState,
-    ErrorState,
-    TableSkeleton,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Cascade, Dialog, EmptyState, ErrorState, TableSkeleton, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -28,7 +20,6 @@ import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { unitCodeLabel } from '../format.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 type Shelf = DuplicateStockGroup['shelves'][number];
 
 /**
@@ -286,7 +277,7 @@ function StockDuplicatesList() {
                 })}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-stock-duplicates-merge-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -294,7 +285,7 @@ function StockDuplicatesList() {
                                 setMerging(null);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-stock-duplicates-merge-confirm"
                             variant="danger"
                             label={t('kitchen:stockDuplicates.mergeConfirm')}

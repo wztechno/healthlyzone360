@@ -1,20 +1,6 @@
 import { PRICE_STATUSES } from '@healthy360/api-client/contracts';
 import type { CatalogueItemRef, PriceStatus } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Checkbox,
-    cx,
-    GRID_CONTENT_ATTR,
-    Icon,
-    IconButton,
-    PickerField,
-    QuantityInput,
-    SearchInput,
-    SegmentedControl,
-    Select,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Checkbox, cx, GRID_CONTENT_ATTR, Icon, IconButton, PickerField, QuantityInput, SearchInput, SegmentedControl, Select, Text, useToast } from '@healthy360/design-system';
 import type { SelectOption, TabItem } from '@healthy360/design-system';
 import { minorUnitExponent } from '@healthy360/domain-types';
 import type { CurrencyCode } from '@healthy360/domain-types';
@@ -35,7 +21,6 @@ import {
     priceStatusCarriesAmount,
 } from './format.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * The price-list entry grid (K1.5), as `Price List.dc.html` draws it.
  *
@@ -1268,7 +1253,7 @@ export function PriceEntriesCard({
                             />
                         </View>
                         {canManage ? (
-                            <DeskButton
+                            <Button
                                 testID={`${testID}-add-entry`}
                                 variant="secondary"
                                 size="sm"
@@ -1302,14 +1287,14 @@ export function PriceEntriesCard({
                                 onChangeText={setPercent}
                             />
                         </View>
-                        <DeskButton
+                        <Button
                             testID={`${testID}-bulk-apply`}
                             size="sm"
                             label={t('kitchen:priceLists.bulkApply')}
                             onPress={applyPercent}
                         />
                         <ToolbarRule />
-                        <DeskButton
+                        <Button
                             testID={`${testID}-bulk-remove`}
                             variant="ghost"
                             size="sm"
@@ -1317,7 +1302,7 @@ export function PriceEntriesCard({
                             onPress={removeSelected}
                         />
                         <View className="flex-1" />
-                        <DeskButton
+                        <Button
                             testID={`${testID}-bulk-clear`}
                             variant="ghost"
                             size="sm"

@@ -1,16 +1,5 @@
 import type { DishOptionDraft, KitchenDishOption } from '@healthy360/api-client/contracts';
-import {
-    DataList,
-    FormSection,
-    Icon,
-    IconButton,
-    Inline,
-    Select,
-    Stack,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, DataList, FormSection, Icon, IconButton, Inline, Select, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -24,7 +13,6 @@ import { toFailure } from '../../data/hooks.ts';
 import { displayName } from './format.ts';
 import { allergenLabel } from './ops-format.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * The free changes a dish offers: something left out, or a sauce or side from a group. Saved on its
@@ -243,7 +231,7 @@ export function DishOptionsSection({
 
                 {canManage ? (
                     <View className="flex-row gap-tight">
-                        <DeskButton
+                        <Button
                             testID="kitchen-dish-options-add"
                             variant="secondary"
                             size="sm"
@@ -265,7 +253,7 @@ export function DishOptionsSection({
                                 ]);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-dish-options-save"
                             size="sm"
                             label={t('kitchen:dishOptions.save')}

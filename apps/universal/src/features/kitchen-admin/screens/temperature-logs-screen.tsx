@@ -5,19 +5,7 @@ import type {
     TemperatureUnit,
     TemperatureUnitDraft,
 } from '@healthy360/api-client/contracts';
-import {
-    Dialog,
-    EmptyState,
-    ErrorState,
-    Icon,
-    Select,
-    Stack,
-    TableSkeleton,
-    Tabs,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Dialog, EmptyState, ErrorState, Icon, Select, Stack, TableSkeleton, Tabs, Text, TextInputField, useToast } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -42,7 +30,6 @@ import {
     ORDER_PREPARE_PERMISSION,
 } from '../entity-registry.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/temperature-logs`: what an inspector asks to see. Fridge and freezer readings twice a
@@ -393,7 +380,7 @@ function TemperatureLogs() {
                 )}
                 <View className="z-auto ms-auto flex-row items-center gap-tight">
                     {tab === 'units' ? null : (
-                        <DeskButton
+                        <Button
                             testID="kitchen-temperature-print"
                             variant="secondary"
                             label={t('kitchen:temperature.print')}
@@ -421,7 +408,7 @@ function TemperatureLogs() {
                         />
                     )}
                     {tab !== 'readings' || !canRecord ? null : (
-                        <DeskButton
+                        <Button
                             testID="kitchen-temperature-record"
                             label={t('kitchen:temperature.record')}
                             iconStart={<Icon name="plus" size="sm" />}
@@ -431,7 +418,7 @@ function TemperatureLogs() {
                         />
                     )}
                     {tab !== 'cooking' || !canRecord ? null : (
-                        <DeskButton
+                        <Button
                             testID="kitchen-temperature-record-batch"
                             label={t('kitchen:temperature.recordBatch')}
                             iconStart={<Icon name="plus" size="sm" />}
@@ -441,7 +428,7 @@ function TemperatureLogs() {
                         />
                     )}
                     {tab !== 'units' || !canManage ? null : (
-                        <DeskButton
+                        <Button
                             testID="kitchen-temperature-unit-add"
                             label={t('kitchen:temperature.addUnit')}
                             iconStart={<Icon name="plus" size="sm" />}
@@ -507,7 +494,7 @@ function ReadingDialog({
             onClose={onClose}
             title={t('kitchen:temperature.record')}
             actions={
-                <DeskButton
+                <Button
                     testID="kitchen-temperature-save"
                     label={t('kitchen:temperature.save')}
                     loading={record.isPending}
@@ -612,7 +599,7 @@ function BatchDialog({ onClose }: { readonly onClose: () => void }) {
             onClose={onClose}
             title={t('kitchen:temperature.recordBatch')}
             actions={
-                <DeskButton
+                <Button
                     testID="kitchen-temperature-batch-save"
                     label={t('kitchen:temperature.save')}
                     loading={record.isPending}
@@ -708,7 +695,7 @@ function UnitDialog({
                 unit === null ? 'kitchen:temperature.addUnit' : 'kitchen:temperature.editUnit',
             )}
             actions={
-                <DeskButton
+                <Button
                     testID="kitchen-temperature-unit-save"
                     label={t('kitchen:temperature.save')}
                     loading={save.isPending}

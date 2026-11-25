@@ -1,10 +1,4 @@
-import {
-    ContentWidthProvider,
-    Icon,
-    SlideIn,
-    Text,
-    useBreakpoint,
-} from '@healthy360/design-system';
+import { ContentWidthProvider, Icon, IconButton, SlideIn, Text, useBreakpoint } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,7 +11,6 @@ import {
     View,
 } from 'react-native';
 
-import { DeskIconButton } from '../desk-kit/desk-button.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 
 /**
@@ -207,9 +200,8 @@ export function CompactRecordPopup({
                                         testID={`${testID}-nav`}
                                         className="flex-row items-center gap-0.5 rounded-xl bg-surface-sunken p-[3px]"
                                     >
-                                        <DeskIconButton
+                                        <IconButton variant="ghost" className="hover:bg-surface-raised"
                                             testID={`${testID}-previous`}
-                                            flat
                                             label={t('kitchen:compactPopup.previous')}
                                             icon={<Icon name="chevronBackward" size="md" />}
                                             disabled={nav.onPrevious === undefined}
@@ -225,9 +217,8 @@ export function CompactRecordPopup({
                                         >
                                             {nav.position}
                                         </Text>
-                                        <DeskIconButton
+                                        <IconButton variant="ghost" className="hover:bg-surface-raised"
                                             testID={`${testID}-next`}
-                                            flat
                                             label={t('kitchen:compactPopup.next')}
                                             icon={<Icon name="chevronForward" size="md" />}
                                             disabled={nav.onNext === undefined}
@@ -295,7 +286,7 @@ export function CompactRecordPopup({
                                             </Text>
                                         </View>
                                     )}
-                                    <DeskIconButton
+                                    <IconButton variant="secondary"
                                         testID={`${testID}-close`}
                                         label={t('common:action.close')}
                                         icon={<Icon name="close" size="md" />}

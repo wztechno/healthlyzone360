@@ -9,18 +9,7 @@ import type {
     RecipeRollupPack,
     SetItemPacksRequest,
 } from '@healthy360/api-client/contracts';
-import {
-    Card,
-    DataList,
-    FormSection,
-    Icon,
-    QuantityInput,
-    Select,
-    Stack,
-    Text,
-    UNDROPPABLE_PRIORITY,
-    useSectionLook,
-} from '@healthy360/design-system';
+import { Card, DataList, FormSection, Icon, IconButton, QuantityInput, Select, Stack, Text, UNDROPPABLE_PRIORITY, useSectionLook } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { IngredientId, minorUnitExponent } from '@healthy360/domain-types';
 import type { CurrencyCode, MealId, ProductId } from '@healthy360/domain-types';
@@ -47,7 +36,6 @@ import { CostCard } from './cost-card.tsx';
 import type { CostCardRow } from './cost-card.tsx';
 import { ChoiceRow } from './desk-kit/choice-row.tsx';
 import { DeskChip } from './desk-kit/desk-chip.tsx';
-import { DeskIconButton } from './desk-kit/desk-button.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, PRICE_LIST_MANAGE_PERMISSION } from './entity-registry.ts';
 import { FailureToast } from './failure-toast.tsx';
 import { displayName, formatMoney, parseAmount, parseQuantity, unitShortKey } from './format.ts';
@@ -1079,7 +1067,7 @@ export function PackCard({
                         </Text>
                     )}
                     {canManage ? (
-                        <DeskIconButton
+                        <IconButton variant="secondary"
                             testID={`${testID}-remove`}
                             label={t('kitchen:packs.remove', { name })}
                             icon={<Icon name="close" size="sm" />}
@@ -1164,8 +1152,7 @@ export function PackCard({
                                         label={nameOf(part.ingredientId)}
                                     />
                                     {canManage ? (
-                                        <DeskIconButton
-                                            flat
+                                        <IconButton variant="ghost" className="hover:bg-surface-raised"
                                             testID={`${testID}-part-${part.ingredientId}-remove`}
                                             label={t('kitchen:packs.removePart', {
                                                 name: nameOf(part.ingredientId),

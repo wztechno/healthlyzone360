@@ -1,3 +1,4 @@
+import { AreaLookScope } from '@healthy360/design-system';
 import { Redirect } from 'expo-router';
 
 import { appConfig } from '../src/config.ts';
@@ -23,7 +24,9 @@ export default function FeedbackShowcase() {
             title="Toasts, pop-ups and banners"
             testID="feedback-showcase-shell"
         >
-            <FeedbackShowcaseScreen />
+            <AreaLookScope look="desk">
+                <FeedbackShowcaseScreen />
+            </AreaLookScope>
         </AreaShell>
     ) : (
         <Redirect href="/" />

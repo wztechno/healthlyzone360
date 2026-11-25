@@ -1,15 +1,5 @@
 import type { KitchenSetupStep } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    ErrorState,
-    FormSkeleton,
-    Icon,
-    InfoTip,
-    Text,
-    cx,
-    useBreakpoint,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Cascade, cx, ErrorState, FormSkeleton, Icon, InfoTip, Text, useBreakpoint, useToast } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +12,6 @@ import { GO_LIVE_PERMISSION, KITCHEN_SETUP_PERMISSION } from '../entity-registry
 import { SETUP_STEP_ICONS, SetupRoad, canDrawRoad } from '../setup/setup-road.tsx';
 import { SetupStep } from './wholesale-setup-screen.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 import { FailureToast } from '../failure-toast.tsx';
@@ -166,7 +155,7 @@ function KitchenSetup() {
                         done={step.done}
                         body={t(`kitchen:setup.step.${step.key}.body`)}
                         action={
-                            <DeskButton
+                            <Button
                                 testID={`${PAGE}-${step.key}-open`}
                                 variant="secondary"
                                 size="sm"
@@ -225,7 +214,7 @@ function KitchenSetup() {
                         </View>
                     </View>
                     {next === undefined ? null : (
-                        <DeskButton
+                        <Button
                             testID={`${PAGE}-focus-open`}
                             label={t('kitchen:setup.open')}
                             onPress={() => {
@@ -234,7 +223,7 @@ function KitchenSetup() {
                         />
                     )}
                     {ready && canGoLive ? (
-                        <DeskButton
+                        <Button
                             testID={`${PAGE}-go-live`}
                             label={t('kitchen:setup.goLive')}
                             loading={goLive.isPending}
@@ -265,7 +254,7 @@ function KitchenSetup() {
                                 {t(`kitchen:setup.step.${step.key}.title`)}
                             </Text>
                         </View>
-                        <DeskButton
+                        <Button
                             testID={`${PAGE}-${step.key}-open`}
                             variant="secondary"
                             size="sm"

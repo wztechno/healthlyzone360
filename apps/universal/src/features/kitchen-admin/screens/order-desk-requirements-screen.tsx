@@ -1,14 +1,5 @@
 import type { OrderDeskRequirement } from '@healthy360/api-client/contracts';
-import {
-    Callout,
-    Cascade,
-    EmptyState,
-    ErrorState,
-    Icon,
-    Select,
-    TableSkeleton,
-    Text,
-} from '@healthy360/design-system';
+import { Button, Callout, Cascade, EmptyState, ErrorState, Icon, Select, TableSkeleton, Text } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
@@ -42,7 +33,7 @@ import { PageBackPill, useAreaTrailDrawn } from '../../../shell/area-trail.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import { ORDERS_HREF } from '../orders/orders-url.ts';
 import { shortDay } from '../orders/order-columns.tsx';
-import { DeskButton, DeskColumnPicker, MiniMonthPicker } from '../desk-kit/index.ts';
+import { DeskColumnPicker, MiniMonthPicker } from '../desk-kit/index.ts';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 
 /**
@@ -631,7 +622,7 @@ function OrderDeskRequirements() {
                     {...(canOrder && shortCount > 0
                         ? {
                               actions: (
-                                  <DeskButton
+                                  <Button
                                       testID="kitchen-order-desk-requirements-create-order"
                                       label={t('kitchen:ops.requirements.createOrder')}
                                       iconStart={

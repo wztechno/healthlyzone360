@@ -6,15 +6,7 @@ import type {
     OrderRefund,
     OrderRefundKind,
 } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Dialog,
-    Inline,
-    Stack,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Dialog, Inline, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -28,7 +20,7 @@ import {
     useRecordOrderRefundMutation,
 } from '../../data/kitchen-orders-hooks.ts';
 import { formatMoney } from '../marketplace/format.ts';
-import { DeskButton, DeskTabs } from './desk-kit/index.ts';
+import { DeskTabs } from './desk-kit/index.ts';
 import { ORDER_APPROVE_REFUND_PERMISSION } from './entity-registry.ts';
 import { kitchenOrderPaymentMethodKey } from './ops-format.ts';
 
@@ -110,7 +102,7 @@ export function OrderRefundsSection({ order }: { readonly order: KitchenOrder })
                     <Text>{entry.reason}</Text>
                     {entry.status !== 'pending_approval' || !canApprove ? null : (
                         <Inline space="xs" wrap>
-                            <DeskButton
+                            <Button
                                 testID={`kitchen-orders-refund-${entry.id}-approve`}
                                 variant="secondary"
                                 label={t('kitchen:ops.orders.refunds.approve')}
@@ -132,7 +124,7 @@ export function OrderRefundsSection({ order }: { readonly order: KitchenOrder })
                                     );
                                 }}
                             />
-                            <DeskButton
+                            <Button
                                 testID={`kitchen-orders-refund-${entry.id}-reject`}
                                 variant="secondary"
                                 label={t('kitchen:ops.orders.refunds.reject')}
@@ -165,7 +157,7 @@ export function OrderRefundsSection({ order }: { readonly order: KitchenOrder })
                 </Text>
             ) : position.refundableMinor <= 0 ? null : (
                 <View className="flex-row">
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-refund-open"
                         variant="secondary"
                         label={t('kitchen:ops.orders.refunds.open')}
@@ -258,13 +250,13 @@ function RefundDialog({
             description={t('kitchen:ops.orders.refunds.dialogBody')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-refund-dismiss"
                         variant="secondary"
                         label={t('kitchen:common.back')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-refund-confirm"
                         variant="primary"
                         label={t('kitchen:ops.orders.refunds.confirm')}

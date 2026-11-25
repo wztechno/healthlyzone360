@@ -1,15 +1,4 @@
-import {
-    Cascade,
-    Dialog,
-    Icon,
-    Inline,
-    IssueTrayFrame,
-    Menu,
-    Select,
-    Stack,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Cascade, Dialog, Icon, Inline, IssueTrayFrame, Menu, Select, Stack, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { RECIPE_KINDS } from '@healthy360/api-client/contracts';
 import type {
@@ -85,7 +74,6 @@ import {
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { useListMemory, useRememberedFilter } from '../list-memory.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/recipes` — the recipe book: everything this kitchen cooks, on one list.
@@ -651,13 +639,13 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                     description={t('kitchen:recipes.archiveBody')}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-recipes-archive-cancel"
                                 variant="quiet"
                                 label={t('kitchen:common.cancel')}
                                 onPress={list.cancelArchive}
                             />
-                            <DeskButton
+                            <Button
                                 testID="kitchen-recipes-archive-confirm"
                                 variant="danger"
                                 label={t('kitchen:recipes.archiveConfirm')}
@@ -696,13 +684,13 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                     description={t('kitchen:recipes.withdrawBody')}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-recipes-withdraw-cancel"
                                 variant="quiet"
                                 label={t('kitchen:common.cancel')}
                                 onPress={list.cancelWithdraw}
                             />
-                            <DeskButton
+                            <Button
                                 testID="kitchen-recipes-withdraw-confirm"
                                 variant="danger"
                                 label={t('kitchen:meals.retireConfirm')}
@@ -806,7 +794,7 @@ function RecipeCreateControl({
 
     if (kind !== null) {
         return mayCreate(kind) ? (
-            <DeskButton
+            <Button
                 testID="kitchen-recipes-toolbar-create"
                 label={t(CREATE_LABEL_KEYS[kind])}
                 iconStart={<Icon name="plus" size="sm" />}
@@ -840,7 +828,7 @@ function RecipeCreateControl({
                 },
             ]}
             trigger={({ triggerProps, toggle }) => (
-                <DeskButton
+                <Button
                     {...triggerProps}
                     testID="kitchen-recipes-toolbar-create"
                     label={t('kitchen:toolbar.createRecipe')}

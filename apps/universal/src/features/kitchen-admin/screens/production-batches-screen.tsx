@@ -1,12 +1,5 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    EmptyState,
-    ErrorState,
-    Select,
-    TableSkeleton,
-    Text,
-} from '@healthy360/design-system';
+import { Button, Cascade, EmptyState, ErrorState, Select, TableSkeleton, Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -42,7 +35,6 @@ import {
     useRestoredPageFallback,
 } from '../list-memory.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
@@ -411,7 +403,7 @@ function ProductionBatches() {
                         />
                         <View className="flex-row flex-wrap items-center justify-center gap-snug">
                             {page > 1 ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-production-batches-previous"
                                     variant="secondary"
                                     size="sm"
@@ -422,7 +414,7 @@ function ProductionBatches() {
                                 />
                             ) : null}
                             {hasMore ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-production-batches-next"
                                     variant="secondary"
                                     size="sm"

@@ -1,21 +1,10 @@
 import type { LocalisedText } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    FormField,
-    Inline,
-    Stack,
-    Text,
-    cx,
-    inputControlClass,
-    inputFrameClassName,
-    useDensity,
-} from '@healthy360/design-system';
+import { Badge, Button, cx, FormField, Inline, inputControlClass, inputFrameClassName, Stack, Text, useDensity } from '@healthy360/design-system';
 import type { FieldControlProps, GridSpanProps } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TextInput, View } from 'react-native';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * The two halves of a bilingual entity name, each written in its own direction.
  *
@@ -390,7 +379,7 @@ export function BilingualField({
                     />
                 ) : null}
                 {disabled ? null : (
-                    <DeskButton
+                    <Button
                         testID={`${testID}-copy-english`}
                         size="sm"
                         variant="ghost"

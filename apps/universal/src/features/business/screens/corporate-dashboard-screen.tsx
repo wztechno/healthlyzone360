@@ -1,18 +1,4 @@
-import {
-    Cascade,
-    EmptyState,
-    ErrorState,
-    Heading,
-    Icon,
-    Inline,
-    SearchInput,
-    Skeleton,
-    Stack,
-    Text,
-    cx,
-    useContentWidth,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Cascade, cx, EmptyState, ErrorState, Heading, Icon, Inline, SearchInput, Skeleton, Stack, Text, useContentWidth, useToast } from '@healthy360/design-system';
 import type { CorporateProgramme, Quotation } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -28,7 +14,6 @@ import {
 } from '../../../data/business-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { useSession } from '../../../session/session-provider.tsx';
-import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
 import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import { CountPill, Panel, StatTile } from '../../kitchen-admin/hub-parts.tsx';
 import { compareText } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
@@ -126,7 +111,7 @@ export function CorporateDashboardScreen() {
                         {t('business:overview.title')}
                     </Heading>
                 </Stack>
-                <DeskButton
+                <Button
                     testID="corporate-dashboard-new-quotation"
                     variant="secondary"
                     size="lg"
@@ -236,14 +221,14 @@ export function CorporateDashboardScreen() {
                                             }
                                         />
                                         <Total row={row} />
-                                        <DeskButton
+                                        <Button
                                             testID={`corporate-waiting-${row.reference}-view`}
                                             variant="secondary"
                                             size="sm"
                                             label={t('business:overview.view')}
                                             onPress={view(row)}
                                         />
-                                        <DeskButton
+                                        <Button
                                             testID={`corporate-waiting-${row.reference}-decline`}
                                             variant="quiet"
                                             size="sm"
@@ -252,7 +237,7 @@ export function CorporateDashboardScreen() {
                                                 setDeciding({ quotation: row, kind: 'decline' });
                                             }}
                                         />
-                                        <DeskButton
+                                        <Button
                                             testID={`corporate-waiting-${row.reference}-accept`}
                                             size="sm"
                                             label={t('business:overview.accept')}
@@ -560,7 +545,7 @@ function LookupCard() {
                     onSubmitEditing={openLookup}
                     className="min-w-0 flex-1"
                 />
-                <DeskButton
+                <Button
                     testID="corporate-lookup-open"
                     variant="secondary"
                     size="sm"

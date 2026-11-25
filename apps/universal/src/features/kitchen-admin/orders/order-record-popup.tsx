@@ -1,6 +1,6 @@
 import type { KitchenOrder } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
-import { Callout, ErrorState, Inline, Skeleton, Text } from '@healthy360/design-system';
+import { Button, Callout, ErrorState, Inline, Skeleton, Text } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useRouter } from 'expo-router';
@@ -29,7 +29,7 @@ import {
     kitchenOrderCancellationReasonKey,
     kitchenOrderPaymentMethodKey,
 } from '../ops-format.ts';
-import { DeskButton, DeskChip } from '../desk-kit/index.ts';
+import { DeskChip } from '../desk-kit/index.ts';
 import { OrderComplaintAction } from '../order-complaint-action.tsx';
 import { OrderRefundsSection } from '../order-refunds-section.tsx';
 import { PlanDayMeals, isPlanDayLine, visibleOrderLines } from '../plan-day-meals.tsx';
@@ -253,7 +253,7 @@ export function OrderRecordPopup({
     const stages = orderStages(shown, t);
     const nextButton =
         !stepReady || step === null ? undefined : (
-            <DeskButton
+            <Button
                 testID={`kitchen-orders-record-${step}`}
                 variant="primary"
                 label={t(NEXT_STEP_KEYS[step])}
@@ -267,7 +267,7 @@ export function OrderRecordPopup({
 
     const footer = (
         <>
-            <DeskButton
+            <Button
                 testID="kitchen-orders-record-print"
                 variant="secondary"
                 label={t('kitchen:kds.print')}
@@ -281,7 +281,7 @@ export function OrderRecordPopup({
                 }}
             />
             {!shown.amendable || !canSell ? null : (
-                <DeskButton
+                <Button
                     testID="kitchen-orders-record-edit"
                     variant="secondary"
                     label={t('kitchen:desk.edit.open')}
@@ -297,7 +297,7 @@ export function OrderRecordPopup({
             )}
             {!failed || !canSupervise ? null : (
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-record-redeliver"
                         variant="secondary"
                         label={t('kitchen:ops.orders.redeliver')}
@@ -305,7 +305,7 @@ export function OrderRecordPopup({
                             steps.openDelivery('redeliver', shown);
                         }}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-record-close-failed"
                         variant="secondary"
                         label={t('kitchen:ops.orders.closeFailed')}
@@ -316,7 +316,7 @@ export function OrderRecordPopup({
                 </>
             )}
             {!canCourier ? null : (
-                <DeskButton
+                <Button
                     testID="kitchen-orders-record-courier-open"
                     variant="secondary"
                     label={t('kitchen:desk.courier.open')}
@@ -326,7 +326,7 @@ export function OrderRecordPopup({
                 />
             )}
             {!canManage || run?.status !== 'in_transit' || !withCourier(shown) ? null : (
-                <DeskButton
+                <Button
                     testID="kitchen-orders-record-fail-delivery"
                     variant="secondary"
                     label={t('kitchen:ops.orders.failDelivery')}
@@ -336,7 +336,7 @@ export function OrderRecordPopup({
                 />
             )}
             {remakeOf === null ? null : (
-                <DeskButton
+                <Button
                     testID="kitchen-orders-record-remake-of"
                     variant="quiet"
                     label={t('kitchen:ops.orders.remakeOf', { number: remakeOf.number })}
@@ -453,7 +453,7 @@ export function OrderRecordPopup({
                             testID="kitchen-orders-record-delivery"
                             action={
                                 !canDriver ? undefined : (
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-orders-record-driver-open"
                                         variant="quiet"
                                         label={t(
@@ -525,7 +525,7 @@ export function OrderRecordPopup({
                             testID="kitchen-orders-record-payment"
                             action={
                                 !canPay ? undefined : (
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-orders-record-payment-open"
                                         variant="quiet"
                                         label={t('kitchen:desk.recordPayment.open')}
@@ -622,7 +622,7 @@ export function OrderRecordPopup({
             footer={footer}
             footerEnd={
                 !cancelAllowed ? undefined : (
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-record-cancel"
                         variant="dangerOutline"
                         label={t('kitchen:ops.orders.cancel')}

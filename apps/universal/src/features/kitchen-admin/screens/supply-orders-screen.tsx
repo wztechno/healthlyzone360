@@ -3,18 +3,7 @@ import type {
     PurchaseOrder,
     PurchaseOrderStatus,
 } from '@healthy360/api-client/contracts';
-import {
-    Callout,
-    Cascade,
-    EmptyState,
-    ErrorState,
-    FormSection,
-    Icon,
-    Select,
-    Stack,
-    TableSkeleton,
-    Text,
-} from '@healthy360/design-system';
+import { Button, Callout, Cascade, EmptyState, ErrorState, FormSection, Icon, Select, Stack, TableSkeleton, Text } from '@healthy360/design-system';
 import type { MenuItem, SelectOption } from '@healthy360/design-system';
 import { PurchaseOrderId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -67,7 +56,6 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The order `?view=` names, read on its own when the loaded page does not hold it. */
@@ -655,7 +643,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                     })}
                     body={t('kitchen:ops.supplyOrders.print.createdBody')}
                     actions={
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-orders-created-print"
                             variant="secondary"
                             label={t('kitchen:ops.supplyOrders.print.printThem', {
@@ -735,7 +723,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                           })}
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-orders-prepare"
                             label={t('kitchen:ops.supplyOrders.prepare')}
                             iconStart={<Icon name="plus" size="sm" />}
@@ -788,7 +776,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                                 // way back has to be here.
                                 actions={
                                     unfiltered ? undefined : (
-                                        <DeskButton
+                                        <Button
                                             testID="kitchen-supply-orders-book-clear"
                                             variant="secondary"
                                             size="sm"
@@ -904,7 +892,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                         title={t('kitchen:ops.supplyOrders.nothingNeededTitle')}
                         body={t('kitchen:ops.supplyOrders.nothingNeededBody')}
                         actions={
-                            <DeskButton
+                            <Button
                                 testID="kitchen-supply-orders-order-anyway"
                                 variant="secondary"
                                 label={t('kitchen:ops.supplyOrders.orderAnyway')}

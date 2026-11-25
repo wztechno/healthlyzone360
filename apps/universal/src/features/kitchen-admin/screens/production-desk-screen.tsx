@@ -1,14 +1,5 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    EmptyState,
-    ErrorState,
-    Icon,
-    Select,
-    TableSkeleton,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Cascade, EmptyState, ErrorState, Icon, Select, TableSkeleton, Text, useToast } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useState } from 'react';
@@ -47,7 +38,6 @@ import {
 } from '../production-desk/batch-figures.ts';
 import { trimDecimal, unitCodeLabel } from '../format.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/production-desk` — the batches this kitchen still has to do something about (PROD1).
@@ -400,7 +390,7 @@ function ProductionDesk() {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-production-desk-new"
                                 size="sm"
                                 label={t('kitchen:ops.production.create')}
@@ -481,7 +471,7 @@ function ProductionDesk() {
                         />
                         <View className="flex-row flex-wrap items-center justify-center gap-snug">
                             {page > 1 ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-production-desk-previous"
                                     variant="secondary"
                                     size="sm"
@@ -492,7 +482,7 @@ function ProductionDesk() {
                                 />
                             ) : null}
                             {hasMore ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-production-desk-next"
                                     variant="secondary"
                                     size="sm"

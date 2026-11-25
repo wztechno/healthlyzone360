@@ -1,14 +1,5 @@
 import type { BranchClosure } from '@healthy360/api-client/contracts';
-import {
-    DataList,
-    DateField,
-    Dialog,
-    ErrorState,
-    FormSection,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, DataList, DateField, Dialog, ErrorState, FormSection, Text, TextInputField, useToast } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
@@ -22,7 +13,6 @@ import {
 } from '../../data/kitchen-ops-hooks.ts';
 import { toFailure } from '../../data/hooks.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 import { DeskChip } from './desk-kit/desk-chip.tsx';
 import { DeskRowMenu } from './desk-kit/desk-row-menu.tsx';
 import { FailureToast } from './failure-toast.tsx';
@@ -215,7 +205,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
             }
             actions={
                 canManage ? (
-                    <DeskButton
+                    <Button
                         testID="kitchen-branch-closures-add"
                         size="sm"
                         variant="secondary"
@@ -250,7 +240,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                 title={t('kitchen:branchClosures.add')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-branch-closures-add-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -258,7 +248,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                                 setAdding(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-branch-closures-add-save"
                             label={t('kitchen:branchClosures.add')}
                             loading={add.isPending}
@@ -319,7 +309,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                 title={t('kitchen:branchClosures.removeTitle')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-branch-closures-remove-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -327,7 +317,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                                 setRemoving(null);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-branch-closures-remove-confirm"
                             variant="danger"
                             label={t('kitchen:branchClosures.removeAction')}

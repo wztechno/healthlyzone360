@@ -14,32 +14,7 @@ import type {
     RecipeVersionSummary,
     ReferenceSeries,
 } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Callout,
-    Cascade,
-    CascadeItem,
-    Checkbox,
-    Dialog,
-    ErrorState,
-    FormGrid,
-    FormSection,
-    FormSkeleton,
-    Icon,
-    Inline,
-    IssueTrayFrame,
-    IssueUnanchored,
-    SectionLook,
-    QuantityInput,
-    Select,
-    Stack,
-    Tabs,
-    Tag,
-    Text,
-    TextInputField,
-    useIssueTrayController,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Callout, Cascade, CascadeItem, Checkbox, Dialog, ErrorState, FormGrid, FormSection, FormSkeleton, Icon, Inline, IssueTrayFrame, IssueUnanchored, QuantityInput, SectionLook, Select, Stack, Tabs, Tag, Text, TextInputField, useIssueTrayController, useToast } from '@healthy360/design-system';
 import type {
     FormIssueItem,
     IssueCardItem,
@@ -149,7 +124,6 @@ import { UnsavedDialog } from '../record-form-opening.tsx';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 import { InlineChecksButton } from '../inline-checks-button.tsx';
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { UnsavedMark } from '../unsaved-mark.tsx';
 /**
  * `/kitchen/recipes/{recipe}` — the recipe editor, as `Catalogue.dc.html` draws it (`isRecipeEdit`,
@@ -2235,7 +2209,7 @@ function RecipeEditor({
                     tone="warning"
                     title={t('kitchen:recipes.notFoundTitle')}
                     actions={
-                        <DeskButton
+                        <Button
                             testID="kitchen-recipe-not-found-back"
                             variant="quiet"
                             label={t('kitchen:recipes.backToList')}
@@ -3127,7 +3101,7 @@ function RecipeEditor({
                                      * the write a draft.
                                      */}
                                     {
-                                        <DeskButton
+                                        <Button
                                             testID="kitchen-recipe-editor-screen-save"
                                             className="!h-10 !px-4"
                                             variant={
@@ -3152,7 +3126,7 @@ function RecipeEditor({
                                         />
                                     }
                                     {!publishShown || !isEditable || !canPublish ? null : (
-                                        <DeskButton
+                                        <Button
                                             testID="kitchen-recipe-publish"
                                             className="!h-10 !px-4"
                                             // What a stock gap's `no_recipe_version` focuses.
@@ -3171,7 +3145,7 @@ function RecipeEditor({
                                      * copies it — `createRecipeVersion`.
                                      */}
                                     {isCreating ? null : !isViewingCurrent ? (
-                                        <DeskButton
+                                        <Button
                                             testID="kitchen-recipe-version-back-to-current"
                                             className="!h-10 !px-4"
                                             label={t('kitchen:recipes.backToCurrentVersion')}
@@ -3180,7 +3154,7 @@ function RecipeEditor({
                                             }}
                                         />
                                     ) : !isEditable && !livePublished && canManage ? (
-                                        <DeskButton
+                                        <Button
                                             testID="kitchen-recipe-new-draft"
                                             className="!h-10 !px-4"
                                             label={t('kitchen:recipes.newDraft')}
@@ -3966,7 +3940,7 @@ function RecipeEditor({
                         })}
                         actions={
                             <>
-                                <DeskButton
+                                <Button
                                     testID="kitchen-recipe-publish-cancel"
                                     variant="quiet"
                                     label={t('kitchen:common.cancel')}
@@ -3974,7 +3948,7 @@ function RecipeEditor({
                                         setShowPublish(false);
                                     }}
                                 />
-                                <DeskButton
+                                <Button
                                     testID="kitchen-recipe-publish-confirm"
                                     label={t('kitchen:publish.confirm')}
                                     loading={publish.isPending}
@@ -4083,7 +4057,7 @@ function RecipeEditor({
                                             >
                                                 <Text>{reason.text}</Text>
                                                 {reason.fix === undefined ? null : (
-                                                    <DeskButton
+                                                    <Button
                                                         testID={`kitchen-recipe-publish-fix-${reason.fix.id}`}
                                                         size="sm"
                                                         variant="secondary"
@@ -4119,7 +4093,7 @@ function RecipeEditor({
                                 >
                                     <Inline space="xs" wrap>
                                         {unmappedIngredients.map((entry) => (
-                                            <DeskButton
+                                            <Button
                                                 key={String(entry.id)}
                                                 testID={`kitchen-recipe-publish-unmapped-${String(entry.id)}`}
                                                 size="sm"
@@ -4199,7 +4173,7 @@ function RecipeEditor({
                         })}
                         actions={
                             <>
-                                <DeskButton
+                                <Button
                                     testID="kitchen-recipe-release-cancel"
                                     variant="quiet"
                                     label={t('kitchen:common.cancel')}
@@ -4207,7 +4181,7 @@ function RecipeEditor({
                                         setShowRelease(false);
                                     }}
                                 />
-                                <DeskButton
+                                <Button
                                     testID="kitchen-recipe-release-confirm"
                                     label={t('kitchen:publish.releaseConfirm')}
                                     loading={release.isPending}
@@ -4321,7 +4295,7 @@ function RecipeEditor({
                         description={t('kitchen:recipes.archiveBody')}
                         actions={
                             <>
-                                <DeskButton
+                                <Button
                                     testID="kitchen-recipe-retire-cancel"
                                     variant="quiet"
                                     label={t('kitchen:common.cancel')}
@@ -4329,7 +4303,7 @@ function RecipeEditor({
                                         setShowRetire(false);
                                     }}
                                 />
-                                <DeskButton
+                                <Button
                                     testID="kitchen-recipe-retire-confirm"
                                     variant="danger"
                                     label={t('kitchen:recipes.archiveConfirm')}
@@ -4387,13 +4361,13 @@ function RecipeEditor({
                         description={t('kitchen:conflict.body')}
                         actions={
                             <>
-                                <DeskButton
+                                <Button
                                     testID="kitchen-recipe-editor-screen-conflict-keep"
                                     variant="quiet"
                                     label={t('kitchen:conflict.keepEditing')}
                                     onPress={concurrency.keepEditing}
                                 />
-                                <DeskButton
+                                <Button
                                     testID="kitchen-recipe-editor-screen-conflict-reload"
                                     variant="danger"
                                     label={t('kitchen:conflict.reload')}

@@ -5,15 +5,7 @@ import type {
     PlatformB2bApplication,
 } from '@healthy360/api-client/contracts';
 import { B2B_PAYMENT_TERMS } from '@healthy360/api-client/contracts';
-import {
-    Callout,
-    Checkbox,
-    DatePickerButton,
-    Dialog,
-    Select,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
+import { Button, Callout, Checkbox, DatePickerButton, Dialog, Select, Text, TextInputField } from '@healthy360/design-system';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -26,7 +18,6 @@ import {
     useSellerPriceListsQuery,
     useUpdateAgreementMutation,
 } from '../../data/platform-b2b-hooks.ts';
-import { DeskButton } from '../kitchen-admin/desk-kit/desk-button.tsx';
 
 /**
  * The reviewer's agreement form, as a window in the centre of the page over the application it is
@@ -212,13 +203,13 @@ export function AgreementEditor({
                 }
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="platform-b2b-agreement-cancel"
                             variant="quiet"
                             label={t('platformAdmin:b2b.cancel')}
                             onPress={close}
                         />
-                        <DeskButton
+                        <Button
                             testID="platform-b2b-agreement-save"
                             label={t('platformAdmin:b2b.editor.save')}
                             disabled={form.title.trim() === '' || invalid}

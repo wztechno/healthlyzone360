@@ -6,22 +6,7 @@ import type {
     StockWasteReason,
 } from '@healthy360/api-client/contracts';
 import { STOCK_WASTE_REASONS } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Callout,
-    Cascade,
-    EmptyState,
-    ErrorState,
-    FormGrid,
-    FormSection,
-    SegmentedControl,
-    Select,
-    Stack,
-    TableSkeleton,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Callout, Cascade, EmptyState, ErrorState, FormGrid, FormSection, SegmentedControl, Select, Stack, TableSkeleton, Text, TextInputField, useToast } from '@healthy360/design-system';
 import type { BadgeTone, MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { IngredientId } from '@healthy360/domain-types';
@@ -85,7 +70,6 @@ import {
 } from '../list-memory.ts';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 /**
@@ -1480,7 +1464,7 @@ function StockMovementEditor({
                 }
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-stock-editor-back"
                             variant="secondary"
                             label={t('kitchen:editor.cancel')}

@@ -1,4 +1,4 @@
-import { Dropdown, Icon, SlideIn } from '@healthy360/design-system';
+import { Button, Dropdown, Icon, IconButton, SlideIn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -8,7 +8,6 @@ import { Pressable, Text as RNText, View } from 'react-native';
 import { dateInstant } from '../../planner/format.ts';
 import { firstOfMonth, monthGrid, monthOf, shiftMonth } from '../orders/order-book.ts';
 import { todayIso } from '../../commerce/dates.ts';
-import { DeskButton, DeskIconButton } from './desk-button.tsx';
 import { DropTrigger } from './drop-trigger.tsx';
 
 /**
@@ -115,7 +114,7 @@ export function MiniMonthPicker({
                     />
                     {onClear === undefined || value === '' ? null : (
                         <View className="mt-2 flex-row justify-end border-t border-stroke-subtle pt-2">
-                            <DeskButton
+                            <Button
                                 testID={`${testID}-clear`}
                                 variant="quiet"
                                 label={t('common:action.clear')}
@@ -229,7 +228,7 @@ export function MonthPanel({
     return (
         <View className="flex-col">
             <View className="mb-2 flex-row items-center justify-between">
-                <DeskIconButton
+                <IconButton variant="secondary"
                     testID={`${testID}-previous-month`}
                     label={t('kitchen:orders.calendar.previousMonth')}
                     icon={<Icon name="chevronBackward" size="sm" />}
@@ -246,7 +245,7 @@ export function MonthPanel({
                         year: 'numeric',
                     })}
                 </RNText>
-                <DeskIconButton
+                <IconButton variant="secondary"
                     testID={`${testID}-next-month`}
                     label={t('kitchen:orders.calendar.nextMonth')}
                     icon={<Icon name="chevronForward" size="sm" />}

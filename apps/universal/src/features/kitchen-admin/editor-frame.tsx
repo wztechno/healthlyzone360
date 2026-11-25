@@ -1,13 +1,5 @@
 import type { AdminEntityMeta, AdminRecordMeta } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    Dialog,
-    Inline,
-    IssueUnanchored,
-    Stack,
-    Text,
-    useContentWidth,
-} from '@healthy360/design-system';
+import { Button, Cascade, Dialog, Inline, IssueUnanchored, Stack, Text, useContentWidth } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,7 +18,6 @@ import type { UnsavedGuard } from './use-unsaved-guard.ts';
 import { UnsavedMark } from './unsaved-mark.tsx';
 import { PageBackPill } from '../../shell/area-trail.tsx';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 import { DeskChip } from './desk-kit/desk-chip.tsx';
 /** The editor rail's width beside the form. A style: there is no rail-width token. */
 const EDITOR_RAIL_WIDTH = 330;
@@ -244,7 +235,7 @@ export function EditorFrame({
                     >
                         {primaryAction}
                         {hideSave ? null : (
-                            <DeskButton
+                            <Button
                                 testID={`${testID}-save`}
                                 label={saveLabel}
                                 loading={saving}
@@ -300,7 +291,7 @@ export function EditorFrame({
                                 {primaryAction}
                                 {/* A stepped form saves from its last step's Next, not up here. */}
                                 {hideSave || stepped ? null : (
-                                    <DeskButton
+                                    <Button
                                         testID={`${testID}-save`}
                                         label={saveLabel}
                                         loading={saving}
@@ -361,7 +352,7 @@ export function EditorFrame({
                     finalAction={
                         steps.finalAction ??
                         (hideSave ? null : (
-                            <DeskButton
+                            <Button
                                 testID={`${testID}-save`}
                                 label={saveLabel}
                                 loading={saving}
@@ -382,13 +373,13 @@ export function EditorFrame({
                 description={t('kitchen:unsaved.body')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID={`${testID}-unsaved-keep`}
                             variant="quiet"
                             label={t('kitchen:unsaved.keepEditing')}
                             onPress={guard.cancelDiscard}
                         />
-                        <DeskButton
+                        <Button
                             testID={`${testID}-unsaved-discard`}
                             variant="danger"
                             label={t('kitchen:unsaved.discard')}
@@ -408,13 +399,13 @@ export function EditorFrame({
                 description={t('kitchen:conflict.body')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID={`${testID}-conflict-keep`}
                             variant="quiet"
                             label={t('kitchen:conflict.keepEditing')}
                             onPress={concurrency.keepEditing}
                         />
-                        <DeskButton
+                        <Button
                             testID={`${testID}-conflict-reload`}
                             variant="danger"
                             label={t('kitchen:conflict.reload')}

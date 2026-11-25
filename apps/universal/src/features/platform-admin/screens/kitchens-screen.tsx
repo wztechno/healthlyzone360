@@ -34,7 +34,6 @@ import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-co
 import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.tsx';
-import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
 import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import { kitchenRowTestId, ownerRowTestId, tenantStatusKey, tenantStatusTone } from '../format.ts';
 import {
@@ -271,7 +270,7 @@ function KitchensList() {
                     label={t('kitchen:lens.label')}
                     figures={figures}
                     actions={
-                        <DeskButton
+                        <Button
                             testID="platform-admin-kitchens-create"
                             size="sm"
                             label={t('platformAdmin:kitchens.create')}
@@ -682,7 +681,7 @@ function KitchenSheet({
                         title={t('platformAdmin:owners.emptyTitle')}
                         body={t('platformAdmin:owners.emptyBody')}
                         actions={
-                            <DeskButton
+                            <Button
                                 testID={`${testID}-owners-invite`}
                                 size="sm"
                                 label={t('platformAdmin:invite.title')}

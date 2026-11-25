@@ -4,22 +4,7 @@ import {
     isReactivatableMember,
     isWorkingMember,
 } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Callout,
-    Cascade,
-    Dialog,
-    ErrorState,
-    FormGrid,
-    FormSection,
-    FormSkeleton,
-    IssueTrayFrame,
-    Select,
-    Stack,
-    Text,
-    useIssueTrayController,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Callout, Cascade, Dialog, ErrorState, FormGrid, FormSection, FormSkeleton, IssueTrayFrame, Select, Stack, Text, useIssueTrayController, useToast } from '@healthy360/design-system';
 import type { IssueCardItem, IssueTrayContent, TabItem } from '@healthy360/design-system';
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -57,7 +42,6 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { memberDisplayName } from './team-screen.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/team/{membership}` — one person, what they may do, and whether they may still do it.
  *
@@ -275,7 +259,7 @@ function TeamMemberEditor() {
                 title={t('accessAdmin:member.notFoundTitle')}
                 body={t('accessAdmin:member.notFoundBody')}
                 actions={
-                    <DeskButton
+                    <Button
                         testID="kitchen-team-member-missing-back"
                         variant="quiet"
                         label={t('accessAdmin:member.backToList')}
@@ -558,7 +542,7 @@ function TeamMemberEditor() {
                     }
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-team-member-back"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -567,7 +551,7 @@ function TeamMemberEditor() {
                                 }}
                             />
                             {canUpdate && isWorkingMember(record.status) ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-team-member-suspend"
                                     variant="secondary"
                                     label={t('accessAdmin:member.suspend')}
@@ -578,7 +562,7 @@ function TeamMemberEditor() {
                                 />
                             ) : null}
                             {canUpdate && isReactivatableMember(record.status) ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-team-member-reactivate"
                                     variant="secondary"
                                     label={t('accessAdmin:member.reactivate')}
@@ -589,7 +573,7 @@ function TeamMemberEditor() {
                                 />
                             ) : null}
                             {canEnd && record.status !== 'ended' ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-team-member-end"
                                     variant="quiet"
                                     label={t('accessAdmin:member.end')}
@@ -761,7 +745,7 @@ function TeamMemberEditor() {
                 description={t('accessAdmin:member.endBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-team-member-end-cancel"
                             variant="secondary"
                             label={t('accessAdmin:member.cancel')}
@@ -769,7 +753,7 @@ function TeamMemberEditor() {
                                 setConfirmingEnd(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-team-member-end-confirm"
                             variant="danger"
                             label={t('accessAdmin:member.endConfirm')}

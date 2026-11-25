@@ -12,22 +12,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { ORDER_DESK_FULFILMENT_TYPES } from '@healthy360/api-client/contracts';
 import { OrderId } from '@healthy360/domain-types';
-import {
-    Callout,
-    Checkbox,
-    EmptyState,
-    ErrorState,
-    Dropdown,
-    FormSection,
-    Icon,
-    InfoTip,
-    SearchInput,
-    Select,
-    Skeleton,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Callout, Checkbox, Dropdown, EmptyState, ErrorState, FormSection, Icon, IconButton, InfoTip, SearchInput, Select, Skeleton, Text, TextInputField, useToast } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { fieldWidth } from '@healthy360/design-tokens';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -76,7 +61,7 @@ import { displayName } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
-import { DeskButton, DeskChip, DeskIconButton, MiniMonthPicker } from '../desk-kit/index.ts';
+import { DeskChip, MiniMonthPicker } from '../desk-kit/index.ts';
 import { allergenLabel, kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import type { BasketLine } from '../order-desk/basket.ts';
 import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
@@ -905,7 +890,7 @@ function Sale() {
                                                 : 'kitchen:desk.sale.addressTitle',
                                         )}
                                         actions={
-                                            <DeskButton
+                                            <Button
                                                 testID="kitchen-order-desk-sale-edit-address-toggle"
                                                 variant="secondary"
                                                 label={t(
@@ -1703,7 +1688,7 @@ function MenuGrid({
                                         // A row of its own, so `block` widens the button across the
                                         // card instead of taking half the card's height.
                                         <View className="flex-row">
-                                            <DeskButton
+                                            <Button
                                                 testID={`kitchen-order-desk-sale-tile-${tile.id}-off-today`}
                                                 variant="quiet"
                                                 block
@@ -2204,7 +2189,7 @@ function Ticket({
                                                 </Text>
                                             </View>
                                             <View className="flex-row items-center gap-hair">
-                                                <DeskIconButton
+                                                <IconButton variant="secondary"
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-options`}
                                                     icon={<Icon name="pen" size="sm" />}
                                                     label={t('kitchen:dishOptions.lineAction', {
@@ -2214,7 +2199,7 @@ function Ticket({
                                                         setChoosing(key);
                                                     }}
                                                 />
-                                                <DeskIconButton
+                                                <IconButton variant="secondary"
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-decrement`}
                                                     icon={<Icon name="minus" size="sm" />}
                                                     label={t(
@@ -2227,7 +2212,7 @@ function Ticket({
                                                         step(quantity - 1);
                                                     }}
                                                 />
-                                                <DeskIconButton
+                                                <IconButton variant="secondary"
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-increment`}
                                                     icon={<Icon name="plus" size="sm" />}
                                                     label={t(
@@ -2459,7 +2444,7 @@ function Ticket({
                             title={t('kitchen:ops.orders.conflictTitle')}
                             body={t('kitchen:ops.orders.conflictBody')}
                             actions={
-                                <DeskButton
+                                <Button
                                     testID="kitchen-order-desk-sale-conflict-reload"
                                     variant="secondary"
                                     label={t('kitchen:ops.orders.conflictRefresh')}
@@ -2500,7 +2485,7 @@ function Ticket({
                     )}
 
                     {stage === 'menu' ? (
-                        <DeskButton
+                        <Button
                             testID="kitchen-order-desk-sale-charge"
                             variant="primary"
                             size="lg"
@@ -2527,7 +2512,7 @@ function Ticket({
                         </Text>
                     ) : (
                         <View className="flex-col gap-hair">
-                            <DeskButton
+                            <Button
                                 testID="kitchen-order-desk-sale-submit"
                                 variant="primary"
                                 size="lg"

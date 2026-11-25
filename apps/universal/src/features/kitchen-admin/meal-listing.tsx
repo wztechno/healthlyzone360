@@ -5,28 +5,7 @@ import type {
     MeasurementUnitOption,
     ProductionMode,
 } from '@healthy360/api-client/contracts';
-import {
-    Callout,
-    Dialog,
-    ErrorState,
-    FilterChip,
-    FormGrid,
-    FormSection,
-    FormSkeleton,
-    Icon,
-    InfoTip,
-    Inline,
-    IssueTrayFrame,
-    IssueUnanchored,
-    Select,
-    Stack,
-    Switch,
-    Text,
-    TextInputField,
-    useIssueGroup,
-    useIssueTrayController,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Callout, Dialog, ErrorState, FilterChip, FormGrid, FormSection, FormSkeleton, Icon, InfoTip, Inline, IssueTrayFrame, IssueUnanchored, Select, Stack, Switch, Text, TextInputField, useIssueGroup, useIssueTrayController, useToast } from '@healthy360/design-system';
 import type { IssueCardItem, IssuePassedItem, SelectOption } from '@healthy360/design-system';
 import { MEAL_TYPES } from '@healthy360/domain-types';
 import type { DietClassification, MealId, MealType } from '@healthy360/domain-types';
@@ -93,7 +72,6 @@ import { useNudgeOnRefusal } from './tray-nudge.ts';
 import { useOptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from './use-unsaved-guard.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * A meal's listing — the Selling tab of its page, and the one form in this workspace whose save a
@@ -1047,7 +1025,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                      * the only way the person who pressed Publish can check what they published.
                      */}
                     {isPublished && data !== undefined ? (
-                        <DeskButton
+                        <Button
                             testID="kitchen-meal-view-public"
                             variant="quiet"
                             label={t('kitchen:meals.viewPublic')}
@@ -1066,7 +1044,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         />
                     ) : null}
                     {!canManage ? null : isPublished ? (
-                        <DeskButton
+                        <Button
                             testID="kitchen-meal-retire"
                             variant="secondary"
                             label={t('kitchen:meals.retire')}
@@ -1075,7 +1053,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                             }}
                         />
                     ) : (
-                        <DeskButton
+                        <Button
                             testID="kitchen-meal-publish"
                             label={t('kitchen:publish.action')}
                             // Visibly disabled while any check in the tray fails. The dialog's
@@ -1462,7 +1440,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                     }
                     actions={
                         !canManage ? undefined : (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-meal-availability-add"
                                 size="sm"
                                 variant="secondary"
@@ -1513,7 +1491,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                          */}
                         {!canManage || !daysDirty || onRegisterSave !== undefined ? null : (
                             <Inline space="sm" wrap justify="end">
-                                <DeskButton
+                                <Button
                                     testID="kitchen-meal-availability-save"
                                     variant="secondary"
                                     label={t('kitchen:availability.save')}
@@ -1566,7 +1544,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                 description={t('kitchen:meals.publishBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-meal-publish-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -1574,7 +1552,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 setShowPublish(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-meal-publish-confirm"
                             label={t('kitchen:publish.confirm')}
                             loading={publish.isPending}
@@ -1695,7 +1673,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                 description={t('kitchen:meals.retireBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-meal-retire-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -1703,7 +1681,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 setShowRetire(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-meal-retire-confirm"
                             variant="danger"
                             label={t('kitchen:meals.retireConfirm')}

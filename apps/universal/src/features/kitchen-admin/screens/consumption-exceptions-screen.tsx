@@ -1,13 +1,5 @@
 import type { ConsumptionException } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    Dialog,
-    EmptyState,
-    ErrorState,
-    TableSkeleton,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Cascade, Dialog, EmptyState, ErrorState, TableSkeleton, Text, useToast } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { can } from '@healthy360/permissions';
 import { useRouter } from 'expo-router';
@@ -67,7 +59,6 @@ import { todayIso } from '../../commerce/dates.ts';
 import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { useListMemory, useRememberedQuery } from '../list-memory.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
@@ -859,7 +850,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                 description={t('kitchen:ops.exceptions.resolveBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-exception-resolve-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -867,7 +858,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                                 setResolving(null);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-exception-resolve-confirm"
                             variant="danger"
                             label={t('kitchen:ops.exceptions.resolveConfirm')}

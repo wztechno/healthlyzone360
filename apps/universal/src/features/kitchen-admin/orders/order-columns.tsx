@@ -1,5 +1,5 @@
 import type { OrderDeskDeliveryWindow } from '@healthy360/api-client/contracts';
-import { Text } from '@healthy360/design-system';
+import { Button, Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import type { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -13,7 +13,7 @@ import type {
     ColumnFilter,
     ControlledColumn,
 } from '../catalogue/use-column-controls.tsx';
-import { DeskButton, DeskChip } from '../desk-kit/index.ts';
+import { DeskChip } from '../desk-kit/index.ts';
 import {
     kitchenOrderPaymentMethodKey,
     kitchenOrderRowTestId,
@@ -361,7 +361,7 @@ export function orderColumns(context: OrderColumnContext): readonly CatalogueCol
                 }
                 const pending = pendingId === String(order.id);
                 return (
-                    <DeskButton
+                    <Button
                         testID={`${id(order)}-next`}
                         variant="next"
                         label={t(NEXT_STEP_KEYS[step])}

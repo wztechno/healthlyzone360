@@ -1,16 +1,5 @@
 import type { Payable } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Cascade,
-    Dialog,
-    EmptyState,
-    ErrorState,
-    Stack,
-    TableSkeleton,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Cascade, Dialog, EmptyState, ErrorState, Stack, TableSkeleton, Text, TextInputField, useToast } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -31,7 +20,6 @@ import {
     INVENTORY_VIEW_COSTS_PERMISSION,
 } from '../entity-registry.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 import { FailureToast } from '../failure-toast.tsx';
 /**
@@ -189,7 +177,7 @@ function Payables() {
                 !canAct ? (
                     <Text tone="secondary">{EM_DASH}</Text>
                 ) : row.priceApprovalStatus === 'pending' ? (
-                    <DeskButton
+                    <Button
                         testID={`kitchen-payable-${row.id}-review`}
                         variant="secondary"
                         size="sm"
@@ -201,7 +189,7 @@ function Payables() {
                 ) : row.amount === null ? (
                     <Text tone="secondary">{EM_DASH}</Text>
                 ) : (
-                    <DeskButton
+                    <Button
                         testID={`kitchen-payable-${row.id}-pay`}
                         variant="secondary"
                         size="sm"
@@ -363,13 +351,13 @@ function ReviewDialog({ row, onClose }: { readonly row: Payable; readonly onClos
             description={t('kitchen:ops.payables.reviewBody')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-payable-review-dismiss"
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-payable-review-confirm"
                         label={t('kitchen:ops.payables.approve')}
                         loading={approve.isPending}
@@ -434,13 +422,13 @@ function PayDialog({ row, onClose }: { readonly row: Payable; readonly onClose: 
             description={t('kitchen:ops.payables.payBody')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-payable-pay-dismiss"
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-payable-pay-confirm"
                         label={t('kitchen:ops.payables.confirmPay')}
                         loading={pay.isPending}

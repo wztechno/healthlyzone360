@@ -25,7 +25,6 @@ import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import { useColumnControls } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
-import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
 import { DeskCheckbox } from '../../kitchen-admin/desk-kit/desk-checkbox.tsx';
 import { catalogueColumns } from '../catalogue-columns.tsx';
 import { CORPORATE_HOME_HREF, CORPORATE_NEW_QUOTATION_HREF } from '../corporate-chrome.tsx';
@@ -241,7 +240,7 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
                     label={t('kitchen:lens.label')}
                     figures={figures}
                     actions={
-                        <DeskButton
+                        <Button
                             testID="corporate-catalogue-build-quotation"
                             size="sm"
                             label={t('business:nav.newQuotation')}

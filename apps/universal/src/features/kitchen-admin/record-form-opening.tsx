@@ -1,13 +1,4 @@
-import {
-    Dialog,
-    FormIssueBanner,
-    Inline,
-    IssueUnanchored,
-    Stack,
-    Tabs,
-    Text,
-    useIssueGroup,
-} from '@healthy360/design-system';
+import { Button, Dialog, FormIssueBanner, Inline, IssueUnanchored, Stack, Tabs, Text, useIssueGroup } from '@healthy360/design-system';
 import type { FormIssueItem, IssueCardItem, TabItem } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -21,7 +12,6 @@ import type { ServerFieldTarget } from './server-field-errors.ts';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 import { UnsavedMark } from './unsaved-mark.tsx';
 
 /** The editor's commit, drawn last among the header's actions. */
@@ -163,7 +153,7 @@ export function RecordFormOpening<Step extends string>({
                         >
                             {actions}
                             {save === undefined ? null : (
-                                <DeskButton
+                                <Button
                                     testID={save.testID}
                                     label={save.label}
                                     loading={save.loading}
@@ -250,20 +240,20 @@ export function UnsavedDialog({
             description={t(keepable ? 'kitchen:unsaved.keepableBody' : 'kitchen:unsaved.body')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID={`${testID}-unsaved-keep`}
                         variant="quiet"
                         label={t(keepable ? 'kitchen:unsaved.stay' : 'kitchen:unsaved.keepEditing')}
                         onPress={guard.cancelDiscard}
                     />
-                    <DeskButton
+                    <Button
                         testID={`${testID}-unsaved-discard`}
                         variant="danger"
                         label={t('kitchen:unsaved.discard')}
                         onPress={guard.confirmDiscard}
                     />
                     {keepable ? (
-                        <DeskButton
+                        <Button
                             testID={`${testID}-unsaved-keep-for-later`}
                             variant="primary"
                             label={t('kitchen:unsaved.keepForLater')}
@@ -307,13 +297,13 @@ export function EditorGuardDialogs({
                     description={t('kitchen:conflict.body')}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID={`${testID}-conflict-keep`}
                                 variant="quiet"
                                 label={t('kitchen:conflict.keepEditing')}
                                 onPress={concurrency.keepEditing}
                             />
-                            <DeskButton
+                            <Button
                                 testID={`${testID}-conflict-reload`}
                                 variant="danger"
                                 label={t('kitchen:conflict.reload')}

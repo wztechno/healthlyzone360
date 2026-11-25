@@ -1,13 +1,6 @@
 import type { OrganisationRoleSummary } from '@healthy360/api-client/contracts';
 import { isDeletableRole } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    EmptyState,
-    ErrorState,
-    Icon,
-    TableSkeleton,
-    Text,
-} from '@healthy360/design-system';
+import { Button, Cascade, EmptyState, ErrorState, Icon, TableSkeleton, Text } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -37,7 +30,6 @@ import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { ROLE_MANAGE_PERMISSION, ROLE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { useListMemory, useRememberedOpened, useRememberedQuery } from '../list-memory.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/roles` — what each job title is allowed to reach (AA1), on the Catalogue list.
  *
@@ -254,7 +246,7 @@ function RolesList() {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-roles-create"
                                 label={t('accessAdmin:roles.create')}
                                 iconStart={<Icon name="plus" size="sm" />}

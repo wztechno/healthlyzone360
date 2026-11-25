@@ -1,14 +1,5 @@
 import type { LocalisedText } from '@healthy360/api-client/contracts';
-import {
-    Callout,
-    Cascade,
-    FormSection,
-    Text,
-    TextInputField,
-    cx,
-    useContentWidth,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Callout, Cascade, cx, FormSection, Text, TextInputField, useContentWidth, useToast } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -23,7 +14,6 @@ import { SendChecklist } from '../../business/corporate-parts.tsx';
 import type { SendCheck } from '../../business/corporate-parts.tsx';
 import { BilingualField } from '../../kitchen-admin/bilingual-field.tsx';
 import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
-import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
 import { PLATFORM_KITCHENS_HREF, platformKitchenHref } from '../platform-admin-chrome.tsx';
 
 /**
@@ -134,7 +124,7 @@ function CreateKitchenForm() {
     };
 
     const createButton = (testID: string, block: boolean) => (
-        <DeskButton
+        <Button
             testID={testID}
             label={t('platformAdmin:create.submit')}
             block={block}
@@ -398,7 +388,7 @@ function CreateKitchenForm() {
                 }
                 primaryAction={
                     <View className="flex-row flex-wrap items-center justify-end gap-2">
-                        <DeskButton
+                        <Button
                             testID="platform-admin-create-cancel"
                             variant="secondary"
                             size="sm"

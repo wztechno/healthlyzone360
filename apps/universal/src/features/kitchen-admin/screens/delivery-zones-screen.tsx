@@ -4,15 +4,7 @@ import type {
     DeliveryZoneAdmin,
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    EmptyState,
-    ErrorState,
-    Icon,
-    Stack,
-    TableSkeleton,
-    Text,
-} from '@healthy360/design-system';
+import { Button, Cascade, EmptyState, ErrorState, Icon, Stack, TableSkeleton, Text } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -72,7 +64,6 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The zone `?view=` names, read on its own when the loaded page does not hold it. */
@@ -524,7 +515,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-zones-toolbar-create"
                                 label={t('kitchen:zones.create')}
                                 iconStart={<Icon name="plus" size="sm" />}

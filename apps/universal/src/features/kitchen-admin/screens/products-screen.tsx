@@ -1,5 +1,5 @@
 import type { ProductAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import { Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
+import { Button, Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -44,7 +44,6 @@ import {
 } from '../format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/products` — what this kitchen buys in and sells on as goods, rather than cooks. The
@@ -275,7 +274,7 @@ function ProductsList({
                         canManage ? (
                             <Inline space="xs" align="center">
                                 <CatalogueTransferActions testID="kitchen-products-toolbar" />
-                                <DeskButton
+                                <Button
                                     testID="kitchen-products-toolbar-create"
                                     label={t(family.create)}
                                     iconStart={<Icon name="plus" size="sm" />}
@@ -367,13 +366,13 @@ function ProductsList({
                 description={t('kitchen:products.archiveBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-products-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={list.cancelArchive}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-products-archive-confirm"
                             variant="danger"
                             label={t('kitchen:products.archiveConfirm')}

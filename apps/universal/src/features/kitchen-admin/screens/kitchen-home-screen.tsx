@@ -1,19 +1,5 @@
 import type { KitchenOrder } from '@healthy360/api-client/contracts';
-import {
-    Callout,
-    Card,
-    Cascade,
-    EmptyState,
-    Heading,
-    Icon,
-    Inline,
-    Skeleton,
-    Stack,
-    Text,
-    cx,
-    useContentWidth,
-    useMotion,
-} from '@healthy360/design-system';
+import { Button, Callout, Card, Cascade, cx, EmptyState, Heading, Icon, Inline, Skeleton, Stack, Text, useContentWidth, useMotion } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -67,7 +53,6 @@ import { GROUP_LABEL_KEYS } from '../kitchen-nav.ts';
 import { buildReviewQueue } from '../review-queue.ts';
 import { ordersHref } from '../orders/orders-url.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { COUNT_CLASS, CountPill, Panel, StatTile } from '../hub-parts.tsx';
 import type { Tone } from '../hub-parts.tsx';
 /**
@@ -216,7 +201,7 @@ function ConfirmRow({
                 {formatMoney(formatter, order.totalMinor / 100, order.currencyCode)}
             </Text>
             {canConfirm ? (
-                <DeskButton
+                <Button
                     testID={`kitchen-home-order-${String(order.id)}-confirm`}
                     size="sm"
                     label={t('kitchen:ops.orders.confirm')}
@@ -775,7 +760,7 @@ export function KitchenHomeScreen() {
                         title={t('kitchen:setup.notOpenTitle')}
                         body={t('kitchen:setup.notOpenBody')}
                         actions={
-                            <DeskButton
+                            <Button
                                 testID="kitchen-home-open-setup"
                                 size="sm"
                                 label={t('kitchen:families.setup.name')}
@@ -804,7 +789,7 @@ export function KitchenHomeScreen() {
                             </Stack>
                             <Inline space="xs" align="center">
                                 {permitted.has('supplyOrders') ? (
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-home-order-supplies"
                                         variant="secondary"
                                         iconStart={
@@ -819,7 +804,7 @@ export function KitchenHomeScreen() {
                                     />
                                 ) : null}
                                 {permitted.has('orders') ? (
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-home-new-order"
                                         label={t('kitchen:hub.newSale')}
                                         iconStart={<Icon name="plus" size="sm" />}
@@ -1094,7 +1079,7 @@ export function KitchenHomeScreen() {
                                             </View>
                                             {permitted.has('supplyOrders') ? (
                                                 <View className="px-3 pb-1.5 pt-1">
-                                                    <DeskButton
+                                                    <Button
                                                         testID="kitchen-home-buying-order-supplies"
                                                         size="sm"
                                                         variant="secondary"

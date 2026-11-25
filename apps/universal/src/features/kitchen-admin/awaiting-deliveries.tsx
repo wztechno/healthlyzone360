@@ -1,4 +1,4 @@
-import { Icon, Text } from '@healthy360/design-system';
+import { Button, Icon, Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,6 @@ import { useReceivableOrdersQuery } from '../../data/kitchen-ops-hooks.ts';
 import { withQuery } from '../../navigation/return-to.ts';
 import { useAccessState } from '../../session/session-provider.tsx';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 import { CountPill } from './process-parts.tsx';
 /** The list is the way in, not the backlog: the rest are on the receive page's own picker. */
 const SHOWN_ORDERS = 5;
@@ -53,7 +52,7 @@ export function AwaitingDeliveries() {
                 />
                 {rows.length > SHOWN_ORDERS ? (
                     <View className="ms-auto">
-                        <DeskButton
+                        <Button
                             testID="kitchen-procurement-awaiting-all"
                             size="sm"
                             variant="ghost"
@@ -105,7 +104,7 @@ export function AwaitingDeliveries() {
                                         count: order.outstandingLineCount,
                                     })}
                                 </Text>
-                                <DeskButton
+                                <Button
                                     testID={`kitchen-procurement-awaiting-${id}-receive`}
                                     size="sm"
                                     variant="secondary"

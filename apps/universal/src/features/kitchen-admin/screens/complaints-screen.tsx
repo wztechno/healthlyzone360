@@ -1,17 +1,6 @@
 import type { OrderComplaint } from '@healthy360/api-client/contracts';
 import { COMPLAINT_OUTCOMES } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    Dialog,
-    EmptyState,
-    ErrorState,
-    Select,
-    Stack,
-    TableSkeleton,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Cascade, Dialog, EmptyState, ErrorState, Select, Stack, TableSkeleton, Text, TextInputField, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { parseMinorAmount } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -48,7 +37,6 @@ import {
 } from '../list-memory.ts';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
@@ -501,7 +489,7 @@ function CloseDialog({
             }}
             title={t('kitchen:complaints.closeTitle')}
             actions={
-                <DeskButton
+                <Button
                     testID="kitchen-complaints-close-confirm"
                     label={t('kitchen:complaints.closeConfirm')}
                     loading={update.isPending}

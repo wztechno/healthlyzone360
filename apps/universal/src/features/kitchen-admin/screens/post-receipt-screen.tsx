@@ -3,24 +3,7 @@ import type {
     MeasurementUnitOption,
     ReceivableOrder,
 } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Callout,
-    Cascade,
-    Checkbox,
-    Dialog,
-    FormIssueScope,
-    FormSkeleton,
-    Icon,
-    InfoTip,
-    IssueTrayFrame,
-    Select,
-    Stack,
-    Text,
-    TextInputField,
-    useIssueTrayController,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Callout, Cascade, Checkbox, Dialog, FormIssueScope, FormSkeleton, Icon, InfoTip, IssueTrayFrame, Select, Stack, Text, TextInputField, useIssueTrayController, useToast } from '@healthy360/design-system';
 import type {
     FormIssueItem,
     IssueCardItem,
@@ -90,7 +73,6 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskDateField } from '../desk-kit/desk-date-field.tsx';
 import { ReviewBox, StepCard } from '../process-parts.tsx';
 import { ProcessSteps } from '../process-steps.tsx';
@@ -1179,7 +1161,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                     }}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-procurement-post-cancel"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -1190,7 +1172,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                             {/* Post sits up here on every step. Pressed before the receipt is
                                 ready it posts nothing and opens the first thing to fix. */}
                             {loading ? null : (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-procurement-post-confirm"
                                     label={postLabel}
                                     iconStart={<Icon name="check" size="sm" />}
@@ -1256,7 +1238,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                             })}
                                             body={t('kitchen:ops.procurement.openOrdersBody')}
                                             actions={
-                                                <DeskButton
+                                                <Button
                                                     testID="kitchen-post-receipt-open-orders-receive"
                                                     variant="secondary"
                                                     label={t(
@@ -1345,7 +1327,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                          */}
                                         {canManage && !orderMode ? (
                                             <View className="flex-row">
-                                                <DeskButton
+                                                <Button
                                                     testID="kitchen-procurement-post-new-supplier"
                                                     size="sm"
                                                     variant="ghost"
@@ -1451,7 +1433,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                          * has any, because most market purchases carry none.
                                          */}
                                         {lines.some((line) => line.stockItemId !== null) ? (
-                                            <DeskButton
+                                            <Button
                                                 testID="kitchen-procurement-post-trace-toggle"
                                                 variant="secondary"
                                                 size="sm"
@@ -1696,7 +1678,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                                             <Text className="min-w-0 flex-1 text-[13px] font-semibold text-danger-on-subtle">
                                                                 {issue.label}
                                                             </Text>
-                                                            <DeskButton
+                                                            <Button
                                                                 testID={`kitchen-post-receipt-fix-${issue.key}-go`}
                                                                 size="sm"
                                                                 variant="secondary"
@@ -1749,13 +1731,13 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                     description={t('kitchen:ops.procurement.discardBody', { count: lines.length })}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-post-receipt-screen-unsaved-keep"
                                 variant="quiet"
                                 label={t('kitchen:unsaved.keepEditing')}
                                 onPress={guard.cancelDiscard}
                             />
-                            <DeskButton
+                            <Button
                                 testID="kitchen-post-receipt-screen-unsaved-discard"
                                 variant="danger"
                                 label={t('kitchen:common.discard')}

@@ -28,6 +28,13 @@ export const BUTTON_VARIANTS = [
     'ghost',
     'danger',
     'sidebar',
+    // The admin canvas's own levels (2026-11-26, from the old `DeskButton`): a row's next step with
+    // a brand ring, and the outlined destructive command that sits among others (Cancel order).
+    'next',
+    'dangerOutline',
+    // On a dark band (the corporate picked-lines bar): the filled call and the outlined one beside it.
+    'inverse',
+    'inverseOutline',
 ] as const;
 export type ButtonVariant = (typeof BUTTON_VARIANTS)[number];
 
@@ -49,6 +56,45 @@ export const CONTAINER_VARIANT: Readonly<Record<ButtonVariant, string>> = {
     // The primary of a panel drawn in the sidebar green (the order desk ticket): the rail's own
     // active pill, white in light mode, so it reads as the one action on that ground.
     sidebar: 'bg-surface-sidebar-active border border-transparent hover:opacity-90',
+    next: 'bg-surface-raised border border-surface-brand hover:bg-surface-brand-subtle',
+    dangerOutline: 'bg-surface-raised border border-danger-border hover:bg-danger-subtle',
+    inverse: 'bg-stage-green border border-transparent hover:opacity-90',
+    inverseOutline: 'bg-transparent border border-content-inverse/30 hover:bg-content-inverse/15',
+};
+
+/**
+ * The admin canvas's buttons — what `Button` draws under `AreaLookScope look="desk"` (the Orders
+ * canvas, 2026-11-10; the old `DeskButton`). Every one is a pill on the toolbar's 34px; the primary
+ * carries the brand glow, the one lifted control in a toolbar or a pop-up header; `quiet` and
+ * `ghost` are a link-weight word in the brand ink.
+ */
+export const DESK_CONTAINER_VARIANT: Readonly<Record<ButtonVariant, string>> = {
+    primary:
+        'border border-surface-brand bg-surface-brand shadow-elevation-brand-glow hover:border-surface-canopy hover:bg-surface-canopy',
+    secondary:
+        'border border-stroke-subtle bg-surface-raised hover:border-stroke hover:bg-surface-brand-subtle',
+    quiet: 'border border-transparent bg-transparent hover:bg-surface-brand-subtle',
+    ghost: 'border border-transparent bg-transparent hover:bg-surface-brand-subtle',
+    danger: 'border border-danger bg-danger hover:border-danger-strong hover:bg-danger-strong',
+    sidebar: 'bg-surface-sidebar-active border border-transparent hover:opacity-90',
+    next: 'border border-surface-brand bg-surface-raised hover:bg-surface-brand-subtle',
+    dangerOutline: 'border border-danger-border bg-surface-raised hover:bg-danger-subtle',
+    inverse: 'bg-stage-green border border-transparent hover:opacity-90',
+    inverseOutline: 'bg-transparent border border-content-inverse/30 hover:bg-content-inverse/15',
+};
+
+/** The desk label's ink; the glyphs beside it take the same. Weight is the size's (`role-strong`). */
+export const DESK_LABEL_VARIANT: Readonly<Record<ButtonVariant, string>> = {
+    primary: 'text-content-on-brand',
+    secondary: 'text-content-primary',
+    quiet: 'text-content-on-brand-subtle',
+    ghost: 'text-content-on-brand-subtle',
+    danger: 'text-danger-on-default',
+    sidebar: 'text-content-on-sidebar-active',
+    next: 'text-content-on-brand-subtle',
+    dangerOutline: 'text-danger-strong',
+    inverse: 'text-surface-canopy',
+    inverseOutline: 'text-content-inverse',
 };
 
 /**
@@ -68,4 +114,8 @@ export const LABEL_VARIANT: Readonly<Record<ButtonVariant, string>> = {
     ghost: 'text-content-primary font-medium',
     danger: 'text-danger-on-default font-semibold',
     sidebar: 'text-content-on-sidebar-active font-semibold',
+    next: 'text-content-on-brand-subtle font-medium',
+    dangerOutline: 'text-danger-strong font-medium',
+    inverse: 'text-surface-canopy font-semibold',
+    inverseOutline: 'text-content-inverse font-medium',
 };

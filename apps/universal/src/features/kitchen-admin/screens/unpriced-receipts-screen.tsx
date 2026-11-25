@@ -1,5 +1,5 @@
 import type { ReceiptCostStatus, UnpricedReceipt } from '@healthy360/api-client/contracts';
-import { Cascade, EmptyState, ErrorState, TableSkeleton, Text } from '@healthy360/design-system';
+import { Button, Cascade, EmptyState, ErrorState, TableSkeleton, Text } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -30,7 +30,6 @@ import {
     useRememberedQuery,
 } from '../list-memory.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/supplier-bills?tab=unpriced` — the work queue (SUP5, §3.6, §7).
@@ -360,7 +359,7 @@ function UnpricedReceipts() {
                                 // so the way back has to be here.
                                 actions={
                                     unfiltered ? undefined : (
-                                        <DeskButton
+                                        <Button
                                             testID="kitchen-unpriced-clear"
                                             variant="secondary"
                                             size="sm"

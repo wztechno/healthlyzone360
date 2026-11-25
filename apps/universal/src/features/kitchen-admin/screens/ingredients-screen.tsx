@@ -1,4 +1,4 @@
-import { Cascade, Dialog, Icon, Inline, Select, Text, useToast } from '@healthy360/design-system';
+import { Button, Cascade, Dialog, Icon, Inline, Select, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -42,7 +42,6 @@ import {
     statusShortKey,
 } from '../format.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/ingredients` — the ingredient list, as `Catalogue.dc.html` draws it.
  *
@@ -325,7 +324,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                                 />
                             ) : null}
                             {canManage ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-ingredients-toolbar-create"
                                     label={t('kitchen:toolbar.create')}
                                     iconStart={<Icon name="plus" size="sm" />}
@@ -443,13 +442,13 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                 description={t('kitchen:editor.archiveBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-ingredients-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={list.cancelArchive}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-ingredients-archive-confirm"
                             variant="danger"
                             label={t('kitchen:editor.archiveConfirm')}

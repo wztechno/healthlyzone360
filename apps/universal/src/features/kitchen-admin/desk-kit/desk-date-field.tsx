@@ -1,12 +1,4 @@
-import {
-    Dropdown,
-    FormField,
-    Icon,
-    SlideIn,
-    cx,
-    inputFrameClassName,
-    useDensity,
-} from '@healthy360/design-system';
+import { Button, cx, Dropdown, FormField, Icon, inputFrameClassName, SlideIn, useDensity } from '@healthy360/design-system';
 import type { FieldControlProps } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
@@ -16,7 +8,6 @@ import { Pressable, Text as RNText, View } from 'react-native';
 import { todayIso } from '../../commerce/dates.ts';
 import { dateInstant } from '../../planner/format.ts';
 import { monthOf } from '../orders/order-book.ts';
-import { DeskButton } from './desk-button.tsx';
 import { MonthPanel } from './mini-month.tsx';
 
 /**
@@ -173,7 +164,7 @@ export function DeskDateField({
                                 testID={`${testID}-picker`}
                             />
                             <View className="mt-2 flex-row items-center justify-between border-t border-stroke-subtle pt-2">
-                                <DeskButton
+                                <Button
                                     testID={`${testID}-today`}
                                     variant="quiet"
                                     label={t('kitchen:dateField.today')}
@@ -184,7 +175,7 @@ export function DeskDateField({
                                     }}
                                 />
                                 {clearable && day !== '' ? (
-                                    <DeskButton
+                                    <Button
                                         testID={`${testID}-clear`}
                                         variant="quiet"
                                         label={t('common:action.clear')}

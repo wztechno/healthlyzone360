@@ -1,9 +1,4 @@
-import {
-    DensityProvider,
-    SectionLook,
-    SelectLookScope,
-    ToastLookScope,
-} from '@healthy360/design-system';
+import { AreaLookScope, DensityProvider, SectionLook } from '@healthy360/design-system';
 import { Slot } from 'expo-router';
 import { View } from 'react-native';
 
@@ -34,11 +29,9 @@ import { TrailLeafProvider } from '../../src/shell/area-trail.tsx';
 export default function PlatformAdminLayout() {
     return (
         <TrailLeafProvider>
-            <ToastLookScope look="desk">
-                <SelectLookScope look="card">
-                    <PlatformAreaShell />
-                </SelectLookScope>
-            </ToastLookScope>
+            <AreaLookScope look="desk">
+                <PlatformAreaShell />
+            </AreaLookScope>
         </TrailLeafProvider>
     );
 }

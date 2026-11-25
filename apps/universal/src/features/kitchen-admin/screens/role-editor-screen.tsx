@@ -1,19 +1,6 @@
 import { isDeletableRole, isValidationFailure } from '@healthy360/api-client/contracts';
 import type { ApiFailure } from '@healthy360/api-client/contracts';
-import {
-    Callout,
-    Cascade,
-    Dialog,
-    ErrorState,
-    FormGrid,
-    FormSection,
-    FormSkeleton,
-    IssueTrayFrame,
-    Text,
-    TextInputField,
-    useIssueTrayController,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Callout, Cascade, Dialog, ErrorState, FormGrid, FormSection, FormSkeleton, IssueTrayFrame, Text, TextInputField, useIssueTrayController, useToast } from '@healthy360/design-system';
 import type { IssueCardItem, IssueTrayContent, TabItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -46,7 +33,6 @@ import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/roles/{role}` and `/kitchen/roles/new` — one editor, three jobs.
  *
@@ -273,7 +259,7 @@ function RoleEditor() {
                 title={t('accessAdmin:role.notFoundTitle')}
                 body={t('accessAdmin:role.notFoundBody')}
                 actions={
-                    <DeskButton
+                    <Button
                         testID="kitchen-role-editor-missing-back"
                         variant="quiet"
                         label={t('accessAdmin:role.backToList')}
@@ -580,7 +566,7 @@ function RoleEditor() {
                     }
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-role-editor-back"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -589,7 +575,7 @@ function RoleEditor() {
                                 }}
                             />
                             {deletable ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-role-editor-delete"
                                     variant="quiet"
                                     label={t('accessAdmin:role.delete')}
@@ -798,7 +784,7 @@ function RoleEditor() {
                 description={t('accessAdmin:role.deleteBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-role-editor-delete-cancel"
                             variant="secondary"
                             label={t('accessAdmin:role.cancel')}
@@ -806,7 +792,7 @@ function RoleEditor() {
                                 setConfirmingDelete(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-role-editor-delete-confirm"
                             variant="danger"
                             label={t('accessAdmin:role.deleteConfirm')}

@@ -1,9 +1,8 @@
-import { Card, Icon, Inline, Stack, Text } from '@healthy360/design-system';
+import { Button, Card, Icon, Inline, Stack, Text } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * The chrome every ordered-row editor in this workspace shares.
  *
@@ -80,7 +79,7 @@ export function RowShell({
                         <Inline space="xs" wrap justify="end">
                             {onMove === undefined ? null : (
                                 <>
-                                    <DeskButton
+                                    <Button
                                         testID={`${testID}-move-up`}
                                         size="sm"
                                         variant="ghost"
@@ -90,7 +89,7 @@ export function RowShell({
                                             onMove(position - 2);
                                         }}
                                     />
-                                    <DeskButton
+                                    <Button
                                         testID={`${testID}-move-down`}
                                         size="sm"
                                         variant="ghost"
@@ -102,7 +101,7 @@ export function RowShell({
                                     />
                                 </>
                             )}
-                            <DeskButton
+                            <Button
                                 testID={`${testID}-remove`}
                                 size="sm"
                                 variant="ghost"

@@ -1,22 +1,5 @@
 import type { PurchaseOrderLine, StockItem } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Callout,
-    Cascade,
-    DataList,
-    Dialog,
-    EmptyState,
-    ErrorState,
-    FormSection,
-    FormSkeleton,
-    Icon,
-    QuantityInput,
-    Select,
-    Stack,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Callout, Cascade, DataList, Dialog, EmptyState, ErrorState, FormSection, FormSkeleton, Icon, QuantityInput, Select, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { PurchaseOrderId, StockItemId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -63,7 +46,6 @@ import { readQuantity } from '../supply-order-model.ts';
 import { trimDecimal, unitCodeLabel } from '../format.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/supply-orders/{order}` — one purchase order (SUP4).
  *
@@ -445,7 +427,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
             title={t('kitchen:ops.supplyOrders.notFoundTitle')}
             body={t('kitchen:ops.supplyOrders.notFoundBody')}
             actions={
-                <DeskButton
+                <Button
                     testID="kitchen-supply-order-detail-not-found-back"
                     variant="secondary"
                     label={t('kitchen:ops.supplyOrders.backToOrders')}
@@ -678,7 +660,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                       sortable: false,
                       filterable: false,
                       render: (line) => (
-                          <DeskButton
+                          <Button
                               testID={`${purchaseOrderLineTestId(line.stockItemId)}-remove`}
                               size="sm"
                               variant="ghost"
@@ -752,7 +734,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                     branchName={branchName}
                     statusTone={purchaseOrderStatusTone(data.status)}
                     back={
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-order-detail-screen-back"
                             variant="secondary"
                             size="sm"
@@ -766,7 +748,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                     actions={
                         <>
                             {printable ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-supply-order-detail-print"
                                     variant="secondary"
                                     size="sm"
@@ -775,7 +757,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                                 />
                             ) : null}
                             {cancellable ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-supply-order-detail-cancel"
                                     variant="danger"
                                     size="sm"
@@ -786,7 +768,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                                 />
                             ) : null}
                             {receivable ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-supply-order-detail-receive"
                                     variant="secondary"
                                     size="sm"
@@ -844,7 +826,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                     }
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-supply-order-detail-screen-back"
                                 variant="secondary"
                                 label={t('kitchen:ops.supplyOrders.backToOrders')}
@@ -858,7 +840,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                                  * comes back is marked Draft and is not the document anybody hands
                                  * over; an issued order says **Print** because it is.
                                  */
-                                <DeskButton
+                                <Button
                                     testID="kitchen-supply-order-detail-print"
                                     variant={issuable ? 'ghost' : 'secondary'}
                                     label={
@@ -870,7 +852,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                                 />
                             ) : null}
                             {cancellable ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-supply-order-detail-cancel"
                                     variant="danger"
                                     label={t('kitchen:ops.supplyOrders.cancelOrder')}
@@ -880,14 +862,14 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                                 />
                             ) : null}
                             {receivable ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-supply-order-detail-receive"
                                     label={t('kitchen:ops.supplyOrders.receiveDelivery')}
                                     onPress={goReceive}
                                 />
                             ) : null}
                             {issuable ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-supply-order-detail-issue"
                                     label={t('kitchen:ops.supplyOrders.issue')}
                                     disabled={issueBlocked}
@@ -1170,7 +1152,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                 testID="kitchen-supply-order-detail-issue-confirm"
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-order-detail-issue-cancel"
                             variant="secondary"
                             label={t('kitchen:ops.supplyOrders.issueKeepEditing')}
@@ -1178,7 +1160,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                                 setConfirmingIssue(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-order-detail-issue-confirm-action"
                             label={t('kitchen:ops.supplyOrders.issueConfirm')}
                             loading={issue.isPending}
@@ -1199,7 +1181,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                 testID="kitchen-supply-order-detail-cancel-confirm"
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-order-detail-cancel-keep"
                             variant="quiet"
                             label={t('kitchen:ops.supplyOrders.cancelKeep')}
@@ -1207,7 +1189,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                                 setConfirmingCancel(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-order-detail-cancel-confirm-action"
                             variant="danger"
                             label={t('kitchen:ops.supplyOrders.cancelConfirm')}

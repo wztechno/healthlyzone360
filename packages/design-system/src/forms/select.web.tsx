@@ -14,7 +14,7 @@ import { FormField, REQUIRED_MARK } from './form-field.tsx';
 import type { FieldControlProps } from './form-field.tsx';
 import { SearchInput } from './search-input.tsx';
 import { inputFrameClassName } from './text-input.tsx';
-import { useSelectLook } from './select-look.tsx';
+import { useAreaLook } from '../hooks/area-look.tsx';
 import {
     optionMatches,
     optionText,
@@ -108,7 +108,7 @@ export function Select<T extends string = string>({
     const { t } = useTranslation();
     const density = useDensity();
     const pill = triggerKind === 'pill';
-    const areaLook = useSelectLook();
+    const areaLook = useAreaLook() === 'desk' ? 'card' : 'field';
     const look = pill ? 'card' : (lookProp ?? areaLook);
     const card = look === 'card';
     // Automatic only in the admin's card look, so the web shop's fields keep their width.

@@ -1,4 +1,4 @@
-import { Callout, Menu } from '@healthy360/design-system';
+import { Button, Callout, Menu } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
@@ -11,7 +11,6 @@ import {
 import { DropTrigger } from '../desk-kit/index.ts';
 import { ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * The timed brake on the whole kitchen: customers are refused until it runs out, and the desk's
  * quote warns instead. It ends by the clock, so there is nothing to remember to undo; Start again
@@ -98,7 +97,7 @@ export function KitchenPauseBanner() {
             })}
             body={t('kitchen:desk.pause.pausedBody')}
             actions={
-                <DeskButton
+                <Button
                     testID="kitchen-pause-resume"
                     size="sm"
                     variant="secondary"

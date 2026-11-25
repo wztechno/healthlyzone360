@@ -39,7 +39,6 @@ import { earliestStartDate } from '../../commerce/dates.ts';
 import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
-import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
 import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import { focusField } from '../../kitchen-admin/field-focus.ts';
 import { serverFieldErrors } from '../../kitchen-admin/server-field-errors.ts';
@@ -254,7 +253,7 @@ export function QuotationBuilderScreen({
                         />
                     }
                     primaryAction={
-                        <DeskButton
+                        <Button
                             testID="quotation-builder-back"
                             variant="secondary"
                             size="sm"
@@ -361,7 +360,7 @@ export function QuotationBuilderScreen({
     ];
 
     const sendButton = (testID: string, block: boolean) => (
-        <DeskButton
+        <Button
             testID={testID}
             label={t('business:builder.submit')}
             block={block}
@@ -791,7 +790,7 @@ export function QuotationBuilderScreen({
                     }
                     primaryAction={
                         <View className="flex-row flex-wrap items-center justify-end gap-2">
-                            <DeskButton
+                            <Button
                                 testID="quotation-builder-cancel"
                                 variant="secondary"
                                 size="sm"
@@ -909,14 +908,14 @@ export function SentBox({
                 ))}
             </View>
             <View className="mt-6 flex-row flex-wrap justify-center gap-2">
-                <DeskButton
+                <Button
                     testID="quotation-builder-open-list"
                     variant="secondary"
                     size="sm"
                     label={t('business:builder.openList')}
                     onPress={onList}
                 />
-                <DeskButton
+                <Button
                     testID="quotation-builder-another"
                     size="sm"
                     label={t('business:builder.another')}

@@ -5,20 +5,7 @@ import type {
     OpenDailyClose,
     TillBranch,
 } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Callout,
-    Cascade,
-    Dialog,
-    EmptyState,
-    ErrorState,
-    Select,
-    Stack,
-    TableSkeleton,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Callout, Cascade, Dialog, EmptyState, ErrorState, Select, Stack, TableSkeleton, Text, TextInputField, useToast } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -37,7 +24,6 @@ import { DeskTableTitle } from '../order-desk/desk-parts.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { FailureToast } from '../failure-toast.tsx';
 /**
@@ -160,7 +146,7 @@ function OrderDeskClose() {
             priority: 99,
             render: (row) => (
                 <View className="flex-row justify-end">
-                    <DeskButton
+                    <Button
                         testID={`kitchen-close-${row.branchId ?? 'kitchen'}-${row.currencyCode}-open`}
                         variant="secondary"
                         size="sm"
@@ -286,7 +272,7 @@ function OrderDeskClose() {
                 ) : row.signedOffAt !== null ? (
                     <DeskChip tone="neutral" label={t('kitchen:ops.dailyClose.signedOff')} />
                 ) : canSignOff ? (
-                    <DeskButton
+                    <Button
                         testID={`kitchen-close-${row.id}-sign-off`}
                         variant="secondary"
                         size="sm"
@@ -561,13 +547,13 @@ function CloseDialog({
             description={t('kitchen:ops.dailyClose.dialogBody')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-close-dismiss"
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-close-confirm"
                         label={t('kitchen:ops.dailyClose.confirm')}
                         loading={record.isPending}

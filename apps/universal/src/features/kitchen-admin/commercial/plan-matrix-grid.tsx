@@ -1,9 +1,8 @@
-import { DATA_LIST_HEAD_TEXT_CLASS, Icon } from '@healthy360/design-system';
+import { Button, DATA_LIST_HEAD_TEXT_CLASS, Icon } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { Platform, Text as RNText, ScrollView, View } from 'react-native';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { cellVariants } from '../plan-matrix.ts';
 import type { MatrixBand, MatrixRow, VariantDraft } from '../plan-matrix.ts';
 
@@ -103,7 +102,7 @@ export function PlanMatrixGrid({
                     {t('kitchen:plans.matrixEmpty')}
                 </RNText>
                 {onOpenConfigurations === undefined ? null : (
-                    <DeskButton
+                    <Button
                         testID={`${testID}-open-variants`}
                         variant="quiet"
                         size="sm"

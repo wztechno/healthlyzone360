@@ -1,12 +1,4 @@
-import {
-    Callout,
-    EmptyState,
-    ErrorState,
-    FormSection,
-    RecordSkeleton,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { Button, Callout, EmptyState, ErrorState, FormSection, RecordSkeleton, Stack, Text } from '@healthy360/design-system';
 import { ProductionOrderId } from '@healthy360/domain-types';
 import { useLocalSearchParams } from 'expo-router';
 import { useFormatter } from '@healthy360/i18n';
@@ -20,7 +12,6 @@ import { PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { BatchLinesPanel } from '../production-desk/batch-lines-panel.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 /**
  * `/kitchen/production-desk/{order}/sheet` — what one batch stood on (PROD1).
@@ -125,7 +116,7 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
                 subtitle={t('kitchen:ops.production.sheetSubtitle')}
                 back={
                     <View className="flex-row">
-                        <DeskButton
+                        <Button
                             testID="kitchen-production-batch-sheet-back"
                             variant="ghost"
                             size="sm"

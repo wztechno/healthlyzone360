@@ -1,8 +1,7 @@
-import { Stack, Text } from '@healthy360/design-system';
+import { Button, Stack, Text } from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { DeskButton } from '../features/kitchen-admin/desk-kit/desk-button.tsx';
 import { DeskChip } from '../features/kitchen-admin/desk-kit/desk-chip.tsx';
 import { CountPill, ReviewBox, StepCard } from '../features/kitchen-admin/process-parts.tsx';
 import { ProcessSteps } from '../features/kitchen-admin/process-steps.tsx';
@@ -56,7 +55,7 @@ export function ProcessStepsShowcaseScreen() {
                     title="What arrived"
                     count="4 to post, 1 left out"
                     actions={
-                        <DeskButton size="sm" variant="secondary" label="Add invoice charges" />
+                        <Button size="sm" variant="secondary" label="Add invoice charges" />
                     }
                 >
                     <Text tone="secondary">The step's fields sit here.</Text>

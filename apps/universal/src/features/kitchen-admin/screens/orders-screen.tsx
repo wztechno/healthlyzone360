@@ -1,14 +1,5 @@
 import { OrderId } from '@healthy360/domain-types';
-import {
-    Cascade,
-    EmptyState,
-    ErrorState,
-    Icon,
-    IssueTrayFrame,
-    IssueUnanchored,
-    Select,
-    TableSkeleton,
-} from '@healthy360/design-system';
+import { Button, Cascade, EmptyState, ErrorState, Icon, IssueTrayFrame, IssueUnanchored, Select, TableSkeleton } from '@healthy360/design-system';
 import type { IssueTrayContent } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -32,7 +23,7 @@ import {
     SUBSCRIPTION_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { kitchenOrderStatusKey } from '../ops-format.ts';
-import { DeskButton, DeskTabs, ListGroupRow } from '../desk-kit/index.ts';
+import { DeskTabs, ListGroupRow } from '../desk-kit/index.ts';
 import { KitchenPauseBanner, KitchenPauseButton } from '../order-desk/kitchen-pause.tsx';
 import { useWindowName } from '../order-desk/use-window-name.ts';
 import { useListPage } from '../use-list-page.ts';
@@ -302,7 +293,7 @@ function OrdersPage() {
         <View className="z-auto flex-row items-center gap-2">
             <KitchenPauseButton />
             {canSell ? (
-                <DeskButton
+                <Button
                     testID="kitchen-orders-new"
                     variant="primary"
                     label={t('kitchen:orders.newOrder')}
@@ -741,7 +732,7 @@ function TodayTab({
                         }
                         actions={
                             filtered ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-orders-today-clear"
                                     variant="secondary"
                                     label={t('kitchen:orders.clearFilters')}
@@ -750,7 +741,7 @@ function TodayTab({
                                     }}
                                 />
                             ) : canSell && day >= today ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-orders-today-new"
                                     variant="secondary"
                                     label={t('kitchen:orders.newForDay')}
@@ -979,7 +970,7 @@ function AllOrdersTab({
                         )}
                         actions={
                             filtered ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-orders-all-clear"
                                     variant="secondary"
                                     label={t('kitchen:orders.clearFilters')}

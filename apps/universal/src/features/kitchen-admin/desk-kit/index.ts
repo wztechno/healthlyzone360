@@ -4,8 +4,6 @@
  *
  * | Canvas            | Part               | Replaces                    |
  * | ----------------- | ------------------ | --------------------------- |
- * | `.btn.sm` `.nx`   | `DeskButton`       | `Button`                    |
- * | `.ib.sm`          | `DeskIconButton`   | `IconButton`                |
  * | `.ac`             | `DeskChip`         | `Badge`                     |
  * | `.drop.has` `.mm` | `MiniMonthPicker`  | `DatePickerButton` (or `DeskDateButton`, its props) |
  * | `.otabs` `.seg3`  | `DeskTabs`         | `Tabs variant="segmented"`  |
@@ -17,12 +15,11 @@
  * | Show columns      | `DeskColumnPicker` | `ColumnPicker`              |
  * | Breadcrumb board  | `DeskTrail`        | `Breadcrumbs` in the kitchen top bar |
  *
- * All of them are on `/showcase-orders`. Dropdowns are not here: every "pick a value" list is the
- * design system's `Select` (`trigger="pill"` on a toolbar), on `/showcase-components`.
+ * All of them are on `/showcase-orders`. Dropdowns and buttons are not here: every "pick a value"
+ * list is the design system's `Select`, every button its `Button` / `IconButton`, all on
+ * `/showcase-components`.
  */
 export { ChoiceRow, initialsOf } from './choice-row.tsx';
-export { DeskButton, DeskIconButton } from './desk-button.tsx';
-export type { DeskButtonProps, DeskButtonVariant } from './desk-button.tsx';
 export { DeskCheckbox } from './desk-checkbox.tsx';
 export { DeskChoiceChips } from './desk-choice-chips.tsx';
 export type { DeskChoiceChip } from './desk-choice-chips.tsx';

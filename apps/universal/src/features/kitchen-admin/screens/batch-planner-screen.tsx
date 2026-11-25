@@ -5,22 +5,7 @@ import type {
     RecipePackagingLine,
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    EmptyState,
-    ErrorState,
-    Heading,
-    Icon,
-    InfoTip,
-    Inline,
-    QuantityInput,
-    SearchInput,
-    SegmentedControl,
-    Skeleton,
-    Stack,
-    TableSkeleton,
-    Text,
-} from '@healthy360/design-system';
+import { Button, Cascade, EmptyState, ErrorState, Heading, Icon, IconButton, InfoTip, Inline, QuantityInput, SearchInput, SegmentedControl, Skeleton, Stack, TableSkeleton, Text } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -53,7 +38,6 @@ import {
     compareText,
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
-import { DeskButton, DeskIconButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import {
     CATALOGUE_VIEW_PERMISSION,
@@ -397,7 +381,7 @@ function BatchPlanner() {
                                 ) : null}
                             </View>
                             <View className="flex-row items-center justify-center gap-1.5">
-                                <DeskIconButton
+                                <IconButton variant="secondary"
                                     testID="kitchen-batch-less"
                                     label={t('kitchen:ops.batch.less')}
                                     icon={<Icon name="minus" size="sm" />}
@@ -428,7 +412,7 @@ function BatchPlanner() {
                                         }
                                     />
                                 </View>
-                                <DeskIconButton
+                                <IconButton variant="secondary"
                                     testID="kitchen-batch-more"
                                     label={t('kitchen:ops.batch.more')}
                                     icon={<Icon name="plus" size="sm" />}
@@ -509,7 +493,7 @@ function BatchPlanner() {
                                     actions={
                                         <Inline space="xs" align="center">
                                             {print.mode === 'browser' ? (
-                                                <DeskButton
+                                                <Button
                                                     testID="kitchen-batch-print"
                                                     size="sm"
                                                     variant="secondary"
@@ -519,7 +503,7 @@ function BatchPlanner() {
                                                 />
                                             ) : null}
                                             {canStart ? (
-                                                <DeskButton
+                                                <Button
                                                     testID="kitchen-batch-start"
                                                     size="sm"
                                                     label={t('kitchen:ops.batch.startBatch')}

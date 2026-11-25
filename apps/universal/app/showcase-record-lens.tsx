@@ -1,3 +1,4 @@
+import { AreaLookScope } from '@healthy360/design-system';
 import { Redirect } from 'expo-router';
 
 import { appConfig } from '../src/config.ts';
@@ -26,7 +27,9 @@ export default function RecordLensShowcase() {
             title="Record lens"
             testID="record-lens-showcase-shell"
         >
-            <RecordLensShowcaseScreen />
+            <AreaLookScope look="desk">
+                <RecordLensShowcaseScreen />
+            </AreaLookScope>
         </AreaShell>
     );
 }

@@ -1,12 +1,5 @@
 import { apiFailure } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    EmptyState,
-    ErrorState,
-    Stack,
-    TableSkeleton,
-    Text,
-} from '@healthy360/design-system';
+import { Button, Cascade, EmptyState, ErrorState, Stack, TableSkeleton, Text } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -32,7 +25,6 @@ import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { useListMemory, useRememberedFilter, useRememberedQuery } from '../list-memory.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 /**
  * `/kitchen/review` — the publication review queue (K1.8), as `Workbench.dc.html` draws it.
@@ -358,7 +350,7 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                                 title={t('kitchen:review.filteredEmptyTitle')}
                                 body={t('kitchen:review.filteredEmptyBody')}
                                 actions={
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-review-clear-filters"
                                         variant="secondary"
                                         size="sm"

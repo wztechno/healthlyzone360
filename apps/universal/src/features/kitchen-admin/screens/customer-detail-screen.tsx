@@ -4,15 +4,7 @@ import type {
     KitchenCustomerContact,
     KitchenCustomerDetail,
 } from '@healthy360/api-client/contracts';
-import {
-    Callout,
-    ErrorState,
-    Inline,
-    RecordWindowFieldGrid,
-    Stack,
-    TableSkeleton,
-    Text,
-} from '@healthy360/design-system';
+import { Button, Callout, ErrorState, Inline, RecordWindowFieldGrid, Stack, TableSkeleton, Text } from '@healthy360/design-system';
 import type { BadgeTone, RecordWindowField } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -42,7 +34,6 @@ import {
 } from './customers-screen.tsx';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 /**
@@ -303,7 +294,7 @@ function CustomerOrders({ customerAccountId }: { readonly customerAccountId: str
                         })}
                     </Text>
                     <DeskChip tone="neutral" label={t(kitchenOrderStatusKey(order.status))} />
-                    <DeskButton
+                    <Button
                         testID={`kitchen-customer-order-${String(order.id)}`}
                         size="sm"
                         variant="quiet"

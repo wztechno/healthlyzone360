@@ -1,20 +1,5 @@
 import type { ServiceArea } from '@healthy360/api-client/contracts';
-import {
-    Callout,
-    Checkbox,
-    cx,
-    DataList,
-    fieldWidth,
-    Icon,
-    Inline,
-    TimeField,
-    Select,
-    Stack,
-    Tag,
-    Text,
-    TextInputField,
-    useContentWidth,
-} from '@healthy360/design-system';
+import { Button, Callout, Checkbox, cx, DataList, fieldWidth, Icon, IconButton, Inline, Select, Stack, Tag, Text, TextInputField, TimeField, useContentWidth } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import type { ServiceAreaId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
@@ -41,7 +26,6 @@ import type {
 import { ISO_WEEKDAYS, displayName } from './format.ts';
 import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
 
-import { DeskButton, DeskIconButton } from './desk-kit/desk-button.tsx';
 import { DeskChip } from './desk-kit/desk-chip.tsx';
 import { DeskTabs } from './desk-kit/desk-tabs.tsx';
 /**
@@ -405,7 +389,7 @@ export function DeliveryWindowRows({
                               if (onArchive === undefined) return null;
                               const label = displayName(row.label, locale).value;
                               return (
-                                  <DeskButton
+                                  <Button
                                       testID={`${rowTestId}-archive`}
                                       size="sm"
                                       variant="quiet"
@@ -462,7 +446,7 @@ export function DeliveryWindowRows({
 
             <Inline space="sm" wrap align="center">
                 {canManage ? (
-                    <DeskButton
+                    <Button
                         testID={`${testID}-add`}
                         size="sm"
                         variant="secondary"
@@ -791,7 +775,7 @@ export function OperatingWeekRows({
                       // words as the name and tooltip, so the column stays narrow (option A).
                       render: (day) =>
                           day.isClosed ? null : (
-                              <DeskIconButton
+                              <IconButton variant="secondary"
                                   testID={`${testID}-day-${String(day.weekday)}-copy`}
                                   label={t('kitchen:branchHours.copyToOpenDays')}
                                   icon={

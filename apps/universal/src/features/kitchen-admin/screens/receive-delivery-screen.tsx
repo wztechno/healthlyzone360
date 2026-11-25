@@ -1,21 +1,6 @@
 import { formatGtin } from '@healthy360/api-client/contracts';
 import type { ReceivableOrder } from '@healthy360/api-client/contracts';
-import {
-    Checkbox,
-    DataList,
-    EmptyState,
-    ErrorState,
-    Icon,
-    IssueTrayFrame,
-    SearchInput,
-    Skeleton,
-    Stack,
-    Text,
-    TextInputField,
-    cx,
-    useIssueTrayController,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Checkbox, cx, DataList, EmptyState, ErrorState, Icon, IssueTrayFrame, SearchInput, Skeleton, Stack, Text, TextInputField, useIssueTrayController, useToast } from '@healthy360/design-system';
 import type { DataListColumn, IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
 import { PurchaseOrderId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -73,7 +58,6 @@ import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskDateField } from '../desk-kit/desk-date-field.tsx';
 import { ReviewBox, StepCard } from '../process-parts.tsx';
@@ -1153,7 +1137,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                 hideSave
                 primaryAction={
                     selectedOrder === null ? undefined : (
-                        <DeskButton
+                        <Button
                             testID="kitchen-receive-post"
                             label={t('kitchen:ops.receiving.post')}
                             iconStart={<Icon name="check" size="sm" />}
@@ -1371,7 +1355,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                             {t('kitchen:ops.receiving.sectionCharges')}
                                         </Text>
                                         <View className="ms-auto">
-                                            <DeskButton
+                                            <Button
                                                 testID="kitchen-receive-charges-toggle"
                                                 size="sm"
                                                 variant="secondary"
@@ -1705,7 +1689,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                             <Text className="min-w-0 flex-1 text-[13px] font-semibold text-danger-on-subtle">
                                                                 {fix.label}
                                                             </Text>
-                                                            <DeskButton
+                                                            <Button
                                                                 testID={`kitchen-receive-fix-${fix.key}-go`}
                                                                 size="sm"
                                                                 variant="secondary"

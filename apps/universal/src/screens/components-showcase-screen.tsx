@@ -1,4 +1,13 @@
-import { DensityProvider, SEARCH_THRESHOLD, Select, Stack, Text } from '@healthy360/design-system';
+import {
+    Button,
+    DensityProvider,
+    Icon,
+    IconButton,
+    SEARCH_THRESHOLD,
+    Select,
+    Stack,
+    Text,
+} from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -218,6 +227,107 @@ function DropdownSection() {
     );
 }
 
+/** A row of buttons, wrapping on a narrow window. */
+function Row({ children }: { readonly children: ReactNode }) {
+    return <View className="flex-row flex-wrap items-center gap-3">{children}</View>;
+}
+
+function ButtonsSection() {
+    const [busy, setBusy] = useState(false);
+    return (
+        <Stack space="lg" testID="components-showcase-buttons">
+            <Stack space="xs">
+                <Text variant="section">Buttons</Text>
+                <Text variant="caption" tone="secondary">
+                    Button and IconButton · the admin look comes from the area, never a prop
+                </Text>
+            </Stack>
+
+            <Sample
+                title="Levels"
+                note="primary · secondary · quiet · next · danger · dangerOutline"
+            >
+                <Row>
+                    <Button
+                        testID="components-showcase-button-primary"
+                        label="New order"
+                        iconStart={<Icon name="plus" size="sm" />}
+                    />
+                    <Button label="Pause kitchen" variant="secondary" />
+                    <Button label="Clear filters" variant="quiet" />
+                    <Button label="Mark delivered" variant="next" />
+                    <Button label="Delete" variant="danger" />
+                    <Button label="Cancel order" variant="dangerOutline" />
+                </Row>
+            </Sample>
+
+            <Sample title="States" note="disabled primary is grey, not faded · loading sweeps">
+                <Row>
+                    <Button
+                        testID="components-showcase-button-disabled"
+                        label="Publish"
+                        disabled
+                        hint="Add a price first"
+                    />
+                    <Button label="Save" loading={busy} onPress={() => setBusy((on) => !on)} />
+                    <Button
+                        label="Stop the sweep"
+                        variant="secondary"
+                        onPress={() => setBusy(false)}
+                    />
+                </Row>
+            </Sample>
+
+            <Sample
+                title="Sizes"
+                note="sm and md are the 34px toolbar pill · lg is the 44px pill a panel ends in"
+            >
+                <Row>
+                    <Button label="Toolbar" size="sm" />
+                    <Button label="Place order" size="lg" />
+                </Row>
+            </Sample>
+
+            <Sample
+                title="Icon buttons"
+                note={'variant="secondary" is the round bordered glyph · ghost sits in a row'}
+            >
+                <Row>
+                    <IconButton
+                        testID="components-showcase-icon-back"
+                        label="Previous day"
+                        variant="secondary"
+                        icon={<Icon name="chevronStart" size="sm" />}
+                    />
+                    <IconButton
+                        label="Next day"
+                        variant="secondary"
+                        icon={<Icon name="chevronEnd" size="sm" />}
+                    />
+                    <IconButton
+                        label="Close"
+                        variant="secondary"
+                        icon={<Icon name="close" size="sm" />}
+                    />
+                    <IconButton
+                        label="More"
+                        variant="ghost"
+                        size="sm"
+                        icon={<Icon name="more" size="sm" />}
+                    />
+                </Row>
+            </Sample>
+
+            <Sample title="On a dark band" note="inverse · inverseOutline">
+                <View className="flex-1 flex-row flex-wrap items-center gap-3 rounded-[18px] bg-surface-inverse px-4 py-3">
+                    <Button label="Clear" variant="inverseOutline" size="sm" />
+                    <Button label="Ask for a quotation" variant="inverse" size="sm" />
+                </View>
+            </Sample>
+        </Stack>
+    );
+}
+
 export function ComponentsShowcaseScreen() {
     return (
         <DensityProvider value="compact">
@@ -225,6 +335,7 @@ export function ComponentsShowcaseScreen() {
                 <Stack space="xl" testID="components-showcase">
                     <Text variant="title">Components</Text>
                     <DropdownSection />
+                    <ButtonsSection />
                 </Stack>
             </View>
         </DensityProvider>

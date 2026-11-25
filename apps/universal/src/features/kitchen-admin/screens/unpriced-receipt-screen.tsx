@@ -3,22 +3,7 @@ import type {
     GoodsReceiptLine,
     StockItem,
 } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    DataList,
-    Dialog,
-    EmptyState,
-    ErrorState,
-    FormSection,
-    IssueTrayFrame,
-    IssueUnanchored,
-    QuantityInput,
-    RecordSkeleton,
-    Text,
-    useContentWidth,
-    useIssueTrayController,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Cascade, DataList, Dialog, EmptyState, ErrorState, FormSection, IssueTrayFrame, IssueUnanchored, QuantityInput, RecordSkeleton, Text, useContentWidth, useIssueTrayController, useToast } from '@healthy360/design-system';
 import type {
     DataListColumn,
     IssueCardItem,
@@ -59,7 +44,6 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/supplier-bills/{receipt}` — one receipt's missing prices (SUP5, §7).
@@ -177,7 +161,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                 title={t('kitchen:ops.unpricedReceipts.notFoundTitle')}
                 body={t('kitchen:ops.unpricedReceipts.notFoundBody')}
                 actions={
-                    <DeskButton
+                    <Button
                         testID="kitchen-unpriced-receipt-not-found-back"
                         variant="secondary"
                         size="sm"
@@ -358,7 +342,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                     }
                     primaryAction={
                         <View className="flex-row flex-wrap items-center gap-tight">
-                            <DeskButton
+                            <Button
                                 testID="kitchen-unpriced-receipt-cancel"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -367,7 +351,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                                 }}
                             />
                             {priceable.length === 0 ? null : (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-unpriced-receipt-save"
                                     label={t('kitchen:ops.unpricedReceipts.savePrices', {
                                         count: typed.length,
@@ -461,13 +445,13 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                     description={t('kitchen:unsaved.body')}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-unpriced-receipt-unsaved-keep"
                                 variant="quiet"
                                 label={t('kitchen:unsaved.keepEditing')}
                                 onPress={guard.cancelDiscard}
                             />
-                            <DeskButton
+                            <Button
                                 testID="kitchen-unpriced-receipt-unsaved-discard"
                                 variant="danger"
                                 label={t('kitchen:unsaved.discard')}

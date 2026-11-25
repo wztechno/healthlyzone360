@@ -1,12 +1,11 @@
 import type { RecipeVersionSummary } from '@healthy360/api-client/contracts';
-import { Dropdown, Icon, InfoTip, Text, cx } from '@healthy360/design-system';
+import { Button, cx, Dropdown, Icon, InfoTip, Text } from '@healthy360/design-system';
 import type { RecipeVersionId } from '@healthy360/domain-types';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 import { statusKey, statusShortKey, statusTone } from './format.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 import { DeskChip } from './desk-kit/desk-chip.tsx';
 type VersionStatus = RecipeVersionSummary['status'];
 
@@ -131,7 +130,7 @@ export function RecipeVersionMenu({
                                         {t(audienceKey(version.status))}
                                     </Text>
                                 </View>
-                                <DeskButton
+                                <Button
                                     testID={`${rowTestId}-select`}
                                     size="sm"
                                     variant={isSelected ? 'secondary' : 'ghost'}
@@ -150,7 +149,7 @@ export function RecipeVersionMenu({
                     })}
                     {onRetire === undefined ? null : (
                         <View className="mt-1 border-t border-stroke-subtle pt-1">
-                            <DeskButton
+                            <Button
                                 testID="kitchen-recipe-retire"
                                 size="sm"
                                 variant="ghost"

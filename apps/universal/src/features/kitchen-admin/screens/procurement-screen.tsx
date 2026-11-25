@@ -1,14 +1,5 @@
 import type { GoodsReceipt, ReceiptCostStatus } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    EmptyState,
-    ErrorState,
-    Icon,
-    Inline,
-    Stack,
-    TableSkeleton,
-    Text,
-} from '@healthy360/design-system';
+import { Button, Cascade, EmptyState, ErrorState, Icon, Inline, Stack, TableSkeleton, Text } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -51,7 +42,6 @@ import { AwaitingDeliveries } from '../awaiting-deliveries.tsx';
 import { ReceiptOrderRef, useReceiptOpenOrderActions } from '../receipt-order-ref.tsx';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
@@ -611,7 +601,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                              * holder's; both stay one press from the receipts book, beside the one primary.
                              * Pills like Ingredients' Import and Export, never bare text links.
                              */}
-                            <DeskButton
+                            <Button
                                 testID="kitchen-procurement-manage-suppliers"
                                 variant="secondary"
                                 label={t('kitchen:ops.procurement.manageSuppliers')}
@@ -620,7 +610,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 }}
                             />
                             {canViewCosts ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-procurement-unpriced-link"
                                     variant="secondary"
                                     label={t('kitchen:ops.procurement.unpricedReceipts')}
@@ -632,7 +622,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 />
                             ) : null}
                             {canManage ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-procurement-post-receipt"
                                     label={t('kitchen:ops.procurement.postReceipt')}
                                     iconStart={<Icon name="plus" size="sm" />}

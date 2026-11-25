@@ -5,17 +5,7 @@ import type {
     PriceListChannels,
     SalesChannelRecord,
 } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    ErrorState,
-    FormSkeleton,
-    Icon,
-    Inline,
-    Stack,
-    Text,
-    useToast,
-    cx,
-} from '@healthy360/design-system';
+import { Button, Cascade, cx, ErrorState, FormSkeleton, Icon, Inline, Stack, Text, useToast } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -46,7 +36,6 @@ import { displayName, statusShortKey, statusTone } from '../format.ts';
 import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { NewPriceListDialog } from '../new-price-list-dialog.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 const PAGE = 'kitchen-wholesale';
 const ROUTE = '/kitchen/wholesale';
@@ -319,7 +308,7 @@ function WholesaleSetup() {
                 error={channelFailure?.message}
                 action={
                     wholesale === null && canManageCatalogue ? (
-                        <DeskButton
+                        <Button
                             size="sm"
                             testID={`${PAGE}-channel-open`}
                             label={t('kitchen:wholesale.channelOpen')}
@@ -344,7 +333,7 @@ function WholesaleSetup() {
                           })
                 }
                 action={
-                    <DeskButton
+                    <Button
                         testID={`${PAGE}-lists-new`}
                         variant={agreementLists.length === 0 ? 'primary' : 'secondary'}
                         label={t('kitchen:wholesale.listsNew')}
@@ -406,7 +395,7 @@ function WholesaleSetup() {
                                           label={t('kitchen:wholesale.assigned')}
                                       />
                                   ) : (
-                                      <DeskButton
+                                      <Button
                                           size="sm"
                                           testID={`${rowID}-assign`}
                                           variant="secondary"
@@ -418,7 +407,7 @@ function WholesaleSetup() {
                                           }}
                                       />
                                   )}
-                                  <DeskButton
+                                  <Button
                                       size="sm"
                                       testID={`${rowID}-open`}
                                       variant="quiet"
@@ -448,7 +437,7 @@ function WholesaleSetup() {
                     canManageCatalogue &&
                     !offerings.pending &&
                     offered.size < itemIds.length ? (
-                        <DeskButton
+                        <Button
                             size="sm"
                             testID={`${PAGE}-items-offer`}
                             label={t('kitchen:wholesale.itemsOffer')}

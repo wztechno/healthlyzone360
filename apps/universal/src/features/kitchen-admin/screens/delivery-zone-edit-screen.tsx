@@ -3,27 +3,7 @@ import type {
     DeliveryZoneAdmin,
     LocalisedText,
 } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Callout,
-    Cascade,
-    Checkbox,
-    Dialog,
-    ErrorState,
-    FormGrid,
-    FormSection,
-    FormSkeleton,
-    IssueTrayFrame,
-    Select,
-    Skeleton,
-    Stack,
-    TagRow,
-    Text,
-    TextInputField,
-    useFormSteps,
-    useIssueTrayController,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Callout, Cascade, Checkbox, Dialog, ErrorState, FormGrid, FormSection, FormSkeleton, IssueTrayFrame, Select, Skeleton, Stack, TagRow, Text, TextInputField, useFormSteps, useIssueTrayController, useToast } from '@healthy360/design-system';
 import type { IssueCardItem, IssueTrayContent, TabItem } from '@healthy360/design-system';
 import { CURRENCY_CODES, DeliveryZoneId } from '@healthy360/domain-types';
 import type { CurrencyCode, DeliveryWindowId, ServiceAreaId } from '@healthy360/domain-types';
@@ -74,7 +54,6 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 /**
@@ -843,7 +822,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                     }
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-zone-editor-screen-back"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -852,7 +831,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                                 }}
                             />
                             {isCreating || !canManage || isRetired ? null : (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-zone-archive"
                                     variant="quiet"
                                     label={t('kitchen:list.archive')}
@@ -1178,7 +1157,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                     description={t('kitchen:zones.archiveBody')}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-zone-archive-cancel"
                                 variant="quiet"
                                 label={t('kitchen:common.cancel')}
@@ -1186,7 +1165,7 @@ function DeliveryZoneEditor({ zone, returnTo }: DeliveryZoneEditScreenProps) {
                                     setShowArchive(false);
                                 }}
                             />
-                            <DeskButton
+                            <Button
                                 testID="kitchen-zone-archive-confirm"
                                 variant="danger"
                                 label={t('kitchen:zones.archiveConfirm')}
@@ -1362,7 +1341,7 @@ function ZoneWindowAssignment({
                 </View>
             )}
             <View className="flex-row">
-                <DeskButton
+                <Button
                     testID="kitchen-zone-windows-manage"
                     size="sm"
                     variant="secondary"

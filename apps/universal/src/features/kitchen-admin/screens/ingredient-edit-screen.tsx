@@ -18,31 +18,7 @@ import {
     PACKAGING_CATEGORY_CODE,
     PRODUCT_FAMILY_CATEGORY_CODES,
 } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Callout,
-    Cascade,
-    Checkbox,
-    Dialog,
-    ErrorState,
-    FormGrid,
-    FormSection,
-    FormSkeleton,
-    Icon,
-    Inline,
-    IssueTrayFrame,
-    IssueUnanchored,
-    QuantityInput,
-    Select,
-    Stack,
-    Switch,
-    Tag,
-    TagRow,
-    Text,
-    TextInputField,
-    useIssueTrayController,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Callout, Cascade, Checkbox, Dialog, ErrorState, FormGrid, FormSection, FormSkeleton, Icon, Inline, IssueTrayFrame, IssueUnanchored, QuantityInput, Select, Stack, Switch, Tag, TagRow, Text, TextInputField, useIssueTrayController, useToast } from '@healthy360/design-system';
 import type {
     FormIssueItem,
     IssueCardItem,
@@ -144,7 +120,6 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { UnsavedMark } from '../unsaved-mark.tsx';
 /**
@@ -2805,7 +2780,7 @@ function IngredientEditor({
                     </View>
                     <Inline space="xs" align="center">
                         <InlineChecksButton testID="kitchen-ingredient-checks" />
-                        <DeskButton
+                        <Button
                             testID="kitchen-ingredient-editor-screen-back"
                             variant="secondary"
                             {...(family.food ? {} : { size: 'sm' as const })}
@@ -2820,7 +2795,7 @@ function IngredientEditor({
                          * Hidden rather than always disabled on a record this caller cannot write.
                          */}
                         {platformNotice ? null : (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-ingredient-editor-screen-save"
                                 label={t('kitchen:editor.save')}
                                 iconStart={<Icon name="check" size="sm" />}
@@ -3655,13 +3630,13 @@ function IngredientEditor({
                     description={t('kitchen:conflict.body')}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-ingredient-editor-screen-conflict-keep"
                                 variant="quiet"
                                 label={t('kitchen:conflict.keepEditing')}
                                 onPress={concurrency.keepEditing}
                             />
-                            <DeskButton
+                            <Button
                                 testID="kitchen-ingredient-editor-screen-conflict-reload"
                                 variant="danger"
                                 label={t('kitchen:conflict.reload')}

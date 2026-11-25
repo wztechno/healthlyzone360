@@ -1,3 +1,4 @@
+import { AreaLookScope } from '@healthy360/design-system';
 import { Redirect } from 'expo-router';
 
 import { appConfig } from '../src/config.ts';
@@ -27,7 +28,9 @@ export default function RecordSheetShowcase() {
             title="Record sheet"
             testID="record-sheet-showcase-shell"
         >
-            <RecordSheetShowcaseScreen />
+            <AreaLookScope look="desk">
+                <RecordSheetShowcaseScreen />
+            </AreaLookScope>
         </AreaShell>
     );
 }

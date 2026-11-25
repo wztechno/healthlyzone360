@@ -1,9 +1,8 @@
-import { Icon, useContentWidth } from '@healthy360/design-system';
+import { Button, Icon, useContentWidth } from '@healthy360/design-system';
 import type { IconName, RecordDialogAction } from '@healthy360/design-system';
 import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { RECORD_POPUP_SPLIT_MIN, RECORD_SPLIT_MIN } from '../desk-layout.ts';
 import { CompactRecordPopup } from './compact-record-popup.tsx';
 
@@ -21,7 +20,7 @@ import { CompactRecordPopup } from './compact-record-popup.tsx';
  *
  * **The desk frame (2026-11-11).** The window is the Orders pop-up's (`CompactRecordPopup`): a slim
  * header with the kind and the ✕, the record's own canopy and tiles as the scrolling body, and every
- * action as a `DeskButton` pinned at the foot — the primary first and green, the rest outlined, a
+ * action as a `Button` pinned at the foot — the primary first and green, the rest outlined, a
  * destructive one at the far end. A button that is writing shows the desk's sweep. Each keeps the
  * id it had as a ⋯ entry (`{testID}-actions-menu-item-{key}` unless it names its own).
  */
@@ -116,7 +115,7 @@ export function RecordPopup({
                   ? 'primary'
                   : 'secondary';
         return (
-            <DeskButton
+            <Button
                 key={action.key}
                 testID={action.testID ?? `${testID}-actions-menu-item-${action.key}`}
                 label={action.label}

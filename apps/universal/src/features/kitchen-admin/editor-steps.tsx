@@ -1,9 +1,8 @@
-import { FormNavigation, Icon, StepProgress } from '@healthy360/design-system';
+import { Button, FormNavigation, Icon, StepProgress } from '@healthy360/design-system';
 import type { FormSteps, TabItem } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * The kitchen admin's multi-step form, as one pair: the progress row that opens the form and the
  * footer that walks it.
@@ -102,7 +101,7 @@ export function EditorStepNavigation<Key extends string>({
                 form.isLast ? (
                     finalAction
                 ) : (
-                    <DeskButton
+                    <Button
                         testID={`${testID}-next`}
                         label={t('kitchen:editor.next')}
                         iconEnd={<Icon name="chevronEnd" size="sm" />}
@@ -180,7 +179,7 @@ export function TabStepNavigation<Key extends string>({
                 ) : (
                     <>
                         {alwaysShowFinalAction ? finalAction : null}
-                        <DeskButton
+                        <Button
                             testID={`${testID}-next`}
                             label={t('kitchen:editor.next')}
                             iconEnd={<Icon name="chevronEnd" size="sm" />}

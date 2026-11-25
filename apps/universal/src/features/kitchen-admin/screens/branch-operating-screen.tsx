@@ -1,20 +1,5 @@
 import type { KitchenServiceSettings } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Callout,
-    Cascade,
-    Dialog,
-    EmptyState,
-    ErrorState,
-    FormSection,
-    FormSkeleton,
-    Icon,
-    InfoTip,
-    REQUIRED_MARK,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Callout, Cascade, Dialog, EmptyState, ErrorState, FormSection, FormSkeleton, Icon, InfoTip, REQUIRED_MARK, Text, TextInputField, useToast } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -58,7 +43,6 @@ import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { useLocalSearchParams } from 'expo-router';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
@@ -411,7 +395,7 @@ function BranchOperatingEditor() {
                 actions={
                     canManage ? (
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-branch-new"
                                 variant="secondary"
                                 size="sm"
@@ -617,13 +601,13 @@ function NewBranchDialog({
             title={t('kitchen:branchClosures.newBranch')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-branch-new-cancel"
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-branch-new-save"
                         label={t('kitchen:branchClosures.newBranchSave')}
                         loading={create.isPending}
@@ -894,7 +878,7 @@ function ServiceTimingsSection({
                     />
                 }
                 actions={
-                    <DeskButton
+                    <Button
                         testID="kitchen-service-timings-save"
                         size="sm"
                         label={t('kitchen:serviceTimings.save')}

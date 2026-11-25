@@ -17,6 +17,7 @@ import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
 import { useMotion } from '../motion/use-motion.ts';
+import { useAreaLook } from '../hooks/area-look.tsx';
 
 export const TOAST_TONES = ['neutral', 'success', 'warning', 'danger', 'info'] as const;
 export type ToastTone = (typeof TOAST_TONES)[number];
@@ -725,7 +726,10 @@ function DeskToast({
 
 export function useToast(): ToastApi {
     const api = useContext(ToastContext);
-    const look = useContext(ToastLookContext);
+    // An explicit toast scope wins; otherwise the area's look decides (the admin's desk card).
+    const scoped = useContext(ToastLookContext);
+    const area = useAreaLook();
+    const look: ToastLook = scoped !== 'default' ? scoped : area === 'desk' ? 'desk' : 'default';
     if (api === null) {
         throw new Error('useToast must be used inside a <ToastProvider>.');
     }

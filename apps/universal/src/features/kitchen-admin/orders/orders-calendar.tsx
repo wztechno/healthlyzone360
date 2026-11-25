@@ -1,5 +1,5 @@
 import type { OrderDeskCalendarDay, OrderDeskPlanMeal } from '@healthy360/api-client/contracts';
-import { ErrorState, Icon, Select, Skeleton, Text, useBreakpoint } from '@healthy360/design-system';
+import { Button, ErrorState, Icon, IconButton, Select, Skeleton, Text, useBreakpoint } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
@@ -14,7 +14,7 @@ import {
 import { formatMoney } from '../../marketplace/format.ts';
 import { addDays, dateInstant, mondayOf, weekDates } from '../../planner/format.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
-import { DeskButton, DeskChip, DeskIconButton, DeskTabs } from '../desk-kit/index.ts';
+import { DeskChip, DeskTabs } from '../desk-kit/index.ts';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { kitchenOrderFulfilmentTypeKey, kitchenOrderRowTestId } from '../ops-format.ts';
 import { windowCodesOfMeal } from '../order-desk-calendar.ts';
@@ -207,7 +207,7 @@ export function CalendarTab({
                 scope={
                     <>
                         <View className="flex-row items-center gap-1">
-                            <DeskIconButton
+                            <IconButton variant="secondary"
                                 testID="kitchen-orders-calendar-previous"
                                 label={t(
                                     mode === 'month'
@@ -229,7 +229,7 @@ export function CalendarTab({
                             >
                                 {title}
                             </Text>
-                            <DeskIconButton
+                            <IconButton variant="secondary"
                                 testID="kitchen-orders-calendar-next"
                                 label={t(
                                     mode === 'month'
@@ -1025,7 +1025,7 @@ function DayPanel({
 
             <View className="flex-row flex-wrap gap-2 border-t border-stroke-subtle pt-1.5">
                 {offset < 0 ? null : (
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-day-panel-new"
                         block
                         variant="secondary"
@@ -1035,7 +1035,7 @@ function DayPanel({
                         }}
                     />
                 )}
-                <DeskButton
+                <Button
                     testID="kitchen-orders-day-panel-open"
                     variant="primary"
                     block

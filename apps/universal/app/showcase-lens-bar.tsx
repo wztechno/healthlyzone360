@@ -1,3 +1,4 @@
+import { AreaLookScope } from '@healthy360/design-system';
 import { Redirect } from 'expo-router';
 
 import { appConfig } from '../src/config.ts';
@@ -25,7 +26,9 @@ export default function LensBarShowcase() {
             title="Lens bar"
             testID="lens-bar-showcase-shell"
         >
-            <LensBarShowcaseScreen />
+            <AreaLookScope look="desk">
+                <LensBarShowcaseScreen />
+            </AreaLookScope>
         </AreaShell>
     );
 }

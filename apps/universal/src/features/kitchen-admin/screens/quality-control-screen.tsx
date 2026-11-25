@@ -3,16 +3,7 @@ import {
     QUALITY_CHECK_STATUSES,
     QUALITY_CHECK_SUBJECT_TYPES,
 } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    EmptyState,
-    ErrorState,
-    Icon,
-    Stack,
-    TableSkeleton,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Cascade, EmptyState, ErrorState, Icon, Stack, TableSkeleton, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -54,7 +45,6 @@ import {
 } from '../list-memory.ts';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The subject as a reader names it, for sorting: its label, or the bare id when it has none. */
 function subjectName(row: QualityCheck): string {
@@ -460,7 +450,7 @@ function QualityCheckList({
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-qc-create"
                                 label={t('kitchen:ops.qc.create')}
                                 iconStart={<Icon name="plus" size="sm" />}

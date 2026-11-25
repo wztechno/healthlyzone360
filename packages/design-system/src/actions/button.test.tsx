@@ -1,5 +1,8 @@
 import { fireEvent, screen } from '@testing-library/react-native';
 
+import type React from 'react';
+
+import { AreaLookScope } from '../hooks/area-look.tsx';
 import { Icon } from '../icons/icon.tsx';
 import { assertSubtreeIsLogical, renderWithI18n } from '../testing/render.tsx';
 import { BUTTON_SIZES, BUTTON_VARIANTS, Button, IconButton } from './button.tsx';
@@ -245,5 +248,77 @@ describe('IconButton', () => {
         // A disabled control does not offer a name for something it will not do.
         await fireEvent(screen.getByTestId('inert'), 'hoverIn');
         expect(screen.queryByTestId('inert-hover-label')).toBeNull();
+    });
+});
+
+describe('Button — the admin look (AreaLookScope desk)', () => {
+    const desk = (node: React.ReactNode) => <AreaLookScope look="desk">{node}</AreaLookScope>;
+
+    it('draws the canvas pill: toolbar height, brand glow on the primary', async () => {
+        await renderWithI18n(desk(<Button testID="p" label="New order" />));
+        const classes = String(screen.getByTestId('p').props.className);
+        expect(classes).toContain('h-desk-toolbar');
+        expect(classes).toContain('rounded-full');
+        expect(classes).toContain('shadow-elevation-brand-glow');
+    });
+
+    it('keeps the old look outside the admin', async () => {
+        await renderWithI18n(<Button testID="p" label="Order" />);
+        expect(String(screen.getByTestId('p').props.className)).not.toContain(
+            'shadow-elevation-brand-glow',
+        );
+    });
+
+    it('draws a disabled primary sunken and grey, not faded', async () => {
+        await renderWithI18n(desk(<Button testID="p" label="Publish" disabled />));
+        const classes = String(screen.getByTestId('p').props.className);
+        expect(classes).toContain('!bg-surface-sunken');
+        expect(classes).not.toContain('opacity-50');
+    });
+
+    it('draws a 44px pill at lg and a 32px ring for next', async () => {
+        await renderWithI18n(
+            desk(
+                <>
+                    <Button testID="lg" label="Place order" size="lg" />
+                    <Button testID="next" label="Mark delivered" variant="next" />
+                </>,
+            ),
+        );
+        expect(String(screen.getByTestId('lg').props.className)).toContain('h-11');
+        expect(String(screen.getByTestId('next').props.className)).toContain('h-8');
+    });
+
+    it('keeps a menu trigger expanded state alongside its own', async () => {
+        await renderWithI18n(
+            desk(
+                <Button
+                    testID="m"
+                    label="Import"
+                    variant="secondary"
+                    accessibilityState={{ expanded: true }}
+                />,
+            ),
+        );
+        expect(screen.getByTestId('m').props.accessibilityState).toMatchObject({
+            expanded: true,
+            disabled: false,
+        });
+    });
+
+    it('draws an outlined IconButton as the round bordered desk glyph', async () => {
+        await renderWithI18n(
+            desk(
+                <IconButton
+                    testID="i"
+                    label="Next day"
+                    variant="secondary"
+                    icon={<Icon name="chevronForward" size="sm" />}
+                />,
+            ),
+        );
+        const classes = String(screen.getByTestId('i').props.className);
+        expect(classes).toContain('h-desk-toolbar');
+        expect(classes).toContain('rounded-full');
     });
 });

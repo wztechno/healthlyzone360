@@ -1,6 +1,6 @@
 import type { KitchenOrder } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
-import { Cascade, DensityProvider, Icon, Select, Text } from '@healthy360/design-system';
+import { Button, Cascade, DensityProvider, Icon, IconButton, Select, Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,21 +12,7 @@ import {
     CompactRecordPopup,
     CompactSection,
 } from '../features/kitchen-admin/catalogue/compact-record-popup.tsx';
-import {
-    ChoiceRow,
-    DeskButton,
-    DeskChip,
-    DeskIconButton,
-    DeskCheckbox,
-    DeskColumnPicker,
-    DeskDateButton,
-    DeskRowMenu,
-    DeskTabs,
-    DeskToggleTile,
-    ListGroupRow,
-    MiniMonthPicker,
-    initialsOf,
-} from '../features/kitchen-admin/desk-kit/index.ts';
+import { ChoiceRow, DeskChip, DeskCheckbox, DeskColumnPicker, DeskDateButton, DeskRowMenu, DeskTabs, DeskToggleTile, ListGroupRow, MiniMonthPicker, initialsOf } from '../features/kitchen-admin/desk-kit/index.ts';
 import { RecordPopup } from '../features/kitchen-admin/catalogue/record-popup.tsx';
 import { DayStepper } from '../features/kitchen-admin/orders/day-stepper.tsx';
 import { orderColumns } from '../features/kitchen-admin/orders/order-columns.tsx';
@@ -214,18 +200,18 @@ export function OrdersShowcaseScreen() {
 
                     <Text variant="title">Desk buttons</Text>
                     <View className="flex-row flex-wrap items-center gap-2">
-                        <DeskButton
+                        <Button
                             label="New order"
                             iconStart={
                                 <Icon name="plus" size="md" className="text-content-on-brand" />
                             }
                         />
-                        <DeskButton variant="secondary" label="Pause kitchen" />
-                        <DeskButton variant="next" label="Mark delivered" />
-                        <DeskButton variant="quiet" label="Clear filters" />
-                        <DeskButton variant="dangerOutline" label="Cancel order" />
-                        <DeskButton variant="danger" label="Cancel this order" />
-                        <DeskIconButton
+                        <Button variant="secondary" label="Pause kitchen" />
+                        <Button variant="next" label="Mark delivered" />
+                        <Button variant="quiet" label="Clear filters" />
+                        <Button variant="dangerOutline" label="Cancel order" />
+                        <Button variant="danger" label="Cancel this order" />
+                        <IconButton variant="secondary"
                             label="Previous day"
                             icon={<Icon name="chevronBackward" size="md" />}
                         />
@@ -234,20 +220,20 @@ export function OrdersShowcaseScreen() {
                         Busy — a sweep runs across the pill; disabled — a filled pill turns grey
                     </Text>
                     <View className="flex-row flex-wrap items-center gap-2">
-                        <DeskButton label="Confirm" loading />
-                        <DeskButton variant="next" label="Mark picked up" loading />
-                        <DeskButton variant="secondary" label="Saving" loading />
-                        <DeskButton variant="danger" label="Cancelling" loading />
-                        <DeskButton label="New order" disabled />
-                        <DeskButton variant="secondary" label="Pause kitchen" disabled />
+                        <Button label="Confirm" loading />
+                        <Button variant="next" label="Mark picked up" loading />
+                        <Button variant="secondary" label="Saving" loading />
+                        <Button variant="danger" label="Cancelling" loading />
+                        <Button label="New order" disabled />
+                        <Button variant="secondary" label="Pause kitchen" disabled />
                     </View>
                     <Text variant="label" tone="secondary">
                         A ticket's total — lg, in a column
                     </Text>
                     <View className="w-full max-w-[400px] flex-col gap-2">
-                        <DeskButton size="lg" block label="Save changes · $22.00" />
-                        <DeskButton size="lg" block label="Placing order" loading />
-                        <DeskButton size="lg" block label="Save changes · $3.00" disabled />
+                        <Button size="lg" block label="Save changes · $22.00" />
+                        <Button size="lg" block label="Placing order" loading />
+                        <Button size="lg" block label="Save changes · $3.00" disabled />
                     </View>
 
                     <Text variant="title">Desk chips</Text>
@@ -451,7 +437,7 @@ export function OrdersShowcaseScreen() {
                             ]}
                             onChange={() => undefined}
                             noResultsAction={(typed, close) => (
-                                <DeskButton
+                                <Button
                                     testID="showcase-orders-add-picker-new"
                                     variant="quiet"
                                     label={`Add "${typed}" as new`}
@@ -524,7 +510,7 @@ export function OrdersShowcaseScreen() {
 
                     <Text variant="title">Compact pop-up</Text>
                     <View className="flex-row">
-                        <DeskButton
+                        <Button
                             testID="showcase-orders-open-popup"
                             variant="secondary"
                             label="Open the compact pop-up"
@@ -536,7 +522,7 @@ export function OrdersShowcaseScreen() {
 
                     <Text variant="title">Record pop-up in the desk frame (every record view)</Text>
                     <View className="flex-row">
-                        <DeskButton
+                        <Button
                             testID="showcase-orders-open-record"
                             variant="secondary"
                             label="Open a record pop-up"
@@ -599,7 +585,7 @@ export function OrdersShowcaseScreen() {
                         totals
                     </Text>
                     <View className="flex-row">
-                        <DeskButton
+                        <Button
                             testID="showcase-orders-open-popup-b"
                             variant="secondary"
                             label="Open layout B"
@@ -671,7 +657,7 @@ export function OrdersShowcaseScreen() {
                                     tone: 'warning',
                                 },
                             ]}
-                            primary={<DeskButton label="Choose a driver" />}
+                            primary={<Button label="Choose a driver" />}
                             main={
                                 <CompactSection title="Items">
                                     {Array.from({ length: 12 }, (_, index) => (
@@ -689,7 +675,7 @@ export function OrdersShowcaseScreen() {
                                     <CompactField
                                         label="To collect"
                                         action={
-                                            <DeskButton variant="quiet" label="Record a payment" />
+                                            <Button variant="quiet" label="Record a payment" />
                                         }
                                     >
                                         <Text variant="strong" tone="warning">
@@ -700,11 +686,11 @@ export function OrdersShowcaseScreen() {
                             }
                             footer={
                                 <>
-                                    <DeskButton variant="secondary" label="Print ticket" />
-                                    <DeskButton variant="secondary" label="Edit order" />
+                                    <Button variant="secondary" label="Print ticket" />
+                                    <Button variant="secondary" label="Edit order" />
                                 </>
                             }
-                            footerEnd={<DeskButton variant="dangerOutline" label="Cancel order" />}
+                            footerEnd={<Button variant="dangerOutline" label="Cancel order" />}
                             onClose={() => {
                                 setOpen(false);
                             }}

@@ -1,6 +1,6 @@
 import { COMPLAINT_CAUSES } from '@healthy360/api-client/contracts';
 import type { ComplaintCause, KitchenOrder } from '@healthy360/api-client/contracts';
-import { Dialog, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
+import { Button, Dialog, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
 import { parseMinorAmount } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -9,7 +9,7 @@ import { View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
 import { useRecordComplaintMutation } from '../../data/kitchen-orders-hooks.ts';
-import { ChoiceRow, DeskButton } from './desk-kit/index.ts';
+import { ChoiceRow } from './desk-kit/index.ts';
 
 /** The order page's way into a complaint: why, and what it has cost so far. */
 export function OrderComplaintAction({ order }: { readonly order: KitchenOrder }) {
@@ -26,7 +26,7 @@ export function OrderComplaintAction({ order }: { readonly order: KitchenOrder }
 
     return (
         <View className="flex-row">
-            <DeskButton
+            <Button
                 testID="kitchen-orders-complaint-open"
                 variant="secondary"
                 label={t('kitchen:complaints.record')}
@@ -44,7 +44,7 @@ export function OrderComplaintAction({ order }: { readonly order: KitchenOrder }
                 title={t('kitchen:complaints.recordTitle', { number: order.orderNumber })}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-orders-complaint-back"
                             variant="secondary"
                             label={t('kitchen:common.back')}
@@ -52,7 +52,7 @@ export function OrderComplaintAction({ order }: { readonly order: KitchenOrder }
                                 setOpen(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-orders-complaint-save"
                             label={t('kitchen:complaints.recordConfirm')}
                             loading={record.isPending}

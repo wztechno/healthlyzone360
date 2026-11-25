@@ -1,5 +1,5 @@
 import type { AllergenClass } from '@healthy360/api-client/contracts';
-import { Cascade, EmptyState, ErrorState, Inline, TableSkeleton } from '@healthy360/design-system';
+import { Button, Cascade, EmptyState, ErrorState, Inline, TableSkeleton } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -30,7 +30,6 @@ import { displayName } from '../format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { useListMemory, useRememberedOpened } from '../list-memory.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/allergen-classes` — the fourteen regulatory classes, read only.
  *
@@ -234,7 +233,7 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
                         actions={
                             list.isUnfiltered ? undefined : (
                                 <Inline space="sm" wrap>
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-allergen-classes-clear"
                                         variant="secondary"
                                         label={t('kitchen:toolbar.clearFilters')}

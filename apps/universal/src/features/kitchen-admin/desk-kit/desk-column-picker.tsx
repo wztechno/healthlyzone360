@@ -1,11 +1,10 @@
-import { Dialog, Icon, Text } from '@healthy360/design-system';
+import { Button, Dialog, Icon, Text } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import type { ColumnPickerProps } from '../catalogue/column-picker.tsx';
 import { ChoiceRow } from './choice-row.tsx';
-import { DeskButton } from './desk-button.tsx';
 import { DeskChip } from './desk-chip.tsx';
 import { DropTrigger } from './drop-trigger.tsx';
 
@@ -67,20 +66,20 @@ export function DeskColumnPicker({
                 title={t('kitchen:catalogue.columnsLabel')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID={`${testID}-clear`}
                             variant="secondary"
                             label={t('kitchen:catalogue.columnsClear')}
                             disabled={!canClear}
                             onPress={onClear}
                         />
-                        <DeskButton
+                        <Button
                             testID={`${testID}-reset`}
                             variant="secondary"
                             label={t('kitchen:catalogue.columnsReset')}
                             onPress={onReset}
                         />
-                        <DeskButton
+                        <Button
                             testID={`${testID}-done`}
                             label={t('common:action.done')}
                             onPress={close}

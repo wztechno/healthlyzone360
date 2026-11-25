@@ -1,5 +1,5 @@
 import type { LocalisedText, PriceListCustomerScope } from '@healthy360/api-client/contracts';
-import { Dialog, Select, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
+import { Button, Dialog, Select, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -14,7 +14,6 @@ import { INVENTORY_VIEW_PERMISSION } from './entity-registry.ts';
 import { displayName } from './format.ts';
 import { serverFieldErrors } from './server-field-errors.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 const CURRENCY_PATTERN = /^[A-Za-z]{3}$/;
 
 export interface NewPriceListDialogProps {
@@ -128,13 +127,13 @@ export function NewPriceListDialog({
             description={t('kitchen:priceLists.createBody')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID={`${testID}-cancel`}
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID={`${testID}-confirm`}
                         label={t('kitchen:priceLists.createConfirm')}
                         loading={create.isPending}

@@ -1,5 +1,5 @@
 import type { MealId, ProductId } from '@healthy360/domain-types';
-import { Callout, useToast } from '@healthy360/design-system';
+import { Button, Callout, useToast } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
@@ -12,7 +12,6 @@ import {
 import { displayName } from '../format.ts';
 import { CATALOGUE_MANAGE_PERMISSION } from '../entity-registry.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 interface AssessmentBadgesProps {
     /** `false` is off sale. `undefined` is a payload that does not say, so nothing is drawn. */
@@ -79,7 +78,7 @@ export function AllergenAssessmentCallout({ itemId, testID }: AllergenAssessment
             body={t('kitchen:allergenAssessment.calloutBody', { allergens: named.join(', ') })}
             actions={
                 canManage ? (
-                    <DeskButton
+                    <Button
                         testID={`${testID}-confirm`}
                         variant="secondary"
                         size="sm"

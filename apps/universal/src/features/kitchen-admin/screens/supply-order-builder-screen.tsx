@@ -5,24 +5,7 @@ import type {
     SupplierOption,
 } from '@healthy360/api-client/contracts';
 import type { StockItemId, SupplierId } from '@healthy360/domain-types';
-import {
-    Callout,
-    Cascade,
-    DataList,
-    Dialog,
-    EmptyState,
-    ErrorState,
-    FormSection,
-    Icon,
-    InfoTip,
-    QuantityInput,
-    Select,
-    Skeleton,
-    Stack,
-    TableSkeleton,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Callout, Cascade, DataList, Dialog, EmptyState, ErrorState, FormSection, Icon, InfoTip, QuantityInput, Select, Skeleton, Stack, TableSkeleton, Text, useToast } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -51,7 +34,7 @@ import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.ts
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 import { PageBackPill, useAreaTrailDrawn } from '../../../shell/area-trail.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
-import { DeskButton, DeskCheckbox, DeskChip } from '../desk-kit/index.ts';
+import { DeskCheckbox, DeskChip } from '../desk-kit/index.ts';
 import { supplyOrderGroupTestId, supplyOrderRowTestId } from '../ops-format.ts';
 import {
     buildGroups,
@@ -900,7 +883,7 @@ function SupplyOrderBuilder() {
                                       })
                             }
                             actions={
-                                <DeskButton
+                                <Button
                                     testID="kitchen-supply-order-refresh"
                                     variant="quiet"
                                     label={t('kitchen:ops.supplyOrders.refresh')}
@@ -1020,7 +1003,7 @@ function SupplyOrderBuilder() {
                                         testID="kitchen-supply-order-unlinked"
                                         title={t('kitchen:ops.supplyOrders.unlinkedTitle')}
                                         actions={
-                                            <DeskButton
+                                            <Button
                                                 testID="kitchen-supply-order-add-supplier"
                                                 variant="quiet"
                                                 label={t('kitchen:ops.supplyOrders.addSupplier')}
@@ -1121,7 +1104,7 @@ function SupplyOrderBuilder() {
                                 )
                             }
                             action={
-                                <DeskButton
+                                <Button
                                     testID="kitchen-supply-order-builder-create"
                                     size="lg"
                                     block
@@ -1158,7 +1141,7 @@ function SupplyOrderBuilder() {
                 testID="kitchen-supply-order-create-confirm"
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-order-create-cancel"
                             variant="secondary"
                             label={t('kitchen:ops.supplyOrders.createCancel')}
@@ -1166,7 +1149,7 @@ function SupplyOrderBuilder() {
                                 setConfirmingCreate(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-order-create-confirm-action"
                             label={t('kitchen:ops.supplyOrders.createConfirm', {
                                 count: plan.groups.length,
@@ -1231,7 +1214,7 @@ function SupplyOrderBuilder() {
                 testID="kitchen-supply-order-refresh-confirm"
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-order-refresh-cancel"
                             variant="secondary"
                             label={t('kitchen:ops.supplyOrders.refreshCancel')}
@@ -1239,7 +1222,7 @@ function SupplyOrderBuilder() {
                                 setConfirmingRefresh(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-order-refresh-confirm-action"
                             label={t('kitchen:ops.supplyOrders.refreshConfirm')}
                             onPress={refresh}

@@ -1,13 +1,5 @@
 import type { Supplier } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    EmptyState,
-    ErrorState,
-    Icon,
-    Select,
-    TableSkeleton,
-    Text,
-} from '@healthy360/design-system';
+import { Button, Cascade, EmptyState, ErrorState, Icon, Select, TableSkeleton, Text } from '@healthy360/design-system';
 import type { MenuItem, SelectOption } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -44,7 +36,6 @@ import {
 import { useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/suppliers` — who this kitchen buys from (SUP1), on the Catalogue list (Operations
@@ -467,7 +458,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-suppliers-toolbar-create"
                                 label={t('kitchen:ops.suppliers.create')}
                                 iconStart={<Icon name="plus" size="sm" />}

@@ -1,14 +1,5 @@
 import type { ActivityEntry, StockActivityMovement } from '@healthy360/api-client/contracts';
-import {
-    Callout,
-    Cascade,
-    EmptyState,
-    ErrorState,
-    Stack,
-    SegmentedControl,
-    TableSkeleton,
-    Text,
-} from '@healthy360/design-system';
+import { Button, Callout, Cascade, EmptyState, ErrorState, SegmentedControl, Stack, TableSkeleton, Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -29,7 +20,6 @@ import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { AUDIT_VIEW_PERMISSION } from '../entity-registry.ts';
 import { humaniseCode, unitCodeLabel } from '../format.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
@@ -66,7 +56,7 @@ function OrderLink({
     const here = useCurrentHref();
 
     return (
-        <DeskButton
+        <Button
             testID={testID}
             size="sm"
             variant="quiet"

@@ -11,7 +11,7 @@ import { FadeIn } from '../motion/fade-in.tsx';
 import { REQUIRED_MARK } from './form-field.tsx';
 import { TextInputField, inputFrameClassName } from './text-input.tsx';
 import { InfoTip } from '../overlays/info-tip.tsx';
-import { useSelectLook } from './select-look.tsx';
+import { useAreaLook } from '../hooks/area-look.tsx';
 import { optionMatches, optionText, resolveSearchable, sectionRuns } from './select-shared.ts';
 import type { SelectOption, SelectProps } from './select-shared.ts';
 
@@ -79,7 +79,7 @@ export function Select<T extends string = string>({
 
     // The phone always opens its sheet, so a `pill` here is drawn as the field it stands for; what
     // it changes is only the filter's default, which follows the admin's card look.
-    const areaLook = useSelectLook();
+    const areaLook = useAreaLook() === 'desk' ? 'card' : 'field';
     const look = lookProp ?? areaLook;
     const searchable = resolveSearchable(
         searchableSetting,

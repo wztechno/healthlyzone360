@@ -37,7 +37,6 @@ import {
     useColumnControls,
 } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
-import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
 import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { AcceptQuotationDialog, DeclineQuotationDialog } from '../accept-quotation-dialog.tsx';
@@ -399,7 +398,7 @@ export function QuotationsScreen({ initialFilter, initialOpen }: QuotationsScree
                               }),
                           })}
                     actions={
-                        <DeskButton
+                        <Button
                             testID="quotations-new"
                             size="sm"
                             label={t('business:nav.newQuotation')}

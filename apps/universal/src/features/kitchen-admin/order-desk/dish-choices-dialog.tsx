@@ -1,5 +1,5 @@
 import type { DishOption, DishPortion } from '@healthy360/api-client/contracts';
-import { Dialog, Text, TextInputField } from '@healthy360/design-system';
+import { Button, Dialog, Text, TextInputField } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -9,7 +9,7 @@ import { View } from 'react-native';
 import { useDishChoicesQuery } from '../../../data/order-desk-hooks.ts';
 import { choiceLabel } from '../../../ui/dish-choices.tsx';
 import type { DishChoiceValue } from '../../../ui/dish-choices.tsx';
-import { ChoiceRow, DeskButton } from '../desk-kit/index.ts';
+import { ChoiceRow } from '../desk-kit/index.ts';
 import { displayName } from '../format.ts';
 import type { BasketLine } from './basket.ts';
 
@@ -107,13 +107,13 @@ export function DishChoicesDialog({
             description={title}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-order-desk-sale-choices-back"
                         variant="secondary"
                         label={t('kitchen:common.back')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-order-desk-sale-choices-save"
                         label={t('kitchen:dishOptions.apply')}
                         onPress={() => {
