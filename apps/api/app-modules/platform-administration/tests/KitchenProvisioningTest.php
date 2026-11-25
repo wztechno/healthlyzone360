@@ -17,6 +17,8 @@ use Healthy360\PlatformAdministration\Services\KitchenProvisioning;
 use Healthy360\Pricing\Models\ChannelPriceList;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
+use Healthy360\Tenancy\Tests\Fixtures\RuntimeRole;
 
 /*
 |--------------------------------------------------------------------------
@@ -137,3 +139,34 @@ it('refuses a slug that is already taken without opening anything', function ():
     expect(Organisation::query()->where('slug', 'cedar-table')->count())->toBe(1)
         ->and(SalesChannel::withoutTenancy()->where('code', 'desk')->count())->toBe(1);
 });
+
+it('provisions as the runtime role from inside the session of another organisation', function (): void {
+    // How the console really calls it, and what the rest of this file cannot
+    // see: the suite connects as the schema owner, which row-level security
+    // does not apply to. The API connects as a role it does apply to, signed
+    // in to the platform organisation — so the session names *that*
+    // organisation, and each new row is compared with the session rather than
+    // with the Eloquent scope. Without `during()` the first branch insert is
+    // refused with SQLSTATE 42501 and no kitchen is created.
+    $operations = ($this->provision)(['name_en' => 'Operations', 'slug' => 'operations']);
+    $ambient = [
+        'user_id' => (string) $this->operator->getKey(),
+        'organisation_id' => (string) $operations->getKey(),
+        'branch_id' => '',
+    ];
+
+    $database = app(DatabaseTenantContext::class);
+    $database->apply($ambient['user_id'], $ambient['organisation_id'], null);
+
+    try {
+        $kitchen = RuntimeRole::run(fn (): Organisation => ($this->provision)());
+
+        // The operator's session is handed back as it was found.
+        expect($database->applied())->toBe($ambient);
+    } finally {
+        $database->reset();
+    }
+
+    expect(OrganisationBranch::withoutTenancy()->where('organisation_id', $kitchen->getKey())->count())->toBe(1)
+        ->and(array_keys(provisionedChannels($kitchen)))->toEqualCanonicalizing(['web-shop', 'desk']);
+})->group('rls');

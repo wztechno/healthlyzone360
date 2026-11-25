@@ -19,6 +19,7 @@ use Healthy360\Organisations\Models\OrganisationCapability;
 use Healthy360\Organisations\Models\OrganisationType;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
+use Healthy360\Tenancy\Database\DatabaseTenantContext;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -82,13 +83,20 @@ use Illuminate\Support\Facades\DB;
  * The status that would be earned by a self-service signup queue belongs to
  * that queue, if it ever exists.
  *
- * ## `withoutTenancy()` on the scoped writes
+ * ## `withoutTenancy()` on the scoped writes, inside `during()`
  *
  * Branches, capabilities and channels are organisation-scoped, and the actor
  * is the platform operator sitting in a different organisation's context. The
  * scope would refuse every one of them, correctly, which is exactly why the
  * bypass is stated here at each of the five call sites rather than by widening
  * anything.
+ *
+ * That bypass is only the application half. The database has its own: every
+ * one of those tables carries a row-level security policy that compares
+ * `organisation_id` with the session's `app.organisation_id`, and the session
+ * names the operator's organisation. So the scoped writes also run inside
+ * `DatabaseTenantContext::during()` for the new kitchen — without it the first
+ * branch insert is refused with SQLSTATE 42501 and no kitchen is created.
  */
 final readonly class KitchenProvisioning
 {
@@ -117,6 +125,7 @@ final readonly class KitchenProvisioning
         private AuditRecorder $audit,
         private OrganisationRoles $roles,
         private KitchenServiceSettingsLookup $settings,
+        private DatabaseTenantContext $database,
     ) {}
 
     /**
@@ -174,58 +183,65 @@ final readonly class KitchenProvisioning
             $kitchen->created_by = (string) $actor->getKey();
             $kitchen->save();
 
-            OrganisationBranch::withoutTenancy()->create([
-                'organisation_id' => (string) $kitchen->getKey(),
-                'name' => trim($payload['branch_name']),
-                'country_code' => $kitchen->country_code,
-                'city' => $payload['city'] === null || trim($payload['city']) === '' ? null : trim($payload['city']),
-                'timezone' => trim($payload['timezone']),
-                'status' => BranchStatus::Active,
-                'created_by' => (string) $actor->getKey(),
-            ]);
-
-            OrganisationCapability::withoutTenancy()->updateOrCreate(
-                ['organisation_id' => (string) $kitchen->getKey(), 'capability' => self::KITCHEN_CAPABILITY],
-                ['is_enabled' => true, 'created_by' => (string) $actor->getKey()],
-            );
-
-            SalesChannel::withoutTenancy()->updateOrCreate(
-                ['organisation_id' => (string) $kitchen->getKey(), 'code' => self::DEFAULT_CHANNEL_CODE],
-                [
-                    'channel_kind' => SalesChannelKind::B2cWeb,
-                    'name_en' => trim($payload['name_en']).' web shop',
-                    'name_ar' => trim($payload['name_ar']),
-                    'order_source' => 'web',
-                    'status' => SalesChannelStatus::Active,
+            // Row-level security reads `app.organisation_id` from the database
+            // session, and the session still names the operator's own
+            // organisation. `withoutTenancy()` only lifts the Eloquent scope, so
+            // the session is pointed at the new kitchen for these writes and
+            // put back afterwards.
+            $this->database->during(null, (string) $kitchen->getKey(), null, function () use ($kitchen, $payload, $actor): void {
+                OrganisationBranch::withoutTenancy()->create([
+                    'organisation_id' => (string) $kitchen->getKey(),
+                    'name' => trim($payload['branch_name']),
+                    'country_code' => $kitchen->country_code,
+                    'city' => $payload['city'] === null || trim($payload['city']) === '' ? null : trim($payload['city']),
+                    'timezone' => trim($payload['timezone']),
+                    'status' => BranchStatus::Active,
                     'created_by' => (string) $actor->getKey(),
-                    'updated_by' => (string) $actor->getKey(),
-                ],
-            );
+                ]);
 
-            // The counter. `order_source` is `desk` rather than `pos`: the
-            // column records how an order arriving here labels itself, and
-            // `pos` was the deleted module's word for a till that bypassed
-            // pricing, stock and the order book entirely. A desk sale is an
-            // ordinary order that a member of staff placed, and calling it
-            // something else keeps the two apart in every report that groups by
-            // this column. `DemoTenantSeeder`'s separate `counter` channel
-            // keeps `pos` for exactly that reason — it is a different row about
-            // a different thing.
-            SalesChannel::withoutTenancy()->updateOrCreate(
-                ['organisation_id' => (string) $kitchen->getKey(), 'code' => self::DESK_CHANNEL_CODE],
-                [
-                    'channel_kind' => SalesChannelKind::Pos,
-                    'name_en' => trim($payload['name_en']).' order desk',
-                    'name_ar' => 'مكتب طلبات '.trim($payload['name_ar']),
-                    'order_source' => 'desk',
-                    'status' => SalesChannelStatus::Active,
-                    'created_by' => (string) $actor->getKey(),
-                    'updated_by' => (string) $actor->getKey(),
-                ],
-            );
+                OrganisationCapability::withoutTenancy()->updateOrCreate(
+                    ['organisation_id' => (string) $kitchen->getKey(), 'capability' => self::KITCHEN_CAPABILITY],
+                    ['is_enabled' => true, 'created_by' => (string) $actor->getKey()],
+                );
 
-            $this->roles->provision((string) $kitchen->getKey());
-            $this->settings->markNotOpenYet((string) $kitchen->getKey());
+                SalesChannel::withoutTenancy()->updateOrCreate(
+                    ['organisation_id' => (string) $kitchen->getKey(), 'code' => self::DEFAULT_CHANNEL_CODE],
+                    [
+                        'channel_kind' => SalesChannelKind::B2cWeb,
+                        'name_en' => trim($payload['name_en']).' web shop',
+                        'name_ar' => trim($payload['name_ar']),
+                        'order_source' => 'web',
+                        'status' => SalesChannelStatus::Active,
+                        'created_by' => (string) $actor->getKey(),
+                        'updated_by' => (string) $actor->getKey(),
+                    ],
+                );
+
+                // The counter. `order_source` is `desk` rather than `pos`: the
+                // column records how an order arriving here labels itself, and
+                // `pos` was the deleted module's word for a till that bypassed
+                // pricing, stock and the order book entirely. A desk sale is an
+                // ordinary order that a member of staff placed, and calling it
+                // something else keeps the two apart in every report that groups by
+                // this column. `DemoTenantSeeder`'s separate `counter` channel
+                // keeps `pos` for exactly that reason — it is a different row about
+                // a different thing.
+                SalesChannel::withoutTenancy()->updateOrCreate(
+                    ['organisation_id' => (string) $kitchen->getKey(), 'code' => self::DESK_CHANNEL_CODE],
+                    [
+                        'channel_kind' => SalesChannelKind::Pos,
+                        'name_en' => trim($payload['name_en']).' order desk',
+                        'name_ar' => 'مكتب طلبات '.trim($payload['name_ar']),
+                        'order_source' => 'desk',
+                        'status' => SalesChannelStatus::Active,
+                        'created_by' => (string) $actor->getKey(),
+                        'updated_by' => (string) $actor->getKey(),
+                    ],
+                );
+
+                $this->roles->provision((string) $kitchen->getKey());
+                $this->settings->markNotOpenYet((string) $kitchen->getKey());
+            });
 
             return $kitchen;
         });
