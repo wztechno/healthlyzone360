@@ -124,5 +124,9 @@ class B2bServiceProvider extends ServiceProvider
         $this->app->bind(ProgrammeMembershipLookupContract::class, ProgrammeMembershipLookup::class);
     }
 
-    public function boot(): void {}
+    public function boot(): void
+    {
+        // The invitation mail's view (`b2b::mail.organisation-invitation`).
+        $this->loadViewsFrom(__DIR__.'/../../resources/views', 'b2b');
+    }
 }

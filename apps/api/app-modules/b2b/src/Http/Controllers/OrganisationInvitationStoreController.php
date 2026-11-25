@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 namespace Healthy360\B2b\Http\Controllers;
 
+use Healthy360\AccessControl\Models\Role;
 use Healthy360\B2b\Http\Concerns\ResolvesAuthenticatedUser;
 use Healthy360\B2b\Http\Requests\StoreOrganisationInvitationRequest;
+use Healthy360\B2b\Mail\OrganisationInvitationMessage;
 use Healthy360\B2b\Presenters\OrganisationInvitationPresenter;
 use Healthy360\B2b\Services\B2bLocator;
 use Healthy360\B2b\Services\InvitationService;
+use Healthy360\B2b\Services\IssuedInvitation;
+use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationBranch;
 use Healthy360\Support\Api\ApiResponse;
 use Healthy360\Support\Api\ErrorCode;
 use Healthy360\Support\Api\Exceptions\ApiException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Mail;
 
 /**
  * POST /api/v1/organisations/{organisation}/invitations — offer somebody a
@@ -29,8 +34,8 @@ use Illuminate\Http\JsonResponse;
  *
  * `InvitationService::issue()` returns the plaintext exactly once, for the mail
  * that carries it. Only its SHA-256 reaches the database, and this controller
- * deliberately drops the plaintext on the floor: it never reaches the
- * presenter, a log line, or an audit row. That is what makes three things true
+ * hands the plaintext to that mail and to nothing else: it never reaches the
+ * presenter or an audit row. That is what makes three things true
  * at once — a database read cannot be turned into an accepted invitation, a
  * backup or replica cannot either, and the platform genuinely cannot resend the
  * original. Re-inviting issues a new token and revokes the old, which is both
@@ -79,11 +84,52 @@ final class OrganisationInvitationStoreController
             $payload['message'],
         );
 
-        // `$issued->token` is deliberately unread. See the class comment.
+        // The token goes into the mail and nowhere else. See the class comment.
+        $this->mail($tenant, $issued);
+
         return ApiResponse::data(
             ['invitation' => $this->presenter->invitation($issued->invitation)],
             status: 201,
         );
+    }
+
+    /**
+     * Send the invitation, and never let a mail failure lose the invitation.
+     *
+     * The row is already written, so a transport error is reported rather
+     * than thrown: a 500 on a request that succeeded would have the
+     * administrator invite again and wonder why. Re-inviting supersedes
+     * cleanly and sends a fresh link.
+     *
+     * The link points at the universal app's `/invitations/{token}`, which
+     * signs the person in (or up) first and then accepts.
+     */
+    private function mail(Organisation $organisation, IssuedInvitation $issued): void
+    {
+        $invitation = $issued->invitation;
+        $locale = (string) $organisation->default_language_code;
+
+        try {
+            $role = Role::withoutTenancy()
+                ->where('organisation_id', $organisation->getKey())
+                ->where('code', $invitation->role_code)
+                ->first();
+
+            $roleName = $role instanceof Role
+                ? ($locale === 'ar' ? $role->name_ar : $role->name_en)
+                : '';
+
+            Mail::to($invitation->email)->send(new OrganisationInvitationMessage(
+                organisationName: $organisation->name,
+                roleCode: $invitation->role_code,
+                roleName: trim($roleName) === '' ? $invitation->role_code : $roleName,
+                acceptUrl: rtrim((string) config('app.frontend_url'), '/').'/invitations/'.rawurlencode($issued->token),
+                message: $invitation->message,
+                locale: $locale,
+            ));
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**

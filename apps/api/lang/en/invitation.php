@@ -46,4 +46,28 @@ return [
 
     ],
 
+    // The invitation an organisation's own administrator sends from Add user.
+    'member' => [
+
+        'subject' => 'You have been invited to join :organisation',
+
+        'heading' => 'Join :organisation',
+
+        'organisation_label' => 'Organisation',
+        'role_label' => 'Role',
+
+        'greeting' => 'Hello,',
+
+        'intro' => 'You have been invited to join :organisation on :app as :role. Accepting lets you sign in and do the work that role allows.',
+
+        'action' => 'Accept the invitation',
+
+        'fallback' => 'If the button does not work, open this link:',
+
+        'expiry' => 'The invitation expires in a few days. Accepting it requires signing in with this email address; if you do not have an account yet, you can create one first.',
+
+        'signoff' => 'If you were not expecting this, you can ignore it — nothing happens until you accept.',
+
+    ],
+
 ];

@@ -7,6 +7,7 @@ use Healthy360\B2b\Enums\AgreementStatus;
 use Healthy360\B2b\Enums\ApplicationSection;
 use Healthy360\B2b\Enums\ApplicationStatus;
 use Healthy360\B2b\Enums\DocumentKind;
+use Healthy360\B2b\Mail\OrganisationInvitationMessage;
 use Healthy360\B2b\Models\B2bApplication;
 use Healthy360\B2b\Models\KycDocument;
 use Healthy360\B2b\Models\OrganisationInvitation;
@@ -16,6 +17,7 @@ use Healthy360\Customers\Models\CustomerAccount;
 use Healthy360\Organisations\Models\Organisation;
 use Healthy360\Organisations\Models\OrganisationType;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
@@ -546,4 +548,48 @@ it('issues an invitation without ever putting the token in the response', functi
     foreach (b2bSmokeStrings($response->json()) as $value) {
         expect(hash('sha256', $value))->not->toBe($invitation->token_hash);
     }
+});
+
+it('emails the invited person a link that carries the token', function (): void {
+    Mail::fake();
+
+    $kitchen = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
+    $owner = User::query()->where('email', 'owner@verdant.test')->sole();
+
+    $this->actingAs($owner);
+
+    $response = $this->postJson("/api/v1/organisations/{$kitchen->getKey()}/invitations", [
+        'email' => 'cook@cedars.test',
+        'role_code' => 'member',
+    ], firstPartyHeaders() + ['X-Organisation-Id' => (string) $kitchen->getKey()])->assertCreated();
+
+    $invitation = OrganisationInvitation::query()->whereKey($response->json('data.invitation.id'))->sole();
+
+    // An invitation nobody is told about is an offer nobody can accept: the
+    // link in this mail is the only place the token ever leaves the server.
+    Mail::assertSent(OrganisationInvitationMessage::class, function (OrganisationInvitationMessage $mail) use ($invitation, $kitchen): bool {
+        $token = Str::afterLast($mail->acceptUrl, '/invitations/');
+
+        return $mail->hasTo('cook@cedars.test')
+            && $mail->organisationName === $kitchen->name
+            && $mail->roleCode === 'member'
+            && hash('sha256', $token) === $invitation->token_hash
+            && str_contains($mail->render(), $mail->acceptUrl);
+    });
+});
+
+it('keeps the invitation when its mail cannot be sent', function (): void {
+    Mail::shouldReceive('to')->once()->andThrow(new RuntimeException('The transport is down.'));
+
+    $kitchen = Organisation::query()->where('slug', 'verdant-kitchen')->sole();
+    $owner = User::query()->where('email', 'owner@verdant.test')->sole();
+
+    $this->actingAs($owner);
+
+    $this->postJson("/api/v1/organisations/{$kitchen->getKey()}/invitations", [
+        'email' => 'cook@cedars.test',
+        'role_code' => 'member',
+    ], firstPartyHeaders() + ['X-Organisation-Id' => (string) $kitchen->getKey()])->assertCreated();
+
+    expect(OrganisationInvitation::query()->where('email_normalised', 'cook@cedars.test')->exists())->toBeTrue();
 });
