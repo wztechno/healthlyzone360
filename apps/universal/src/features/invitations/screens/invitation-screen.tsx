@@ -1,18 +1,11 @@
-import {
-    Button,
-    Callout,
-    Card,
-    Heading,
-    Inline,
-    Spinner,
-    Stack,
-    Text,
-} from '@healthy360/design-system';
+import { Spinner } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { isPermissionDeniedFailure } from '@healthy360/api-client/contracts';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
 
 import { toFailure, useLogoutMutation } from '../../../data/hooks.ts';
 import {
@@ -22,6 +15,16 @@ import {
 import { recordResumeIntent } from '../../marketplace/resume-intent.ts';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useSession } from '../../../session/session-provider.tsx';
+import {
+    AuthBadge,
+    AuthError,
+    AuthLink,
+    AuthNote,
+    AuthSubmit,
+    AuthText,
+    AuthTick,
+    AuthTitle,
+} from '../../../ui/auth-form.tsx';
 import { daysUntil, resolveInvitationView } from '../invitation-state.ts';
 
 /**
@@ -57,6 +60,12 @@ import { daysUntil, resolveInvitationView } from '../invitation-state.ts';
  *
  * `recordResumeIntent` is still written as the fallback: if the person wanders off mid-way, the
  * consumer home offers "Continue to …" pointing here.
+ *
+ * ## The look
+ *
+ * Drawn in the sign-in boards' frame (`AuthFrame`, set by the route's layout) from the same parts
+ * the other ways in use: the badge, the title, the big pill, the quiet link, the tick when done.
+ * The facts sit in one soft box, a row each.
  */
 
 export interface InvitationScreenProps {
@@ -92,49 +101,44 @@ export function InvitationScreen({ token }: InvitationScreenProps) {
 
     const here = normalisedToken === null ? '/invitations' : `/invitations/${normalisedToken}`;
 
-    const goSignIn = (destination: '/sign-in' | '/register') => {
-        // The breadcrumb points at *this* page, not at the destination: it records where to come
-        // back to, and the token is part of that address.
+    /** Leave for one of the ways in, carrying this page — token and all — as the return. */
+    const leaveFor = (destination: '/sign-in' | '/register' | '/verify-email') => {
         recordResumeIntent({ href: here, labelKey: 'invitations:title' });
         router.push(withReturnTo(destination, here) as never);
     };
 
     if (view.kind === 'loading') {
         return (
-            <Stack space="lg" testID="invitation-screen">
+            <View testID="invitation-screen" className="items-center py-10">
                 <Spinner
                     testID="invitation-loading"
                     size="large"
                     showLabel
                     label={t('invitations:loading')}
                 />
-            </Stack>
+            </View>
         );
     }
 
     if (view.kind === 'not-found') {
         return (
-            <Stack space="lg" testID="invitation-screen">
-                <Callout
-                    testID="invitation-not-found"
-                    tone="warning"
-                    role="alert"
-                    title={t('invitations:notFound.title')}
-                    body={t('invitations:notFound.body')}
-                    actions={
-                        <Button
-                            testID="invitation-retry"
-                            size="sm"
-                            variant="secondary"
-                            label={t('invitations:notFound.retry')}
-                            loading={query.isFetching}
-                            onPress={() => {
-                                void query.refetch();
-                            }}
-                        />
-                    }
-                />
-            </Stack>
+            <View testID="invitation-screen" className="flex-col gap-3.5">
+                <AuthBadge icon="warning" tone="warning" />
+                <View testID="invitation-not-found" role="alert">
+                    <AuthTitle>{t('invitations:notFound.title')}</AuthTitle>
+                </View>
+                <AuthText>{t('invitations:notFound.body')}</AuthText>
+                <View className="mt-2">
+                    <AuthSubmit
+                        testID="invitation-retry"
+                        label={t('invitations:notFound.retry')}
+                        busy={query.isFetching}
+                        onPress={() => {
+                            void query.refetch();
+                        }}
+                    />
+                </View>
+            </View>
         );
     }
 
@@ -149,151 +153,169 @@ export function InvitationScreen({ token }: InvitationScreenProps) {
         day: 'numeric',
     });
     const remaining = daysUntil(invitation.expiresAt);
+    const lapsed = view.kind === 'expired' || view.kind === 'revoked';
+    const troubled = lapsed || view.kind === 'mismatch';
 
-    /** The facts panel. Rendered above every state, because every state is about this invitation. */
-    const facts = (
-        <Card padding="lg" testID="invitation-facts">
-            <Stack space="sm">
-                <Heading level={1} testID="invitation-heading">
-                    {t('invitations:invite.heading', { organisation })}
-                </Heading>
-                <Text tone="secondary">{t('invitations:invite.body', { organisation })}</Text>
-
-                <Stack space="xs">
-                    <Inline space="sm" wrap>
-                        <Text variant="label">{t('invitations:invite.roleLabel')}</Text>
-                        <Text testID="invitation-role">{roleLabel}</Text>
-                    </Inline>
-                    <Inline space="sm" wrap>
-                        <Text variant="label">{t('invitations:invite.sentToLabel')}</Text>
-                        {/* The masked address, exactly as the server sent it. There is no unmasked
-                            form on this surface to render by mistake. */}
-                        <Text testID="invitation-email">{invitation.emailMasked}</Text>
-                    </Inline>
-                    <Inline space="sm" wrap>
-                        <Text variant="label">{t('invitations:invite.expiresLabel')}</Text>
-                        <Text testID="invitation-expiry">{expiryDate}</Text>
-                    </Inline>
-                </Stack>
-
-                {view.kind === 'expired' || view.kind === 'revoked' ? null : (
-                    <Text tone="secondary" variant="caption" testID="invitation-countdown">
-                        {remaining === 0
-                            ? t('invitations:invite.expiresToday')
-                            : t('invitations:invite.expiresInDays', { count: remaining })}
-                    </Text>
-                )}
-            </Stack>
-        </Card>
-    );
+    if (view.kind === 'accepted' && view.membershipCreated) {
+        return (
+            <View testID="invitation-screen" className="flex-col items-center gap-3.5">
+                <AuthTick />
+                <View testID="invitation-accepted" role="status">
+                    <AuthTitle centred testID="invitation-heading">
+                        {acceptedNow === null
+                            ? t('invitations:accepted.alreadyTitle')
+                            : t('invitations:accepted.title')}
+                    </AuthTitle>
+                </View>
+                <AuthText centred>
+                    {acceptedNow === null
+                        ? t('invitations:accepted.alreadyBody')
+                        : t('invitations:accepted.body', { organisation })}
+                </AuthText>
+                <View className="mt-2 w-full">
+                    <AuthSubmit
+                        testID="invitation-open-workspace"
+                        label={
+                            invitation.organisation.type === 'corporate_customer'
+                                ? t('invitations:accepted.openBusinessWorkspace')
+                                : t('invitations:accepted.openWorkspace')
+                        }
+                        onPress={() => {
+                            // A business buyer's people land on the buyer workspace; a kitchen's
+                            // on the kitchen.
+                            router.push(
+                                (invitation.organisation.type === 'corporate_customer'
+                                    ? '/corporate'
+                                    : '/kitchen') as never,
+                            );
+                        }}
+                    />
+                </View>
+            </View>
+        );
+    }
 
     return (
-        <Stack space="lg" testID="invitation-screen">
-            {facts}
+        <View testID="invitation-screen" className="flex-col gap-3.5">
+            <AuthBadge icon={troubled ? 'warning' : 'send'} tone={troubled ? 'warning' : 'brand'} />
+            <AuthTitle testID="invitation-heading">
+                {t('invitations:invite.heading', { organisation })}
+            </AuthTitle>
+
+            {/* The facts. Drawn in every state on this pane, because each is about this invitation. */}
+            <View
+                testID="invitation-facts"
+                className="rounded-2xl border border-stroke bg-surface-raised px-4 py-1.5"
+            >
+                <Fact label={t('invitations:invite.roleLabel')}>
+                    <View className="rounded-full bg-surface-brand-subtle px-2.5 py-1">
+                        <RNText
+                            testID="invitation-role"
+                            className="text-xs font-bold text-content-on-brand-subtle"
+                        >
+                            {roleLabel}
+                        </RNText>
+                    </View>
+                </Fact>
+                <Fact label={t('invitations:invite.sentToLabel')} divided>
+                    {/* The masked address, exactly as the server sent it. There is no unmasked
+                        form on this surface to render by mistake. */}
+                    <FactValue testID="invitation-email">{invitation.emailMasked}</FactValue>
+                </Fact>
+                <Fact label={t('invitations:invite.expiresLabel')} divided>
+                    <FactValue testID="invitation-expiry">{expiryDate}</FactValue>
+                </Fact>
+            </View>
+
+            {lapsed ? null : (
+                <RNText
+                    testID="invitation-countdown"
+                    className="text-xs font-medium text-content-secondary text-start"
+                >
+                    {remaining === 0
+                        ? t('invitations:invite.expiresToday')
+                        : t('invitations:invite.expiresInDays', { count: remaining })}
+                </RNText>
+            )}
 
             {view.kind === 'signed-out' ? (
-                <Callout
-                    testID="invitation-signed-out"
-                    tone="info"
-                    role="status"
-                    title={t('invitations:signedOut.title')}
-                    body={t('invitations:signedOut.body')}
-                    actions={
-                        <Stack space="xs">
-                            <Inline space="sm" wrap>
-                                <Button
-                                    testID="invitation-sign-in"
-                                    size="sm"
-                                    label={t('invitations:signedOut.signIn')}
-                                    onPress={() => {
-                                        goSignIn('/sign-in');
-                                    }}
-                                />
-                                <Button
-                                    testID="invitation-register"
-                                    size="sm"
-                                    variant="secondary"
-                                    label={t('invitations:signedOut.register')}
-                                    onPress={() => {
-                                        goSignIn('/register');
-                                    }}
-                                />
-                            </Inline>
-                            <Text tone="secondary" variant="caption">
-                                {t('invitations:signedOut.returnHint')}
-                            </Text>
-                        </Stack>
-                    }
-                />
+                <View testID="invitation-signed-out" className="mt-2 flex-col gap-1">
+                    <AuthSubmit
+                        testID="invitation-sign-in"
+                        label={t('invitations:signedOut.signIn')}
+                        onPress={() => {
+                            leaveFor('/sign-in');
+                        }}
+                    />
+                    <AuthLink
+                        testID="invitation-register"
+                        label={t('invitations:signedOut.register')}
+                        onPress={() => {
+                            leaveFor('/register');
+                        }}
+                    />
+                </View>
             ) : null}
 
             {view.kind === 'unverified' ? (
-                <Callout
-                    testID="invitation-unverified"
-                    tone="warning"
-                    role="status"
-                    title={t('invitations:unverified.title')}
-                    body={t('invitations:unverified.body')}
-                    actions={
-                        <Button
-                            testID="invitation-verify"
-                            size="sm"
-                            label={t('invitations:unverified.verify')}
-                            onPress={() => {
-                                recordResumeIntent({ href: here, labelKey: 'invitations:title' });
-                                router.push(withReturnTo('/verify-email', here) as never);
-                            }}
-                        />
-                    }
-                />
+                <View className="flex-col gap-3.5">
+                    <AuthNote testID="invitation-unverified" tone="warning">
+                        {t('invitations:unverified.title')}
+                    </AuthNote>
+                    <AuthSubmit
+                        testID="invitation-verify"
+                        label={t('invitations:unverified.verify')}
+                        onPress={() => {
+                            leaveFor('/verify-email');
+                        }}
+                    />
+                </View>
             ) : null}
 
             {view.kind === 'mismatch' ? (
-                <Callout
-                    testID="invitation-mismatch"
-                    tone="warning"
-                    role="alert"
-                    title={t('invitations:mismatch.title')}
-                    body={t('invitations:mismatch.body', {
-                        current: view.currentEmail,
-                        invited: invitation.emailMasked,
-                    })}
-                    actions={
-                        <Button
-                            testID="invitation-switch-account"
-                            size="sm"
-                            variant="secondary"
-                            label={t('invitations:mismatch.switch')}
-                            loading={logout.isPending}
-                            onPress={() => {
-                                /*
-                                 * Sign out, then stay on this page. The breadcrumb is recorded
-                                 * first so that whichever way the person comes back — straight
-                                 * through the sign-in screen, or via the consumer home — the link
-                                 * with its token is still one press away.
-                                 */
-                                recordResumeIntent({ href: here, labelKey: 'invitations:title' });
-                                logout.mutate(undefined, {
-                                    onSuccess: () => {
-                                        router.push(withReturnTo('/sign-in', here) as never);
-                                    },
-                                });
-                            }}
-                        />
-                    }
-                />
+                <View className="flex-col gap-3.5">
+                    <AuthError
+                        testID="invitation-mismatch"
+                        message={t('invitations:mismatch.body', {
+                            current: view.currentEmail,
+                            invited: invitation.emailMasked,
+                        })}
+                    />
+                    <AuthSubmit
+                        testID="invitation-switch-account"
+                        label={t('invitations:mismatch.switch')}
+                        busy={logout.isPending}
+                        onPress={() => {
+                            // Sign out, then sign in as the invited person and come straight back.
+                            logout.mutate(undefined, {
+                                onSuccess: () => {
+                                    leaveFor('/sign-in');
+                                },
+                            });
+                        }}
+                    />
+                </View>
             ) : null}
 
             {view.kind === 'acceptable' ? (
-                <Stack space="sm">
-                    <Button
+                <View className="mt-2 flex-col gap-3.5">
+                    {/* A refusal that is *not* the identity mismatch — a lapsed token, a revoked
+                        one — is shown here rather than swallowed. The mismatch has its own state
+                        above, reached through `serverRefusedIdentity`. */}
+                    {acceptFailure !== null && !isPermissionDeniedFailure(acceptFailure) ? (
+                        <AuthError
+                            testID="invitation-accept-error"
+                            message={acceptFailure.message}
+                        />
+                    ) : null}
+                    <AuthSubmit
                         testID="invitation-accept"
                         label={
                             accept.isPending
                                 ? t('invitations:accept.pending')
                                 : t('invitations:accept.action')
                         }
-                        loading={accept.isPending}
+                        busy={accept.isPending}
                         onPress={() => {
                             if (normalisedToken === null) return;
                             accept.mutate(normalisedToken, {
@@ -305,84 +327,63 @@ export function InvitationScreen({ token }: InvitationScreenProps) {
                             });
                         }}
                     />
-                    {/* A refusal that is *not* the identity mismatch — a lapsed token, a revoked
-                        one — is shown here rather than swallowed. The mismatch has its own panel
-                        above, reached through `serverRefusedIdentity`. */}
-                    {acceptFailure !== null && !isPermissionDeniedFailure(acceptFailure) ? (
-                        <Callout
-                            testID="invitation-accept-error"
-                            tone="danger"
-                            role="alert"
-                            title={t('invitations:notFound.title')}
-                            body={acceptFailure.message}
-                        />
-                    ) : null}
-                </Stack>
+                </View>
             ) : null}
 
             {view.kind === 'accepted' ? (
-                <Callout
-                    testID="invitation-accepted"
-                    tone={view.membershipCreated ? 'success' : 'warning'}
-                    role="status"
-                    title={
-                        view.membershipCreated
-                            ? acceptedNow === null
-                                ? t('invitations:accepted.alreadyTitle')
-                                : t('invitations:accepted.title')
-                            : t('invitations:accepted.noMembershipTitle')
-                    }
-                    body={
-                        view.membershipCreated
-                            ? acceptedNow === null
-                                ? t('invitations:accepted.alreadyBody')
-                                : t('invitations:accepted.body', { organisation })
-                            : t('invitations:accepted.noMembershipBody')
-                    }
-                    actions={
-                        view.membershipCreated ? (
-                            <Button
-                                testID="invitation-open-workspace"
-                                size="sm"
-                                label={
-                                    invitation.organisation.type === 'corporate_customer'
-                                        ? t('invitations:accepted.openBusinessWorkspace')
-                                        : t('invitations:accepted.openWorkspace')
-                                }
-                                onPress={() => {
-                                    // A business buyer's people land on the buyer workspace; a
-                                    // kitchen's on the kitchen.
-                                    router.push(
-                                        (invitation.organisation.type === 'corporate_customer'
-                                            ? '/corporate'
-                                            : '/kitchen') as never,
-                                    );
-                                }}
-                            />
-                        ) : undefined
-                    }
-                />
+                <AuthNote testID="invitation-accepted" tone="warning">
+                    {t('invitations:accepted.noMembershipBody')}
+                </AuthNote>
             ) : null}
 
             {view.kind === 'expired' ? (
-                <Callout
+                <AuthError
                     testID="invitation-expired"
-                    tone="warning"
-                    role="alert"
-                    title={t('invitations:expired.title')}
-                    body={t('invitations:expired.body', { date: expiryDate, organisation })}
+                    message={t('invitations:expired.body', { date: expiryDate, organisation })}
                 />
             ) : null}
 
             {view.kind === 'revoked' ? (
-                <Callout
+                <AuthError
                     testID="invitation-revoked"
-                    tone="warning"
-                    role="alert"
-                    title={t('invitations:revoked.title')}
-                    body={t('invitations:revoked.body', { organisation })}
+                    message={t('invitations:revoked.body', { organisation })}
                 />
             ) : null}
-        </Stack>
+        </View>
+    );
+}
+
+/** One row of the facts box: its label at the start, its value at the end. */
+function Fact({
+    label,
+    divided = false,
+    children,
+}: {
+    readonly label: string;
+    readonly divided?: boolean;
+    readonly children: ReactNode;
+}) {
+    return (
+        <View
+            className={
+                divided
+                    ? 'min-h-touch flex-row items-center justify-between gap-3 border-t border-stroke-subtle py-2'
+                    : 'min-h-touch flex-row items-center justify-between gap-3 py-2'
+            }
+        >
+            <RNText className="text-sm font-medium text-content-secondary">{label}</RNText>
+            {children}
+        </View>
+    );
+}
+
+function FactValue({ testID, children }: { readonly testID: string; readonly children: string }) {
+    return (
+        <RNText
+            testID={testID}
+            className="min-w-0 shrink text-sm font-semibold text-content-primary text-end"
+        >
+            {children}
+        </RNText>
     );
 }
