@@ -23,6 +23,12 @@ return [
 
         'subject' => 'دعوة لإدارة :kitchen',
 
+        'heading' => 'انضم إلى :kitchen',
+
+        'kitchen_label' => 'المطبخ',
+        'role_label' => 'الدور',
+        'role' => 'المالك',
+
         'greeting' => 'مرحبًا،',
         'greeting_named' => 'مرحبًا :name،',
 

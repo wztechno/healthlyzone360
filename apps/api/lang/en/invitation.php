@@ -25,6 +25,12 @@ return [
 
         'subject' => 'You have been invited to run :kitchen',
 
+        'heading' => 'Join :kitchen',
+
+        'kitchen_label' => 'Kitchen',
+        'role_label' => 'Role',
+        'role' => 'Owner',
+
         'greeting' => 'Hello,',
         'greeting_named' => 'Hello :name,',
 
