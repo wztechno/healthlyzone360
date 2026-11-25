@@ -4,7 +4,7 @@ import type {
     PermissionDomain,
     TeamMemberSummary,
 } from '@healthy360/api-client/contracts';
-import { ApiError, validationFailure } from '@healthy360/api-client/contracts';
+import { ApiError, apiFailure, validationFailure } from '@healthy360/api-client/contracts';
 import { BranchId, MembershipId, RoleId, UserId } from '@healthy360/domain-types';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
@@ -324,6 +324,49 @@ describe('adding a member of staff leads the reader', () => {
         );
         expect(screen.getByTestId('kitchen-staff-create-person')).toBeTruthy();
         expect(pill('kitchen-staff-create-tabs-tab-person')).toHaveTextContent('1');
+    });
+
+    it('asks for the caller’s password when the server wants it, then makes the login', async () => {
+        // `POST …/staff` is step-up protected. The refusal is a question, so it is a dialog and
+        // not a card in the tray, and answering it sends the same login without another press.
+        const createStaffAccount = jest
+            .fn()
+            .mockRejectedValueOnce(new ApiError(apiFailure('auth.step_up_required')))
+            .mockResolvedValue({
+                membershipId: MEMBERSHIP_ID,
+                userId: UserId.unsafe('01935f6c-0000-7000-8000-0000000000c9'),
+                email: 'ahmad@verdant.healthy360.app',
+                initialPassword: 'copper-lentil-basket-seven',
+            });
+        const confirmPassword = jest.fn().mockResolvedValue({ confirmedAt: null });
+
+        await renderStubScreen(<StaffCreateScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: {
+                ...staffRepositories({ createStaffAccount }),
+                auth: { confirmPassword },
+            },
+        });
+        await press('kitchen-staff-create-mode-option-create');
+        await type('kitchen-staff-create-local-part-input', 'ahmad');
+        await press('kitchen-staff-create-generate');
+        await press('kitchen-staff-create-tabs-tab-person');
+        await type('kitchen-staff-create-given-name-input', 'Ahmad');
+        await type('kitchen-staff-create-family-name-input', 'Haddad');
+        await press('kitchen-staff-create-submit');
+
+        await untilVisible('kitchen-staff-create-confirm-password-input');
+        expect(screen.queryByTestId('kitchen-staff-create-error')).toBeNull();
+
+        await type('kitchen-staff-create-confirm-password-input', 'the-owners-password');
+        await press('kitchen-staff-create-confirm-submit');
+
+        await untilVisible('kitchen-staff-create-password-value');
+        expect(confirmPassword).toHaveBeenCalledWith({ password: 'the-owners-password' });
+        expect(createStaffAccount).toHaveBeenCalledTimes(2);
+        expect(screen.getByTestId('kitchen-staff-create-password-value')).toHaveTextContent(
+            'copper-lentil-basket-seven',
+        );
     });
 
     it('opens the step holding the first blank when the commit is pressed too soon', async () => {

@@ -1,3 +1,4 @@
+import { isValidationFailure } from '@healthy360/api-client';
 import type { CreateStaffAccountRequest } from '@healthy360/api-client/contracts';
 import {
     Cascade,
@@ -7,6 +8,7 @@ import {
     Icon,
     IconButton,
     IssueTrayFrame,
+    PasswordInput,
     SegmentedControl,
     Select,
     Stack,
@@ -16,7 +18,7 @@ import {
     useToast,
 } from '@healthy360/design-system';
 import type { IssueCardItem, IssueTrayContent, TabItem } from '@healthy360/design-system';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -27,7 +29,7 @@ import {
     useOrganisationRolesQuery,
     useStaffSignInDomainsQuery,
 } from '../../../data/access-admin-hooks.ts';
-import { toFailure } from '../../../data/hooks.ts';
+import { toFailure, useConfirmPasswordMutation } from '../../../data/hooks.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { MEMBERSHIP_INVITE_PERMISSION, USER_MANAGE_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
@@ -76,7 +78,19 @@ import { DeskButton } from '../desk-kit/desk-button.tsx';
  * incomplete form marks what is missing under each field, counts it on each step's tab and opens
  * the step that holds the first of it, rather than a disabled button that says nothing. A refusal
  * from the server does the same with the field it named.
+ *
+ * ## Making a login asks for the caller's own password
+ *
+ * `POST …/staff` is step-up protected: a hijacked session must not be able to mint itself a
+ * colleague. The server answers `auth.step_up_required`, which is a question and not a failure, so
+ * it opens a dialog for the password instead of a card in the tray, and a confirmed password sends
+ * the same login again without another press.
  */
+
+/** The refusal that asks for the caller's password again rather than reporting a problem. */
+function asksForPassword(error: unknown): boolean {
+    return toFailure(error)?.code === 'auth.step_up_required';
+}
 
 export function StaffCreateScreen() {
     return (
@@ -163,13 +177,16 @@ function StaffCreateForm() {
 
     const invite = useInviteStaffMutation();
     const create = useCreateStaffAccountMutation();
+    const confirmPassword = useConfirmPasswordMutation();
+    // A request for the caller's password is the dialog's, never the tray's or a field's.
+    const createError = asksForPassword(create.error) ? null : create.error;
 
     const guard = useUnsavedGuard({ message: t('kitchen:unsaved.browserPrompt') });
 
     // The page's issue tray; a refused invitation or login opens it.
     const issueTray = useIssueTrayController();
     const { nudge: nudgeTray } = issueTray;
-    useNudgeOnRefusal(invite.error ?? create.error, nudgeTray);
+    useNudgeOnRefusal(invite.error ?? createError, nudgeTray);
 
     useKitchenTrailLeaf(t('accessAdmin:add.title'));
 
@@ -192,6 +209,16 @@ function StaffCreateForm() {
     const [issued, setIssued] = useState<{ name: string; password: string } | null>(null);
     /** Whether the commit has been pressed — what lets an empty required field call itself out. */
     const [attempted, setAttempted] = useState(false);
+    /** Open while the server is waiting for the caller's own password. */
+    const [confirming, setConfirming] = useState(false);
+    /** The same, readable when a confirmation lands: one cancelled meanwhile makes no login. */
+    const confirmOpen = useRef(false);
+    function setConfirmOpen(open: boolean) {
+        confirmOpen.current = open;
+        setConfirming(open);
+    }
+    const [ownPassword, setOwnPassword] = useState('');
+    const [confirmError, setConfirmError] = useState<string | null>(null);
 
     /** Every field's setter goes through here, so any edit marks the form unsaved. */
     function edit<T>(set: (value: T) => void): (value: T) => void {
@@ -212,7 +239,7 @@ function StaffCreateForm() {
     const soleDomain = domainOptions.length === 1 ? domainOptions[0]?.value : undefined;
     const chosenDomain = domain ?? soleDomain;
 
-    const failure = toFailure(invite.error) ?? toFailure(create.error);
+    const failure = toFailure(invite.error) ?? toFailure(createError);
 
     const name = [givenName.trim(), familyName.trim()].filter((part) => part !== '').join(' ');
 
@@ -427,8 +454,40 @@ function StaffCreateForm() {
                 guard.markClean();
                 setIssued({ name, password: result.initialPassword });
             },
-            onError: showRefusal,
+            onError: (error: unknown) => {
+                if (asksForPassword(error)) {
+                    setOwnPassword('');
+                    setConfirmError(null);
+                    setConfirmOpen(true);
+                    return;
+                }
+                showRefusal(error);
+            },
         });
+    }
+
+    /** Confirms the caller's password, then sends the login that was waiting on it. */
+    function confirmAndCreate() {
+        setConfirmError(null);
+        confirmPassword.mutate(
+            { password: ownPassword },
+            {
+                onSuccess: () => {
+                    if (!confirmOpen.current) return;
+                    setConfirmOpen(false);
+                    setOwnPassword('');
+                    submit();
+                },
+                onError: (error: unknown) => {
+                    const refused = toFailure(error);
+                    setConfirmError(
+                        refused !== null && isValidationFailure(refused)
+                            ? (refused.fields['password']?.[0] ?? refused.message)
+                            : (refused?.message ?? t('errors:generic.body')),
+                    );
+                },
+            },
+        );
     }
 
     /*
@@ -772,6 +831,49 @@ function StaffCreateForm() {
             </Cascade>
 
             <EditorGuardDialogs testID="kitchen-staff-create" guard={guard} />
+
+            <Dialog
+                look="card"
+                testID="kitchen-staff-create-confirm-dialog"
+                open={confirming}
+                onClose={() => {
+                    setConfirmOpen(false);
+                }}
+                title={t('auth:stepUp.title')}
+                description={t('auth:stepUp.body')}
+                actions={
+                    <>
+                        <DeskButton
+                            testID="kitchen-staff-create-confirm-cancel"
+                            variant="secondary"
+                            label={t('kitchen:editor.cancel')}
+                            onPress={() => {
+                                setConfirmOpen(false);
+                            }}
+                        />
+                        <DeskButton
+                            testID="kitchen-staff-create-confirm-submit"
+                            label={t('auth:stepUp.submit')}
+                            loading={confirmPassword.isPending}
+                            disabled={confirmPassword.isPending}
+                            onPress={confirmAndCreate}
+                        />
+                    </>
+                }
+            >
+                <PasswordInput
+                    testID="kitchen-staff-create-confirm-password"
+                    id="kitchen-staff-create-confirm-password"
+                    label={t('auth:stepUp.passwordLabel')}
+                    placeholder={t('auth:stepUp.passwordPlaceholder')}
+                    autoComplete="current-password"
+                    revealable={false}
+                    required
+                    value={ownPassword}
+                    onChangeText={setOwnPassword}
+                    {...(confirmError === null ? {} : { error: confirmError })}
+                />
+            </Dialog>
 
             <Dialog
                 look="card"
