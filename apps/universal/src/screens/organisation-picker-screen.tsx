@@ -1,25 +1,26 @@
 import {
     Badge,
     Button,
-    Card,
     EmptyState,
     ErrorState,
-    Heading,
+    Icon,
     Inline,
-    ListItem,
     Spinner,
     Stack,
     Text,
+    cx,
 } from '@healthy360/design-system';
 import type { Membership, MembershipStatus } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Pressable, View } from 'react-native';
 
 import { appConfig } from '../config.ts';
 import { toFailure, useSetContextMutation } from '../data/hooks.ts';
 import { selectableMemberships } from '../session/machine.ts';
 import { useSession } from '../session/session-provider.tsx';
+import { AuthBadge, AuthTitle } from '../ui/auth-form.tsx';
 
 const STATUS_TONE: Readonly<
     Record<MembershipStatus, 'success' | 'warning' | 'danger' | 'neutral'>
@@ -32,7 +33,9 @@ const STATUS_TONE: Readonly<
 };
 
 /**
- * Organisation picker.
+ * Organisation picker, drawn in the sign-in boards' frame (`AuthFrame`, set by the `(auth)`
+ * layout): the badge, the title, and one soft box a kitchen — its name on a line of its own, its
+ * roles and status as chips under it. The chips used to sit beside the name and left it no width.
  *
  * Three behaviours worth naming:
  *
@@ -154,75 +157,88 @@ export function OrganisationPickerScreen() {
     }
 
     return (
-        <Stack testID="organisation-picker-screen" space="lg">
-            <Stack space="xs">
-                <Heading level={1} testID="organisation-picker-title">
-                    {t('auth:organisationPicker.title')}
-                </Heading>
-                <Text tone="secondary">{t('auth:organisationPicker.subtitle')}</Text>
-            </Stack>
+        <View testID="organisation-picker-screen" className="flex-col gap-3.5">
+            <AuthBadge icon="leaf" />
+            <AuthTitle testID="organisation-picker-title">
+                {t('auth:organisationPicker.title')}
+            </AuthTitle>
 
             {failure === null ? null : (
                 <ErrorState testID="organisation-picker-error" failure={failure} />
             )}
 
-            <Card padding="sm">
-                <Stack space="xs">
-                    {memberships.map((membership) => {
-                        const active = membership.status === 'active';
-                        const branchCount = membership.branches.length;
-                        return (
-                            <ListItem
-                                key={membership.id}
-                                // Status suffix keeps testIDs unique when the same organisation
-                                // appears twice (an active membership plus a pending invitation).
-                                testID={
-                                    active
-                                        ? `organisation-${membership.organisation.slug}`
-                                        : `organisation-${membership.organisation.slug}-${membership.status}`
-                                }
-                                title={membership.organisation.name}
-                                description={
-                                    branchCount === 0
-                                        ? t('auth:organisationPicker.noBranches')
-                                        : t('auth:organisationPicker.branchCount', {
-                                              count: branchCount,
-                                          })
-                                }
-                                accessibilityLabel={t('auth:organisationPicker.openLabel', {
-                                    organisation: membership.organisation.name,
-                                })}
-                                disabled={!active || setContext.isPending}
-                                chevron={active}
-                                trailing={
-                                    <Inline space="xs">
-                                        {membership.roles.map((role) => (
-                                            <Badge
-                                                key={role.id}
-                                                testID={`organisation-${membership.organisation.slug}-role-${role.key}`}
-                                                tone="neutral"
-                                                label={role.name}
-                                            />
-                                        ))}
+            {/* One soft box a kitchen, as the invitation's facts box is drawn. */}
+            <View className="mt-1 flex-col gap-2.5">
+                {memberships.map((membership) => {
+                    const active = membership.status === 'active';
+                    const branchCount = membership.branches.length;
+                    const disabled = !active || setContext.isPending;
+                    return (
+                        <Pressable
+                            key={membership.id}
+                            // Status suffix keeps testIDs unique when the same organisation
+                            // appears twice (an active membership plus a pending invitation).
+                            testID={
+                                active
+                                    ? `organisation-${membership.organisation.slug}`
+                                    : `organisation-${membership.organisation.slug}-${membership.status}`
+                            }
+                            role="button"
+                            accessibilityRole="button"
+                            accessibilityLabel={t('auth:organisationPicker.openLabel', {
+                                organisation: membership.organisation.name,
+                            })}
+                            accessibilityState={{ disabled }}
+                            disabled={disabled}
+                            onPress={() => {
+                                choose(membership);
+                            }}
+                            className={cx(
+                                'min-h-touch flex-row items-center gap-3 rounded-2xl border border-stroke bg-surface-raised px-4 py-3.5',
+                                disabled ? 'opacity-60' : 'hover:border-stroke-strong',
+                            )}
+                        >
+                            {/* The name keeps the whole row; roles and status wrap under it.
+                                    Beside it, three chips left the name no width at all. */}
+                            <View className="min-w-0 flex-1 flex-col gap-1.5">
+                                <View className="flex-col">
+                                    <Text variant="bodyStrong">{membership.organisation.name}</Text>
+                                    <Text variant="caption" tone="secondary">
+                                        {branchCount === 0
+                                            ? t('auth:organisationPicker.noBranches')
+                                            : t('auth:organisationPicker.branchCount', {
+                                                  count: branchCount,
+                                              })}
+                                    </Text>
+                                </View>
+                                <Inline space="xs" wrap>
+                                    {membership.roles.map((role) => (
                                         <Badge
-                                            testID={`organisation-${membership.organisation.slug}-status`}
-                                            tone={STATUS_TONE[membership.status]}
-                                            label={membership.status}
+                                            key={role.id}
+                                            testID={`organisation-${membership.organisation.slug}-role-${role.key}`}
+                                            tone="neutral"
+                                            // The role as the invitations word it ("Owner",
+                                            // "Manager"); one the catalogue does not know
+                                            // keeps the name the server sent.
+                                            label={t(`invitations:invite.role.${role.key}`, {
+                                                defaultValue: role.name,
+                                            })}
                                         />
-                                    </Inline>
-                                }
-                                {...(active
-                                    ? {
-                                          onPress: () => {
-                                              choose(membership);
-                                          },
-                                      }
-                                    : {})}
-                            />
-                        );
-                    })}
-                </Stack>
-            </Card>
-        </Stack>
+                                    ))}
+                                    <Badge
+                                        testID={`organisation-${membership.organisation.slug}-status`}
+                                        tone={STATUS_TONE[membership.status]}
+                                        label={membership.status}
+                                    />
+                                </Inline>
+                            </View>
+                            {active ? (
+                                <Icon name="chevronForward" className="text-content-secondary" />
+                            ) : null}
+                        </Pressable>
+                    );
+                })}
+            </View>
+        </View>
     );
 }

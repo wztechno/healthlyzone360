@@ -6,8 +6,9 @@ import { AuthFrame } from '../../src/ui/auth-frame.tsx';
 
 /**
  * The pages rebuilt as the accepted sign-in boards, drawn in the boards' frame — the stage and the
- * form side (`ui/auth-frame.tsx`). The rest keep the shell's `auth` variant until their board is
- * built; the staff branch and organisation pickers are not shop pages and keep it for good.
+ * form side (`ui/auth-frame.tsx`). The organisation picker is drawn in it too (the user's call,
+ * 2026-11-25), so the pages a new owner crosses — invitation, sign-up, picker — look like one trip.
+ * The rest keep the shell's `auth` variant; the staff branch picker among them.
  */
 const BOARD_PAGES: ReadonlySet<string> = new Set([
     'sign-in',
@@ -17,6 +18,7 @@ const BOARD_PAGES: ReadonlySet<string> = new Set([
     'reset-password',
     'verify-email',
     'verify-phone',
+    'select-organisation',
 ]);
 
 /**
