@@ -6,6 +6,7 @@ import {
     Icon,
     IssueTrayFrame,
     IssueUnanchored,
+    Select,
     TableSkeleton,
 } from '@healthy360/design-system';
 import type { IssueTrayContent } from '@healthy360/design-system';
@@ -31,7 +32,7 @@ import {
     SUBSCRIPTION_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { kitchenOrderStatusKey } from '../ops-format.ts';
-import { DeskButton, DeskSelect, DeskTabs, ListGroupRow } from '../desk-kit/index.ts';
+import { DeskButton, DeskTabs, ListGroupRow } from '../desk-kit/index.ts';
 import { KitchenPauseBanner, KitchenPauseButton } from '../order-desk/kitchen-pause.tsx';
 import { useWindowName } from '../order-desk/use-window-name.ts';
 import { useListPage } from '../use-list-page.ts';
@@ -435,7 +436,8 @@ function KindScope({
 }) {
     const { t } = useTranslation();
     return (
-        <DeskSelect<KindFilter>
+        <Select<KindFilter>
+            trigger="pill"
             testID={testID}
             label={t('kitchen:orders.filter.kind')}
             value={value}
@@ -877,7 +879,8 @@ function AllOrdersTab({
                 actions={actions}
                 scope={
                     <>
-                        <DeskSelect<DatesFilter>
+                        <Select<DatesFilter>
+                            trigger="pill"
                             testID="kitchen-orders-all-dates"
                             label={t('kitchen:orders.filter.dates')}
                             value={query.dates}
@@ -890,7 +893,8 @@ function AllOrdersTab({
                                 testID: `kitchen-orders-all-dates-${dates}`,
                             }))}
                         />
-                        <DeskSelect<StatusFilter>
+                        <Select<StatusFilter>
+                            trigger="pill"
                             testID="kitchen-orders-all-status"
                             label={t('kitchen:orders.filter.status')}
                             value={query.status}

@@ -200,6 +200,8 @@ export { Switch } from './forms/switch.tsx';
 export type { SwitchProps } from './forms/switch.tsx';
 export type { CheckboxProps } from './forms/checkbox.tsx';
 export { Select } from './forms/select';
+export { SEARCH_THRESHOLD } from './forms/select-shared.ts';
+export { SelectLookScope, useSelectLook } from './forms/select-look.tsx';
 export type { SelectOption, SelectProps } from './forms/select-shared.ts';
 export { NumberStepper, clampToStep } from './forms/number-stepper.tsx';
 export type { NumberStepperProps } from './forms/number-stepper.tsx';

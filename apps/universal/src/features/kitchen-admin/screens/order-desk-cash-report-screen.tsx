@@ -8,6 +8,7 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
+    Select,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
@@ -33,7 +34,7 @@ import {
 } from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
-import { DeskColumnPicker, DeskSelect, MiniMonthPicker } from '../desk-kit/index.ts';
+import { DeskColumnPicker, MiniMonthPicker } from '../desk-kit/index.ts';
 import { shortDay } from '../orders/order-columns.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PeriodScope } from '../catalogue/period-scope.tsx';
@@ -337,7 +338,6 @@ function OrderDeskCashReport() {
                     scope={
                         <>
                             <PeriodScope
-                                look="desk"
                                 testID="kitchen-order-desk-cash-report-period"
                                 today={today}
                                 value={{ from, to }}
@@ -370,7 +370,8 @@ function OrderDeskCashReport() {
                                 />
                             </View>
                             {branches.length > 1 ? (
-                                <DeskSelect<string>
+                                <Select<string>
+                                    trigger="pill"
                                     testID="kitchen-order-desk-cash-report-branch"
                                     label={t('kitchen:ops.dailyClose.branchLabel')}
                                     value={branch}

@@ -2,15 +2,16 @@ import {
     Button,
     Callout,
     Cascade,
+    cx,
     DatePickerButton,
     FormSection,
+    Heading,
     Icon,
     InfoTip,
+    Select,
     Switch,
     Text,
     TextInputField,
-    cx,
-    Heading,
     useContentWidth,
     useToast,
 } from '@healthy360/design-system';
@@ -40,7 +41,6 @@ import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-co
 import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
 import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
 import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
-import { DeskPicker } from '../../kitchen-admin/desk-kit/desk-picker.tsx';
 import { focusField } from '../../kitchen-admin/field-focus.ts';
 import { serverFieldErrors } from '../../kitchen-admin/server-field-errors.ts';
 import type { ServerFieldTarget } from '../../kitchen-admin/server-field-errors.ts';
@@ -507,7 +507,9 @@ export function QuotationBuilderScreen({
                 }
             >
                 <View className="z-auto flex-col gap-3">
-                    <DeskPicker
+                    <Select
+                        trigger="pill"
+                        value={null}
                         testID="quotation-builder-picker"
                         label={t('business:builder.pickerLabel')}
                         placeholder={t('business:builder.pickerPlaceholder')}

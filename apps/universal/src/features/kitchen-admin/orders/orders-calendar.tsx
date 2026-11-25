@@ -1,5 +1,5 @@
 import type { OrderDeskCalendarDay, OrderDeskPlanMeal } from '@healthy360/api-client/contracts';
-import { ErrorState, Icon, Skeleton, Text, useBreakpoint } from '@healthy360/design-system';
+import { ErrorState, Icon, Select, Skeleton, Text, useBreakpoint } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
@@ -14,7 +14,7 @@ import {
 import { formatMoney } from '../../marketplace/format.ts';
 import { addDays, dateInstant, mondayOf, weekDates } from '../../planner/format.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
-import { DeskButton, DeskChip, DeskIconButton, DeskSelect, DeskTabs } from '../desk-kit/index.ts';
+import { DeskButton, DeskChip, DeskIconButton, DeskTabs } from '../desk-kit/index.ts';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { kitchenOrderFulfilmentTypeKey, kitchenOrderRowTestId } from '../ops-format.ts';
 import { windowCodesOfMeal } from '../order-desk-calendar.ts';
@@ -388,7 +388,8 @@ export function SlotScope({
 }) {
     const { t } = useTranslation();
     return (
-        <DeskSelect<SlotFilter>
+        <Select<SlotFilter>
+            trigger="pill"
             testID={testID}
             label={t('kitchen:orders.filter.slot')}
             value={value}

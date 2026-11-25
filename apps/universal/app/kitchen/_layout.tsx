@@ -1,4 +1,4 @@
-import { ToastLookScope } from '@healthy360/design-system';
+import { SelectLookScope, ToastLookScope } from '@healthy360/design-system';
 import { Slot } from 'expo-router';
 
 import {
@@ -30,7 +30,9 @@ export default function KitchenLayout() {
         <KitchenTrailProvider>
             {/* The admin's own toast: the desk card, bottom centre (design-system toast.tsx). */}
             <ToastLookScope look="desk">
-                <KitchenAreaShell />
+                <SelectLookScope look="card">
+                    <KitchenAreaShell />
+                </SelectLookScope>
             </ToastLookScope>
         </KitchenTrailProvider>
     );

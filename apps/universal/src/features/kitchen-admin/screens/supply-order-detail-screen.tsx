@@ -11,6 +11,7 @@ import {
     FormSkeleton,
     Icon,
     QuantityInput,
+    Select,
     Stack,
     Text,
     TextInputField,
@@ -63,7 +64,6 @@ import { trimDecimal, unitCodeLabel } from '../format.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskPicker } from '../desk-kit/desk-picker.tsx';
 /**
  * `/kitchen/supply-orders/{order}` — one purchase order (SUP4).
  *
@@ -1009,7 +1009,9 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
                                  */}
                                 {editable ? (
                                     <View className="z-tooltip self-start">
-                                        <DeskPicker
+                                        <Select
+                                            trigger="pill"
+                                            value={null}
                                             testID="kitchen-supply-order-detail-add-line"
                                             label={t('kitchen:ops.supplyOrders.addLineLabel')}
                                             options={addOptions}

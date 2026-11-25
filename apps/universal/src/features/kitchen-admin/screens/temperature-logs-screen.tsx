@@ -43,7 +43,6 @@ import {
 } from '../entity-registry.ts';
 
 import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskSelect } from '../desk-kit/desk-select.tsx';
 import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/temperature-logs`: what an inspector asks to see. Fridge and freezer readings twice a
@@ -377,7 +376,8 @@ function TemperatureLogs() {
             <View className="z-auto flex-row flex-wrap items-center gap-tight rounded-panel border border-stroke-subtle bg-surface-raised p-2">
                 {/* The admin's one dropdown look: the Lens bar's scope pill and its card menu. */}
                 {tab === 'units' ? null : (
-                    <DeskSelect
+                    <Select
+                        trigger="pill"
                         testID="kitchen-temperature-month"
                         label={t('kitchen:temperature.month')}
                         value={month}

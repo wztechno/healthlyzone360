@@ -7,7 +7,7 @@ import type { ColumnPickerProps } from '../catalogue/column-picker.tsx';
 import { ChoiceRow } from './choice-row.tsx';
 import { DeskButton } from './desk-button.tsx';
 import { DeskChip } from './desk-chip.tsx';
-import { DropTrigger } from './desk-select.tsx';
+import { DropTrigger } from './drop-trigger.tsx';
 
 /**
  * The desk's Show columns (Requirements canvas, `Show columns · 6 of 6`; built 2026-11-11).

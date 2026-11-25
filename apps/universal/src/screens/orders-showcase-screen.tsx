@@ -1,6 +1,6 @@
 import type { KitchenOrder } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
-import { Cascade, DensityProvider, Icon, Text } from '@healthy360/design-system';
+import { Cascade, DensityProvider, Icon, Select, Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -20,9 +20,7 @@ import {
     DeskCheckbox,
     DeskColumnPicker,
     DeskDateButton,
-    DeskPicker,
     DeskRowMenu,
-    DeskSelect,
     DeskTabs,
     DeskToggleTile,
     ListGroupRow,
@@ -412,7 +410,8 @@ export function OrdersShowcaseScreen() {
 
                     <Text variant="title">Desk dropdown and mini month</Text>
                     <View className="z-10 flex-row flex-wrap items-center gap-2">
-                        <DeskSelect<'all' | 'lunch' | 'dinner'>
+                        <Select<'all' | 'lunch' | 'dinner'>
+                            trigger="pill"
                             testID="showcase-orders-slot"
                             label="Slot"
                             value={slot}
@@ -424,7 +423,9 @@ export function OrdersShowcaseScreen() {
                             ]}
                         />
                         {/* The add picker: a long list you pick from, filtered, with "add it" when nothing matches. */}
-                        <DeskPicker
+                        <Select
+                            trigger="pill"
+                            value={null}
                             testID="showcase-orders-add-picker"
                             label="Add an ingredient"
                             placeholder="Add an ingredient…"

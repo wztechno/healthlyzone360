@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
 import { Pressable, Text as RNText, View } from 'react-native';
 
-import { MENU_MAX_HEIGHT } from '../desk-kit/desk-select.tsx';
+import { MENU_MAX_HEIGHT } from '../desk-kit/drop-trigger.tsx';
 
 /**
  * One column header, with its sort-and-filter menu — §4.3, drawn so the affordance is visible

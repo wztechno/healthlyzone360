@@ -1,8 +1,7 @@
+import { Select } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
 
 import { addDays, isoWeekday } from '../../commerce/dates.ts';
-import { DeskSelect } from '../desk-kit/desk-select.tsx';
-import { LensScope } from './lens-bar.tsx';
 
 /**
  * The Period shortcut that sits before a From–To window in the Lens bar — Today, Yesterday, This
@@ -114,7 +113,6 @@ export function PeriodScope({
     onChange,
     allowAll = false,
     unit = 'day',
-    look = 'desk',
 }: {
     readonly testID: string;
     /** `YYYY-MM-DD` — held by the screen, so the shortcuts do not move under a reader at midnight. */
@@ -124,8 +122,6 @@ export function PeriodScope({
     readonly onChange: (window: PeriodWindow) => void;
     readonly allowAll?: boolean | undefined;
     readonly unit?: PeriodUnit | undefined;
-    /** `desk`: the desk kit's dropdown pill and card (`DeskSelect`), as on the order desk. */
-    readonly look?: 'lens' | 'desk' | undefined;
 }) {
     const { t } = useTranslation();
     const windows = periodWindows(today);
@@ -149,5 +145,5 @@ export function PeriodScope({
             testID: `${testID}-${key}`,
         })),
     };
-    return look === 'desk' ? <DeskSelect<Period> {...props} /> : <LensScope<Period> {...props} />;
+    return <Select<Period> trigger="pill" {...props} />;
 }

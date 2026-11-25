@@ -12,6 +12,7 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
+    Select,
     Stack,
     TableSkeleton,
     Text,
@@ -32,7 +33,6 @@ import {
 } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { LensScope } from '../catalogue/lens-bar.tsx';
 import { DeskTableTitle } from '../order-desk/desk-parts.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
@@ -377,7 +377,8 @@ function OrderDeskClose() {
                 <View className="flex-col gap-loose">
                     {!multiBranch ? null : (
                         <View className="z-10 flex-row">
-                            <LensScope<string>
+                            <Select<string>
+                                trigger="pill"
                                 testID="kitchen-close-branch"
                                 label={t('kitchen:ops.dailyClose.branchLabel')}
                                 value={branch}

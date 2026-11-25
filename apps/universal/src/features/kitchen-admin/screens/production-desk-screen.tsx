@@ -4,6 +4,7 @@ import {
     EmptyState,
     ErrorState,
     Icon,
+    Select,
     TableSkeleton,
     Text,
     useToast,
@@ -27,7 +28,7 @@ import type { MenuItem } from '@healthy360/design-system';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
@@ -359,7 +360,8 @@ function ProductionDesk() {
                           }
                         : {})}
                     scope={
-                        <LensScope<DeskScope>
+                        <Select<DeskScope>
+                            trigger="pill"
                             testID="kitchen-production-desk-toolbar-status"
                             label={t('kitchen:ops.production.filterStatus')}
                             // A figure narrows inside Open; the picker still says where it stands.

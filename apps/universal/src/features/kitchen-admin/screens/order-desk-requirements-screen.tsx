@@ -5,6 +5,7 @@ import {
     EmptyState,
     ErrorState,
     Icon,
+    Select,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
@@ -41,7 +42,7 @@ import { PageBackPill, useAreaTrailDrawn } from '../../../shell/area-trail.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import { ORDERS_HREF } from '../orders/orders-url.ts';
 import { shortDay } from '../orders/order-columns.tsx';
-import { DeskButton, DeskColumnPicker, DeskSelect, MiniMonthPicker } from '../desk-kit/index.ts';
+import { DeskButton, DeskColumnPicker, MiniMonthPicker } from '../desk-kit/index.ts';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 
 /**
@@ -530,7 +531,6 @@ function OrderDeskRequirements() {
                     scope={
                         <>
                             <PeriodScope
-                                look="desk"
                                 unit="ahead"
                                 testID="kitchen-order-desk-requirements-period"
                                 today={today}
@@ -560,7 +560,8 @@ function OrderDeskRequirements() {
                                 today={today}
                                 onChange={setTo}
                             />
-                            <DeskSelect<ShowFilter>
+                            <Select<ShowFilter>
+                                trigger="pill"
                                 testID="kitchen-order-desk-requirements-show"
                                 label={t('kitchen:ops.requirements.showLabel')}
                                 value={show}
@@ -582,7 +583,8 @@ function OrderDeskRequirements() {
                                     },
                                 ]}
                             />
-                            <DeskSelect<string>
+                            <Select<string>
+                                trigger="pill"
                                 testID="kitchen-order-desk-requirements-unit"
                                 label={t('kitchen:ops.requirements.columnUnit')}
                                 value={unit}

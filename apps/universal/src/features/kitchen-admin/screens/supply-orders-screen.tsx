@@ -10,11 +10,12 @@ import {
     ErrorState,
     FormSection,
     Icon,
+    Select,
     Stack,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { MenuItem, SelectOption } from '@healthy360/design-system';
 import { PurchaseOrderId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -37,8 +38,8 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CATALOGUE_PAGE_SIZE, CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensScopeOption } from '../catalogue/lens-bar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import {
     compareNumber,
     compareText,
@@ -581,7 +582,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
         queuePage * CATALOGUE_PAGE_SIZE,
     );
 
-    const statusOptions: readonly LensScopeOption<StatusSegmentValue>[] = [
+    const statusOptions: readonly SelectOption<StatusSegmentValue>[] = [
         {
             value: 'all',
             label: t('kitchen:toolbar.statusAll'),
@@ -693,7 +694,8 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                         },
                     })}
                     scope={
-                        <LensScope<StatusSegmentValue>
+                        <Select<StatusSegmentValue>
+                            trigger="pill"
                             testID="kitchen-supply-orders-toolbar-status"
                             label={t('kitchen:toolbar.statusLabel')}
                             value={status}

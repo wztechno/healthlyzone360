@@ -1,5 +1,12 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
-import { Cascade, EmptyState, ErrorState, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Cascade,
+    EmptyState,
+    ErrorState,
+    Select,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -19,7 +26,7 @@ import { useAccessState } from '../../../session/session-provider.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
@@ -319,7 +326,8 @@ function ProductionBatches() {
                         t,
                     )}
                     scope={
-                        <LensScope<SettledStatus>
+                        <Select<SettledStatus>
+                            trigger="pill"
                             testID="kitchen-production-batches-toolbar-status"
                             label={t('kitchen:ops.production.filterStatus')}
                             value={status}

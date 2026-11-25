@@ -15,6 +15,7 @@ import {
     FormSection,
     Icon,
     QuantityInput,
+    Select,
     Stack,
     Text,
     UNDROPPABLE_PRIORITY,
@@ -45,7 +46,6 @@ import { useRepositories } from '../../data/repository-provider.tsx';
 import { CostCard } from './cost-card.tsx';
 import type { CostCardRow } from './cost-card.tsx';
 import { ChoiceRow } from './desk-kit/choice-row.tsx';
-import { DeskPicker } from './desk-kit/desk-picker.tsx';
 import { DeskChip } from './desk-kit/desk-chip.tsx';
 import { DeskIconButton } from './desk-kit/desk-button.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, PRICE_LIST_MANAGE_PERMISSION } from './entity-registry.ts';
@@ -889,7 +889,9 @@ export function PacksPricesSection({
                 actions={
                     canManage ? (
                         <View className="z-auto w-64 min-w-0 shrink">
-                            <DeskPicker
+                            <Select
+                                trigger="pill"
+                                value={null}
                                 testID={packsTargets.add}
                                 label={t('kitchen:packs.addPackLabel')}
                                 placeholder={t('kitchen:packs.addPack')}
@@ -1122,7 +1124,9 @@ export function PackCard({
                             {containerPart === undefined ? (
                                 canManage ? (
                                     <View className="z-auto w-56 max-w-full">
-                                        <DeskPicker
+                                        <Select
+                                            trigger="pill"
+                                            value={null}
                                             testID={`${testID}-choose-container`}
                                             label={t('kitchen:packs.chooseContainer')}
                                             placeholder={t('kitchen:packs.chooseContainer')}
@@ -1182,7 +1186,9 @@ export function PackCard({
                             ))}
                             {canManage ? (
                                 <View className="z-auto w-40 max-w-full">
-                                    <DeskPicker
+                                    <Select
+                                        trigger="pill"
+                                        value={null}
                                         testID={`${testID}-add-part`}
                                         label={t('kitchen:packs.addPartLabel')}
                                         placeholder={t('kitchen:packs.addPart')}

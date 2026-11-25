@@ -7,6 +7,7 @@ import {
     ErrorState,
     Heading,
     Icon,
+    Select,
     Stack,
     TableSkeleton,
     Text,
@@ -32,7 +33,7 @@ import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
@@ -492,7 +493,8 @@ function TeamList() {
                     scope={
                         // Not figures: on Working the whole set is asked for active people only, so
                         // there is no count of Everyone to draw beside it.
-                        <LensScope<TeamSegment>
+                        <Select<TeamSegment>
+                            trigger="pill"
                             testID="kitchen-team-toolbar-status"
                             label={t('accessAdmin:team.segmentLabel')}
                             value={segment}

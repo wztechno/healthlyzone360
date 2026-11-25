@@ -9,7 +9,7 @@ import { dateInstant } from '../../planner/format.ts';
 import { firstOfMonth, monthGrid, monthOf, shiftMonth } from '../orders/order-book.ts';
 import { todayIso } from '../../commerce/dates.ts';
 import { DeskButton, DeskIconButton } from './desk-button.tsx';
-import { DropTrigger } from './desk-select.tsx';
+import { DropTrigger } from './drop-trigger.tsx';
 
 /**
  * `.mm` — the desk's day picker: a soft-green day pill that opens a small month (Orders canvas,

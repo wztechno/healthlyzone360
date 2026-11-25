@@ -5,6 +5,7 @@ import {
     Inline,
     IssueTrayFrame,
     Menu,
+    Select,
     Stack,
     Text,
     useToast,
@@ -49,7 +50,7 @@ import { RecipeCardGrid } from '../catalogue/recipe-card-grid.tsx';
 import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { LensBar, LensScope, LensViewSwitch } from '../catalogue/lens-bar.tsx';
+import { LensBar, LensViewSwitch } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
@@ -760,7 +761,8 @@ function RecipeKindScope({
               }, 0);
 
     return (
-        <LensScope<RecipeKind | 'all'>
+        <Select<RecipeKind | 'all'>
+            trigger="pill"
             testID="kitchen-recipes-kind"
             label={t('kitchen:recipes.columnKind')}
             value={value ?? 'all'}

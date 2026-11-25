@@ -6,7 +6,6 @@ import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
 import { CameraScanButton } from '../camera-scan-button.tsx';
-import { DeskSelect } from '../desk-kit/desk-select.tsx';
 
 /**
  * The Lens bar — a list page's figures, filters and actions as one object. It replaces the stat
@@ -622,30 +621,6 @@ export function LensViewSwitch<T extends string>({
             })}
         </View>
     );
-}
-
-export interface LensScopeOption<T extends string> {
-    readonly value: T;
-    readonly label: string;
-    /** Shown beside the label in the menu; omit when the server could not count it. */
-    readonly count?: number | undefined;
-    readonly icon?: IconName | undefined;
-    readonly testID?: string | undefined;
-}
-
-/**
- * A scope picker for the query row — "Kind  All ▾". A scope is not a filter: Clear leaves it, and it
- * is never a token, because it is the part of the catalogue the reader chose to stand in.
- */
-export function LensScope<T extends string>(props: {
-    readonly label: string;
-    readonly value: T;
-    readonly options: readonly LensScopeOption<T>[];
-    readonly onChange: (value: T) => void;
-    readonly testID: string;
-}) {
-    // The desk kit's dropdown pill and card (2026-11-11): every Lens bar draws the Orders look.
-    return <DeskSelect<T> {...props} />;
 }
 
 /** The narrowest the search gives way to: an order number and a short name. */

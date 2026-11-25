@@ -34,6 +34,15 @@ export interface SelectOption<T extends string = string> {
      * no section is drawn exactly as before — no heading, no group around it.
      */
     readonly section?: string | undefined;
+    /** How many records the option stands for — drawn after the name as "Short · 3". */
+    readonly count?: number | undefined;
+    /** Overrides the derived `{select}-option-{value}` id. */
+    readonly testID?: string | undefined;
+}
+
+/** What a row draws as its name: the label, and the count after it when there is one. */
+export function optionText(option: SelectOption): string {
+    return option.count === undefined ? option.label : `${option.label} · ${String(option.count)}`;
 }
 
 /** A run of consecutive options under one heading; `section` undefined is a run with none. */
@@ -74,16 +83,46 @@ export interface SelectProps<T extends string = string> extends GridSpanProps {
     readonly required?: boolean | undefined;
     readonly disabled?: boolean | undefined;
     /**
-     * Adds a type-ahead filter above the option list. Off by default, and off means the list is
-     * rendered exactly as it was before this prop existed — no extra nodes, no extra live region.
+     * The "Type to filter" box above the options.
+     *
+     * - `'auto'` — on when the list is longer than {@link SEARCH_THRESHOLD}, off for a short one
+     *   (kg / L / Pc). The default for the admin's `card` look, so no page has to decide.
+     * - `true` / `false` — forced, for the rare list that needs the other answer.
+     * - A list with a `noResultsAction` (add what was typed) always has the box, unless forced off.
+     *
+     * The `field` look keeps its old default, off, so the web shop is unchanged.
      */
-    readonly searchable?: boolean | undefined;
+    readonly searchable?: boolean | 'auto' | undefined;
     /**
-     * The open list's look. `card` is the kitchen admin's one menu look — the 260px rounded card
-     * with roomy, rounded rows and a brand check — so a searchable picker on a desk page opens like
-     * every scope and row menu beside it. Web only; the phone's sheet is unchanged.
+     * The open list's look. `card` is the kitchen admin's one dropdown look — the rounded card
+     * from the recipe editor's "Add an ingredient…": a filter box, uppercase group headings, and a
+     * row per option with its description under the name. Web only; the phone's sheet is unchanged.
+     * A `pill` trigger is always `card`.
      */
     readonly look?: 'field' | 'card' | undefined;
+    /**
+     * What opens the list.
+     *
+     * - `field` (default) — the form field: a label above, the chosen value in an input frame.
+     * - `pill` — the admin's 34px toolbar pill, with no field around it. With a `value` it is a
+     *   scope ("Slot  **All** ⌄"), soft green once it is set to anything but the first option. With
+     *   `value={null}` it is an action ("Add an ingredient… ⌄") that shows `placeholder`, and the
+     *   caller keeps the value `null` after a pick. `label` names it for assistive technology.
+     *   `hint`, `error` and `warning` belong to a field and are not drawn on a pill.
+     */
+    readonly trigger?: 'field' | 'pill' | undefined;
+    /** Which edge of the trigger the card lines up with. A pill at a row's end opens to `end`. */
+    readonly align?: 'start' | 'end' | undefined;
+    /**
+     * How wide the field is.
+     *
+     * - `'auto'` (default) — narrow when every option is a few letters (kg / L / Pc), so a unit is
+     *   not a long empty box; otherwise the width the page gives it.
+     * - `'fill'` / `'narrow'` — forced, for the rare field that needs the other answer.
+     *
+     * A field only — a pill is always as wide as what it says.
+     */
+    readonly width?: 'auto' | 'fill' | 'narrow' | undefined;
     /**
      * The options are still being fetched. An empty list then says so rather than "No option
      * matches", which read as a refusal for the half minute a slow list took to arrive.
@@ -113,6 +152,45 @@ export interface SelectProps<T extends string = string> extends GridSpanProps {
     readonly fullWidth?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
+}
+
+/**
+ * A list longer than this gets the filter box by itself (`searchable="auto"`). Eight is what a
+ * desk card shows before it scrolls: past that, typing is quicker than looking.
+ */
+export const SEARCH_THRESHOLD = 8;
+
+/** Options this short or shorter (kg, L, Pc, pcs) make an `auto` field narrow. */
+export const SHORT_OPTION_LENGTH = 4;
+
+/** Whether a field is drawn narrow — see `SelectProps['width']`. */
+export function resolveNarrow(
+    width: 'auto' | 'fill' | 'narrow' | undefined,
+    options: readonly SelectOption[],
+): boolean {
+    if (width === 'narrow') return true;
+    if (width === 'fill') return false;
+    return (
+        options.length > 0 &&
+        options.every((option) => optionText(option).length <= SHORT_OPTION_LENGTH)
+    );
+}
+
+/**
+ * Whether the filter box is drawn. Unset, the `card` look decides by length and the `field` look
+ * keeps its old answer, off — see `SelectProps['searchable']`.
+ */
+export function resolveSearchable(
+    searchable: boolean | 'auto' | undefined,
+    look: 'field' | 'card',
+    optionCount: number,
+    canAddTyped = false,
+): boolean {
+    // A list that adds what was typed ("Add “…” as new") needs the box whatever its length: typing
+    // is how a reader reaches the Add, and a new kitchen's three ingredients are still a list to add to.
+    if (searchable === undefined && canAddTyped) return true;
+    const setting = searchable ?? (look === 'card' ? 'auto' : false);
+    return setting === 'auto' ? optionCount > SEARCH_THRESHOLD : setting;
 }
 
 /** Case-insensitive substring match over what an option shows the reader, and its keywords. */

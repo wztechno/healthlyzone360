@@ -4,10 +4,11 @@ import {
     EmptyState,
     ErrorState,
     Icon,
+    Select,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { MenuItem, SelectOption } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -21,8 +22,8 @@ import { useSuppliersQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensScopeOption } from '../catalogue/lens-bar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import {
     compareNumber,
     compareText,
@@ -332,7 +333,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
     // The archive switch is a scope, not a filter: Clear leaves it, as the Lens bar's scopes do.
     const searchedOrFiltered = trimmed !== '' || controls.filtered;
 
-    const segments: readonly LensScopeOption<ArchiveSegment>[] = [
+    const segments: readonly SelectOption<ArchiveSegment>[] = [
         {
             value: 'active',
             label: t('kitchen:ops.suppliers.segmentActive'),
@@ -427,7 +428,8 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                         t,
                     )}
                     scope={
-                        <LensScope<ArchiveSegment>
+                        <Select<ArchiveSegment>
+                            trigger="pill"
                             testID="kitchen-suppliers-toolbar-status"
                             label={t('kitchen:ops.suppliers.segmentLabel')}
                             value={segment}

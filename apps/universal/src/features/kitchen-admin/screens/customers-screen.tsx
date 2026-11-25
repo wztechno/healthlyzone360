@@ -4,10 +4,11 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
+    Select,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { BadgeTone } from '@healthy360/design-system';
+import type { BadgeTone, SelectOption } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -20,8 +21,7 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useKitchenCustomersQuery } from '../../../data/kitchen-customers-hooks.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
-import type { LensScopeOption } from '../catalogue/lens-bar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
     compareNumber,
@@ -228,7 +228,7 @@ function CustomersList() {
     const failure = toFailure(customers.error);
     const unfiltered = settledQuery === '' && segment === 'all' && !controls.filtered;
 
-    const segments: readonly LensScopeOption<TypeSegment>[] = (
+    const segments: readonly SelectOption<TypeSegment>[] = (
         [
             ['all', 'kitchen:ops.customers.segmentAll'],
             ['b2c', 'kitchen:ops.customers.typeB2c'],
@@ -271,7 +271,8 @@ function CustomersList() {
                     label={t('kitchen:lens.label')}
                     figures={[]}
                     scope={
-                        <LensScope<TypeSegment>
+                        <Select<TypeSegment>
+                            trigger="pill"
                             testID="kitchen-customers-toolbar-status"
                             label={t('kitchen:ops.customers.segmentLabel')}
                             value={segment}

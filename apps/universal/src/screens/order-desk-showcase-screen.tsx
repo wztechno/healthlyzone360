@@ -6,6 +6,7 @@ import {
     Icon,
     Inline,
     SegmentedControl,
+    Select,
     Text,
 } from '@healthy360/design-system';
 import { useState } from 'react';
@@ -13,7 +14,7 @@ import { View } from 'react-native';
 
 import { CatalogueList } from '../features/kitchen-admin/catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../features/kitchen-admin/catalogue/catalogue-column-spec.ts';
-import { LensBar, LensScope } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
+import { LensBar } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
 import { DeskTableTitle } from '../features/kitchen-admin/order-desk/desk-parts.tsx';
 import {
@@ -133,7 +134,8 @@ export function OrderDeskShowcaseScreen() {
                 ]}
             />
             <FilterChip size="sm" label="Placed" selected={placed} onChange={setPlaced} />
-            <LensScope<Kind>
+            <Select<Kind>
+                trigger="pill"
                 testID="showcase-desk-kind"
                 label="Kind"
                 value={kind}

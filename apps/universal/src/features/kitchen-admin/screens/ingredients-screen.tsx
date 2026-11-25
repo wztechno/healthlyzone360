@@ -1,4 +1,4 @@
-import { Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
+import { Cascade, Dialog, Icon, Inline, Select, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -19,7 +19,7 @@ import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import { IngredientDetail } from '../catalogue/ingredient-detail.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { ingredientImportGuide } from '../catalogue/import-guides.ts';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { listPrintJob, useListPrint } from '../catalogue/list-print.ts';
@@ -227,7 +227,8 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                     figures={lensFigures(list, t)}
                     {...statusLensMix(list, t)}
                     scope={
-                        <LensScope<string>
+                        <Select<string>
+                            trigger="pill"
                             testID="kitchen-ingredients-category"
                             label={t('kitchen:toolbar.categoryLabel')}
                             value={list.category ?? ALL_SCOPE}

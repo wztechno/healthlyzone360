@@ -51,7 +51,7 @@ import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.ts
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 import { PageBackPill, useAreaTrailDrawn } from '../../../shell/area-trail.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
-import { DeskButton, DeskCheckbox, DeskChip, DeskPicker } from '../desk-kit/index.ts';
+import { DeskButton, DeskCheckbox, DeskChip } from '../desk-kit/index.ts';
 import { supplyOrderGroupTestId, supplyOrderRowTestId } from '../ops-format.ts';
 import {
     buildGroups,
@@ -993,7 +993,9 @@ function SupplyOrderBuilder() {
                                             testID="kitchen-supply-order-add"
                                             className="z-tooltip self-start"
                                         >
-                                            <DeskPicker
+                                            <Select
+                                                trigger="pill"
+                                                value={null}
                                                 testID="kitchen-supply-order-add-select"
                                                 label={t('kitchen:ops.supplyOrders.addTitle')}
                                                 options={addOptions}

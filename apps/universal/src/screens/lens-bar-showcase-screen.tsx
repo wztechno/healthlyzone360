@@ -11,11 +11,7 @@ import type { PublishableStatus } from '@healthy360/api-client/contracts';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import {
-    LensBar,
-    LensFigureCell,
-    LensScope,
-} from '../features/kitchen-admin/catalogue/lens-bar.tsx';
+import { LensBar, LensFigureCell } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
 import { DeskStatusDot } from '../features/kitchen-admin/desk-kit/desk-status-dot.tsx';
 
@@ -109,7 +105,8 @@ export function LensBarShowcaseScreen() {
                             </Inline>
                         }
                         scope={
-                            <LensScope<Kind>
+                            <Select<Kind>
+                                trigger="pill"
                                 testID="showcase-lens-kind"
                                 label="Kind"
                                 value={kind}

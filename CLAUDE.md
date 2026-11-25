@@ -256,6 +256,10 @@ a place a palette change does not reach, and ESLint rejects it.
 
 ### The structural layer already exists
 
+**Where components live, and which one to use, is `.claude/rules/components.md`** — shared parts go
+in `packages/design-system`, never in a feature folder; check `/showcase-components` before building.
+Every "pick a value" dropdown is `Select` (`trigger="pill"` on a toolbar).
+
 The wellness-green handoff's component phase shipped. Use these rather than rebuilding:
 
 | Need                                                                    | Use                                                                    |
@@ -269,5 +273,5 @@ The wellness-green handoff's component phase shipped. Use these rather than rebu
 | One-row filter/sort/count bar                                           | `marketplace/toolbar-row.tsx`, `kitchen-admin/list-toolbar.tsx`        |
 | Machine-generated content band                                          | `ui/ai-surface.tsx`                                                    |
 
-Then: shells → screens. Update `screens/showcase-screen.tsx` in the same commit as any component
-change — a component change that has not reached `/showcase` is not done.
+Then: shells → screens. Update `screens/components-showcase-screen.tsx` in the same commit as any
+component change — a component change that has not reached `/showcase-components` is not done.
