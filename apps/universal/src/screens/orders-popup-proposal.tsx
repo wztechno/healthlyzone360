@@ -1,9 +1,9 @@
-import { Badge, Button, Icon, Text } from '@healthy360/design-system';
+import { Badge, Button, Icon, StatusSteps, Text } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { View } from 'react-native';
 
 import { CompactRecordPopup } from '../features/kitchen-admin/catalogue/compact-record-popup.tsx';
-import { InfoCard, StageTrack } from '../features/kitchen-admin/orders/order-popup-parts.tsx';
+import { InfoCard } from '../features/kitchen-admin/orders/order-popup-parts.tsx';
 import type { OrderStage } from '../features/kitchen-admin/orders/order-popup-parts.tsx';
 
 /**
@@ -70,10 +70,12 @@ export function OrderPopupProposal({
             figure={{ label: 'Total', value: '$16.00' }}
             banner={
                 <View className="flex-col gap-3">
-                    <StageTrack
+                    <StatusSteps
                         label="Where the order is"
-                        stages={stages}
-                        next={<Button label="Mark delivered" />}
+                        steps={stages}
+                        noValue="—"
+                        trailing={<Button label="Mark delivered" />}
+                        className="rounded-2xl bg-surface-sunken px-3 py-2.5"
                     />
                     <View className="flex-row flex-wrap gap-3">
                         <InfoCard

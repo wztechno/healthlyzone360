@@ -5,106 +5,13 @@ import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
 /**
- * The New order page's own parts (the Order desk redesign, 2026-11-07): the step marker by the
- * title, the menu's sections as a side rail with counts, the stepper a tile grows once its dish is
+ * The New order page's own parts (the Order desk redesign, 2026-11-07): the menu's sections as a
+ * side rail with counts, the stepper a tile grows once its dish is
  * on the ticket, and the label a field takes on the ticket's green ground.
  *
- * Drawn on `/showcase-order-desk` as well as the sale page.
+ * Drawn on `/showcase-order-desk` as well as the sale page. The step marker by the title is the
+ * design system's `Tabs variant="pills" readOnly`.
  */
-
-/* ------------------------------------------------------------------------------------------------
- * The step marker
- * ---------------------------------------------------------------------------------------------- */
-
-export interface SaleStep {
-    readonly key: string;
-    /** Translated. */
-    readonly label: string;
-}
-
-/**
- * `(1 Customer) (2 Meals) (3 Checkout)` — where the agent is in the sale. The step in hand is a
- * pill in the sidebar green; the ones behind it are ticked off in the soft brand ground.
- */
-export function SaleSteps({
-    steps,
-    current,
-    label,
-    testID,
-}: {
-    readonly steps: readonly SaleStep[];
-    /** The index of the step in hand. */
-    readonly current: number;
-    /** Translated: the marker's accessible name. */
-    readonly label: string;
-    readonly testID: string;
-}) {
-    const formatter = useFormatter();
-
-    return (
-        <View
-            testID={testID}
-            role="list"
-            aria-label={label}
-            className="flex-row items-center gap-1.5 rounded-full border border-stroke-subtle bg-surface-raised p-1"
-        >
-            {steps.map((step, index) => {
-                const on = index === current;
-                const done = index < current;
-                return (
-                    <View
-                        key={step.key}
-                        testID={`${testID}-${step.key}`}
-                        role="listitem"
-                        aria-current={on ? 'step' : undefined}
-                        className={`h-desk-step flex-row items-center gap-[7px] rounded-full pe-3 ps-1 ${
-                            on ? 'bg-surface-brand' : ''
-                        }`}
-                    >
-                        <View
-                            className={`h-desk-step-mark w-desk-step-mark items-center justify-center rounded-full ${
-                                on
-                                    ? 'bg-surface-raised'
-                                    : done
-                                      ? 'bg-surface-brand-subtle'
-                                      : 'bg-surface-sunken'
-                            }`}
-                        >
-                            {done ? (
-                                <Icon
-                                    name="check"
-                                    size="sm"
-                                    className="text-content-on-brand-subtle"
-                                />
-                            ) : (
-                                <Text
-                                    variant="caption"
-                                    tone="secondary"
-                                    className={
-                                        on
-                                            ? '!text-[11px] font-bold !text-content-on-brand-subtle'
-                                            : '!text-[11px] font-bold'
-                                    }
-                                >
-                                    {formatter.formatNumber(index + 1)}
-                                </Text>
-                            )}
-                        </View>
-                        <Text
-                            variant="label"
-                            tone={done ? 'primary' : 'secondary'}
-                            className={
-                                on ? 'font-semibold !text-content-on-brand' : 'font-semibold'
-                            }
-                        >
-                            {step.label}
-                        </Text>
-                    </View>
-                );
-            })}
-        </View>
-    );
-}
 
 /* ------------------------------------------------------------------------------------------------
  * The section rail

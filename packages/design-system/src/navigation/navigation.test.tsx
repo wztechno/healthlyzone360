@@ -584,3 +584,50 @@ describe('Tabs — a value picked (radio) and icons only', () => {
         expect(screen.getByTestId('l-table').props.accessibilityLabel).toBe('Table');
     });
 });
+
+describe('Tabs — pills with a second line, and read-only', () => {
+    it('draws the detail under the name and a tick on a done step', async () => {
+        await renderWithI18n(
+            <Tabs
+                label="Post a receipt"
+                variant="pills"
+                items={[
+                    {
+                        value: 'arrival',
+                        label: 'What arrived',
+                        detail: 'Market purchase',
+                        done: true,
+                        testID: 's-arrival',
+                    },
+                    { value: 'lines', label: 'Lines', detail: '1 line', testID: 's-lines' },
+                ]}
+                value="lines"
+                onChange={jest.fn()}
+            />,
+        );
+        expect(screen.getByTestId('s-arrival-caption')).toHaveTextContent('Market purchase');
+        expect(screen.getByTestId('s-lines').props.accessibilityState).toMatchObject({
+            selected: true,
+        });
+    });
+
+    it('is a list whose items cannot be pressed when read-only', async () => {
+        await renderWithI18n(
+            <Tabs
+                testID="r"
+                label="Steps"
+                variant="pills"
+                readOnly
+                items={[
+                    { value: 'customer', label: 'Customer', testID: 'r-customer' },
+                    { value: 'meals', label: 'Meals', testID: 'r-meals' },
+                ]}
+                value="meals"
+                onChange={jest.fn()}
+            />,
+        );
+        expect(screen.getByTestId('r').props.accessibilityRole).toBe('list');
+        expect(screen.getByTestId('r-customer').props.role).toBe('listitem');
+        expect(screen.getByTestId('r-customer').props.onPress).toBeUndefined();
+    });
+});

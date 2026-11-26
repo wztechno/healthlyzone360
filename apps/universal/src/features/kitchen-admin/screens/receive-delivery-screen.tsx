@@ -13,12 +13,18 @@ import {
     SearchInput,
     Skeleton,
     Stack,
+    Tabs,
     Text,
     TextInputField,
     useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { DataListColumn, IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
+import type {
+    DataListColumn,
+    IssueCardItem,
+    IssueTrayContent,
+    TabItem,
+} from '@healthy360/design-system';
 import { PurchaseOrderId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -77,8 +83,6 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 import { DeskDateField } from '../desk-kit/desk-date-field.tsx';
 import { ReviewBox, StepCard } from '../process-parts.tsx';
-import { ProcessSteps } from '../process-steps.tsx';
-import type { ProcessStep } from '../process-steps.tsx';
 /**
  * `/kitchen/procurement/receive` — booking in a delivery against an issued order (SUP5, §7).
  *
@@ -825,39 +829,52 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
         delivered: state.deliveredLineCount,
         skipped: state.skippedLineCount,
     });
-    const steps: readonly ProcessStep<ReceiveStep>[] = [
+    const steps: readonly TabItem<ReceiveStep>[] = [
         {
-            key: 'order',
+            value: 'order',
+            testID: 'kitchen-receive-steps-order',
             label: t('kitchen:ops.receiving.sectionOrder'),
-            caption:
+            detail:
                 selectedOrder === null
                     ? t('kitchen:ops.receiving.captionChooseOrder')
                     : selectedOrder.number,
             done: order !== undefined || (selectedOrder !== null && step !== 'order'),
-            issues: issuesOn('order'),
-            issuesLabel: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('order') }),
+            issues: {
+                count: issuesOn('order'),
+                tone: 'warning',
+                label: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('order') }),
+            },
         },
         {
-            key: 'delivery',
+            value: 'delivery',
+            testID: 'kitchen-receive-steps-delivery',
             label: t('kitchen:ops.receiving.sectionDelivery'),
-            caption: t('kitchen:ops.receiving.captionDelivery'),
+            detail: t('kitchen:ops.receiving.captionDelivery'),
             done: (step === 'lines' || step === 'check') && issuesOn('delivery') === 0,
-            issues: issuesOn('delivery'),
-            issuesLabel: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('delivery') }),
+            issues: {
+                count: issuesOn('delivery'),
+                tone: 'warning',
+                label: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('delivery') }),
+            },
         },
         {
-            key: 'lines',
+            value: 'lines',
+            testID: 'kitchen-receive-steps-lines',
             label: t('kitchen:ops.receiving.linesTitle'),
-            caption: summary,
+            detail: summary,
             done: step === 'check' && issuesOn('lines') === 0,
-            issues: issuesOn('lines'),
-            issuesLabel: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('lines') }),
+            issues: {
+                count: issuesOn('lines'),
+                tone: 'warning',
+                label: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('lines') }),
+            },
         },
         {
-            key: 'check',
+            value: 'check',
+            testID: 'kitchen-receive-steps-check',
             label: t('kitchen:ops.receiving.stepCheck'),
-            caption: outcome.label,
-            captionTone: outcome.tone === 'warning' ? 'warning' : undefined,
+            detail: outcome.label,
+            detailTone: outcome.tone === 'warning' ? 'warning' : undefined,
         },
     ];
 
@@ -1195,10 +1212,11 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                     />
                 ) : (
                     <View testID="kitchen-receive-content" className="pb-2">
-                        <ProcessSteps<ReceiveStep>
+                        <Tabs<ReceiveStep>
+                            variant="pills"
                             testID="kitchen-receive-steps"
                             label={t('kitchen:ops.receiving.stepsLabel')}
-                            steps={steps}
+                            items={steps}
                             value={step}
                             onChange={setStep}
                         />

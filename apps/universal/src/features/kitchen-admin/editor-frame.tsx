@@ -20,8 +20,6 @@ import type { BadgeTone } from '@healthy360/design-system';
 import { EDITOR_FORM_MIN } from './desk-layout.ts';
 import { statusKey, statusTone } from './format.ts';
 import { CataloguePageHeader } from './catalogue/catalogue-page-header.tsx';
-import { EditorStepNavigation, EditorStepProgress } from './editor-steps.tsx';
-import type { EditorStepsProps } from './editor-steps.tsx';
 import { useKitchenTrailLeaf } from './kitchen-ops-shell.tsx';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
@@ -121,13 +119,6 @@ export interface EditorFrameProps {
      */
     readonly rail?: ReactNode | undefined;
     /**
-     * Draw the form as steps: the progress row under the header, the step footer under the form.
-     * `children` is then the open step only. The last step's commit defaults to this frame's own
-     * Save, which then leaves the header and keeps its `{testID}-save` id; pass `finalAction` to
-     * draw something else there.
-     */
-    readonly steps?: Omit<EditorStepsProps<string>, 'testID'> | undefined;
-    /**
      * Drawn inside another page rather than as a page — a cooked item's Selling tab, whose page is
      * the recipe it is made from.
      *
@@ -163,7 +154,6 @@ export function EditorFrame({
     actionsPlacement = 'footer',
     headerVariant = 'band',
     rail,
-    steps,
     embedded = false,
     children,
     testID,
@@ -173,7 +163,7 @@ export function EditorFrame({
     const railBeside = useContentWidth().atLeast(EDITOR_RAIL_WIDTH + 16 + EDITOR_FORM_MIN);
     const formatter = useFormatter();
     // Beside the title where one is drawn; otherwise on the record-facts line.
-    const titleDrawn = !embedded && !chromeless && !hideTitle && steps === undefined;
+    const titleDrawn = !embedded && !chromeless && !hideTitle;
 
     const updatedLine = (): string => {
         // An unknown timestamp reads the same as no record at all. `/kitchen/branch-operating` is the
@@ -186,9 +176,6 @@ export function EditorFrame({
     };
 
     useKitchenTrailLeaf(embedded ? null : title);
-
-    // A form of one step draws no footer, so it keeps the header's Save.
-    const stepped = steps !== undefined && steps.steps.length > 1;
 
     /*
      * The Catalogue editor's opening (Commercial handoff §2.3): the title with Cancel and Save at its
@@ -225,7 +212,7 @@ export function EditorFrame({
     );
 
     /*
-     * The page arrives in bands — header, progress, banner, form, step navigation — each rising in
+     * The page arrives in bands — header, banner, form — each rising in
      * behind the one above it. Embedded in another page the frame is one band of *that* page's
      * cascade, so it lays its own parts out flat rather than arriving twice.
      */
@@ -260,9 +247,7 @@ export function EditorFrame({
                         titleLook="board"
                         testID={`${testID}-header`}
                         titleTestID={`${testID}-title`}
-                        // A stepped form draws no heading: the top bar's trail already names
-                        // the page, and the progress line is what opens the form.
-                        title={hideTitle || steps !== undefined ? undefined : title}
+                        title={hideTitle ? undefined : title}
                         titleAside={
                             titleChip === undefined &&
                             !(titleDrawn && guard.isDirty) ? undefined : (
@@ -298,8 +283,7 @@ export function EditorFrame({
                                     />
                                 )}
                                 {primaryAction}
-                                {/* A stepped form saves from its last step's Next, not up here. */}
-                                {hideSave || stepped ? null : (
+                                {hideSave ? null : (
                                     <Button
                                         testID={`${testID}-save`}
                                         label={saveLabel}
@@ -314,14 +298,6 @@ export function EditorFrame({
                     {summary === undefined ? null : summary}
                     {summary !== undefined && !(guard.isDirty && !titleDrawn) ? null : metaLine}
                 </Stack>
-            )}
-
-            {steps === undefined ? null : (
-                <EditorStepProgress
-                    form={steps.form}
-                    steps={steps.steps}
-                    testID={`${testID}-steps`}
-                />
             )}
 
             {banner}
@@ -351,26 +327,6 @@ export function EditorFrame({
                         {rail}
                     </View>
                 </View>
-            )}
-
-            {steps === undefined ? null : (
-                <EditorStepNavigation
-                    form={steps.form}
-                    steps={steps.steps}
-                    testID={`${testID}-steps`}
-                    finalAction={
-                        steps.finalAction ??
-                        (hideSave ? null : (
-                            <Button
-                                testID={`${testID}-save`}
-                                label={saveLabel}
-                                loading={saving}
-                                disabled={saveDisabled || saving}
-                                onPress={onSaveDraft}
-                            />
-                        ))
-                    }
-                />
             )}
 
             <Dialog

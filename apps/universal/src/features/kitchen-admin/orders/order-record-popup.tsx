@@ -7,6 +7,7 @@ import {
     ErrorState,
     Inline,
     Skeleton,
+    StatusSteps,
     Text,
 } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -62,7 +63,7 @@ import {
 } from './order-columns.tsx';
 import { useDayOrders, useDeliveryWindows } from './use-order-book.ts';
 import type { OrderSteps } from './use-order-steps.tsx';
-import { CardLine, InfoCard, StageTrack, orderStages } from './order-popup-parts.tsx';
+import { CardLine, InfoCard, orderStages } from './order-popup-parts.tsx';
 
 /**
  * One order, from any tab — the order desk's pop-up and the order book's, merged into one, on the
@@ -81,6 +82,13 @@ import { CardLine, InfoCard, StageTrack, orderStages } from './order-popup-parts
 const EM_DASH = '—';
 
 const STEP_TIME: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
+/** A stage's time under its bar: short enough for a fifth of the pop-up's width. */
+const STAGE_TIME: Intl.DateTimeFormatOptions = {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+};
 
 type Formatter = ReturnType<typeof useFormatter>;
 
@@ -257,7 +265,7 @@ export function OrderRecordPopup({
                       }),
                       tone: 'success',
                   };
-    const stages = orderStages(shown, t);
+    const stages = orderStages(shown, t, (instant) => formatter.formatDate(instant, STAGE_TIME));
     const nextButton =
         !stepReady || step === null ? undefined : (
             <Button
@@ -411,11 +419,16 @@ export function OrderRecordPopup({
                             <View className="flex-row justify-end">{nextButton}</View>
                         )
                     ) : (
-                        <StageTrack
+                        <StatusSteps
                             testID="kitchen-orders-record-stages"
                             label={t('kitchen:orders.stage.label')}
-                            stages={stages}
-                            next={nextButton}
+                            steps={stages.map((stage) => ({
+                                ...stage,
+                                testID: `kitchen-orders-record-stages-${stage.key}`,
+                            }))}
+                            noValue={EM_DASH}
+                            trailing={nextButton}
+                            className="rounded-2xl bg-surface-sunken px-3 py-2.5"
                         />
                     )}
                     {shown.allergy === null ? null : (

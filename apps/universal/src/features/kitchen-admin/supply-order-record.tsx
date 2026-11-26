@@ -1,5 +1,6 @@
 import type { PurchaseOrder } from '@healthy360/api-client/contracts';
-import type { BadgeTone } from '@healthy360/design-system';
+import type { BadgeTone, StatusStep } from '@healthy360/design-system';
+import { StatusSteps } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,13 +9,11 @@ import { Text as RNText, View } from 'react-native';
 import {
     RecordFigures,
     RecordSheetHead,
-    RecordSteps,
     SheetCard,
     SheetColumns,
     SheetFacts,
     SheetText,
 } from './catalogue/record-sheet.tsx';
-import type { SheetStep } from './catalogue/record-sheet.tsx';
 import { TileEmpty } from './catalogue/record-tiles.tsx';
 import { unitCodeLabel } from './format.ts';
 import { purchaseOrderStatusKey } from './ops-format.ts';
@@ -99,7 +98,7 @@ export function SupplyOrderRecord({
               });
     const receivedAt = date(order.receivedAt ?? order.closedAt);
     const closedShort = order.status === 'received' && order.closeShortReason !== null;
-    const steps: SheetStep[] = [
+    const steps: StatusStep[] = [
         {
             key: 'draft',
             label: t(purchaseOrderStatusKey('draft')),
@@ -329,7 +328,7 @@ export function SupplyOrderRecord({
                 }
             />
 
-            <RecordSteps
+            <StatusSteps
                 testID="kitchen-supply-order-detail-history"
                 label={t('kitchen:ops.supplyOrders.view.historyLabel')}
                 noValue={dash}

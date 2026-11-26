@@ -625,11 +625,31 @@ export function OrdersShowcaseScreen() {
                                 setOpenB(false);
                             }}
                             stages={[
-                                { key: 'placed', label: 'Placed', state: 'done' },
-                                { key: 'confirmed', label: 'Confirmed', state: 'done' },
-                                { key: 'ready', label: 'Ready', state: 'done' },
-                                { key: 'road', label: 'On the way', state: 'now' },
-                                { key: 'delivered', label: 'Delivered', state: 'later' },
+                                {
+                                    key: 'placed',
+                                    label: 'Placed',
+                                    at: 'Nov 26, 10:41',
+                                    state: 'done',
+                                },
+                                {
+                                    key: 'confirmed',
+                                    label: 'Confirmed',
+                                    at: 'Nov 26, 10:42',
+                                    state: 'done',
+                                },
+                                {
+                                    key: 'ready',
+                                    label: 'Ready',
+                                    at: 'Nov 26, 11:05',
+                                    state: 'done',
+                                },
+                                { key: 'road', label: 'On the way', at: null, state: 'current' },
+                                {
+                                    key: 'delivered',
+                                    label: 'Delivered',
+                                    at: null,
+                                    state: 'pending',
+                                },
                             ]}
                             lines={[
                                 {

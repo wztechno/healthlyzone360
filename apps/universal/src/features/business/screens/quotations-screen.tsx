@@ -8,7 +8,7 @@ import {
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { MenuItem, StatusStep } from '@healthy360/design-system';
 import type { Quotation, QuotationState } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -31,7 +31,6 @@ import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.tsx';
 import { SheetFacts } from '../../kitchen-admin/catalogue/record-sheet.tsx';
-import type { SheetStep } from '../../kitchen-admin/catalogue/record-sheet.tsx';
 import {
     compareNumber,
     compareText,
@@ -566,15 +565,15 @@ export function quotationSteps(
     quotation: Quotation,
     t: TFunction,
     date: (value: string) => string,
-): readonly SheetStep[] {
+): readonly StatusStep[] {
     const at = (value: string | null) => (value === null ? null : date(value));
-    const asked: SheetStep = {
+    const asked: StatusStep = {
         key: 'asked',
         label: t('business:sheet.stepAsked'),
         at: at(quotation.requestedAt),
         state: 'done',
     };
-    const priced: SheetStep = {
+    const priced: StatusStep = {
         key: 'priced',
         label: t('business:sheet.stepPriced'),
         at: at(quotation.quotedAt),

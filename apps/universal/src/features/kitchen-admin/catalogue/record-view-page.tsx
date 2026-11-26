@@ -6,10 +6,17 @@ import {
     InfoTip,
     RecordWindowFieldGrid,
     Stack,
+    StatusSteps,
     TagRow,
     Text,
 } from '@healthy360/design-system';
-import type { BadgeTone, IconName, RecordWindowField, TagRowItem } from '@healthy360/design-system';
+import type {
+    BadgeTone,
+    IconName,
+    RecordWindowField,
+    StatusStep,
+    TagRowItem,
+} from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -23,13 +30,11 @@ import type { RecordCanopyCaption, RecordCanopyTone } from './record-canopy.tsx'
 import {
     RecordFigures,
     RecordSheetHead,
-    RecordSteps,
     RecordThumb,
     SheetCard,
     SheetColumns,
     SheetFacts,
 } from './record-sheet.tsx';
-import type { SheetStep } from './record-sheet.tsx';
 import { RecordTile } from './record-tiles.tsx';
 
 /**
@@ -185,7 +190,7 @@ export interface RecordViewPageProps {
      * `sheet` only: the record's progress, a strip between the head and the figures — a supply
      * order's Draft → Issued → Received, a quotation's Asked → Priced → Your decision.
      */
-    readonly steps?: { readonly label: string; readonly steps: readonly SheetStep[] } | undefined;
+    readonly steps?: { readonly label: string; readonly steps: readonly StatusStep[] } | undefined;
     /** `sheet` only: the `lines` card spans both columns, above them — a quotation's lines. */
     readonly linesWide?: boolean | undefined;
     /** `sheet` only: what the `lines` card says at its end — "2 lines". */
@@ -642,7 +647,7 @@ function RecordSheetView({
                 />
 
                 {steps === undefined ? null : (
-                    <RecordSteps
+                    <StatusSteps
                         testID={`${testID}-steps`}
                         label={steps.label}
                         steps={steps.steps}

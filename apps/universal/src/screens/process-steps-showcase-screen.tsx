@@ -1,9 +1,8 @@
-import { Badge, Button, Stack, Text } from '@healthy360/design-system';
+import { Badge, Button, Stack, Tabs, Text } from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
 
 import { ReviewBox, StepCard } from '../features/kitchen-admin/process-parts.tsx';
-import { ProcessSteps } from '../features/kitchen-admin/process-steps.tsx';
 
 type Step = 'order' | 'delivery' | 'lines' | 'check';
 
@@ -19,31 +18,31 @@ export function ProcessStepsShowcaseScreen() {
         <View className="mx-auto w-full max-w-5xl p-6">
             <Stack space="lg">
                 <Text variant="title">Step track — walked, open, with problems</Text>
-                <ProcessSteps<Step>
+                <Tabs<Step>
+                    variant="pills"
                     testID="showcase-steps"
                     label="Steps"
                     value={step}
                     onChange={setStep}
-                    steps={[
-                        { key: 'order', label: 'Order', caption: 'PO-2611-0035', done: true },
+                    items={[
+                        { value: 'order', label: 'Order', detail: 'PO-2611-0035', done: true },
                         {
-                            key: 'delivery',
+                            value: 'delivery',
                             label: 'Delivery',
-                            caption: 'Paperwork and charges',
+                            detail: 'Paperwork and charges',
                             done: true,
                         },
                         {
-                            key: 'lines',
+                            value: 'lines',
                             label: 'What arrived',
-                            caption: '4 to post, 1 left out',
-                            issues: 2,
-                            issuesLabel: '2 to fix',
+                            detail: '4 to post, 1 left out',
+                            issues: { count: 2, tone: 'warning', label: '2 to fix' },
                         },
                         {
-                            key: 'check',
+                            value: 'check',
                             label: 'Check and post',
-                            caption: 'Over-receipt',
-                            captionTone: 'warning',
+                            detail: 'Over-receipt',
+                            detailTone: 'warning',
                         },
                     ]}
                 />

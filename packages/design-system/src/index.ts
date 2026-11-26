@@ -308,6 +308,8 @@ export type {
 } from './content/avatar.tsx';
 
 export { SegmentedControl, TABS_VARIANTS, Tabs } from './navigation/tabs.tsx';
+export { StatusSteps } from './navigation/status-steps.tsx';
+export type { StatusStep, StatusStepState, StatusStepsProps } from './navigation/status-steps.tsx';
 export type { SegmentedControlProps, TabItem, TabsProps, TabsVariant } from './navigation/tabs.tsx';
 export { Stepper } from './navigation/stepper.tsx';
 export { StepProgress } from './navigation/step-progress.tsx';

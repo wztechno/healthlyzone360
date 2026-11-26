@@ -27,6 +27,7 @@ import {
     SearchInput,
     Select,
     Skeleton,
+    Tabs,
     Text,
     TextInputField,
     useToast,
@@ -61,13 +62,7 @@ import { todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import {
-    KindTiles,
-    SaleSteps,
-    SectionRail,
-    TicketLabel,
-    TileStepper,
-} from '../order-desk/sale-parts.tsx';
+import { KindTiles, SectionRail, TicketLabel, TileStepper } from '../order-desk/sale-parts.tsx';
 import type { SectionTint } from '../order-desk/sale-parts.tsx';
 import {
     CATALOGUE_MANAGE_PERMISSION,
@@ -816,15 +811,30 @@ function Sale() {
                     </Text>
                 )}
                 {isEditing ? null : (
-                    <SaleSteps
+                    <Tabs
+                        variant="pills"
+                        readOnly
                         testID="kitchen-order-desk-sale-steps"
                         label={t('kitchen:desk.sale.stepsLabel')}
-                        current={step}
-                        steps={[
-                            { key: 'customer', label: t('kitchen:desk.sale.step.customer') },
-                            { key: 'meals', label: t('kitchen:desk.sale.step.meals') },
-                            { key: 'checkout', label: t('kitchen:desk.sale.step.checkout') },
+                        value={(['customer', 'meals', 'checkout'] as const)[step] ?? 'customer'}
+                        items={[
+                            {
+                                value: 'customer',
+                                testID: 'kitchen-order-desk-sale-steps-customer',
+                                label: t('kitchen:desk.sale.step.customer'),
+                            },
+                            {
+                                value: 'meals',
+                                testID: 'kitchen-order-desk-sale-steps-meals',
+                                label: t('kitchen:desk.sale.step.meals'),
+                            },
+                            {
+                                value: 'checkout',
+                                testID: 'kitchen-order-desk-sale-steps-checkout',
+                                label: t('kitchen:desk.sale.step.checkout'),
+                            },
                         ]}
+                        onChange={() => undefined}
                     />
                 )}
                 <View className="ms-auto flex-row">

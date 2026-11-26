@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 /**
- * The parts a stepped posting form is drawn from besides its step track (`process-steps.tsx`):
+ * The parts a stepped posting form is drawn from besides its step track (the design system's `Tabs variant="pills"`):
  * the card one step lives in, the boxes its last step reviews in, and the bar Post sits on. The
  * Procurement boards of 2026-11-24 — Receive a delivery and Post a goods receipt.
  */

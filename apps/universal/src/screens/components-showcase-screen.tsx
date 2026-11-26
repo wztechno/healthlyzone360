@@ -11,6 +11,7 @@ import {
     SEARCH_THRESHOLD,
     Select,
     Stack,
+    StatusSteps,
     Switch,
     Tabs,
     Tag,
@@ -659,6 +660,95 @@ function TabsSection() {
     );
 }
 
+function StepsSection() {
+    const [section, setSection] = useState('receipt');
+    return (
+        <Stack space="lg" testID="components-showcase-steps">
+            <Stack space="xs">
+                <Text variant="section">Steps</Text>
+                <Text variant="caption" tone="secondary">
+                    Tabs pills for a form&apos;s sections · StatusSteps for how far a record has got
+                </Text>
+            </Stack>
+
+            <Sample title="Form sections" note={'Tabs variant="pills" · detail, done, issues'}>
+                <View className="w-full">
+                    <Tabs
+                        testID="components-showcase-steps-pills"
+                        label="Post a goods receipt"
+                        variant="pills"
+                        items={[
+                            {
+                                value: 'arrival',
+                                label: 'What arrived',
+                                detail: 'Market purchase',
+                                done: true,
+                            },
+                            { value: 'receipt', label: 'Receipt', detail: 'No supplier' },
+                            {
+                                value: 'lines',
+                                label: 'Lines',
+                                detail: '4 to post, 1 left out',
+                                issues: { count: 2, tone: 'warning', label: '2 to fix' },
+                            },
+                            {
+                                value: 'check',
+                                label: 'Check and post',
+                                detail: 'Over-receipt',
+                                detailTone: 'warning',
+                            },
+                        ]}
+                        value={section}
+                        onChange={setSection}
+                    />
+                </View>
+            </Sample>
+
+            <Sample title="Where the reader is" note={'pills + readOnly · New order'}>
+                <Tabs
+                    testID="components-showcase-steps-readonly"
+                    label="New order steps"
+                    variant="pills"
+                    readOnly
+                    items={[
+                        { value: 'customer', label: 'Customer' },
+                        { value: 'meals', label: 'Meals' },
+                        { value: 'checkout', label: 'Checkout' },
+                    ]}
+                    value="meals"
+                    onChange={() => undefined}
+                />
+            </Sample>
+
+            <Sample
+                title="How far a record has got"
+                note="StatusSteps · done, partial, current, pending"
+            >
+                <View className="w-full">
+                    <StatusSteps
+                        testID="components-showcase-status-steps"
+                        label="Where the order is"
+                        noValue="—"
+                        steps={[
+                            { key: 'placed', label: 'Placed', at: 'Nov 26, 10:41', state: 'done' },
+                            {
+                                key: 'part',
+                                label: 'Partly received',
+                                at: 'Nov 27',
+                                state: 'partial',
+                            },
+                            { key: 'ready', label: 'Ready', at: null, state: 'current' },
+                            { key: 'delivered', label: 'Delivered', at: null, state: 'pending' },
+                        ]}
+                        trailing={<Button label="Mark ready" size="sm" />}
+                        className="rounded-2xl bg-surface-sunken px-3 py-2.5"
+                    />
+                </View>
+            </Sample>
+        </Stack>
+    );
+}
+
 export function ComponentsShowcaseScreen() {
     return (
         <DensityProvider value="compact">
@@ -671,6 +761,7 @@ export function ComponentsShowcaseScreen() {
                     <TickBoxesSection />
                     <ChoicesSection />
                     <TabsSection />
+                    <StepsSection />
                 </Stack>
             </View>
         </DensityProvider>

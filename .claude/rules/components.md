@@ -106,8 +106,22 @@ The admin uses `Tabs` from `@healthy360/design-system` in **two looks only**:
 | A value picked (payment method, Open / Closed)               | `segmented` + `radio` (+ `block`)          |
 | Icons only (list / cards)                                    | `segmented` + `radio` + `labelHidden`      |
 
-`steps` and `pills` are the editors' numbered sections (recipe, plan, record forms) and wait for the
-step-bars family; `underline` is the web shop's. Do not use them on a new admin page.
+A row of picked values (`radio`) and a read-only step row grow from their words' width to fill
+their space and never shrink below a word — never pass a width to stop them squeezing.
+
+`underline` is the web shop's; `steps` is the older numbered look. Do not use them on a new admin
+page.
+
+## Steps — `Tabs` pills and `StatusSteps`
+
+| Job                                                   | How                                                      |
+| ----------------------------------------------------- | -------------------------------------------------------- |
+| A form's sections you click between (recipe, receipt) | `Tabs variant="pills"` (+ `detail`, `done`, `issues`)    |
+| Where the reader is, not clickable (New order 1·2·3)  | `Tabs variant="pills" readOnly`                          |
+| How far a record has got (order, supply order, quote) | `StatusSteps` — bars with dates; `trailing` for a button |
+
+**Removed, never recreate:** `ProcessSteps`, `SaleSteps`, the order pop-up's `StageTrack`,
+`RecordSteps`, and the unused `editor-steps.tsx` wrapper.
 
 **Removed, never recreate:** `DeskTabs`, `LensViewSwitch`.
 

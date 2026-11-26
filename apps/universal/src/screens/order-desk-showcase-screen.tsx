@@ -7,6 +7,7 @@ import {
     Inline,
     SegmentedControl,
     Select,
+    Tabs,
     Text,
 } from '@healthy360/design-system';
 import { useState } from 'react';
@@ -19,7 +20,6 @@ import type { LensFigure } from '../features/kitchen-admin/catalogue/lens-bar.ts
 import { DeskTableTitle } from '../features/kitchen-admin/order-desk/desk-parts.tsx';
 import {
     KindTiles,
-    SaleSteps,
     SectionRail,
     TicketLabel,
     TileStepper,
@@ -252,15 +252,26 @@ function NewOrderParts() {
         <>
             <Text variant="title">New order — step marker</Text>
             <View className="flex-row flex-wrap items-center gap-3">
-                <SaleSteps
+                <Tabs
+                    variant="pills"
+                    readOnly
                     testID="showcase-sale-steps"
                     label="Steps"
-                    current={step}
-                    steps={[
-                        { key: 'customer', label: 'Customer' },
-                        { key: 'meals', label: 'Meals' },
-                        { key: 'checkout', label: 'Checkout' },
+                    value={(['customer', 'meals', 'checkout'] as const)[step] ?? 'customer'}
+                    items={[
+                        {
+                            value: 'customer',
+                            testID: 'showcase-sale-steps-customer',
+                            label: 'Customer',
+                        },
+                        { value: 'meals', testID: 'showcase-sale-steps-meals', label: 'Meals' },
+                        {
+                            value: 'checkout',
+                            testID: 'showcase-sale-steps-checkout',
+                            label: 'Checkout',
+                        },
                     ]}
+                    onChange={() => undefined}
                 />
                 <Button
                     variant="secondary"

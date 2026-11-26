@@ -1,4 +1,11 @@
-import { Badge, Button, Cascade, DensityProvider, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    DensityProvider,
+    StatusSteps,
+    Text,
+} from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
 
@@ -6,7 +13,6 @@ import { IngredientDetail } from '../features/kitchen-admin/catalogue/ingredient
 import {
     RecordFigures,
     RecordSheetHead,
-    RecordSteps,
     SheetCard,
     SheetColumns,
     SheetFacts,
@@ -168,7 +174,7 @@ export function RecordSheetShowcaseScreen() {
                                     note: 'by Sara K. · Version 7',
                                 }}
                             />
-                            <RecordSteps
+                            <StatusSteps
                                 testID="record-sheet-showcase-steps"
                                 label="Where the order has got to"
                                 noValue="—"
