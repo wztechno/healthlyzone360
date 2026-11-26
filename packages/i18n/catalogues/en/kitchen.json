@@ -1334,6 +1334,7 @@
             "batchFactorLabel": "Batch factor",
             "batchFactorPlaceholder": "For example 2",
             "notesLabel": "Notes",
+            "addNote": "+ Add a note",
             "notesPlaceholder": "For example Go easy on the salt",
             "amountRequired": "Enter a number above zero.",
             "batchTitle": "Batch {{reference}}",

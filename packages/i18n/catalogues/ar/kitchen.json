@@ -1541,6 +1541,7 @@
             "batchFactorLabel": "معامل الدفعة",
             "batchFactorPlaceholder": "مثال: 2",
             "notesLabel": "ملاحظات",
+            "addNote": "+ إضافة ملاحظة",
             "notesPlaceholder": "مثال: خفّفوا الملح",
             "amountRequired": "أدخل رقماً أكبر من صفر.",
             "batchTitle": "الدفعة {{reference}}",
