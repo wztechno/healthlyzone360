@@ -296,7 +296,7 @@ module.exports = {
           "58px"
         ],
         "role-micro": [
-          "10px",
+          "11px",
           {
             "lineHeight": "14px",
             "letterSpacing": "0px",
@@ -312,7 +312,7 @@ module.exports = {
           }
         ],
         "role-body": [
-          "12px",
+          "13px",
           {
             "lineHeight": "18px",
             "letterSpacing": "0px",
@@ -320,9 +320,9 @@ module.exports = {
           }
         ],
         "role-label": [
-          "12px",
+          "13px",
           {
-            "lineHeight": "16px",
+            "lineHeight": "18px",
             "letterSpacing": "0px",
             "fontWeight": "500"
           }
@@ -336,19 +336,19 @@ module.exports = {
           }
         ],
         "role-section": [
-          "13px",
+          "14px",
           {
-            "lineHeight": "18px",
+            "lineHeight": "20px",
             "letterSpacing": "0px",
             "fontWeight": "600"
           }
         ],
         "role-title": [
-          "16px",
+          "20px",
           {
-            "lineHeight": "22px",
-            "letterSpacing": "-0.16px",
-            "fontWeight": "600"
+            "lineHeight": "26px",
+            "letterSpacing": "-0.3px",
+            "fontWeight": "700"
           }
         ],
         "role-display": [

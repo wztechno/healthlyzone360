@@ -102,13 +102,13 @@ export function KitchenPageSearch({
                     <>
                         <RNText
                             numberOfLines={1}
-                            className="min-w-0 flex-1 text-sm font-medium text-content-secondary text-start"
+                            className="min-w-0 flex-1 text-role-body font-medium text-content-secondary text-start"
                         >
                             {t('kitchen:search.trigger')}
                         </RNText>
                         <RNText
                             testID="kitchen-page-search-shortcut"
-                            className="rounded-lg border border-stroke-subtle bg-surface-raised px-2 py-1 text-xs font-semibold text-content-secondary"
+                            className="rounded-lg border border-stroke-subtle bg-surface-raised px-2 py-1 text-role-caption font-semibold text-content-secondary"
                         >
                             {commandShortcutLabel()}
                         </RNText>

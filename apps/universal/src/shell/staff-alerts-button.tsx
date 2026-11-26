@@ -206,7 +206,7 @@ function AlertRow({
                 <View className="flex-row items-start gap-2">
                     <RNText
                         numberOfLines={2}
-                        className={`min-w-0 flex-1 text-sm text-content-primary text-start ${
+                        className={`min-w-0 flex-1 text-role-body text-content-primary text-start ${
                             unread ? 'font-semibold' : ''
                         }`}
                     >
@@ -219,7 +219,10 @@ function AlertRow({
                         />
                     ) : null}
                 </View>
-                <RNText numberOfLines={1} className="text-xs text-content-secondary text-start">
+                <RNText
+                    numberOfLines={1}
+                    className="text-role-caption text-content-secondary text-start"
+                >
                     {unread ? t('kitchen:alerts.unreadDetail', { when }) : when}
                 </RNText>
                 <View className="flex-row pt-1">
@@ -348,7 +351,7 @@ function AlertsBell() {
                         <View className="absolute -end-1 -top-1 h-5 min-w-5 items-center justify-center rounded-full border-2 border-surface-raised bg-danger-strong px-1">
                             <RNText
                                 testID="staff-alerts-count"
-                                className="text-xs font-bold tabular-nums text-danger-on-strong"
+                                className="text-role-caption font-bold tabular-nums text-danger-on-strong"
                             >
                                 {unreadCount}
                             </RNText>
@@ -366,7 +369,7 @@ function AlertsBell() {
                             <RNText
                                 accessibilityRole="header"
                                 numberOfLines={1}
-                                className="min-w-0 shrink font-display text-lg font-bold text-content-primary text-start"
+                                className="min-w-0 shrink font-display text-role-section font-bold text-content-primary text-start"
                             >
                                 {t('kitchen:alerts.title')}
                             </RNText>
@@ -403,7 +406,7 @@ function AlertsBell() {
                                 )}
                                 <RNText
                                     testID="staff-alerts-panel-empty"
-                                    className="text-center text-sm font-semibold text-content-primary"
+                                    className="text-center text-role-body font-semibold text-content-primary"
                                 >
                                     {t(
                                         alerts.isError

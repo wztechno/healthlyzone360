@@ -30,7 +30,7 @@ export function StepCard({ title, count, actions, children, testID }: StepCardPr
                 <Text
                     role="heading"
                     aria-level={2}
-                    className="font-display !text-[18px] !leading-6 font-bold tracking-[-0.01em] text-content-primary"
+                    className="font-display !text-role-section !leading-6 font-bold tracking-[-0.01em] text-content-primary"
                 >
                     {title}
                 </Text>
@@ -67,7 +67,7 @@ export function ReviewBox({
                 <Text
                     role="heading"
                     aria-level={3}
-                    className="!text-sm font-bold text-content-primary"
+                    className="!text-role-body font-bold text-content-primary"
                 >
                     {title}
                 </Text>
@@ -105,7 +105,7 @@ export function PostBar({ summary, figure, action, testID }: PostBarProps) {
                     <Text
                         testID={`${testID}-summary`}
                         numberOfLines={1}
-                        className="text-[13px] font-semibold tabular-nums text-content-secondary"
+                        className="text-role-body font-semibold tabular-nums text-content-secondary"
                     >
                         {summary}
                     </Text>

@@ -769,7 +769,7 @@ export function CustomerSection({
                             <Text
                                 variant="strong"
                                 accessibilityRole="header"
-                                className="!text-[15px] font-bold"
+                                className="!text-role-section font-bold"
                             >
                                 {t('kitchen:desk.sale.customerCreateTitle')}
                             </Text>

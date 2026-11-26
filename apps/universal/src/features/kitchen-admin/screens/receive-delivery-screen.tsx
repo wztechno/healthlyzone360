@@ -1,6 +1,25 @@
 import { formatGtin } from '@healthy360/api-client/contracts';
 import type { ReceivableOrder } from '@healthy360/api-client/contracts';
-import { Badge, Button, Checkbox, cx, DataTable, DatePicker, EmptyState, ErrorState, Icon, IssueTrayFrame, SearchInput, Skeleton, Stack, Tabs, Text, TextInputField, useIssueTrayController, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Checkbox,
+    cx,
+    DataTable,
+    DatePicker,
+    EmptyState,
+    ErrorState,
+    Icon,
+    IssueTrayFrame,
+    SearchInput,
+    Skeleton,
+    Stack,
+    Tabs,
+    Text,
+    TextInputField,
+    useIssueTrayController,
+    useToast,
+} from '@healthy360/design-system';
 import type {
     DataListColumn,
     IssueCardItem,
@@ -313,7 +332,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             priority: 99,
             grow: false,
             render: (row) => (
-                <Text className="text-[13px] font-bold tabular-nums text-content-primary">
+                <Text className="text-role-body font-bold tabular-nums text-content-primary">
                     {row.number}
                 </Text>
             ),
@@ -324,7 +343,10 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             width: 200,
             priority: 90,
             render: (row) => (
-                <Text numberOfLines={1} className="text-[13px] font-semibold text-content-primary">
+                <Text
+                    numberOfLines={1}
+                    className="text-role-body font-semibold text-content-primary"
+                >
                     {row.supplier?.nameEn ?? t('kitchen:ops.procurement.noSupplier')}
                 </Text>
             ),
@@ -353,7 +375,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             grow: false,
             align: 'end',
             render: (row) => (
-                <Text className="text-[13px] font-bold tabular-nums text-content-primary">
+                <Text className="text-role-body font-bold tabular-nums text-content-primary">
                     {t('kitchen:ops.procurement.awaitingLines', {
                         count: row.outstandingLineCount,
                     })}
@@ -873,7 +895,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             width: 220,
             priority: 100,
             render: (line) => (
-                <Text className="py-2 !text-sm !font-bold leading-[18px] text-content-primary">
+                <Text className="py-2 !text-role-body !font-bold leading-[18px] text-content-primary">
                     {line.itemLabel}
                 </Text>
             ),
@@ -886,10 +908,10 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             grow: false,
             render: (line) => (
                 <View className="h-9 flex-row items-center gap-1">
-                    <Text className="text-[15px] font-bold tabular-nums text-content-primary">
+                    <Text className="text-role-section font-bold tabular-nums text-content-primary">
                         {line.outstandingQuantity}
                     </Text>
-                    <Text className="text-[13px] font-medium text-content-secondary">
+                    <Text className="text-role-body font-medium text-content-secondary">
                         {unitOf(line)}
                     </Text>
                 </View>
@@ -918,7 +940,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                         className="w-full"
                         caution={exceedsOutstanding(line, lines)}
                         trailing={
-                            <Text className="text-xs font-medium text-content-secondary">
+                            <Text className="text-role-caption font-medium text-content-secondary">
                                 {unitOf(line)}
                             </Text>
                         }
@@ -1088,7 +1110,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                 {gtin === null ? null : (
                     <Text
                         testID={`${traceId}-gtin`}
-                        className="text-xs font-medium text-content-secondary"
+                        className="text-role-caption font-medium text-content-secondary"
                     >
                         {t('kitchen:barcodes.scannedProduct', {
                             gtin: `⁦${formatGtin(gtin)}⁩`,
@@ -1132,7 +1154,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                     ) : (
                         <Text
                             testID="kitchen-receive-order-header"
-                            className="text-[13px] font-medium tabular-nums text-content-secondary"
+                            className="text-role-body font-medium tabular-nums text-content-secondary"
                         >
                             <Text className="font-bold text-content-primary">
                                 {selectedOrder.number}
@@ -1252,14 +1274,14 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         testID="kitchen-receive-order-fixed"
                                         className="flex-row flex-wrap items-center gap-3.5 rounded-2xl bg-surface-sunken px-4 py-3.5"
                                     >
-                                        <Text className="font-display text-base font-bold tabular-nums text-content-primary">
+                                        <Text className="font-display text-role-section font-bold tabular-nums text-content-primary">
                                             {selectedOrder.number}
                                         </Text>
-                                        <Text className="text-sm font-semibold text-content-primary">
+                                        <Text className="text-role-body font-semibold text-content-primary">
                                             {selectedOrder.supplier?.nameEn ??
                                                 t('kitchen:ops.procurement.noSupplier')}
                                         </Text>
-                                        <Text className="text-[13px] font-medium text-content-secondary">
+                                        <Text className="text-role-body font-medium text-content-secondary">
                                             {[
                                                 selectedOrder.issuedAt === null
                                                     ? null
@@ -1375,7 +1397,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         <Text
                                             role="heading"
                                             aria-level={3}
-                                            className="text-sm font-bold text-content-primary"
+                                            className="text-role-body font-bold text-content-primary"
                                         >
                                             {t('kitchen:ops.receiving.sectionCharges')}
                                         </Text>
@@ -1652,7 +1674,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                     />
                                                 ) : null}
                                             </View>
-                                            <Text className="mt-2.5 text-[13px] font-medium text-content-secondary">
+                                            <Text className="mt-2.5 text-role-body font-medium text-content-secondary">
                                                 {t('kitchen:ops.receiving.confirmDate', {
                                                     date: filedOn,
                                                 })}
@@ -1681,10 +1703,10 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                             size="sm"
                                                             className="text-content-on-brand-subtle"
                                                         />
-                                                        <Text className="text-xs font-semibold text-content-on-brand-subtle">
+                                                        <Text className="text-role-caption font-semibold text-content-on-brand-subtle">
                                                             {line.itemLabel.split(' — ').at(-1)}
                                                         </Text>
-                                                        <Text className="text-xs font-bold tabular-nums text-content-on-brand-subtle">
+                                                        <Text className="text-role-caption font-bold tabular-nums text-content-on-brand-subtle">
                                                             {t(
                                                                 'kitchen:ops.procurement.risesQuantity',
                                                                 {
@@ -1712,7 +1734,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                             className="min-h-11 flex-row items-center gap-2.5 rounded-xl bg-danger-subtle py-1.5 pe-1.5 ps-3"
                                                         >
                                                             <View className="h-2 w-2 rounded-full bg-danger-strong" />
-                                                            <Text className="min-w-0 flex-1 text-[13px] font-semibold text-danger-on-subtle">
+                                                            <Text className="min-w-0 flex-1 text-role-body font-semibold text-danger-on-subtle">
                                                                 {fix.label}
                                                             </Text>
                                                             <Button
@@ -1766,7 +1788,7 @@ function ConfirmRow({
             <Text
                 testID={testID}
                 className={cx(
-                    'min-w-0 flex-1 text-sm',
+                    'min-w-0 flex-1 text-role-body',
                     strong
                         ? 'font-bold text-content-primary'
                         : 'font-medium text-content-secondary',
@@ -1783,7 +1805,10 @@ function RowMessage({ text, testID }: { readonly text: string; readonly testID?:
     return (
         <View className="flex-row items-center gap-2">
             <View className="h-2 w-2 rounded-full bg-warning-strong" />
-            <Text testID={testID} className="text-xs font-semibold text-warning-on-subtle">
+            <Text
+                testID={testID}
+                className="text-role-caption font-semibold text-warning-on-subtle"
+            >
                 {text}
             </Text>
         </View>

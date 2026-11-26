@@ -5,7 +5,28 @@ import type {
     SupplierOption,
 } from '@healthy360/api-client/contracts';
 import type { StockItemId, SupplierId } from '@healthy360/domain-types';
-import { Badge, Button, Callout, Cascade, Checkbox, DataTable, Dialog, EmptyState, ErrorState, FormSection, Icon, InfoTip, QuantityInput, Select, Skeleton, Stack, TableSkeleton, Text, useTablePort, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    Checkbox,
+    DataTable,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    FormSection,
+    Icon,
+    InfoTip,
+    QuantityInput,
+    Select,
+    Skeleton,
+    Stack,
+    TableSkeleton,
+    Text,
+    useTablePort,
+    useToast,
+} from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -1299,14 +1320,14 @@ function SupplyTicket({
                 <Text
                     variant="micro"
                     tone="secondary"
-                    className="!text-xs font-bold uppercase tracking-widest"
+                    className="!text-role-caption font-bold uppercase tracking-widest"
                 >
                     {t('kitchen:ops.supplyOrders.readyTitle')}
                 </Text>
                 <View className="mt-0.5 flex-row items-baseline gap-2">
                     <Text
                         variant="section"
-                        className="font-display !text-[22px] !font-bold !leading-7 tabular-nums"
+                        className="font-display !text-role-title !font-bold !leading-7 tabular-nums"
                         testID={`${testID}-total`}
                     >
                         {drafts}
@@ -1336,7 +1357,7 @@ function SupplyTicket({
                         ) : (
                             <Text
                                 variant="title"
-                                className="mt-0.5 font-display !text-xl !font-bold tabular-nums"
+                                className="mt-0.5 font-display !text-role-title !font-bold tabular-nums"
                                 testID={`${testID}-${figure.key}`}
                             >
                                 {figure.value}
@@ -1348,7 +1369,7 @@ function SupplyTicket({
 
             <View className="flex-col gap-0.5">
                 <View className="min-h-8 flex-row items-center px-1">
-                    <Text variant="strong" className="!text-sm !font-bold">
+                    <Text variant="strong" className="!text-role-body !font-bold">
                         {t('kitchen:ops.supplyOrders.summaryBySupplier')}
                     </Text>
                 </View>
@@ -1372,7 +1393,7 @@ function SupplyTicket({
                                 <Text
                                     variant="strong"
                                     numberOfLines={1}
-                                    className="min-w-0 flex-1 !text-sm"
+                                    className="min-w-0 flex-1 !text-role-body"
                                 >
                                     {group.name}
                                 </Text>

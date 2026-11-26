@@ -523,7 +523,7 @@ function StageLine({
                             ) : (
                                 <RNText
                                     className={cx(
-                                        'text-[11px] font-bold tabular-nums',
+                                        'text-role-caption font-bold tabular-nums',
                                         now ? 'text-content-on-brand' : 'text-content-secondary',
                                     )}
                                 >
@@ -533,7 +533,7 @@ function StageLine({
                         </View>
                         <RNText
                             className={cx(
-                                'text-[13px] font-semibold',
+                                'text-role-body font-semibold',
                                 done
                                     ? 'text-content-on-brand-subtle'
                                     : now
@@ -923,7 +923,7 @@ function ApplicationCard({ application }: { readonly application: PlatformB2bApp
 
 function GroupLabel({ label }: { readonly label: string }) {
     return (
-        <RNText className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-content-secondary text-start">
+        <RNText className="mb-1 text-role-caption font-bold uppercase tracking-[0.08em] text-content-secondary text-start">
             {label}
         </RNText>
     );

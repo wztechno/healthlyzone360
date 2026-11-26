@@ -968,7 +968,7 @@ function QuotationLines({ quotation }: { readonly quotation: Quotation }) {
                     </Text>
                 ) : (
                     <Text
-                        className="font-display text-xl font-bold tabular-nums text-content-on-brand-subtle"
+                        className="font-display text-role-title font-bold tabular-nums text-content-on-brand-subtle"
                         testID={contractPriceTestId(`quoted-total-${quotation.reference}-view`)}
                     >
                         {formatMoney(formatter, quotation.requestedTotal)}

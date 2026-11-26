@@ -122,7 +122,11 @@ function KitchenSetup() {
                         {t('kitchen:families.setup.name')}
                     </Text>
                     <View className="z-auto mt-1 flex-row items-center gap-2">
-                        <Text variant="display" className="!text-3xl" testID={`${PAGE}-state`}>
+                        <Text
+                            variant="display"
+                            className="!text-role-title"
+                            testID={`${PAGE}-state`}
+                        >
                             {headline}
                         </Text>
                         <InfoTip
@@ -143,7 +147,10 @@ function KitchenSetup() {
                         total: required.length,
                     })}
                 >
-                    <Text variant="display" className="!text-4xl text-content-on-brand-subtle">
+                    <Text
+                        variant="display"
+                        className="!text-role-title text-content-on-brand-subtle"
+                    >
                         {formatter.formatNumber(doneCount)}
                     </Text>
                     <Text tone="secondary">

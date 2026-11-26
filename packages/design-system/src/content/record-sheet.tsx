@@ -100,7 +100,7 @@ export function RecordSheetHead({
                     testID={titleTestID ?? `${testID}-title`}
                     accessibilityRole="header"
                     aria-level={1}
-                    className="font-display text-xl font-bold text-content-primary text-start"
+                    className="font-display text-role-title font-bold text-content-primary text-start"
                 >
                     {title}
                 </RNText>
@@ -108,7 +108,7 @@ export function RecordSheetHead({
                     <RNText
                         testID={`${testID}-title-aside`}
                         {...(titleAsideLang === undefined ? {} : { lang: titleAsideLang })}
-                        className="mt-0.5 text-sm font-medium text-content-secondary text-start"
+                        className="mt-0.5 text-role-body font-medium text-content-secondary text-start"
                     >
                         {titleAside}
                     </RNText>
@@ -134,7 +134,7 @@ export function RecordSheetHead({
                     <RNText
                         key={line.testID}
                         testID={line.testID}
-                        className={`${index === 0 ? 'mt-2' : 'mt-0.5'} text-xs text-content-secondary text-start`}
+                        className={`${index === 0 ? 'mt-2' : 'mt-0.5'} text-role-caption text-content-secondary text-start`}
                     >
                         {line.text}
                     </RNText>
@@ -142,19 +142,19 @@ export function RecordSheetHead({
             </View>
             {changed === undefined ? null : (
                 <View testID={`${testID}-changed`} className="ms-auto flex-col items-end gap-0.5">
-                    <RNText className="text-xs font-semibold uppercase tracking-wider text-content-secondary text-end">
+                    <RNText className="text-role-caption font-semibold uppercase tracking-wider text-content-secondary text-end">
                         {changed.label}
                     </RNText>
                     <RNText
                         testID={changed.valueTestID}
-                        className="text-sm font-semibold text-content-primary text-end"
+                        className="text-role-body font-semibold text-content-primary text-end"
                     >
                         {changed.value}
                     </RNText>
                     {changed.note === undefined ? null : (
                         <RNText
                             testID={changed.noteTestID}
-                            className="text-xs text-content-secondary text-end"
+                            className="text-role-caption text-content-secondary text-end"
                         >
                             {changed.note}
                         </RNText>
@@ -220,26 +220,26 @@ export function RecordFigures({
                     className={`min-w-[140px] flex-col gap-1 px-4 pb-4 pt-3 ${
                         index === 0 ? '' : 'border-s border-stroke-subtle'
                     }`}
-                     
+
                     style={{ flexGrow: 1, flexBasis: 0 }}
                 >
                     <RNText
                         numberOfLines={1}
-                        className="text-xs font-semibold uppercase tracking-wider text-content-secondary text-start"
+                        className="text-role-caption font-semibold uppercase tracking-wider text-content-secondary text-start"
                     >
                         {figure.label}
                     </RNText>
                     <RNText
                         testID={figure.valueTestID}
                         numberOfLines={2}
-                        className={`font-display text-xl font-bold tabular-nums text-start ${
+                        className={`font-display text-role-title font-bold tabular-nums text-start ${
                             FIGURE_INK[figure.tone ?? 'plain']
                         }`}
                     >
                         {figure.value}
                     </RNText>
                     {figure.note === undefined ? null : (
-                        <RNText className="text-xs text-content-secondary text-start">
+                        <RNText className="text-role-caption text-content-secondary text-start">
                             {figure.note}
                         </RNText>
                     )}
@@ -277,7 +277,7 @@ export function SheetCard({ title, aside, trailing, children, testID }: SheetCar
                 <View className="z-auto flex-row flex-wrap items-center gap-2">
                     <RNText
                         testID={`${testID}-title`}
-                        className="text-xs font-bold uppercase tracking-wider text-content-secondary text-start"
+                        className="text-role-caption font-bold uppercase tracking-wider text-content-secondary text-start"
                     >
                         {title}
                     </RNText>
@@ -327,7 +327,7 @@ export function SheetColumns({
                 <View
                     testID={startTestID}
                     className="z-auto min-w-0 flex-col gap-4"
-                     
+
                     style={split && hasEnd ? { flexGrow: 1, flexBasis: 0 } : undefined}
                 >
                     {start}
@@ -336,7 +336,7 @@ export function SheetColumns({
                     <View
                         testID={endTestID}
                         className="z-auto min-w-0 flex-col gap-4"
-                         
+
                         style={split ? { flexGrow: 1, flexBasis: 0 } : undefined}
                     >
                         {end}
@@ -393,20 +393,20 @@ export function SheetFacts({
                             }`}
                             style={{
                                 flexBasis: pairs && !sentence ? '40%' : '100%',
-                                 
+
                                 flexGrow: 1,
                             }}
                         >
                             <RNText
                                 testID={`${testID}-${fact.key}-label`}
-                                className="shrink-0 text-xs text-content-secondary text-start"
+                                className="shrink-0 text-role-caption text-content-secondary text-start"
                             >
                                 {fact.label}
                             </RNText>
                             {typeof fact.value === 'string' ? (
                                 <RNText
                                     testID={`${testID}-${fact.key}-value`}
-                                    className={`min-w-0 shrink text-sm tabular-nums ${
+                                    className={`min-w-0 shrink text-role-body tabular-nums ${
                                         sentence ? 'text-start' : 'text-end'
                                     } ${
                                         fact.empty === true
@@ -459,7 +459,7 @@ export function SheetTagRows({
                         className="min-h-11 flex-row items-start gap-4 border-t border-stroke-subtle py-2"
                     >
                         <View className="w-32 shrink-0 pt-1">
-                            <RNText className="text-xs text-content-secondary text-start">
+                            <RNText className="text-role-caption text-content-secondary text-start">
                                 {row.label}
                             </RNText>
                         </View>
@@ -486,7 +486,7 @@ export function SheetText({
     return (
         <RNText
             testID={testID}
-            className={`text-sm leading-5 text-start ${
+            className={`text-role-body leading-5 text-start ${
                 empty ? 'text-content-secondary' : 'text-content-primary'
             }`}
         >

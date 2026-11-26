@@ -99,7 +99,7 @@ export function IssueTrayButton({ testID = 'issue-tray-button' }: { readonly tes
                 />
                 <RNText
                     className={cx(
-                        'text-xs font-semibold',
+                        'text-role-caption font-semibold',
                         clear ? 'text-success-on-subtle' : 'text-content-primary',
                     )}
                 >
@@ -119,7 +119,7 @@ export function IssueTrayButton({ testID = 'issue-tray-button' }: { readonly tes
                     >
                         <RNText
                             className={cx(
-                                'text-xs font-bold tabular-nums',
+                                'text-role-caption font-bold tabular-nums',
                                 summary.tone === 'danger'
                                     ? 'text-danger-on-default'
                                     : 'text-warning-on-default',

@@ -1578,7 +1578,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                                         onChange={edited(setOverConfirmed)}
                                                     />
                                                 ) : (
-                                                    <Text className="text-[13px] font-semibold text-warning-on-subtle">
+                                                    <Text className="text-role-body font-semibold text-warning-on-subtle">
                                                         {t(
                                                             'kitchen:ops.procurement.unplannedTitle',
                                                         )}
@@ -1707,7 +1707,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                                             className="min-h-11 flex-row items-center gap-2.5 rounded-xl bg-danger-subtle py-1.5 pe-1.5 ps-3"
                                                         >
                                                             <View className="h-2 w-2 rounded-full bg-danger-strong" />
-                                                            <Text className="min-w-0 flex-1 text-[13px] font-semibold text-danger-on-subtle">
+                                                            <Text className="min-w-0 flex-1 text-role-body font-semibold text-danger-on-subtle">
                                                                 {issue.label}
                                                             </Text>
                                                             <Button

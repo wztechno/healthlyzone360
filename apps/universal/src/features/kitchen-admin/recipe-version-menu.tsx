@@ -78,7 +78,7 @@ export function RecipeVersionMenu({
                     <View aria-hidden className={cx('h-2 w-2 rounded-full', dotClass(status))} />
                     <RNText
                         testID="kitchen-recipe-editor-screen-status"
-                        className="text-xs font-semibold text-content-primary"
+                        className="text-role-caption font-semibold text-content-primary"
                     >
                         {label}
                     </RNText>
@@ -90,7 +90,7 @@ export function RecipeVersionMenu({
         >
             {({ close }) => (
                 <View testID="kitchen-recipe-version-list" className="flex-col gap-1 p-2">
-                    <RNText className="px-2 pb-1 pt-1.5 text-xs font-semibold text-content-secondary text-start">
+                    <RNText className="px-2 pb-1 pt-1.5 text-role-caption font-semibold text-content-secondary text-start">
                         {t('kitchen:recipes.sectionVersions')}
                     </RNText>
                     {versions.map((version) => {

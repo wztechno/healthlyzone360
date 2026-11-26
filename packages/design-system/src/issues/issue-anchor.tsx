@@ -80,11 +80,13 @@ function IssueChip({
                 aria-hidden
                 className="h-5 w-5 items-center justify-center rounded-full bg-warning-strong"
             >
-                <RNText className="text-[11px] font-extrabold text-warning-on-strong">!</RNText>
+                <RNText className="text-role-caption font-extrabold text-warning-on-strong">
+                    !
+                </RNText>
             </View>
             <RNText
                 numberOfLines={detail === undefined ? 1 : 2}
-                className="shrink text-xs font-semibold text-warning-on-subtle"
+                className="shrink text-role-caption font-semibold text-warning-on-subtle"
             >
                 {/* The panel's handle for a card's words, so either layout is found the same way. */}
                 <RNText testID={item.testID === undefined ? undefined : `${item.testID}-label`}>

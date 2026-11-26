@@ -249,7 +249,7 @@ export function RecordPopupWindow({
                                         reference === '' ? null : (
                                             <RNText
                                                 testID={referenceTestID ?? `${testID}-reference`}
-                                                className="rounded-md bg-surface-sunken px-2 py-0.5 text-xs font-semibold tabular-nums text-content-primary"
+                                                className="rounded-md bg-surface-sunken px-2 py-0.5 text-role-caption font-semibold tabular-nums text-content-primary"
                                             >
                                                 {reference}
                                             </RNText>
@@ -259,7 +259,7 @@ export function RecordPopupWindow({
                                         <Text
                                             variant="section"
                                             numberOfLines={1}
-                                            className="font-display !text-xl !font-bold !leading-6"
+                                            className="font-display !text-role-title !font-bold !leading-6"
                                             testID={`${testID}-title`}
                                             accessibilityRole="header"
                                         >
@@ -285,7 +285,7 @@ export function RecordPopupWindow({
                                             <Text
                                                 variant="title"
                                                 tone="brand"
-                                                className="font-display !text-[22px] !font-bold !leading-[26px] tabular-nums"
+                                                className="font-display !text-role-title !font-bold !leading-[26px] tabular-nums"
                                                 testID={`${testID}-figure`}
                                             >
                                                 {figure.value}
@@ -325,7 +325,7 @@ export function RecordPopupWindow({
                                             />
                                             <Text
                                                 variant="label"
-                                                className={`!text-[13px] tabular-nums ${
+                                                className={`!text-role-body tabular-nums ${
                                                     fact.tone === 'warning'
                                                         ? '!font-bold !text-warning-on-subtle'
                                                         : fact.tone === 'success'
@@ -414,7 +414,7 @@ export function RecordPopupSection({
             <Text
                 variant="micro"
                 tone="secondary"
-                className="mb-1 !text-[11px] font-bold uppercase tracking-wider"
+                className="mb-1 !text-role-caption font-bold uppercase tracking-wider"
             >
                 {title}
             </Text>
@@ -441,7 +441,7 @@ export function RecordPopupField({
 }) {
     return (
         <View className="min-h-8 flex-row items-center gap-2 border-b border-stroke-subtle py-1.5">
-            <Text variant="label" tone="secondary" className="w-24 shrink-0 !text-[13px]">
+            <Text variant="label" tone="secondary" className="w-24 shrink-0 !text-role-body">
                 {label}
             </Text>
             <View testID={testID} className={FIELD_VALUE}>

@@ -73,7 +73,7 @@ export function AdminTrail({
                     }`}
                 >
                     {index === 0 ? null : (
-                        <RNText aria-hidden className="px-1 text-sm text-content-disabled">
+                        <RNText aria-hidden className="px-1 text-role-body text-content-disabled">
                             {slash}
                         </RNText>
                     )}
@@ -118,7 +118,7 @@ function Crumb({ crumb }: { readonly crumb: AdminCrumb }) {
                 <Icon name="cornerDownLeft" size="sm" className="text-content-on-brand-subtle" />
                 <RNText
                     numberOfLines={1}
-                    className="text-sm font-semibold text-content-on-brand-subtle"
+                    className="text-role-body font-semibold text-content-on-brand-subtle"
                 >
                     {crumb.label}
                 </RNText>
@@ -133,7 +133,7 @@ function Crumb({ crumb }: { readonly crumb: AdminCrumb }) {
                 aria-current="page"
                 numberOfLines={1}
                 accessibilityLabel={crumb.label}
-                className={`${PILL} max-w-[260px] shrink bg-surface-brand-subtle px-3 text-sm font-bold leading-8 text-content-on-brand-subtle`}
+                className={`${PILL} max-w-[260px] shrink bg-surface-brand-subtle px-3 text-role-body font-bold leading-8 text-content-on-brand-subtle`}
             >
                 {crumb.label}
             </RNText>
@@ -149,7 +149,7 @@ function Crumb({ crumb }: { readonly crumb: AdminCrumb }) {
             onPress={crumb.onPress}
             className={`${PILL} px-2.5 hover:bg-surface-sunken web:transition-colors`}
         >
-            <RNText numberOfLines={1} className="text-sm font-medium text-content-secondary">
+            <RNText numberOfLines={1} className="text-role-body font-medium text-content-secondary">
                 {crumb.label}
             </RNText>
         </Pressable>
@@ -166,7 +166,7 @@ function ModuleCrumb({ crumb }: { readonly crumb: AdminCrumb }) {
             <RNText
                 testID={crumb.testID}
                 numberOfLines={1}
-                className="px-2.5 text-sm font-medium text-content-secondary"
+                className="px-2.5 text-role-body font-medium text-content-secondary"
             >
                 {crumb.label}
             </RNText>
@@ -199,7 +199,7 @@ function ModuleCrumb({ crumb }: { readonly crumb: AdminCrumb }) {
                     >
                         <RNText
                             numberOfLines={1}
-                            className={`text-sm ${
+                            className={`text-role-body ${
                                 open
                                     ? 'font-semibold text-content-on-brand-subtle'
                                     : 'font-medium text-content-secondary'

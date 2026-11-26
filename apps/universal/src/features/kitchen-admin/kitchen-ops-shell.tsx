@@ -32,7 +32,7 @@ import {
  * docblock says to wrap the admin shell in it. Until it was here every kitchen route rendered on the
  * *customer* ladder: `size="sm"` resolved to the 44px touch floor rather than `controlHeight.sm`, so
  * the search field, the status segments and both header buttons came out roughly half again too
- * tall; and a table cell drawn through `<Text>` took `text-base` (16px) while the cells `DataList`
+ * tall; and a table cell drawn through `<Text>` took `text-role-body` (16px) while the cells `DataList`
  * rendered from `value()` took `text-role-body` (12px), which is why one column of a row could be a
  * third larger than the one beside it and wrap out of its own row box.
  *

@@ -49,13 +49,15 @@ export function ListGroupRow({
 
     const body = (
         <>
-            <RNText className={`text-sm font-bold ${ink}`}>{title}</RNText>
+            <RNText className={`text-role-body font-bold ${ink}`}>{title}</RNText>
             {sub === null || sub === undefined ? null : (
-                <RNText className={`text-xs font-semibold tabular-nums ${quiet}`}>{sub}</RNText>
+                <RNText className={`text-role-caption font-semibold tabular-nums ${quiet}`}>
+                    {sub}
+                </RNText>
             )}
             <View className="ms-auto flex-row items-center gap-2.5">
                 {count === undefined ? null : (
-                    <RNText className={`text-xs font-semibold tabular-nums ${quiet}`}>
+                    <RNText className={`text-role-caption font-semibold tabular-nums ${quiet}`}>
                         {count}
                     </RNText>
                 )}

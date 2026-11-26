@@ -156,7 +156,7 @@ function AttentionRow({
                         {check.text}
                     </Text>
                     {check.extra}
-                    <Text className="font-display text-base font-bold tabular-nums">
+                    <Text className="font-display text-role-section font-bold tabular-nums">
                         {check.count === null ? '—' : String(check.count)}
                     </Text>
                     <View className="h-8 justify-center rounded-full border border-stroke-subtle px-3">
@@ -273,7 +273,7 @@ function RouteStop({
                     <Text
                         testID={countTestID}
                         className={cx(
-                            'font-display text-lg font-bold tabular-nums',
+                            'font-display text-role-section font-bold tabular-nums',
                             waiting ? 'text-warning-on-subtle' : 'text-content-on-brand-subtle',
                         )}
                     >
@@ -796,7 +796,7 @@ export function KitchenHomeScreen() {
                                 <Text tone="secondary" testID="kitchen-home-date">
                                     {today}
                                 </Text>
-                                <Heading level={1} className="!text-3xl">
+                                <Heading level={1} className="!text-role-title">
                                     {t('kitchen:hub.title')}
                                 </Heading>
                             </Stack>

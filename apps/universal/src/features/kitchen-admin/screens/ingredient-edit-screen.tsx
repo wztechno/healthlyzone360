@@ -2747,7 +2747,7 @@ function IngredientEditor({
                                 testID="kitchen-ingredient-editor-screen-title"
                                 accessibilityRole="header"
                                 aria-level={1}
-                                className="font-display text-3xl font-bold text-content-primary text-start"
+                                className="font-display text-role-title font-bold text-content-primary text-start"
                             >
                                 {title}
                             </RNText>

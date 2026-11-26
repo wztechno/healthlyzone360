@@ -316,7 +316,7 @@ export function FilterChip({
                     // was one of the components that never asked which surface it was on, so a
                     // filter row in the Catalogue came out in Inter beside a toolbar in Schibsted.
                     density === 'compact'
-                        ? 'text-[13px] font-semibold'
+                        ? 'text-role-label font-semibold'
                         : size === 'sm'
                           ? 'text-xs font-medium'
                           : 'text-sm font-medium',

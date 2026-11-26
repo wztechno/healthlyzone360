@@ -89,13 +89,13 @@ export function StatusSteps({
                         <View className="flex-col">
                             <RNText
                                 numberOfLines={1}
-                                className={cx('text-sm text-start', INK[step.state])}
+                                className={cx('text-role-body text-start', INK[step.state])}
                             >
                                 {step.label}
                             </RNText>
                             <RNText
                                 numberOfLines={1}
-                                className="text-xs tabular-nums text-content-secondary text-start"
+                                className="text-role-caption tabular-nums text-content-secondary text-start"
                             >
                                 {step.at ?? noValue}
                             </RNText>

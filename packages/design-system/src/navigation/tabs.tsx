@@ -379,12 +379,14 @@ export function Tabs<T extends string = string>({
                                             : steps
                                               ? 'min-w-0 flex-1 text-start'
                                               : 'text-center',
-                                        pills
-                                            ? 'text-sm font-semibold'
-                                            : density === 'compact'
-                                              ? variant === 'segmented' || variant === 'strip'
-                                                  ? 'text-[13px] font-semibold'
-                                                  : 'text-role-label'
+                                        density === 'compact'
+                                            ? pills ||
+                                              variant === 'segmented' ||
+                                              variant === 'strip'
+                                                ? 'text-role-label font-semibold'
+                                                : 'text-role-label'
+                                            : pills
+                                              ? 'text-sm font-semibold'
                                               : 'text-sm',
                                         radio && variant === 'segmented' ? 'leading-4' : null,
                                         selected

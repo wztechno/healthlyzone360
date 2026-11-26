@@ -553,11 +553,11 @@ function PlanStep({ number, title }: { readonly number: number; readonly title: 
                 aria-hidden
                 className="h-[26px] w-[26px] items-center justify-center rounded-full bg-surface-brand-subtle"
             >
-                <Text className="font-display text-xs font-bold text-content-on-brand-subtle">
+                <Text className="font-display text-role-caption font-bold text-content-on-brand-subtle">
                     {String(number)}
                 </Text>
             </View>
-            <Heading level={3} className="!text-base font-bold">
+            <Heading level={3} className="!text-role-section font-bold">
                 {title}
             </Heading>
         </View>
@@ -601,7 +601,7 @@ function RecipeOption({
             <View className="flex-row items-center gap-1.5">
                 <Text
                     numberOfLines={1}
-                    className={`shrink text-sm font-bold ${
+                    className={`shrink text-role-body font-bold ${
                         selected ? 'text-content-on-brand-subtle' : 'text-content-primary'
                     }`}
                 >
@@ -618,7 +618,7 @@ function RecipeOption({
             {meta === '' ? null : (
                 <Text
                     numberOfLines={1}
-                    className={`text-xs font-medium tabular-nums ${
+                    className={`text-role-caption font-medium tabular-nums ${
                         selected ? 'text-content-on-brand-subtle' : 'text-content-secondary'
                     }`}
                 >
@@ -657,7 +657,7 @@ function QuickBatch({
             }`}
         >
             <Text
-                className={`text-sm font-semibold ${
+                className={`text-role-body font-semibold ${
                     on ? 'text-content-on-brand-subtle' : 'text-content-primary'
                 }`}
             >
@@ -699,7 +699,7 @@ function Summary({
                     level={2}
                     testID="kitchen-batch-summary-name"
                     numberOfLines={2}
-                    className="!text-2xl min-w-0 shrink font-bold"
+                    className="!text-role-title min-w-0 shrink font-bold"
                 >
                     {name}
                 </Heading>

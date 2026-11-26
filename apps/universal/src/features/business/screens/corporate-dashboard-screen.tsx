@@ -123,7 +123,11 @@ export function CorporateDashboardScreen() {
                     <Text tone="secondary" testID="corporate-dashboard-date">
                         {dateLine}
                     </Text>
-                    <Heading level={1} className="!text-3xl" testID="corporate-dashboard-title">
+                    <Heading
+                        level={1}
+                        className="!text-role-title"
+                        testID="corporate-dashboard-title"
+                    >
                         {t('business:overview.title')}
                     </Heading>
                 </Stack>
@@ -447,7 +451,7 @@ function Total({ row }: { readonly row: Quotation }) {
                     ? undefined
                     : contractPriceTestId(`overview-total-${row.reference}`)
             }
-            className="font-display text-base font-bold tabular-nums"
+            className="font-display text-role-section font-bold tabular-nums"
         >
             {row.requestedTotal === null ? '—' : formatMoney(formatter, row.requestedTotal)}
         </Text>
@@ -490,7 +494,7 @@ function ProgrammeCard({ programme }: { readonly programme: CorporateProgramme }
                 <Heading
                     level={3}
                     testID={`corporate-programme-${id}-name`}
-                    className="!text-[22px] !leading-7"
+                    className="!text-role-title !leading-7"
                 >
                     {programme.name}
                 </Heading>

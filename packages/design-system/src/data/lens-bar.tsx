@@ -204,7 +204,6 @@ export function LensBar({
                 )}
                 {onSearchChange === undefined ? null : (
                     <View
-                         
                         className={compactSearch ? 'w-field shrink' : 'flex-1'}
                         style={{ minWidth: SEARCH_MIN_WIDTH }}
                     >
@@ -238,7 +237,7 @@ export function LensBar({
                         variant="label"
                         tone="secondary"
                         role="status"
-                        className={`!text-[13px] font-semibold tabular-nums ${
+                        className={`!text-role-body font-semibold tabular-nums ${
                             compactSearch ? 'ms-auto' : ''
                         }`}
                     >
@@ -475,7 +474,7 @@ export function LensFigureCell({
                 numberOfLines={1}
                 className={
                     chip
-                        ? `!text-sm font-semibold ${active ? '!text-content-on-brand-subtle' : ''}`
+                        ? `!text-role-body font-semibold ${active ? '!text-content-on-brand-subtle' : ''}`
                         : ''
                 }
             >
@@ -496,7 +495,7 @@ export function LensFigureCell({
                     tone={alarm ? 'danger' : zero ? 'secondary' : 'primary'}
                     className={
                         chip
-                            ? `!text-sm font-bold tabular-nums ${active ? '!text-content-on-brand-subtle' : ''} ${fill ? 'ms-auto' : ''}`
+                            ? `!text-role-body font-bold tabular-nums ${active ? '!text-content-on-brand-subtle' : ''} ${fill ? 'ms-auto' : ''}`
                             : 'font-semibold tabular-nums'
                     }
                 >

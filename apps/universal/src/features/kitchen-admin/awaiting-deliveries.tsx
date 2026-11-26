@@ -40,7 +40,7 @@ export function AwaitingDeliveries() {
                 <Text
                     role="heading"
                     aria-level={2}
-                    className="font-display !text-base font-bold text-content-primary"
+                    className="font-display !text-role-section font-bold text-content-primary"
                 >
                     {t('kitchen:ops.procurement.awaitingTitle')}
                 </Text>
@@ -76,18 +76,18 @@ export function AwaitingDeliveries() {
                             testID={`kitchen-procurement-awaiting-${id}`}
                             className="w-[19%] min-w-[180px] gap-[3px] rounded-2xl bg-surface-sunken py-3 pe-3 ps-3.5"
                         >
-                            <Text className="!text-sm font-bold tabular-nums text-content-primary">
+                            <Text className="!text-role-body font-bold tabular-nums text-content-primary">
                                 {order.number}
                             </Text>
                             <Text
                                 numberOfLines={1}
-                                className="text-[13px] font-semibold text-content-primary"
+                                className="text-role-body font-semibold text-content-primary"
                             >
                                 {order.supplier?.nameEn ?? t('kitchen:ops.procurement.noSupplier')}
                             </Text>
                             <Text
                                 numberOfLines={1}
-                                className="text-xs font-medium tabular-nums text-content-secondary"
+                                className="text-role-caption font-medium tabular-nums text-content-secondary"
                             >
                                 {order.issuedAt === null
                                     ? ' '
@@ -98,7 +98,7 @@ export function AwaitingDeliveries() {
                                       })}
                             </Text>
                             <View className="mt-2 flex-row items-center justify-between gap-2">
-                                <Text className="text-xs font-bold tabular-nums text-warning-on-subtle">
+                                <Text className="text-role-caption font-bold tabular-nums text-warning-on-subtle">
                                     {t('kitchen:ops.procurement.awaitingLines', {
                                         count: order.outstandingLineCount,
                                     })}

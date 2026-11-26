@@ -743,7 +743,7 @@ export function QuotationBuilderScreen({
                                 totals.map((total) => (
                                     <Text
                                         key={total.currency}
-                                        className="font-display text-xl font-bold tabular-nums"
+                                        className="font-display text-role-title font-bold tabular-nums"
                                         testID={contractPriceTestId(
                                             `draft-total-${total.currency}`,
                                         )}
@@ -867,13 +867,13 @@ export function SentBox({
                     <Icon name="check" size="lg" className="text-content-on-brand" />
                 </View>
             </View>
-            <Heading level={2} align="center" className="mt-7 !text-[30px] !leading-9">
+            <Heading level={2} align="center" className="mt-7 !text-role-title !leading-9">
                 {t('business:builder.successTitle')}
             </Heading>
             <View className="mt-2.5 h-8 flex-row items-center rounded-full bg-surface-sunken px-3">
                 <RNText
                     testID="quotation-builder-reference"
-                    className="text-sm font-bold tabular-nums text-content-secondary"
+                    className="text-role-body font-bold tabular-nums text-content-secondary"
                 >
                     {reference}
                 </RNText>
@@ -893,7 +893,7 @@ export function SentBox({
                     >
                         <RNText
                             className={cx(
-                                'text-xs font-semibold',
+                                'text-role-caption font-semibold',
                                 step.tone === 'done'
                                     ? 'text-content-on-brand-subtle'
                                     : step.tone === 'now'

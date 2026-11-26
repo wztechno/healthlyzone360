@@ -490,7 +490,7 @@ export const nativeTokens = {
     },
     "textRoles": {
       "micro": {
-        "size": 10,
+        "size": 11,
         "lineHeight": 14,
         "weight": "600",
         "letterSpacing": 0,
@@ -504,15 +504,15 @@ export const nativeTokens = {
         "uppercase": false
       },
       "body": {
-        "size": 12,
+        "size": 13,
         "lineHeight": 18,
         "weight": "400",
         "letterSpacing": 0,
         "uppercase": false
       },
       "label": {
-        "size": 12,
-        "lineHeight": 16,
+        "size": 13,
+        "lineHeight": 18,
         "weight": "500",
         "letterSpacing": 0,
         "uppercase": false
@@ -525,17 +525,17 @@ export const nativeTokens = {
         "uppercase": false
       },
       "section": {
-        "size": 13,
-        "lineHeight": 18,
+        "size": 14,
+        "lineHeight": 20,
         "weight": "600",
         "letterSpacing": 0,
         "uppercase": false
       },
       "title": {
-        "size": 16,
-        "lineHeight": 22,
-        "weight": "600",
-        "letterSpacing": -0.16,
+        "size": 20,
+        "lineHeight": 26,
+        "weight": "700",
+        "letterSpacing": -0.3,
         "uppercase": false
       },
       "display": {
@@ -549,7 +549,7 @@ export const nativeTokens = {
     "textRoleMetrics": {
       "latin": {
         "micro": {
-          "fontSize": 10,
+          "fontSize": 11,
           "lineHeight": 14,
           "letterSpacing": 0,
           "fontWeight": "600"
@@ -561,14 +561,14 @@ export const nativeTokens = {
           "fontWeight": "400"
         },
         "body": {
-          "fontSize": 12,
+          "fontSize": 13,
           "lineHeight": 18,
           "letterSpacing": 0,
           "fontWeight": "400"
         },
         "label": {
-          "fontSize": 12,
-          "lineHeight": 16,
+          "fontSize": 13,
+          "lineHeight": 18,
           "letterSpacing": 0,
           "fontWeight": "500"
         },
@@ -579,16 +579,16 @@ export const nativeTokens = {
           "fontWeight": "600"
         },
         "section": {
-          "fontSize": 13,
-          "lineHeight": 18,
+          "fontSize": 14,
+          "lineHeight": 20,
           "letterSpacing": 0,
           "fontWeight": "600"
         },
         "title": {
-          "fontSize": 16,
-          "lineHeight": 22,
-          "letterSpacing": -0.16,
-          "fontWeight": "600"
+          "fontSize": 20,
+          "lineHeight": 26,
+          "letterSpacing": -0.3,
+          "fontWeight": "700"
         },
         "display": {
           "fontSize": 20,
@@ -599,8 +599,8 @@ export const nativeTokens = {
       },
       "arabic": {
         "micro": {
-          "fontSize": 10,
-          "lineHeight": 18,
+          "fontSize": 11,
+          "lineHeight": 19,
           "letterSpacing": 0,
           "fontWeight": "600"
         },
@@ -611,14 +611,14 @@ export const nativeTokens = {
           "fontWeight": "400"
         },
         "body": {
-          "fontSize": 12,
-          "lineHeight": 21,
+          "fontSize": 13,
+          "lineHeight": 23,
           "letterSpacing": 0,
           "fontWeight": "400"
         },
         "label": {
-          "fontSize": 12,
-          "lineHeight": 21,
+          "fontSize": 13,
+          "lineHeight": 23,
           "letterSpacing": 0,
           "fontWeight": "500"
         },
@@ -629,16 +629,16 @@ export const nativeTokens = {
           "fontWeight": "600"
         },
         "section": {
-          "fontSize": 13,
-          "lineHeight": 23,
+          "fontSize": 14,
+          "lineHeight": 25,
           "letterSpacing": 0,
           "fontWeight": "600"
         },
         "title": {
-          "fontSize": 16,
-          "lineHeight": 28,
-          "letterSpacing": -0.16,
-          "fontWeight": "600"
+          "fontSize": 20,
+          "lineHeight": 35,
+          "letterSpacing": -0.3,
+          "fontWeight": "700"
         },
         "display": {
           "fontSize": 20,

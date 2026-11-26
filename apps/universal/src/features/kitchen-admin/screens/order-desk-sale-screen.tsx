@@ -795,7 +795,7 @@ function Sale() {
                 {editOrder === null ? (
                     <Text
                         variant="title"
-                        className="font-display !text-[26px] !leading-8 !font-bold tracking-tight"
+                        className="font-display !text-role-title !leading-8 !font-bold tracking-tight"
                         accessibilityRole="header"
                     >
                         {t('kitchen:desk.sale.title')}
@@ -804,7 +804,7 @@ function Sale() {
                     <Text
                         variant="title"
                         accessibilityRole="header"
-                        className="font-display !text-[26px] !leading-8 !font-bold tracking-tight"
+                        className="font-display !text-role-title !leading-8 !font-bold tracking-tight"
                         testID="kitchen-order-desk-sale-editing"
                     >
                         {t('kitchen:desk.edit.title', { number: editOrder.orderNumber })}
@@ -2093,7 +2093,7 @@ function Ticket({
                     <Text
                         variant="section"
                         accessibilityRole="header"
-                        className="font-display !text-[17px] !font-bold"
+                        className="font-display !text-role-section !font-bold"
                     >
                         {t('kitchen:desk.sale.ticketTitle')}
                     </Text>
@@ -2185,14 +2185,14 @@ function Ticket({
                                                 <Text
                                                     variant="strong"
                                                     numberOfLines={2}
-                                                    className="!text-sm"
+                                                    className="!text-role-body"
                                                 >
                                                     {name}
                                                 </Text>
                                             </View>
                                             <Text
                                                 variant="strong"
-                                                className="!text-sm !font-bold tabular-nums"
+                                                className="!text-role-body !font-bold tabular-nums"
                                                 testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-total`}
                                             >
                                                 {quoted?.lineTotalMinor == null
@@ -2630,7 +2630,7 @@ function Totals({
             <Text
                 variant={strong ? 'strong' : 'label'}
                 tone={strong ? 'primary' : 'secondary'}
-                className={strong ? '!text-sm !font-bold' : '!text-[13px]'}
+                className={strong ? '!text-role-body !font-bold' : '!text-role-body'}
             >
                 {label}
             </Text>
@@ -2638,7 +2638,9 @@ function Totals({
                 variant={strong ? 'title' : 'strong'}
                 tone={strong ? 'brand' : 'primary'}
                 className={
-                    strong ? 'font-display !text-2xl !font-bold tabular-nums' : 'tabular-nums'
+                    strong
+                        ? 'font-display !text-role-title !font-bold tabular-nums'
+                        : 'tabular-nums'
                 }
                 testID={testID}
             >

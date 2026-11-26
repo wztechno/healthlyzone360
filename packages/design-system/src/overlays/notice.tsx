@@ -132,7 +132,7 @@ export function Notice({
                                     testID={`${base}-title`}
                                     accessibilityRole="header"
                                     aria-level={2}
-                                    className="min-w-0 flex-1 font-display text-lg font-semibold text-content-primary text-start"
+                                    className="min-w-0 flex-1 font-display text-role-section font-semibold text-content-primary text-start"
                                 >
                                     {title}
                                 </RNText>
@@ -142,7 +142,7 @@ export function Notice({
                                 <RNText
                                     nativeID={bodyId}
                                     testID={`${base}-body`}
-                                    className="text-base text-content-secondary text-start"
+                                    className="text-role-body text-content-secondary text-start"
                                 >
                                     {body}
                                 </RNText>

@@ -72,7 +72,7 @@ export function ChoiceRow({
                     }`}
                 >
                     <RNText
-                        className={`text-xs font-bold ${
+                        className={`text-role-caption font-bold ${
                             selected ? 'text-content-on-brand' : 'text-content-secondary'
                         }`}
                     >
@@ -112,7 +112,7 @@ export function ChoiceRow({
              */}
             <RNText
                 numberOfLines={2}
-                className={`flex-1 text-sm font-semibold web:min-w-min ${
+                className={`flex-1 text-role-body font-semibold web:min-w-min ${
                     selected ? 'text-content-on-brand-subtle' : 'text-content-primary'
                 }`}
             >

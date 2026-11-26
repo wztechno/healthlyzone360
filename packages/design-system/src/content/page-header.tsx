@@ -59,7 +59,7 @@ export function PageHeader({
                             accessibilityRole="header"
                             aria-level={1}
                             numberOfLines={1}
-                            className="font-display text-2xl font-bold tracking-display text-content-primary"
+                            className="font-display text-role-title font-bold tracking-display text-content-primary"
                         >
                             {title}
                         </RNText>

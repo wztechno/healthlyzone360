@@ -335,7 +335,7 @@ export function IngredientDetail({
     const assessed = ingredient.allergens.length > 0 || ingredient.allergensAssessedClear === true;
     const reviewRequired = ingredient.allergenReviewRequired === true;
     const quiet = (key: string) => (
-        <RNText testID={`${testID}-${key}`} className="pt-1 text-base text-content-secondary">
+        <RNText testID={`${testID}-${key}`} className="pt-1 text-role-body text-content-secondary">
             {dash}
         </RNText>
     );
@@ -418,7 +418,7 @@ export function IngredientDetail({
                         content: (
                             <RNText
                                 testID={`${testID}-allergens-checked`}
-                                className={`pt-1 text-base font-semibold ${
+                                className={`pt-1 text-role-section font-semibold ${
                                     reviewRequired || !assessed
                                         ? 'text-warning-strong'
                                         : 'text-content-primary'
@@ -464,15 +464,15 @@ export function IngredientDetail({
                     <View className="flex-row items-baseline gap-2 rounded-xl border border-stroke-subtle bg-surface-sunken px-4 py-3">
                         <RNText
                             testID={`${testID}-energy-line`}
-                            className="font-display text-3xl font-bold tabular-nums text-content-primary"
+                            className="font-display text-role-title font-bold tabular-nums text-content-primary"
                         >
                             {energy?.value ?? dash}
                         </RNText>
-                        <RNText className="text-sm font-semibold text-content-secondary">
+                        <RNText className="text-role-body font-semibold text-content-secondary">
                             {kcal}
                         </RNText>
                         {energy?.share == null ? null : (
-                            <RNText className="ms-auto text-sm font-semibold tabular-nums text-content-primary">
+                            <RNText className="ms-auto text-role-body font-semibold tabular-nums text-content-primary">
                                 {t('kitchen:ingredientDetail.energyShareOfRi', {
                                     percent: wholePercent(energy.share),
                                 })}
@@ -495,7 +495,7 @@ export function IngredientDetail({
                                     <View className="min-w-0 flex-1">
                                         <RNText
                                             numberOfLines={1}
-                                            className={`text-sm text-start ${
+                                            className={`text-role-body text-start ${
                                                 row.sub === true
                                                     ? 'text-content-secondary'
                                                     : 'font-semibold text-content-primary'
@@ -514,10 +514,10 @@ export function IngredientDetail({
                                             />
                                         )}
                                     </View>
-                                    <RNText className="w-20 text-end text-sm font-semibold tabular-nums text-content-primary">
+                                    <RNText className="w-20 text-end text-role-body font-semibold tabular-nums text-content-primary">
                                         {`${row.figure.value} ${row.unit}`}
                                     </RNText>
-                                    <RNText className="w-12 text-end text-sm font-semibold tabular-nums text-content-secondary">
+                                    <RNText className="w-12 text-end text-role-body font-semibold tabular-nums text-content-secondary">
                                         {row.figure.share === null
                                             ? dash
                                             : `${wholePercent(row.figure.share)} %`}

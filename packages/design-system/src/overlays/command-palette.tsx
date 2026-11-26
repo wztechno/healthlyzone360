@@ -251,7 +251,7 @@ export function CommandPalette({
                                     onSubmitEditing={() => {
                                         choose(flat[active]);
                                     }}
-                                    className="min-w-0 flex-1 text-base text-content-primary text-start web:outline-none"
+                                    className="min-w-0 flex-1 text-role-body text-content-primary text-start web:outline-none"
                                     // neutral.600, as `TextInputField` uses: placeholder text is
                                     // still text to WCAG.
                                     placeholderTextColor={neutral[600]}
@@ -267,7 +267,7 @@ export function CommandPalette({
                                 {flat.length === 0 ? (
                                     <RNText
                                         testID={`${testID}-empty`}
-                                        className="px-3 py-6 text-center text-sm text-content-secondary"
+                                        className="px-3 py-6 text-center text-role-body text-content-secondary"
                                     >
                                         {emptyText(query)}
                                     </RNText>
@@ -339,20 +339,20 @@ export function CommandPalette({
                                                         </View>
                                                         <RNText
                                                             numberOfLines={1}
-                                                            className="min-w-0 flex-1 text-sm font-semibold text-content-primary text-start"
+                                                            className="min-w-0 flex-1 text-role-body font-semibold text-content-primary text-start"
                                                         >
                                                             {item.label}
                                                         </RNText>
                                                         {item.count === undefined ||
                                                         item.count === 0 ? null : (
-                                                            <RNText className="rounded-full bg-warning-subtle px-2 py-0.5 text-xs font-semibold text-warning-on-subtle">
+                                                            <RNText className="rounded-full bg-warning-subtle px-2 py-0.5 text-role-caption font-semibold text-warning-on-subtle">
                                                                 {String(item.count)}
                                                             </RNText>
                                                         )}
                                                         {highlighted ? (
                                                             <RNText
                                                                 aria-hidden
-                                                                className="rounded-md border border-stroke-subtle bg-surface-raised px-1.5 py-0.5 text-xs font-semibold text-content-secondary"
+                                                                className="rounded-md border border-stroke-subtle bg-surface-raised px-1.5 py-0.5 text-role-caption font-semibold text-content-secondary"
                                                             >
                                                                 ↵
                                                             </RNText>
@@ -384,10 +384,10 @@ export function CommandPalette({
 function Hint({ keys, text }: { readonly keys: string; readonly text: string }) {
     return (
         <View className="flex-row items-center gap-1.5">
-            <RNText className="rounded-md border border-stroke-subtle bg-surface-raised px-1.5 py-0.5 text-xs font-semibold text-content-primary">
+            <RNText className="rounded-md border border-stroke-subtle bg-surface-raised px-1.5 py-0.5 text-role-caption font-semibold text-content-primary">
                 {keys}
             </RNText>
-            <RNText className="text-xs text-content-secondary">{text}</RNText>
+            <RNText className="text-role-caption text-content-secondary">{text}</RNText>
         </View>
     );
 }

@@ -25,7 +25,7 @@ export function UndoBar({ label, onUndo, testID }: UndoBarProps) {
             <Icon name="rotateCw" size="sm" className="text-content-inverse" />
             <RNText
                 testID={`${testID}-removed`}
-                className="text-sm font-semibold text-content-inverse"
+                className="text-role-body font-semibold text-content-inverse"
             >
                 {label}
             </RNText>
@@ -36,7 +36,7 @@ export function UndoBar({ label, onUndo, testID }: UndoBarProps) {
                 onPress={onUndo}
                 className="h-7 justify-center rounded-full px-2.5 hover:bg-content-inverse/15"
             >
-                <RNText className="text-sm font-bold text-stage-green">
+                <RNText className="text-role-body font-bold text-stage-green">
                     {t('designSystem:undoBar.undo')}
                 </RNText>
             </Pressable>

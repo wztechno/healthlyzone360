@@ -43,7 +43,7 @@ export function InlineChecksButton({ testID }: { readonly testID: string }) {
             >
                 {bars}
                 <Icon name="check" size="sm" className="text-content-on-brand-subtle" />
-                <RNText className="text-sm font-semibold text-content-on-brand-subtle">
+                <RNText className="text-role-body font-semibold text-content-on-brand-subtle">
                     {t('designSystem:checks.allPass')}
                 </RNText>
             </View>
@@ -65,11 +65,11 @@ export function InlineChecksButton({ testID }: { readonly testID: string }) {
             className="h-10 flex-row items-center gap-2 rounded-full border border-stroke bg-surface-raised px-3 web:hover:bg-surface-sunken"
         >
             {bars}
-            <RNText className="text-sm font-semibold tabular-nums text-content-primary">
+            <RNText className="text-role-body font-semibold tabular-nums text-content-primary">
                 {t('designSystem:checks.count', { done: passedCount, total })}
             </RNText>
             {first === undefined ? null : (
-                <RNText className="text-sm font-bold text-warning-on-subtle">
+                <RNText className="text-role-body font-bold text-warning-on-subtle">
                     {t('designSystem:checks.nextFix')}
                 </RNText>
             )}

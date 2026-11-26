@@ -192,7 +192,7 @@ export function SupplyOrderRecord({
             {order.status === 'cancelled' ? (
                 <SheetText text={t('kitchen:ops.supplyOrders.cancelledNoticeTitle')} empty />
             ) : closed && toCome.length > 0 ? (
-                <RNText className="text-base font-semibold text-warning-strong text-start">
+                <RNText className="text-role-section font-semibold text-warning-strong text-start">
                     {t('kitchen:ops.supplyOrders.closedShortTitle')}
                 </RNText>
             ) : toCome.length === 0 ? (
@@ -245,7 +245,7 @@ export function SupplyOrderRecord({
             title={t('kitchen:ops.supplyOrders.columnSupplier')}
             trailing={
                 snapshot === null ? undefined : (
-                    <RNText className="text-xs text-content-secondary">
+                    <RNText className="text-role-caption text-content-secondary">
                         {t('kitchen:ops.supplyOrders.view.asIssued')}
                     </RNText>
                 )
@@ -254,12 +254,12 @@ export function SupplyOrderRecord({
             <View className="flex-col">
                 <RNText
                     testID="kitchen-supply-order-detail-summary-supplier"
-                    className="text-base font-semibold text-content-primary text-start"
+                    className="text-role-section font-semibold text-content-primary text-start"
                 >
                     {supplierName}
                 </RNText>
                 {supplierLine.length === 0 ? null : (
-                    <RNText className="text-sm text-content-secondary text-start">
+                    <RNText className="text-role-body text-content-secondary text-start">
                         {supplierLine.join(separator)}
                     </RNText>
                 )}

@@ -305,7 +305,7 @@ export function TicketLabel({
             <Text
                 variant="micro"
                 tone="secondary"
-                className="!text-[11px] font-bold uppercase tracking-wider"
+                className="!text-role-caption font-bold uppercase tracking-wider"
             >
                 {children}
             </Text>

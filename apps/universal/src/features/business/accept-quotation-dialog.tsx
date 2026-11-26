@@ -231,7 +231,7 @@ export function AcceptQuotationDialog({
                         <View testID={contractPriceTestId(`accept-${quotation.reference}`)}>
                             <RNText
                                 testID="quotation-accept-total"
-                                className="font-display text-2xl font-bold tabular-nums text-content-on-brand-subtle"
+                                className="font-display text-role-title font-bold tabular-nums text-content-on-brand-subtle"
                             >
                                 {formatMoney(formatter, quotation.requestedTotal)}
                             </RNText>

@@ -159,7 +159,7 @@ export function orderColumns(context: OrderColumnContext): readonly DataTableCol
                 <View className="flex-col items-start gap-hair">
                     <RNText
                         numberOfLines={1}
-                        className="text-xs font-semibold tabular-nums text-content-secondary"
+                        className="text-role-caption font-semibold tabular-nums text-content-secondary"
                         testID={`${id(order)}-number`}
                     >
                         {order.orderNumber}

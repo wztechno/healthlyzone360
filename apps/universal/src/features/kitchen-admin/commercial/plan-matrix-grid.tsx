@@ -98,7 +98,7 @@ export function PlanMatrixGrid({
                 className="min-h-14 flex-row items-center gap-2.5 rounded-2xl border border-dashed border-stroke px-3.5 py-2.5"
             >
                 <Icon name="layoutGrid" size="md" className="text-content-secondary" />
-                <RNText className="min-w-0 flex-1 text-sm font-medium text-content-secondary text-start">
+                <RNText className="min-w-0 flex-1 text-role-body font-medium text-content-secondary text-start">
                     {t('kitchen:plans.matrixEmpty')}
                 </RNText>
                 {onOpenConfigurations === undefined ? null : (
@@ -159,7 +159,7 @@ export function PlanMatrixGrid({
                         >
                             <RNText
                                 numberOfLines={2}
-                                className="text-sm font-bold text-content-primary text-start"
+                                className="text-role-body font-bold text-content-primary text-start"
                             >
                                 {row.combination === null || row.combination.label.en.trim() === ''
                                     ? servings(row)
@@ -201,8 +201,8 @@ export function PlanMatrixGrid({
                                         <RNText
                                             className={
                                                 sold
-                                                    ? 'text-[13px] font-bold text-content-on-brand-subtle text-start'
-                                                    : 'text-[13px] font-medium text-content-secondary text-start'
+                                                    ? 'text-role-body font-bold text-content-on-brand-subtle text-start'
+                                                    : 'text-role-body font-medium text-content-secondary text-start'
                                             }
                                         >
                                             {word}
@@ -211,7 +211,7 @@ export function PlanMatrixGrid({
                                             <RNText
                                                 testID={`${cellId}-count`}
                                                 numberOfLines={1}
-                                                className="text-xs font-medium text-content-on-brand-subtle text-start"
+                                                className="text-role-caption font-medium text-content-on-brand-subtle text-start"
                                             >
                                                 {t('kitchen:plans.cellVariantCount', {
                                                     count: occupants.length,
@@ -221,7 +221,7 @@ export function PlanMatrixGrid({
                                             <RNText
                                                 testID={`${cellId}-name`}
                                                 numberOfLines={1}
-                                                className="text-xs font-medium text-content-on-brand-subtle text-start"
+                                                className="text-role-caption font-medium text-content-on-brand-subtle text-start"
                                             >
                                                 {variantName(first)}
                                             </RNText>

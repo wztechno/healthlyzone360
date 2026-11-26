@@ -912,7 +912,7 @@ export function PacksPricesSection({
                             variant="label"
                             className={
                                 board
-                                    ? 'rounded-xl bg-surface-sunken px-3 py-2.5 !text-[13px] !font-semibold'
+                                    ? 'rounded-xl bg-surface-sunken px-3 py-2.5 !text-role-body !font-semibold'
                                     : undefined
                             }
                         >
@@ -1065,7 +1065,7 @@ export function PackCard({
                     <Text
                         testID={`${testID}-name`}
                         variant="bodyStrong"
-                        className={board ? '!text-[15px] !font-bold' : undefined}
+                        className={board ? '!text-role-section !font-bold' : undefined}
                     >
                         {name}
                     </Text>
@@ -1536,10 +1536,10 @@ function PlaceTile({
                 ) : null}
             </View>
             <View className="min-w-0 shrink">
-                <RNText numberOfLines={1} className="text-sm font-bold text-content-primary">
+                <RNText numberOfLines={1} className="text-role-body font-bold text-content-primary">
                     {label}
                 </RNText>
-                <RNText numberOfLines={1} className="text-xs text-content-secondary">
+                <RNText numberOfLines={1} className="text-role-caption text-content-secondary">
                     {meta}
                 </RNText>
             </View>
