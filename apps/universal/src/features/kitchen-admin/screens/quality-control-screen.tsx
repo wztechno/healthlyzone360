@@ -14,6 +14,7 @@ import {
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     Stack,
     TablePager,
     TableSkeleton,
@@ -21,7 +22,15 @@ import {
     useColumnControls,
     useToast,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensMixPart,
+    LensToken,
+    LensTone,
+    MenuItem,
+} from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
@@ -35,8 +44,6 @@ import {
     useQualityChecksQuery,
     useReleaseQualityCheckMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart, LensTone, LensToken } from '../catalogue/lens-bar.tsx';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     qualityCheckRowTestId,
@@ -433,7 +440,6 @@ function QualityCheckList({
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-qc-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     {...(failure !== null

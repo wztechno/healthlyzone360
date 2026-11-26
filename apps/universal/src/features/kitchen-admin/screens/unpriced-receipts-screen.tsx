@@ -9,11 +9,20 @@ import {
     DataTable,
     EmptyState,
     ErrorState,
+    LensBar,
     TableSkeleton,
     Text,
     useColumnControls,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensMixPart,
+    LensToken,
+    LensTone,
+    MenuItem,
+} from '@healthy360/design-system';
 import { SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -25,8 +34,6 @@ import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useSuppliersQuery, useUnpricedReceiptsQuery } from '../../../data/kitchen-ops-hooks.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart, LensTone, LensToken } from '../catalogue/lens-bar.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
@@ -300,7 +307,6 @@ function UnpricedReceipts() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-unpriced-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     {...lens}

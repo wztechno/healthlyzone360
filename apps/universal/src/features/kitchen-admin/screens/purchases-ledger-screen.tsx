@@ -19,6 +19,7 @@ import {
     ErrorState,
     InfoTip,
     Inline,
+    LensBar,
     SegmentedControl,
     Stack,
     TABLE_PAGE_SIZE,
@@ -31,6 +32,9 @@ import type {
     BadgeTone,
     ControlledColumn,
     DataTableColumn,
+    LensFigure,
+    LensMixPart,
+    LensToken,
     MenuItem,
 } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
@@ -48,8 +52,6 @@ import {
     useStockItemsQuery,
     useSuppliersQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart, LensToken } from '../catalogue/lens-bar.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { receiptCostStatusKey } from '../ops-format.ts';
@@ -793,7 +795,6 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-ledger-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     {...lens}

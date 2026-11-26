@@ -12,6 +12,7 @@ import {
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     Stack,
     TablePager,
     TableSkeleton,
@@ -37,7 +38,6 @@ import {
     usePriceListsQuery,
     useAdminPlanQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { StatusLensSource } from '../catalogue/lens-status.ts';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { statusTally, withoutStatuses } from '../catalogue/use-catalogue-filters.ts';
@@ -445,7 +445,6 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-plans-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={statusLensFigures(lens, t, {

@@ -261,7 +261,7 @@ in `packages/design-system`, never in a feature folder; check `/showcase-compone
 Every "pick a value" dropdown is `Select` (`trigger="pill"` on a toolbar); every button is `Button`
 or `IconButton`; a status label is `Badge`; a tick is `Checkbox`; a choice is `ChoiceChips` or
 `ChoiceRow`; tabs are `Tabs` strip (page views) or segmented (toggles); steps are `Tabs` pills (a form's
-sections) or `StatusSteps` (a record's progress); a day is `DatePicker` (`trigger="pill"` on a toolbar); a table is `DataTable` (`lines` for a form's own rows). The admin look comes from `AreaLookScope look="desk"` in the area's layout.
+sections) or `StatusSteps` (a record's progress); a day is `DatePicker` (`trigger="pill"` on a toolbar); a table is `DataTable` (`lines` for a form's own rows); a list's toolbar is `LensBar` (`FigureChips` for counts alone). The admin look comes from `AreaLookScope look="desk"` in the area's layout.
 
 The wellness-green handoff's component phase shipped. Use these rather than rebuilding:
 
@@ -273,7 +273,7 @@ The wellness-green handoff's component phase shipped. Use these rather than rebu
 | Page opening with weight — the canopy band (`/kitchens`, `/dietitians`) | `apps/universal/src/ui/page-hero.tsx`                                  |
 | Storefront opening — canopy panel beside a photo                        | `apps/universal/src/ui/storefront-hero.tsx`                            |
 | Account menu / any popover with a button trigger                        | `Popover` `triggerVariant="button"` `align="end"`                      |
-| One-row filter/sort/count bar                                           | `marketplace/toolbar-row.tsx`, `kitchen-admin/list-toolbar.tsx`        |
+| One-row filter/sort/count bar                                           | admin: `LensBar` (design system); shop: `marketplace/toolbar-row.tsx`  |
 | Machine-generated content band                                          | `ui/ai-surface.tsx`                                                    |
 
 Then: shells → screens. Update `screens/components-showcase-screen.tsx` in the same commit as any

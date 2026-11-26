@@ -6,10 +6,13 @@ import {
     DatePicker,
     EmptyState,
     ErrorState,
+    LensBar,
+    PeriodScope,
     Stack,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
+import type { LensFigure, LensMixPart, PeriodWindow } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -25,11 +28,7 @@ import { displayName, statusKey } from '../format.ts';
 import { ReviewTable, useReviewColumns } from '../review/review-table.tsx';
 import { buildReviewQueue, isBlocked, reviewFamilyKey, reviewReasonKey } from '../review-queue.ts';
 import type { ReviewItem, ReviewQueue, ReviewSection } from '../review-queue.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import { PeriodScope } from '../catalogue/period-scope.tsx';
-import type { PeriodWindow } from '../catalogue/period-scope.tsx';
 import { todayIso } from '../../commerce/dates.ts';
-import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { useListMemory, useRememberedFilter, useRememberedQuery } from '../list-memory.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
@@ -238,7 +237,6 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                 {(queue !== null && queue.total === 0) || failure !== null ? null : (
                     <LensBar
                         testID="kitchen-review-toolbar"
-                        layout="split"
                         joined={joined}
                         label={t('kitchen:lens.label')}
                         figures={lensFigures(searched, scope, t, pickScope)}

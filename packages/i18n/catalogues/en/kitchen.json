@@ -5503,22 +5503,7 @@
         "allProducts": "All products",
         "reviewAction": "Show only records awaiting review",
         "requirementsMix": "{{short}} short, {{covered}} covered",
-        "deskMix": "{{placed}} placed, {{confirmed}} confirmed",
-        "periodLabel": "Period",
-        "period": {
-            "all": "All",
-            "today": "Today",
-            "yesterday": "Yesterday",
-            "week": "This week",
-            "month": "This month",
-            "lastMonth": "Last month",
-            "quarter": "Last 3 months",
-            "year": "This year",
-            "tomorrow": "Tomorrow",
-            "nextWeek": "Next week",
-            "twoWeeks": "Next 2 weeks",
-            "custom": "Custom"
-        }
+        "deskMix": "{{placed}} placed, {{confirmed}} confirmed"
     },
     "tray": {
         "noChannel": "No sales channel",

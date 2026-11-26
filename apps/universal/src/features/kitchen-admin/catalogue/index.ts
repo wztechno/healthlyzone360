@@ -5,8 +5,7 @@
  *
  * ```tsx
  * <CataloguePageHeader … />     // breadcrumb (with the ☰), optional title, the actions
- * <CatalogueStatCards … />      // the four figures
- * <CatalogueToolbar … />        // one 28px row: search and the status segments
+ * <LensBar … />                 // the figures and the query row (design system)
  * <DataTable … />           // the spec-driven grid, or two-line rows below `md`
  * <TablePager … />          // range + compact buttons
  * ```
@@ -17,16 +16,6 @@
 
 export { CataloguePageHeader } from './catalogue-page-header.tsx';
 export type { CataloguePageHeaderProps } from './catalogue-page-header.tsx';
-
-export { CATALOGUE_STAT_TONES, CatalogueStatCards } from './catalogue-stat-cards.tsx';
-export type {
-    CatalogueStatCard,
-    CatalogueStatCardsProps,
-    CatalogueStatTone,
-} from './catalogue-stat-cards.tsx';
-
-export { CatalogueToolbar } from './catalogue-toolbar.tsx';
-export type { CatalogueStatusSegment, CatalogueToolbarProps } from './catalogue-toolbar.tsx';
 
 export { DerivedPanel } from './derived-panel.tsx';
 export type { DerivedFigure, DerivedPanelProps } from './derived-panel.tsx';

@@ -6238,22 +6238,7 @@
         "allProducts": "كل المنتجات",
         "reviewAction": "عرض السجلات بانتظار المراجعة فقط",
         "requirementsMix": "{{short}} ناقص، {{covered}} متوفر",
-        "deskMix": "{{placed}} مقدّم، {{confirmed}} مؤكد",
-        "periodLabel": "الفترة",
-        "period": {
-            "all": "الكل",
-            "today": "اليوم",
-            "yesterday": "أمس",
-            "week": "هذا الأسبوع",
-            "month": "هذا الشهر",
-            "lastMonth": "الشهر الماضي",
-            "quarter": "آخر 3 أشهر",
-            "year": "هذه السنة",
-            "tomorrow": "غدًا",
-            "nextWeek": "الأسبوع القادم",
-            "twoWeeks": "الأسبوعان القادمان",
-            "custom": "مخصص"
-        }
+        "deskMix": "{{placed}} مقدّم، {{confirmed}} مؤكد"
     },
     "tray": {
         "noChannel": "لا توجد قناة بيع",

@@ -3,11 +3,30 @@ import type {
     GoodsReceiptLine,
     StockItem,
 } from '@healthy360/api-client/contracts';
-import { Badge, Button, Cascade, DataTable, Dialog, EmptyState, ErrorState, FormSection, IssueTrayFrame, IssueUnanchored, QuantityInput, RecordSkeleton, Text, useContentWidth, useIssueTrayController, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    DataTable,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    FigureChips,
+    FormSection,
+    IssueTrayFrame,
+    IssueUnanchored,
+    QuantityInput,
+    RecordSkeleton,
+    Text,
+    useContentWidth,
+    useIssueTrayController,
+    useToast,
+} from '@healthy360/design-system';
 import type {
     DataListColumn,
     IssueCardItem,
     IssueTrayContent,
+    LensFigure,
     RecordWindowField,
 } from '@healthy360/design-system';
 import { GoodsReceiptId } from '@healthy360/domain-types';
@@ -28,8 +47,6 @@ import {
     useStockItemsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import { unitCodeLabel } from '../format.ts';
@@ -368,9 +385,10 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
 
                 <IssueUnanchored testID="kitchen-unpriced-receipt-issues-loose" />
 
-                <CatalogueStatCards
+                <FigureChips
                     testID="kitchen-unpriced-receipt-facts"
-                    cards={receiptFacts(detail, priceable.length, typed.length, formatter, t)}
+                    fill
+                    figures={receiptFacts(detail, priceable.length, typed.length, formatter, t)}
                 />
 
                 {/*
@@ -628,50 +646,52 @@ function lineColumns({
     ];
 }
 
-/** The receipt in four figures: what is left to price, what is typed, what waits, and when. */
+/**
+ * The receipt in four figures: what is left to price, what is typed, what waits, and when. What each
+ * one means sits behind its (i).
+ */
 function receiptFacts(
     receipt: GoodsReceiptDetail,
     toPrice: number,
     typed: number,
     formatter: Formatter,
     t: TFunction,
-): readonly CatalogueStatCard[] {
+): readonly LensFigure[] {
+    const lines = t('kitchen:ops.ledger.statLinesUnit');
     return [
         {
             key: 'toPrice',
             label: t('kitchen:ops.unpricedReceipts.columnToPrice'),
-            value: String(toPrice),
-            unit: t('kitchen:ops.ledger.statLinesUnit'),
-            caption: t('kitchen:ops.unpricedReceipts.statToPriceCaption'),
-            mark: 'coins',
-            tone: toPrice === 0 ? 'default' : 'warning',
+            value: toPrice,
+            note: lines,
+            info: t('kitchen:ops.unpricedReceipts.statToPriceCaption'),
+            tone: 'warning',
         },
         {
             key: 'typed',
             label: t('kitchen:ops.unpricedReceipts.statTypedLabel'),
-            value: String(typed),
-            unit: t('kitchen:ops.ledger.statLinesUnit'),
-            caption: t('kitchen:ops.unpricedReceipts.statTypedCaption'),
-            mark: 'receipt',
+            value: typed,
+            note: lines,
+            info: t('kitchen:ops.unpricedReceipts.statTypedCaption'),
             tone: 'brand',
         },
         {
             key: 'pendingFx',
             label: t('kitchen:ops.ledger.statePendingFx'),
-            value: String(receipt.valuationPendingCount),
-            unit: t('kitchen:ops.ledger.statLinesUnit'),
-            caption: t('kitchen:ops.unpricedReceipts.statPendingFxCaption'),
-            mark: 'clock',
+            value: receipt.valuationPendingCount,
+            note: lines,
+            info: t('kitchen:ops.unpricedReceipts.statPendingFxCaption'),
+            tone: 'info',
         },
         {
             key: 'receivedOn',
             label: t('kitchen:ops.unpricedReceipts.columnReceivedOn'),
-            value:
+            value: 0,
+            display:
                 receipt.receivedOn === null
                     ? t('kitchen:list.noValue')
                     : formatter.formatDate(receipt.receivedOn, { dateStyle: 'medium' }),
-            caption: t('kitchen:ops.unpricedReceipts.statReceivedCaption'),
-            mark: 'calendar',
+            info: t('kitchen:ops.unpricedReceipts.statReceivedCaption'),
         },
     ];
 }

@@ -7,6 +7,7 @@ import {
     Cascade,
     cx,
     EmptyState,
+    FigureChips,
     Heading,
     Icon,
     Inline,
@@ -16,7 +17,7 @@ import {
     useContentWidth,
     useMotion,
 } from '@healthy360/design-system';
-import type { IconName } from '@healthy360/design-system';
+import type { IconName, LensFigure } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -69,7 +70,7 @@ import { GROUP_LABEL_KEYS } from '../kitchen-nav.ts';
 import { buildReviewQueue } from '../review-queue.ts';
 import { ordersHref } from '../orders/orders-url.ts';
 
-import { COUNT_CLASS, Panel, StatTile } from '../hub-parts.tsx';
+import { COUNT_CLASS, LENS_TONE, Panel } from '../hub-parts.tsx';
 import type { Tone } from '../hub-parts.tsx';
 /**
  * `/kitchen` — the overview: what needs someone today, then every module one press away.
@@ -89,7 +90,8 @@ import type { Tone } from '../hub-parts.tsx';
  * Counts stay honest: a total the server could not give is "Count unavailable", never a zero.
  */
 
-// `Tone`, `StatTile` and `Panel` live in `../hub-parts.tsx`, shared with the corporate overview.
+// `Tone` and `Panel` live in `../hub-parts.tsx`, shared with the corporate overview; the five
+// figures are the design system's `FigureChips`, the Lens bar's own chips.
 
 /** How many module pills a Go to card shows before "+N more". */
 const GO_TO_PILLS = 4;
@@ -456,57 +458,52 @@ export function KitchenHomeScreen() {
 
     /* ---------------------------------------------------------------- the five figures */
 
-    const stats: Array<Parameters<typeof StatTile>[0] & { readonly key: string }> = [];
+    const stats: LensFigure[] = [];
     if (permitted.has('review')) {
         stats.push({
             key: 'review',
-            testID: 'kitchen-kpi-review',
             label: t('kitchen:hub.kpi.needsReview'),
-            value: figure(reviewQueue?.total ?? null),
-            pending: reviewSources.isPending,
-            tone: waitingTone(reviewQueue?.total ?? null),
+            value: reviewSources.isPending ? null : (reviewQueue?.total ?? 0),
+            display: figure(reviewQueue?.total ?? null),
+            tone: LENS_TONE[waitingTone(reviewQueue?.total ?? null)],
             onPress: open('/kitchen/review'),
         });
     }
     if (permitted.has('consumption-exceptions')) {
         stats.push({
             key: 'consumption-exceptions',
-            testID: 'kitchen-kpi-consumption-exceptions',
             label: t('kitchen:hub.kpi.consumptionExceptions'),
-            value: figure(exceptionCount),
-            pending: exceptionsCount.isPending,
-            tone: waitingTone(exceptionCount),
+            value: exceptionsCount.isPending ? null : (exceptionCount ?? 0),
+            display: figure(exceptionCount),
+            tone: LENS_TONE[waitingTone(exceptionCount)],
             onPress: open('/kitchen/consumption-exceptions'),
         });
     }
     if (showShortfall) {
         stats.push({
             key: 'requirement-shortfalls',
-            testID: 'kitchen-kpi-requirement-shortfalls',
             label: t('kitchen:hub.kpi.requirementShortfalls'),
-            value: figure(shortfallCount),
-            pending: shortfalls.isPending,
-            tone: waitingTone(shortfallCount),
+            value: shortfalls.isPending ? null : (shortfallCount ?? 0),
+            display: figure(shortfallCount),
+            tone: LENS_TONE[waitingTone(shortfallCount)],
             onPress: open('/kitchen/order-desk/requirements'),
         });
     }
     if (permitted.has('stock')) {
         stats.push({
             key: 'low-stock',
-            testID: 'kitchen-kpi-low-stock',
             label: t('kitchen:hub.kpi.lowStock'),
-            value: figure(lowStockCount),
-            pending: lowStock.isPending,
-            tone: waitingTone(lowStockCount),
+            value: lowStock.isPending ? null : (lowStockCount ?? 0),
+            display: figure(lowStockCount),
+            tone: LENS_TONE[waitingTone(lowStockCount)],
             onPress: open('/kitchen/stock'),
         });
     }
     stats.push({
         key: 'drafts',
-        testID: 'kitchen-kpi-drafts',
         label: t('kitchen:hub.kpi.drafts'),
-        value: figure(draftTotal),
-        pending: draftsPending,
+        value: draftsPending ? null : (draftTotal ?? 0),
+        display: figure(draftTotal),
         tone: 'neutral',
     });
 
@@ -830,10 +827,8 @@ export function KitchenHomeScreen() {
                             </Inline>
                         </Inline>
 
-                        <View testID="kitchen-home-kpis" className="flex-row flex-wrap gap-3">
-                            {stats.map(({ key, ...tile }) => (
-                                <StatTile key={key} {...tile} />
-                            ))}
+                        <View testID="kitchen-home-kpis">
+                            <FigureChips testID="kitchen-kpi" figures={stats} fill />
                         </View>
 
                         <View testID="kitchen-home-panels" className="gap-3">

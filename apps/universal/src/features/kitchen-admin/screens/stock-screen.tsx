@@ -20,6 +20,7 @@ import {
     ErrorState,
     FormGrid,
     FormSection,
+    LensBar,
     SegmentedControl,
     Select,
     Stack,
@@ -35,6 +36,9 @@ import type {
     BadgeTone,
     ControlledColumn,
     DataTableColumn,
+    LensFigure,
+    LensMixPart,
+    LensToken,
     MenuItem,
     SortDirection,
 } from '@healthy360/design-system';
@@ -46,6 +50,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
+import { CameraScanButton } from '../camera-scan-button.tsx';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {
@@ -60,8 +65,6 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { barcodeFailureText, shelfForIngredient, unlinkedScanMessage } from '../barcode-scan.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart, LensToken } from '../catalogue/lens-bar.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
@@ -881,7 +884,6 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-stock-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lens.figures}
@@ -911,9 +913,14 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
                     onSearchSubmit={() => {
                         openScan({ data: query, symbology: null }, true);
                     }}
-                    onScan={(scan) => {
-                        openScan(scan, false);
-                    }}
+                    scanAction={
+                        <CameraScanButton
+                            testID="kitchen-stock-toolbar-camera"
+                            onScan={(scan) => {
+                                openScan(scan, false);
+                            }}
+                        />
+                    }
                     searchLabel={t('kitchen:toolbar.searchLabel')}
                     searchPlaceholder={t('kitchen:ops.stock.searchPlaceholder')}
                     tokens={lens.tokens}

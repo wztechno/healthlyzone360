@@ -8,12 +8,13 @@ import {
     DataTable,
     EmptyState,
     ErrorState,
+    LensBar,
     Select,
     TableSkeleton,
     Text,
     useColumnControls,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, LensFigure } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -30,8 +31,6 @@ import {
     useProductionOrdersQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import { localDay } from '../format.ts';
 import { productionBatchTestId, productionStatusKey, productionStatusTone } from '../ops-format.ts';
@@ -317,7 +316,6 @@ function ProductionBatches() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-production-batches-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     // A failed read counts nothing: its figures are dashes, as past the first page.

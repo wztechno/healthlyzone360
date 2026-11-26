@@ -13,12 +13,14 @@ import {
     DatePicker,
     EmptyState,
     ErrorState,
+    LensBar,
+    PeriodScope,
     Select,
     TableSkeleton,
     Text,
     useColumnControls,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, LensFigure } from '@healthy360/design-system';
 import type { BranchId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
@@ -32,10 +34,7 @@ import { daysBetween, isIsoDate, todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
 import { shortDay } from '../orders/order-columns.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import { PeriodScope } from '../catalogue/period-scope.tsx';
 
 /**
  * `/kitchen/order-desk/cash?tab=taken` — who took what, day by day.
@@ -296,7 +295,6 @@ function OrderDeskCashReport() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-order-desk-cash-report-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={(() => {

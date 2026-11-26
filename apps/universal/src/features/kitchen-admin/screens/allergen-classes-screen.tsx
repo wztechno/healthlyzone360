@@ -8,10 +8,17 @@ import {
     EmptyState,
     ErrorState,
     Inline,
+    LensBar,
     TableSkeleton,
     useColumnControls,
 } from '@healthy360/design-system';
-import type { ColumnControl, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ColumnControl,
+    DataTableColumn,
+    LensFigure,
+    LensToken,
+    MenuItem,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -25,8 +32,6 @@ import {
     allergenRowTestId,
     thresholdLabel,
 } from '../catalogue/allergen-columns.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { AllergenListState } from '../catalogue/use-allergen-list.ts';
@@ -172,7 +177,6 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-allergen-classes-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures(list, t)}

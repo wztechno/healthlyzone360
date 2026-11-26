@@ -18,6 +18,7 @@ import {
     IconButton,
     InfoTip,
     Inline,
+    LensFigureCell,
     QuantityInput,
     SearchInput,
     SegmentedControl,
@@ -32,6 +33,7 @@ import type {
     ColumnFilter,
     ControlledColumn,
     DataTableColumn,
+    LensFigure,
 } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -52,8 +54,6 @@ import {
 import { withQuery } from '../../../navigation/return-to.ts';
 import { batchFactor, scaleLine, scalePackaging, withWaste } from '../batch-scaling.ts';
 import type { BatchMode } from '../batch-scaling.ts';
-import { LensFigureCell } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import {
     CATALOGUE_VIEW_PERMISSION,
     PRODUCTION_MANAGE_PERMISSION,

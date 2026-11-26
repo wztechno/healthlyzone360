@@ -10,11 +10,12 @@ import {
     DataTable,
     EmptyState,
     ErrorState,
+    LensBar,
     TableSkeleton,
     Text,
     useToast,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, LensFigure, LensTone, MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -27,8 +28,6 @@ import {
     useClaimApplicationMutation,
     usePlatformB2bApplicationsQuery,
 } from '../../../data/platform-b2b-hooks.ts';
-import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
-import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import {
     applicationRowTestId,
     applicationStatusKey,
@@ -249,7 +248,6 @@ function ApplicationsQueue() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="platform-b2b-applications-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={figures}

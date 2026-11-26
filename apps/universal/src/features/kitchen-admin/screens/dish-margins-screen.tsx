@@ -6,10 +6,11 @@ import {
     DataTable,
     EmptyState,
     ErrorState,
+    LensBar,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, LensFigure, MenuItem } from '@healthy360/design-system';
 import type { TFunction } from 'i18next';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -21,8 +22,6 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useDishMarginsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { RECIPE_VIEW_COSTS_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { unitCodeLabel } from '../format.ts';
 

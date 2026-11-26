@@ -8,6 +8,7 @@ import {
     Icon,
     IssueTrayFrame,
     IssueUnanchored,
+    LensBar,
     Select,
     TABLE_PAGE_SIZE,
     TablePager,
@@ -15,7 +16,7 @@ import {
     Tabs,
     useColumnControls,
 } from '@healthy360/design-system';
-import type { IssueTrayContent } from '@healthy360/design-system';
+import type { IssueTrayContent, LensFigure, LensToken } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -27,8 +28,6 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { useOrderDeskDriversQuery } from '../../../data/order-desk-hooks.ts';
 import { safeReturnTo, withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_MANAGE_PERMISSION,
@@ -643,7 +642,6 @@ function TodayTab({
         <View className="z-10">
             <LensBar
                 testID="kitchen-orders-today-toolbar"
-                layout="split"
                 compactSearch
                 joined={!dayRead.pending && dayRead.failure === null}
                 label={t('kitchen:orders.tab.today')}
@@ -875,7 +873,6 @@ function AllOrdersTab({
         <View className="z-10">
             <LensBar
                 testID="kitchen-orders-all-toolbar"
-                layout="split"
                 compactSearch
                 joined={!read.pending && read.failure === null}
                 label={t('kitchen:orders.tab.all')}

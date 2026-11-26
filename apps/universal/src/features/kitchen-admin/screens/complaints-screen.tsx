@@ -10,6 +10,7 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
+    LensBar,
     Select,
     Stack,
     TablePager,
@@ -19,7 +20,13 @@ import {
     useColumnControls,
     useToast,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensMixPart,
+    MenuItem,
+} from '@healthy360/design-system';
 import { parseMinorAmount } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -36,8 +43,6 @@ import {
     useUpdateComplaintMutation,
 } from '../../../data/kitchen-orders-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 import {
@@ -312,7 +317,6 @@ function Complaints({ view }: { readonly view: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-complaints-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     {...(failure !== null

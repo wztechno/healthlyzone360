@@ -6,6 +6,7 @@ import {
     cx,
     EmptyState,
     ErrorState,
+    FigureChips,
     Heading,
     Icon,
     Inline,
@@ -31,7 +32,7 @@ import {
 } from '../../../data/business-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { useSession } from '../../../session/session-provider.tsx';
-import { Panel, StatTile } from '../../kitchen-admin/hub-parts.tsx';
+import { Panel } from '../../kitchen-admin/hub-parts.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { AcceptQuotationDialog, DeclineQuotationDialog } from '../accept-quotation-dialog.tsx';
 import {
@@ -136,42 +137,46 @@ export function CorporateDashboardScreen() {
                 />
             </Inline>
 
-            <View testID="corporate-dashboard-stats" className="flex-row flex-wrap gap-3">
-                <StatTile
-                    testID="corporate-dashboard-stats-awaiting"
-                    label={t('business:overview.kpiAwaiting')}
-                    value={formatter.formatNumber(awaiting.length)}
-                    pending={quotations.isPending}
-                    tone={awaiting.length > 0 ? 'warning' : 'neutral'}
-                    onPress={go(`${CORPORATE_QUOTATIONS_HREF}?state=quoted`)}
-                />
-                <StatTile
-                    testID="corporate-dashboard-stats-open"
-                    label={t('business:overview.kpiOpen')}
-                    value={formatter.formatNumber(open)}
-                    pending={quotations.isPending}
-                    tone="neutral"
-                    onPress={go(`${CORPORATE_QUOTATIONS_HREF}?state=open`)}
-                />
-                <StatTile
-                    testID="corporate-dashboard-stats-accepted"
-                    label={t('business:overview.kpiAccepted')}
-                    value={formatter.formatNumber(accepted)}
-                    pending={quotations.isPending}
-                    tone="neutral"
-                    onPress={go(`${CORPORATE_QUOTATIONS_HREF}?state=closed`)}
-                />
-                <StatTile
-                    testID="corporate-dashboard-stats-programmes"
-                    label={t('business:overview.kpiProgrammes')}
-                    value={formatter.formatNumber(running)}
-                    pending={programmes.isPending}
-                    tone="neutral"
-                    {...(first === undefined
-                        ? {}
-                        : { onPress: go(corporateCatalogueHref(String(first.id))) })}
-                />
-            </View>
+            <FigureChips
+                testID="corporate-dashboard-stats"
+                fill
+                figures={[
+                    {
+                        key: 'awaiting',
+                        label: t('business:overview.kpiAwaiting'),
+                        value: quotations.isPending ? null : awaiting.length,
+                        display: formatter.formatNumber(awaiting.length),
+                        tone: awaiting.length > 0 ? 'warning' : 'neutral',
+                        onPress: go(`${CORPORATE_QUOTATIONS_HREF}?state=quoted`),
+                    },
+                    {
+                        key: 'open',
+                        label: t('business:overview.kpiOpen'),
+                        value: quotations.isPending ? null : open,
+                        display: formatter.formatNumber(open),
+                        tone: 'neutral',
+                        onPress: go(`${CORPORATE_QUOTATIONS_HREF}?state=open`),
+                    },
+                    {
+                        key: 'accepted',
+                        label: t('business:overview.kpiAccepted'),
+                        value: quotations.isPending ? null : accepted,
+                        display: formatter.formatNumber(accepted),
+                        tone: 'neutral',
+                        onPress: go(`${CORPORATE_QUOTATIONS_HREF}?state=closed`),
+                    },
+                    {
+                        key: 'programmes',
+                        label: t('business:overview.kpiProgrammes'),
+                        value: programmes.isPending ? null : running,
+                        display: formatter.formatNumber(running),
+                        tone: 'neutral',
+                        ...(first === undefined
+                            ? {}
+                            : { onPress: go(corporateCatalogueHref(String(first.id))) }),
+                    },
+                ]}
+            />
 
             <View className={wide ? 'flex-row items-start gap-3' : 'gap-3'}>
                 <View className={cx('min-w-0 gap-3', wide ? 'flex-[1.3]' : '')}>

@@ -11,6 +11,7 @@ import {
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     Select,
     TableSkeleton,
     Text,
@@ -19,6 +20,7 @@ import {
 import type {
     ControlledColumn,
     DataTableColumn,
+    LensFigure,
     MenuItem,
     SelectOption,
     SortDirection,
@@ -33,8 +35,6 @@ import { View } from 'react-native';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useSuppliersQuery } from '../../../data/kitchen-ops-hooks.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { supplierRowTestId } from '../ops-format.ts';
@@ -421,7 +421,6 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-suppliers-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures(

@@ -11,11 +11,17 @@ import {
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     TableSkeleton,
     Text,
     useColumnControls,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+} from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -29,8 +35,6 @@ import {
     useOrganisationRolesQuery,
 } from '../../../data/access-admin-hooks.ts';
 import { toFailure } from '../../../data/hooks.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { ROLE_MANAGE_PERMISSION, ROLE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { useListMemory, useRememberedOpened, useRememberedQuery } from '../list-memory.ts';
 
@@ -220,7 +224,6 @@ function RolesList() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-roles-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures(roles.data, roles.isPending, t)}

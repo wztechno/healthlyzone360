@@ -14,12 +14,22 @@ import {
     ErrorState,
     Icon,
     Inline,
+    LensBar,
+    PeriodScope,
     Stack,
     TableSkeleton,
     Text,
     useColumnControls,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensMixPart,
+    LensToken,
+    MenuItem,
+    PeriodWindow,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -30,10 +40,6 @@ import { View } from 'react-native';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useGoodsReceiptsQuery, useStockItemsQuery } from '../../../data/kitchen-ops-hooks.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart, LensToken } from '../catalogue/lens-bar.tsx';
-import { PeriodScope } from '../catalogue/period-scope.tsx';
-import type { PeriodWindow } from '../catalogue/period-scope.tsx';
 import { todayIso } from '../../commerce/dates.ts';
 import {
     INVENTORY_MANAGE_PERMISSION,
@@ -510,7 +516,6 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-procurement-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lens.figures}

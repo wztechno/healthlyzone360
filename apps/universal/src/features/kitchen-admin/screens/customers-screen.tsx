@@ -9,6 +9,7 @@ import {
     DataTable,
     EmptyState,
     ErrorState,
+    LensBar,
     Select,
     TableSkeleton,
     Text,
@@ -30,7 +31,6 @@ import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useKitchenCustomersQuery } from '../../../data/kitchen-customers-hooks.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
 import { ORDER_VIEW_CUSTOMER_CONTACT_PERMISSION } from '../entity-registry.ts';
 import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
 import {
@@ -267,7 +267,6 @@ function CustomersList() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-customers-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={[]}

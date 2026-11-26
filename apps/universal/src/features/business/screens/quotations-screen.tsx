@@ -10,6 +10,7 @@ import {
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     TableSkeleton,
     Text,
     useColumnControls,
@@ -17,6 +18,8 @@ import {
 import type {
     ControlledColumn,
     DataTableColumn,
+    LensFigure,
+    LensTone,
     MenuItem,
     StatusStep,
 } from '@healthy360/design-system';
@@ -34,8 +37,6 @@ import {
     useQuotationsQuery,
 } from '../../../data/business-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
-import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
-import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.tsx';
 import { SheetFacts } from '../../kitchen-admin/catalogue/record-sheet.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
@@ -378,7 +379,6 @@ export function QuotationsScreen({ initialFilter, initialOpen }: QuotationsScree
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="quotations-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={figures}

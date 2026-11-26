@@ -1,10 +1,9 @@
-import { Select } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
 
-import { addDays, isoWeekday } from '../../commerce/dates.ts';
+import { Select } from './select';
 
 /**
- * The Period shortcut that sits before a From–To window in the Lens bar — Today, Yesterday, This
+ * The Period shortcut that sits before a From–To window in the Lens bar's scope — Today, Yesterday, This
  * week, This month, and Custom for anything else.
  *
  * The period is **derived** from the two days rather than stored beside them: picking a shortcut
@@ -41,20 +40,37 @@ export interface PeriodWindow {
 }
 
 const PERIOD_LABELS = {
-    all: 'kitchen:lens.period.all',
-    today: 'kitchen:lens.period.today',
-    yesterday: 'kitchen:lens.period.yesterday',
-    week: 'kitchen:lens.period.week',
-    month: 'kitchen:lens.period.month',
-    lastMonth: 'kitchen:lens.period.lastMonth',
-    quarter: 'kitchen:lens.period.quarter',
-    year: 'kitchen:lens.period.year',
-    tomorrow: 'kitchen:lens.period.tomorrow',
-    restOfWeek: 'kitchen:lens.period.week',
-    nextWeek: 'kitchen:lens.period.nextWeek',
-    twoWeeks: 'kitchen:lens.period.twoWeeks',
-    custom: 'kitchen:lens.period.custom',
+    all: 'designSystem:period.all',
+    today: 'designSystem:period.today',
+    yesterday: 'designSystem:period.yesterday',
+    week: 'designSystem:period.week',
+    month: 'designSystem:period.month',
+    lastMonth: 'designSystem:period.lastMonth',
+    quarter: 'designSystem:period.quarter',
+    year: 'designSystem:period.year',
+    tomorrow: 'designSystem:period.tomorrow',
+    restOfWeek: 'designSystem:period.week',
+    nextWeek: 'designSystem:period.nextWeek',
+    twoWeeks: 'designSystem:period.twoWeeks',
+    custom: 'designSystem:period.custom',
 } as const satisfies Record<Period, string>;
+
+const DAY_MS = 86_400_000;
+
+/** `YYYY-MM-DD` plus `days`, in UTC so a daylight-saving change never moves the weekday. */
+function addDays(day: string, days: number): string | null {
+    const parsed = Date.parse(`${day}T00:00:00.000Z`);
+    if (Number.isNaN(parsed)) return null;
+    return new Date(parsed + days * DAY_MS).toISOString().slice(0, 10);
+}
+
+/** ISO weekday: `1` Monday through `7` Sunday. */
+function isoWeekday(day: string): number | null {
+    const parsed = Date.parse(`${day}T00:00:00.000Z`);
+    if (Number.isNaN(parsed)) return null;
+    const weekday = new Date(parsed).getUTCDay();
+    return weekday === 0 ? 7 : weekday;
+}
 
 /** The first of the month `months` before (negative) or after `today`'s, `YYYY-MM-01`. */
 function firstOfMonth(today: string, months: number): string {
@@ -133,7 +149,7 @@ export function PeriodScope({
 
     const props = {
         testID,
-        label: t('kitchen:lens.periodLabel'),
+        label: t('designSystem:period.label'),
         value: periodOf(value, today, allowAll, unit),
         onChange: (next: Period) => {
             if (next === 'custom') return;

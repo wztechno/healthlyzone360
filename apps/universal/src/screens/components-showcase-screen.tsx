@@ -8,9 +8,13 @@ import {
     DataTable,
     DatePicker,
     DensityProvider,
+    FigureChips,
     FilterChip,
     Icon,
     IconButton,
+    initialsOf,
+    LensBar,
+    PeriodScope,
     QuantityInput,
     SEARCH_THRESHOLD,
     Select,
@@ -20,10 +24,14 @@ import {
     Tabs,
     Tag,
     Text,
-    initialsOf,
     useColumnControls,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn, SelectOption } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    SelectOption,
+} from '@healthy360/design-system';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
@@ -1019,6 +1027,227 @@ function TablesSection() {
     );
 }
 
+type Shelf = 'all' | 'published' | 'draft' | 'review';
+
+const SHELF_COUNTS: Readonly<Record<Exclude<Shelf, 'all'>, number>> = {
+    published: 29,
+    draft: 80,
+    review: 2,
+};
+
+function ToolbarSection() {
+    const [shelf, setShelf] = useState<Shelf>('all');
+    const [search, setSearch] = useState('');
+    const [category, setCategory] = useState('all');
+    const [range, setRange] = useState({ from: '2026-11-26', to: '2026-11-26' });
+    const total = SHELF_COUNTS.published + SHELF_COUNTS.draft + SHELF_COUNTS.review;
+    const shown = shelf === 'all' ? total : SHELF_COUNTS[shelf];
+    const filtered = shelf !== 'all' || search !== '' || category !== 'all';
+    const figure = (key: Exclude<Shelf, 'all'>, label: string, tone: LensFigure['tone']) => ({
+        key,
+        label,
+        value: SHELF_COUNTS[key],
+        tone,
+        active: shelf === key,
+        onPress: () => {
+            setShelf(key);
+        },
+    });
+    const figures: readonly LensFigure[] = [
+        {
+            key: 'all',
+            label: 'All recipes',
+            value: total,
+            active: shelf === 'all',
+            onPress: () => {
+                setShelf('all');
+            },
+        },
+        figure('published', 'Published', 'success'),
+        figure('draft', 'Draft', 'warning'),
+        { ...figure('review', 'Awaiting review', 'danger'), alarm: true },
+    ];
+
+    return (
+        <Stack space="lg" testID="components-showcase-toolbar">
+            <Stack space="xs">
+                <Text variant="section">Toolbar</Text>
+                <Text variant="caption" tone="secondary">
+                    LensBar · figures you press, the mix, then the query row on top of the list
+                </Text>
+            </Stack>
+
+            <Sample
+                title="A list's toolbar"
+                note="figures · actions · scope Select · search · tokens · count + Clear · trailing"
+            >
+                <View className="w-full">
+                    <LensBar
+                        testID="components-showcase-lens"
+                        label="Recipes summary and filters"
+                        figures={figures}
+                        mix={(['published', 'draft', 'review'] as const).map((key) => ({
+                            key,
+                            value: SHELF_COUNTS[key],
+                            tone:
+                                key === 'published'
+                                    ? 'success'
+                                    : key === 'draft'
+                                      ? 'warning'
+                                      : 'danger',
+                            dimmed: shelf !== 'all' && shelf !== key,
+                        }))}
+                        mixLabel="29 published, 80 draft, 2 awaiting review"
+                        actions={
+                            <>
+                                <Button
+                                    testID="components-showcase-lens-import"
+                                    variant="secondary"
+                                    size="sm"
+                                    label="Import"
+                                    onPress={() => undefined}
+                                />
+                                <Button
+                                    testID="components-showcase-lens-new"
+                                    size="sm"
+                                    label="New recipe"
+                                    iconStart={<Icon name="plus" size="sm" />}
+                                    onPress={() => undefined}
+                                />
+                            </>
+                        }
+                        scope={
+                            <Select
+                                trigger="pill"
+                                testID="components-showcase-lens-kind"
+                                label="Kind"
+                                value={category}
+                                onChange={setCategory}
+                                options={[
+                                    { value: 'all', label: 'All' },
+                                    { value: 'meal', label: 'Meal' },
+                                    { value: 'sauce', label: 'Sauce' },
+                                ]}
+                            />
+                        }
+                        search={search}
+                        onSearchChange={setSearch}
+                        searchLabel="Search recipes"
+                        searchPlaceholder="Search recipes"
+                        tokens={
+                            shelf === 'all'
+                                ? []
+                                : [
+                                      {
+                                          key: 'status',
+                                          label: `Status: ${shelf}`,
+                                          removeLabel: 'Remove the status filter',
+                                          onRemove: () => {
+                                              setShelf('all');
+                                          },
+                                      },
+                                  ]
+                        }
+                        result={`${String(shown)} of ${String(total)}`}
+                        clearLabel="Clear"
+                        {...(filtered
+                            ? {
+                                  onClear: () => {
+                                      setShelf('all');
+                                      setSearch('');
+                                      setCategory('all');
+                                  },
+                              }
+                            : {})}
+                    />
+                </View>
+            </Sample>
+
+            <Sample
+                title="A report's toolbar"
+                note="no figures, no search · PeriodScope + From / To DatePickers as the scope"
+            >
+                <View className="w-full">
+                    <LensBar
+                        testID="components-showcase-lens-report"
+                        label="Activity filters"
+                        figures={[]}
+                        scope={
+                            <>
+                                <PeriodScope
+                                    testID="components-showcase-lens-period"
+                                    today="2026-11-26"
+                                    value={range}
+                                    onChange={setRange}
+                                />
+                                <DatePicker
+                                    trigger="pill"
+                                    testID="components-showcase-lens-from"
+                                    label="From"
+                                    today="2026-11-26"
+                                    value={range.from}
+                                    max={range.to}
+                                    onChange={(from) => {
+                                        setRange((previous) => ({ ...previous, from }));
+                                    }}
+                                />
+                                <DatePicker
+                                    trigger="pill"
+                                    testID="components-showcase-lens-to"
+                                    label="To"
+                                    today="2026-11-26"
+                                    value={range.to}
+                                    min={range.from}
+                                    onChange={(to) => {
+                                        setRange((previous) => ({ ...previous, to }));
+                                    }}
+                                />
+                            </>
+                        }
+                        result="42 movements"
+                        clearLabel="Clear"
+                    />
+                </View>
+            </Sample>
+
+            <Sample
+                title="Figures on their own"
+                note="FigureChips fill · a home page's counts, a summary · same chips as the toolbar"
+            >
+                <View className="w-full">
+                    <FigureChips
+                        testID="components-showcase-figures"
+                        fill
+                        figures={[
+                            {
+                                key: 'review',
+                                label: 'Needs review',
+                                value: 113,
+                                tone: 'warning',
+                                onPress: () => undefined,
+                            },
+                            {
+                                key: 'gaps',
+                                label: 'Stock gaps',
+                                value: 75,
+                                tone: 'warning',
+                                onPress: () => undefined,
+                            },
+                            { key: 'low', label: 'Low stock', value: 0, tone: 'brand' },
+                            {
+                                key: 'drafts',
+                                label: 'Catalogue drafts',
+                                value: null,
+                                tone: 'neutral',
+                            },
+                        ]}
+                    />
+                </View>
+            </Sample>
+        </Stack>
+    );
+}
+
 export function ComponentsShowcaseScreen() {
     return (
         <DensityProvider value="compact">
@@ -1034,6 +1263,7 @@ export function ComponentsShowcaseScreen() {
                     <StepsSection />
                     <DatesSection />
                     <TablesSection />
+                    <ToolbarSection />
                 </Stack>
             </View>
         </DensityProvider>

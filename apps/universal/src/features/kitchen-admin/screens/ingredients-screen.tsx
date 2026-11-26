@@ -8,12 +8,19 @@ import {
     Dialog,
     Icon,
     Inline,
+    LensBar,
     Select,
     Text,
     useColumnControls,
     useToast,
 } from '@healthy360/design-system';
-import type { ColumnControl, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ColumnControl,
+    DataTableColumn,
+    LensFigure,
+    LensToken,
+    MenuItem,
+} from '@healthy360/design-system';
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -22,6 +29,7 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { CameraScanButton } from '../camera-scan-button.tsx';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
@@ -30,8 +38,6 @@ import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entit
 import { IngredientDetail } from '../catalogue/ingredient-detail.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { ingredientImportGuide } from '../catalogue/import-guides.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { listPrintJob, useListPrint } from '../catalogue/list-print.ts';
 import {
@@ -222,12 +228,11 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
             {/*
              * One block, so the toolbar card runs straight on into the table: the figures and the
              * actions stand on the page, and the query row is the top of the list's card
-             * (`LensBar` `layout="split"`), as the Ingredients board draws it.
+             * (`LensBar`), as the Ingredients board draws it.
              */}
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-ingredients-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures(list, t)}
@@ -254,9 +259,14 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                     onSearchChange={list.setQuery}
                     // A camera read goes into the search box: the server matches a code there as well
                     // as a name, which is also how a keyboard-wedge scan already works.
-                    onScan={(scan) => {
-                        list.setQuery(scan.data);
-                    }}
+                    scanAction={
+                        <CameraScanButton
+                            testID="kitchen-ingredients-toolbar-camera"
+                            onScan={(scan) => {
+                                list.setQuery(scan.data);
+                            }}
+                        />
+                    }
                     searchLabel={t('kitchen:toolbar.searchLabel')}
                     searchPlaceholder={t('kitchen:toolbar.searchIngredients')}
                     tokens={lensTokens(list, t, locale)}

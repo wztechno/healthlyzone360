@@ -16,6 +16,7 @@ import {
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     Stack,
     TablePager,
     TableSkeleton,
@@ -25,6 +26,7 @@ import {
 import type {
     ControlledColumn,
     DataTableColumn,
+    LensFigure,
     MenuItem,
     SortDirection,
 } from '@healthy360/design-system';
@@ -47,8 +49,6 @@ import {
     useAdminZoneQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import type { StatusLensSource } from '../catalogue/lens-status.ts';
 import { statusTally, withoutStatuses } from '../catalogue/use-catalogue-filters.ts';
@@ -486,7 +486,6 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-zones-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={figures}

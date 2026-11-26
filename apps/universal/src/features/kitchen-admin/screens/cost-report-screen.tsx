@@ -9,11 +9,14 @@ import {
     DatePicker,
     EmptyState,
     ErrorState,
+    LensBar,
+    PeriodScope,
+    periodWindows,
     TableSkeleton,
     Text,
     useColumnControls,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, LensFigure } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -28,9 +31,6 @@ import { RatioBars } from '../analytics/ratio-bars.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { RecordTile } from '../catalogue/record-tiles.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 /**
@@ -452,7 +452,6 @@ function CostReport() {
     const lensBar = (
         <LensBar
             testID="kitchen-cost-report-toolbar"
-            layout="split"
             label={t('kitchen:lens.label')}
             figures={(
                 [

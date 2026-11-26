@@ -9,11 +9,17 @@ import {
     Dialog,
     Icon,
     Inline,
+    LensBar,
     Text,
     useColumnControls,
     useToast,
 } from '@healthy360/design-system';
-import type { ColumnControl, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ColumnControl,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -23,8 +29,6 @@ import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
@@ -208,7 +212,6 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-packaging-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures(list, t)}

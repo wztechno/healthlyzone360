@@ -1,7 +1,9 @@
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { useState } from 'react';
 
-import { LensBar } from './lens-bar.tsx';
+import { Text } from '../primitives/text.tsx';
+
+import { FigureChips, LensBar } from './lens-bar.tsx';
 import type { LensFigure, LensMixPart } from './lens-bar.tsx';
 
 /**
@@ -120,5 +122,62 @@ describe('LensBar', () => {
         expect(screen.getByTestId('lens-figure-all').props.accessibilityState).toEqual(
             expect.objectContaining({ selected: true }),
         );
+    });
+
+    it('leaves out the figures row on a page with no figures and no actions', async () => {
+        await render(
+            <LensBar
+                testID="bare"
+                label="Filters"
+                figures={[]}
+                scope={<Text>Period</Text>}
+                result="4 of 4"
+                clearLabel="Clear"
+            />,
+        );
+
+        expect(screen.queryByTestId('bare-figures')).toBeNull();
+        expect(screen.getByTestId('bare-result')).toHaveTextContent('4 of 4');
+    });
+
+    it('draws the scan button it is handed beside the search', async () => {
+        await render(
+            <LensBar
+                testID="scan"
+                label="Filters"
+                figures={[]}
+                search=""
+                onSearchChange={() => undefined}
+                searchLabel="Search"
+                scanAction={<Text testID="scan-camera">Scan</Text>}
+                result="1 of 1"
+                clearLabel="Clear"
+            />,
+        );
+
+        expect(screen.getByTestId('scan-camera')).toBeTruthy();
+    });
+});
+
+describe('FigureChips', () => {
+    it('draws each figure as a chip, pressable where it leads somewhere', async () => {
+        const onPress = jest.fn();
+        await render(
+            <FigureChips
+                testID="home"
+                fill
+                figures={[
+                    { key: 'gaps', label: 'Stock gaps', value: 75, tone: 'warning', onPress },
+                    { key: 'drafts', label: 'Drafts', value: null, tone: 'neutral' },
+                ]}
+            />,
+        );
+
+        expect(screen.getByTestId('home-gaps-value')).toHaveTextContent('75');
+        expect(screen.getByTestId('home-drafts-loading')).toBeTruthy();
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('home-gaps'));
+        });
+        expect(onPress).toHaveBeenCalledTimes(1);
     });
 });

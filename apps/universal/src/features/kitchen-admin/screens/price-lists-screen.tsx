@@ -16,13 +16,19 @@ import {
     ErrorState,
     Icon,
     Inline,
+    LensBar,
     Stack,
     TablePager,
     TableSkeleton,
     Text,
     useColumnControls,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+} from '@healthy360/design-system';
 import { PriceListId, SALES_CHANNELS } from '@healthy360/domain-types';
 import type { SalesChannel } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -40,8 +46,6 @@ import {
     usePriceListPageQuery,
     usePriceListQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import type { StatusLensSource } from '../catalogue/lens-status.ts';
 import { CATALOGUE_VIEW_PERMISSION, PRICE_LIST_MANAGE_PERMISSION } from '../entity-registry.ts';
@@ -433,7 +437,6 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-price-lists-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures(lens, figures, t)}

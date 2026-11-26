@@ -39,6 +39,7 @@ import {
     EmptyState,
     ErrorState,
     FadeIn,
+    FigureChips,
     FileUploadField,
     FilterChip,
     FormField,
@@ -117,6 +118,7 @@ import type {
     DataTableBodyState,
     DataTableColumn,
     IconName,
+    LensFigure,
     RangeValue,
     RecordStatus,
     TableColumn,
@@ -148,9 +150,6 @@ import { DerivedPanel } from '../features/kitchen-admin/catalogue/derived-panel.
 import type { DerivedFigure } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
 import { RecordPhoto } from '../features/kitchen-admin/catalogue/record-photo.tsx';
 import { RowThumbnail } from '../features/kitchen-admin/catalogue/row-thumbnail.tsx';
-import { CatalogueStatCards } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../features/kitchen-admin/catalogue/catalogue-toolbar.tsx';
 import { RecipeCardGrid } from '../features/kitchen-admin/catalogue/recipe-card-grid.tsx';
 import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
 import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
@@ -158,7 +157,6 @@ import { RecordSummaryAside } from '../features/kitchen-admin/record-summary-asi
 import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
 import { KpiTile } from '../features/kitchen-admin/kpi-tile.tsx';
 import { PackCard } from '../features/kitchen-admin/packs-prices-section.tsx';
-import { ListToolbar } from '../features/kitchen-admin/list-toolbar.tsx';
 import { ToolbarRow } from '../features/marketplace/toolbar-row.tsx';
 import { AiBand, AiRailCard } from '../ui/ai-surface.tsx';
 import { BrowseCard } from '../ui/browse-card.tsx';
@@ -303,49 +301,12 @@ const SHOWCASE_NUTRIENTS: readonly DerivedFigure[] = [
     { key: 'protein', label: 'Protein', value: '1.1', unit: 'g / 100 g' },
 ];
 
-/** The four figures a Catalogue list opens with, in all four tones. Two are filters. */
-const SHOWCASE_STAT_CARDS: readonly CatalogueStatCard[] = [
-    {
-        key: 'shown',
-        label: 'Shown',
-        value: '18',
-        unit: 'of 306',
-        caption: 'Filtered — clear',
-        mark: 'list',
-        tone: 'brand',
-        onPress: () => undefined,
-        accessibilityLabel: 'Clear every filter',
-    },
-    {
-        key: 'draft',
-        label: 'Draft',
-        value: '2',
-        unit: 'records',
-        caption: 'not published yet',
-        mark: 'fileDraft',
-        tone: 'warning',
-        onPress: () => undefined,
-        accessibilityLabel: 'Show only draft records',
-    },
-    {
-        key: 'missing',
-        label: 'Missing Arabic',
-        value: '3',
-        unit: 'records',
-        caption: 'blocked from publishing',
-        mark: 'languages',
-        tone: 'danger',
-    },
-    {
-        key: 'uncosted',
-        label: 'Uncosted',
-        value: '0',
-        unit: 'records',
-        caption: 'no unit price on file',
-        mark: 'coins',
-    },
+/** The figures a Catalogue list opens with. */
+const SHOWCASE_FIGURES: readonly LensFigure[] = [
+    { key: 'all', label: 'All ingredients', value: 306, active: true, onPress: () => undefined },
+    { key: 'draft', label: 'Draft', value: 2, tone: 'warning', onPress: () => undefined },
+    { key: 'review', label: 'Awaiting review', value: 3, tone: 'danger', alarm: true },
 ];
-
 /** How long the arrival story holds its pending frame — long enough to look at, not to wait on. */
 const ARRIVAL_HOLD_MS = 900;
 
@@ -1026,10 +987,11 @@ function ArrivalStory({
             </Inline>
             {/* Keyed by the round, so Replay is a fresh page: the bands rise in again. */}
             <Cascade key={round} space="xs" testID={`${prefix}-arrival-page`}>
-                <CatalogueStatCards
+                <FigureChips
                     testID={`${prefix}-arrival-stats`}
-                    cards={SHOWCASE_STAT_CARDS}
-                    pending={pending}
+                    figures={SHOWCASE_FIGURES.map((figure) =>
+                        pending ? { ...figure, value: null } : figure,
+                    )}
                 />
                 {pending ? (
                     <TableSkeleton
@@ -1176,8 +1138,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
     const [restricted, setRestricted] = useState(false);
     const [tab, setTab] = useState<string>('description');
     const [segment, setSegment] = useState('all');
-    const [toolbarSearch, setToolbarSearch] = useState('');
-    const [toolbarStatus, setToolbarStatus] = useState('all');
     const [recordOpen, setRecordOpen] = useState(false);
     const [pickerMonth, setPickerMonth] = useState('2026-08');
     const [pickerDate, setPickerDate] = useState('2026-08-01');
@@ -2600,25 +2560,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                 />
             </Stack>
 
-            {/*
-             * Catalogue stat cards: the four figures a list page opens with, in all four tones.
-             * Two are filters and take the hover tint; two are read-only.
-             */}
-            <Stack space="xs">
-                <Text variant="section" tone="secondary">
-                    Catalogue stat cards
-                </Text>
-                <CatalogueStatCards testID={id('stat-cards')} cards={SHOWCASE_STAT_CARDS} />
-                <Text variant="caption" tone="secondary">
-                    pending
-                </Text>
-                <CatalogueStatCards
-                    testID={id('stat-cards-pending')}
-                    cards={SHOWCASE_STAT_CARDS}
-                    pending
-                />
-            </Stack>
-
             <ArrivalStory prefix={prefix} columns={catalogueColumns('list-arrival')} />
 
             <RecipeCardsStory prefix={prefix} />
@@ -2626,87 +2567,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
             <ColumnPickerStory prefix={prefix} />
 
             <CommandPaletteStory prefix={prefix} />
-
-            {/*
-             * The Catalogue's toolbar, drawn on a full-width ground so its centring is visible.
-             * The row holds a 240px search and the status set and nothing else, and it is centred
-             * because the stat-card row above it is — a left-hung control row under a centred band
-             * reads as the start of a column that never arrives.
-             */}
-            <Stack space="xs">
-                <Text variant="section" tone="secondary">
-                    Catalogue toolbar
-                </Text>
-                <CatalogueToolbar
-                    testID={id('toolbar')}
-                    search={toolbarSearch}
-                    onSearchChange={setToolbarSearch}
-                    searchLabel="Search the catalogue"
-                    searchPlaceholder="Search ingredients"
-                    statusLabel="Status"
-                    statusSegments={[
-                        { value: 'all', label: 'All' },
-                        { value: 'live', label: 'Live' },
-                        { value: 'draft', label: 'Draft' },
-                        { value: 'review', label: 'Review' },
-                    ]}
-                    status={toolbarStatus}
-                    onStatusChange={setToolbarStatus}
-                />
-            </Stack>
-
-            {/*
-             * The same toolbar on a laptop's page, with a filter of the entity's own and the row's
-             * actions. Narrowed to 640px so the break is visible: the search and the filters wrap
-             * inside their zone, and New keeps the end of the first line — it is never the control
-             * left on a line of its own. `onScan` adds the camera button beside the search
-             * (ingredient barcodes).
-             */}
-            <Stack space="xs">
-                <Text variant="section" tone="secondary">
-                    Catalogue toolbar — filters and actions, 640px
-                </Text>
-                <View style={{ maxWidth: 640 }}>
-                    <CatalogueToolbar
-                        testID={id('toolbar-narrow')}
-                        search={toolbarSearch}
-                        onSearchChange={setToolbarSearch}
-                        onScan={(scan) => {
-                            setToolbarSearch(scan.data);
-                        }}
-                        searchLabel="Search the catalogue"
-                        searchPlaceholder="Search ingredients"
-                        statusLabel="Status"
-                        statusSegments={[
-                            { value: 'all', label: 'All' },
-                            { value: 'live', label: 'Live' },
-                            { value: 'draft', label: 'Draft' },
-                            { value: 'review', label: 'Review' },
-                        ]}
-                        status={toolbarStatus}
-                        onStatusChange={setToolbarStatus}
-                        filters={
-                            <SegmentedControl
-                                testID={id('toolbar-narrow-layout')}
-                                label="Layout"
-                                value="table"
-                                onChange={() => undefined}
-                                items={[
-                                    { value: 'table', label: 'Table' },
-                                    { value: 'cards', label: 'Cards' },
-                                ]}
-                            />
-                        }
-                    >
-                        <Button
-                            testID={id('toolbar-narrow-create')}
-                            label="New"
-                            iconStart={<Icon name="plus" size="sm" />}
-                            onPress={() => undefined}
-                        />
-                    </CatalogueToolbar>
-                </View>
-            </Stack>
 
             {/*
              * What every list draws under that toolbar: loading, a filter that matched nothing (with
@@ -3560,8 +3420,6 @@ export function ShowcaseScreen() {
     const [startDate, setStartDate] = useState<string | null>('2026-08-03');
     const [boundDate, setBoundDate] = useState('');
     const [replays, setReplays] = useState(0);
-    const [kitchenQuery, setKitchenQuery] = useState('');
-    const [kitchenStatuses, setKitchenStatuses] = useState<readonly PublishableStatus[]>(['draft']);
 
     const options = [1, 2, 3].map((index) => ({
         value: `option-${index}`,
@@ -5339,15 +5197,6 @@ export function ShowcaseScreen() {
                         serverError={() => undefined}
                         onChange={() => undefined}
                         onRemove={() => undefined}
-                    />
-                    <ListToolbar
-                        testID="showcase-kitchen-toolbar"
-                        query={kitchenQuery}
-                        onQueryChange={setKitchenQuery}
-                        statuses={kitchenStatuses}
-                        onStatusesChange={setKitchenStatuses}
-                        statusOptions={['draft', 'review_required', 'published', 'retired']}
-                        resultSummary="Showing 8 of 24"
                     />
                     <View className="max-w-[360px]">
                         <GateRailCard

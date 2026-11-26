@@ -14,10 +14,11 @@ import {
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, LensFigure, LensTone, MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -31,8 +32,6 @@ import {
     usePlatformKitchensQuery,
 } from '../../../data/platform-admin-hooks.ts';
 import { useTrailLeaf } from '../../../shell/area-trail.tsx';
-import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
-import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.tsx';
 import { kitchenRowTestId, ownerRowTestId, tenantStatusKey, tenantStatusTone } from '../format.ts';
 import {
@@ -264,7 +263,6 @@ function KitchensList() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="platform-admin-kitchens-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={figures}

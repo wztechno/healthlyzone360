@@ -3011,6 +3011,19 @@ export interface NamespaceKeys {
     | 'pagination.previous'
     | 'passwordInput.hide'
     | 'passwordInput.show'
+    | 'period.all'
+    | 'period.custom'
+    | 'period.label'
+    | 'period.lastMonth'
+    | 'period.month'
+    | 'period.nextWeek'
+    | 'period.quarter'
+    | 'period.today'
+    | 'period.tomorrow'
+    | 'period.twoWeeks'
+    | 'period.week'
+    | 'period.year'
+    | 'period.yesterday'
     | 'rangeFilter.inverted'
     | 'rangeFilter.max'
     | 'rangeFilter.min'
@@ -4891,19 +4904,6 @@ export interface NamespaceKeys {
     | 'lens.ordersMix'
     | 'lens.partialAction'
     | 'lens.pendingChecksAction'
-    | 'lens.period.all'
-    | 'lens.period.custom'
-    | 'lens.period.lastMonth'
-    | 'lens.period.month'
-    | 'lens.period.nextWeek'
-    | 'lens.period.quarter'
-    | 'lens.period.today'
-    | 'lens.period.tomorrow'
-    | 'lens.period.twoWeeks'
-    | 'lens.period.week'
-    | 'lens.period.year'
-    | 'lens.period.yesterday'
-    | 'lens.periodLabel'
     | 'lens.periodsMix'
     | 'lens.publishedAction'
     | 'lens.qcMix'
@@ -14028,6 +14028,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:pagination.previous',
   'designSystem:passwordInput.hide',
   'designSystem:passwordInput.show',
+  'designSystem:period.all',
+  'designSystem:period.custom',
+  'designSystem:period.label',
+  'designSystem:period.lastMonth',
+  'designSystem:period.month',
+  'designSystem:period.nextWeek',
+  'designSystem:period.quarter',
+  'designSystem:period.today',
+  'designSystem:period.tomorrow',
+  'designSystem:period.twoWeeks',
+  'designSystem:period.week',
+  'designSystem:period.year',
+  'designSystem:period.yesterday',
   'designSystem:rangeFilter.inverted',
   'designSystem:rangeFilter.max',
   'designSystem:rangeFilter.min',
@@ -15904,19 +15917,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.ordersMix',
   'kitchen:lens.partialAction',
   'kitchen:lens.pendingChecksAction',
-  'kitchen:lens.period.all',
-  'kitchen:lens.period.custom',
-  'kitchen:lens.period.lastMonth',
-  'kitchen:lens.period.month',
-  'kitchen:lens.period.nextWeek',
-  'kitchen:lens.period.quarter',
-  'kitchen:lens.period.today',
-  'kitchen:lens.period.tomorrow',
-  'kitchen:lens.period.twoWeeks',
-  'kitchen:lens.period.week',
-  'kitchen:lens.period.year',
-  'kitchen:lens.period.yesterday',
-  'kitchen:lens.periodLabel',
   'kitchen:lens.periodsMix',
   'kitchen:lens.publishedAction',
   'kitchen:lens.qcMix',

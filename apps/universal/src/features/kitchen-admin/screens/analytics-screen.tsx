@@ -14,11 +14,14 @@ import {
     DatePicker,
     EmptyState,
     ErrorState,
+    LensBar,
+    PeriodScope,
+    periodWindows,
     RecordSkeleton,
     Text,
     useColumnControls,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, LensFigure } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
@@ -33,9 +36,6 @@ import { TrendBars } from '../analytics/trend-bars.tsx';
 import { ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
 import { RecordTile } from '../catalogue/record-tiles.tsx';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
 import { addDays, daysBetween, todayIso } from '../../commerce/dates.ts';
 /**
  * `/kitchen/analytics` — what the order book did over a window of days, as `Workbench.dc.html`
@@ -253,7 +253,6 @@ function AnalyticsDashboard() {
     const lens = (
         <LensBar
             testID="kitchen-analytics-toolbar"
-            layout="split"
             label={t('kitchen:lens.label')}
             figures={figures}
             scope={

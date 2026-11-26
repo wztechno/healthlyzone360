@@ -10,6 +10,8 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
+    LensBar,
+    PeriodScope,
     ROW_ACTIONS_WIDTH,
     TablePager,
     TableSkeleton,
@@ -17,7 +19,12 @@ import {
     useColumnControls,
     useToast,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensMixPart,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { can } from '@healthy360/permissions';
 import { useRouter } from 'expo-router';
@@ -64,10 +71,7 @@ import {
 } from '../entity-registry.ts';
 import { useListPage } from '../use-list-page.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import { PeriodScope } from '../catalogue/period-scope.tsx';
 import { todayIso } from '../../commerce/dates.ts';
-import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { useListMemory, useRememberedQuery } from '../list-memory.ts';
 
 /**
@@ -708,7 +712,6 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                 {/* The Lens bar — figures, mix and query row as one object (`lens-bar.tsx`). */}
                 <LensBar
                     testID="kitchen-consumption-exceptions-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     {...(failure !== null

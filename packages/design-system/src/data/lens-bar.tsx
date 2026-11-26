@@ -1,36 +1,35 @@
-import type { BarcodeScan } from '@healthy360/api-client/contracts';
-import { Icon, InfoTip, SearchInput, Skeleton, Text } from '@healthy360/design-system';
-import type { IconName } from '@healthy360/design-system';
+import { SearchInput } from '../forms/search-input.tsx';
+import { Icon } from '../icons/icon.tsx';
+import type { IconName } from '../icons/icon.tsx';
+import { InfoTip } from '../overlays/info-tip.tsx';
+import { Text } from '../primitives/text.tsx';
+import { Skeleton } from '../status/skeleton.tsx';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { Pressable, View } from 'react-native';
 
-import { CameraScanButton } from '../camera-scan-button.tsx';
-
 /**
- * The Lens bar — a list page's figures, filters and actions as one object. It replaces the stat
- * cards and the toolbar under them (`catalogue-stat-cards.tsx`, `catalogue-toolbar.tsx`).
+ * The Lens bar — every admin list's toolbar: its figures, filters and actions as one object.
  *
  * ```
- * ┌───────────────────────────────────────────────────────────────────────────────────────┐
- * │ (All recipes 111) │ ● Published 29  ● Draft 80  ● Awaiting review 2 │ ◉ On sale 99   [+ New] │
- * ├▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆┤ <- the mix
- * │ [Kind All ▾] │ [⌕ Search recipes      ] [Status: Draft ×]        18 of 111  Clear │ ▤ ▦ ⫴ │
- * └───────────────────────────────────────────────────────────────────────────────────────┘
+ *  (All recipes 111) (● Published 29) (● Draft 80) (● Awaiting review 2)      [Import] [+ New]
+ * ╭──▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆▆──────────────────────────────────────────────────────────────╮
+ * │ [Kind All ▾] [⌕ Search recipes                  ] [Status: Draft ×]  18 of 111 Clear  ▦ │
+ * ├────────────────────────────────────────────────────────────────────────────────────────┤ <- the list, `joined`
  * ```
  *
- * - **Figures** are the cards' numbers on one line, each at its label's size. A figure with
- *   `onPress` is a filter: pressing it does what the number is about, and the one in force sits
- *   in a soft brand pill. (An underline was tried first; it ran into the mix directly below.)
- * - **The mix** is a 4px strip under the figures — how the list divides between its states, at a
- *   glance. It doubles as the rule between the two rows.
- * - **The query row** is scope (kind, category), search, the filters in force as removable tokens,
- *   the result count with one Clear, and the view controls.
+ * - **Figures** stand on the page as chips, the actions at their end. A figure with `onPress` is a
+ *   filter: pressing it does what the number is about, and the one in force is filled soft green.
+ * - **The mix** rides the top edge of the query row's card — how the list divides between its
+ *   states, at a glance.
+ * - **The query row** is scope (kind, category, period), search, the filters in force as removable
+ *   tokens, the result count with one Clear, and the view controls. It is the top of the list's
+ *   card: the list under it passes `joined` and closes the card.
  *
- * Colour is spent only on the dots, the mix and a figure that blocks work (`alarm`): red appears
- * nowhere else on the bar. Every row starts on the same 16px edge, so the figures and the search
- * line up. 16px rather than the design's 20: five figures and three actions then hold one line
- * beside the issue tray on a laptop.
+ * Colour is spent only on the dots, the mix and a figure that blocks work (`alarm`).
+ *
+ * A row of figures without the rest — a home page's counts, a record's facts — is
+ * {@link FigureChips}.
  */
 
 export type LensTone = 'brand' | 'success' | 'warning' | 'danger' | 'info' | 'neutral';
@@ -107,7 +106,8 @@ export interface LensBarProps {
      * field keeps focus after it and stops correcting what is typed, because what is typed is a code.
      */
     readonly onSearchSubmit?: (() => void) | undefined;
-    readonly onScan?: ((scan: BarcodeScan) => void) | undefined;
+    /** A scan button beside the search (the app's camera scanner) — the app owns the camera. */
+    readonly scanAction?: ReactNode | undefined;
     readonly tokens?: readonly LensToken[] | undefined;
     /** "18 of 111". `null` while the page is in flight. */
     readonly result: string | null;
@@ -119,17 +119,12 @@ export interface LensBarProps {
      * bar is narrow, so it can draw its controls as icons and keep the row on one line.
      */
     readonly trailing?: ReactNode | ((narrow: boolean) => ReactNode) | undefined;
-    /**
-     * `bar` (default): one panel, figures over the query row. `split`: the figures as chips on the
-     * page with the actions beside them, and the query row as the top of the list's card.
-     */
-    readonly layout?: 'bar' | 'split' | undefined;
-    /** Split only: the list under it passes `joined` and closes the card. */
+    /** The list under it passes `joined` too and closes the card. */
     readonly joined?: boolean | undefined;
-    /** Split only: banners between the figures and the card — a paused kitchen, a capped list. */
+    /** Banners between the figures and the card — a paused kitchen, a capped list. */
     readonly notice?: ReactNode | undefined;
     /**
-     * Split only: the search holds a 300px pill and the count moves to the row's end (the Orders
+     * The search holds a 300px pill and the count moves to the row's end (the Orders
      * canvas's `.srch.sm`), instead of the search absorbing the row.
      */
     readonly compactSearch?: boolean | undefined;
@@ -172,185 +167,55 @@ export function LensBar({
     searchLabel,
     searchPlaceholder,
     onSearchSubmit,
-    onScan,
+    scanAction,
     tokens = [],
     result,
     onClear,
     clearLabel,
     trailing,
-    layout = 'bar',
     joined = false,
     notice,
     compactSearch = false,
     testID,
 }: LensBarProps) {
-    const split = layout === 'split';
     const mixTotal = mix?.reduce((sum, part) => sum + part.value, 0) ?? 0;
     // Wide until measured: a bare render (and every test) draws the labelled controls.
     const [narrow, setNarrow] = useState(false);
     const trailingNode = typeof trailing === 'function' ? trailing(narrow) : trailing;
 
-    if (split) {
-        return (
-            <SplitLens
-                label={label}
-                figures={figures}
-                mixParts={mixParts(mix, mixTotal, testID)}
-                mixLabel={mixLabel}
-                actions={actions}
-                joined={joined}
-                notice={notice}
-                narrow={narrow}
-                onNarrow={setNarrow}
-                testID={testID}
-            >
-                <View className="z-auto flex-row flex-wrap items-center gap-tight p-2">
-                    {scope === undefined || scope === null ? null : (
-                        <View className="z-auto flex-row flex-wrap items-center gap-tight">
-                            {scope}
-                        </View>
-                    )}
-                    {onSearchChange === undefined ? null : (
-                        <View
-                            // eslint-disable-next-line no-restricted-syntax -- the search absorbs the row; the exempt case.
-                            className={compactSearch ? 'w-field shrink' : 'flex-1'}
-                            style={{ minWidth: SPLIT_SEARCH_MIN_WIDTH }}
-                        >
-                            <SearchInput
-                                value={search ?? ''}
-                                onChangeText={onSearchChange}
-                                label={searchLabel ?? ''}
-                                placeholder={searchPlaceholder}
-                                size="sm"
-                                className="!h-desk-toolbar !rounded-full !border-transparent !bg-surface-sunken"
-                                lens={compactSearch}
-                                {...(onSearchSubmit === undefined
-                                    ? {}
-                                    : {
-                                          onSubmitEditing: onSearchSubmit,
-                                          blurOnSubmit: false,
-                                          autoCorrect: false,
-                                          autoCapitalize: 'none' as const,
-                                      })}
-                                testID={`${testID}-search`}
-                            />
-                        </View>
-                    )}
-                    {onScan === undefined ? null : (
-                        <CameraScanButton testID={`${testID}-camera`} onScan={onScan} />
-                    )}
-                    <LensTokens tokens={tokens} testID={testID} />
-                    {result === null ? (
-                        <Skeleton heightClassName="h-4" widthClassName="w-16" />
-                    ) : (
-                        <Text
-                            testID={`${testID}-result`}
-                            variant="label"
-                            tone="secondary"
-                            role="status"
-                            className={`!text-[13px] font-semibold tabular-nums ${
-                                compactSearch ? 'ms-auto' : ''
-                            }`}
-                        >
-                            {result}
-                        </Text>
-                    )}
-                    {onClear === undefined ? null : (
-                        <Pressable
-                            testID={`${testID}-clear`}
-                            role="button"
-                            accessibilityRole="button"
-                            onPress={onClear}
-                            className="h-control-sm justify-center rounded px-2 hover:bg-brand-50"
-                        >
-                            <Text variant="strong" tone="brand">
-                                {clearLabel}
-                            </Text>
-                        </Pressable>
-                    )}
-                    {trailingNode === undefined || trailingNode === null ? null : (
-                        <View className="z-auto ms-auto flex-row items-center gap-tight">
-                            {trailingNode}
-                        </View>
-                    )}
-                </View>
-            </SplitLens>
-        );
-    }
-
     return (
-        // `z-10`: RN-Web makes every View a stacking context at 0, so without a rank of its own the
-        // bar — and every menu its pickers open — would sit under the list drawn after it.
-        <View
+        <SplitLens
+            label={label}
+            figures={figures}
+            mixParts={mixParts(mix, mixTotal, testID)}
+            mixLabel={mixLabel}
+            actions={actions}
+            joined={joined}
+            notice={notice}
+            narrow={narrow}
+            onNarrow={setNarrow}
             testID={testID}
-            role="region"
-            aria-label={label}
-            onLayout={(event) => {
-                setNarrow(event.nativeEvent.layout.width < NARROW_BAR_WIDTH);
-            }}
-            className="z-10 rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-card"
         >
-            {/*
-             * `ps-2`: the pills carry 8px of their own, so their text starts on the query row's
-             * 16px edge.
-             */}
-            <View
-                className={`z-auto flex-row flex-wrap items-center gap-y-tight py-tight pe-snug ${
-                    narrow ? 'ps-2.5' : 'ps-2'
-                }`}
-            >
-                <View
-                    testID={`${testID}-figures`}
-                    className={`flex-row flex-wrap items-center ${narrow ? '' : 'gap-0.5'}`}
-                >
-                    {figures.map((figure) => (
-                        <LensFigureCell
-                            key={figure.key}
-                            figure={figure}
-                            narrow={narrow}
-                            testID={`${testID}-figure-${figure.key}`}
-                        />
-                    ))}
-                </View>
-                {actions === undefined || actions === null ? null : (
-                    <View
-                        testID={`${testID}-actions`}
-                        className="z-auto ms-auto flex-row items-center gap-tight ps-2"
-                    >
-                        {actions}
+            <View className="z-auto flex-row flex-wrap items-center gap-tight p-2">
+                {scope === undefined || scope === null ? null : (
+                    <View className="z-auto flex-row flex-wrap items-center gap-tight">
+                        {scope}
                     </View>
                 )}
-            </View>
-
-            {/*
-             * The mix, which is also the rule between the rows. Before the counts land — or on an
-             * empty list — it is a plain hairline, so the bar's height never changes.
-             */}
-            <View
-                testID={`${testID}-mix`}
-                role="img"
-                aria-label={mixLabel}
-                className="h-1 flex-row gap-0.5 bg-surface-raised"
-            >
-                {mixParts(mix, mixTotal, testID) ?? (
-                    // eslint-disable-next-line no-restricted-syntax -- the strip *is* the row; not a control.
-                    <View className="h-px flex-1 self-end bg-brand-100" />
-                )}
-            </View>
-
-            <View className="z-auto flex-row flex-wrap items-center gap-tight py-tight pe-snug ps-4">
-                {scope === undefined || scope === null ? null : (
-                    <View className="z-auto flex-row items-center gap-tight">{scope}</View>
-                )}
                 {onSearchChange === undefined ? null : (
-                    // eslint-disable-next-line no-restricted-syntax -- the search absorbs the row; the exempt case.
-                    <View className="flex-1" style={{ minWidth: SEARCH_MIN_WIDTH }}>
+                    <View
+                         
+                        className={compactSearch ? 'w-field shrink' : 'flex-1'}
+                        style={{ minWidth: SEARCH_MIN_WIDTH }}
+                    >
                         <SearchInput
                             value={search ?? ''}
                             onChangeText={onSearchChange}
                             label={searchLabel ?? ''}
                             placeholder={searchPlaceholder}
                             size="sm"
+                            className="!h-desk-toolbar !rounded-full !border-transparent !bg-surface-sunken"
+                            lens={compactSearch}
                             {...(onSearchSubmit === undefined
                                 ? {}
                                 : {
@@ -363,52 +228,47 @@ export function LensBar({
                         />
                     </View>
                 )}
-                {onScan === undefined ? null : (
-                    <CameraScanButton testID={`${testID}-camera`} onScan={onScan} />
-                )}
+                {scanAction}
                 <LensTokens tokens={tokens} testID={testID} />
-                <View className="flex-row items-center gap-tight">
-                    {result === null ? (
-                        <Skeleton heightClassName="h-4" widthClassName="w-16" />
-                    ) : (
-                        <Text
-                            testID={`${testID}-result`}
-                            variant="body"
-                            tone="secondary"
-                            role="status"
-                            className="tabular-nums"
-                        >
-                            {result}
+                {result === null ? (
+                    <Skeleton heightClassName="h-4" widthClassName="w-16" />
+                ) : (
+                    <Text
+                        testID={`${testID}-result`}
+                        variant="label"
+                        tone="secondary"
+                        role="status"
+                        className={`!text-[13px] font-semibold tabular-nums ${
+                            compactSearch ? 'ms-auto' : ''
+                        }`}
+                    >
+                        {result}
+                    </Text>
+                )}
+                {onClear === undefined ? null : (
+                    <Pressable
+                        testID={`${testID}-clear`}
+                        role="button"
+                        accessibilityRole="button"
+                        onPress={onClear}
+                        className="h-control-sm justify-center rounded px-2 hover:bg-brand-50"
+                    >
+                        <Text variant="strong" tone="brand">
+                            {clearLabel}
                         </Text>
-                    )}
-                    {onClear === undefined ? null : (
-                        <Pressable
-                            testID={`${testID}-clear`}
-                            role="button"
-                            accessibilityRole="button"
-                            onPress={onClear}
-                            className="h-control-sm justify-center rounded px-2 hover:bg-brand-50"
-                        >
-                            <Text variant="strong" tone="brand">
-                                {clearLabel}
-                            </Text>
-                        </Pressable>
-                    )}
-                </View>
+                    </Pressable>
+                )}
                 {trailingNode === undefined || trailingNode === null ? null : (
-                    <>
-                        <View aria-hidden className="mx-1 h-5 w-px bg-brand-100" />
-                        <View className="z-auto flex-row items-center gap-tight">
-                            {trailingNode}
-                        </View>
-                    </>
+                    <View className="z-auto ms-auto flex-row items-center gap-tight">
+                        {trailingNode}
+                    </View>
                 )}
             </View>
-        </View>
+        </SplitLens>
     );
 }
 
-/** The filters in force, each removable on its own — in either layout's query row. */
+/** The filters in force, each removable on its own — in the query row. */
 function LensTokens({
     tokens,
     testID,
@@ -466,7 +326,7 @@ function mixParts(
 }
 
 /**
- * The split layout (`layout="split"`).
+ * The bar's frame.
  *
  * ```
  *  (Open now 16) (● Past due 3) (● Needs a driver 8)            [Pause kitchen ▾] [+ New order]
@@ -513,30 +373,32 @@ function SplitLens({
             }}
             className="z-10 flex-col gap-3"
         >
-            <View className="z-auto flex-row flex-wrap items-center gap-tight">
-                <View
-                    testID={`${testID}-figures`}
-                    className="min-w-0 shrink flex-row flex-wrap items-center gap-1.5"
-                >
-                    {figures.map((figure) => (
-                        <LensFigureCell
-                            key={figure.key}
-                            figure={figure}
-                            narrow={narrow}
-                            chip
-                            testID={`${testID}-figure-${figure.key}`}
-                        />
-                    ))}
-                </View>
-                {actions === undefined || actions === null ? null : (
+            {figures.length === 0 && (actions === undefined || actions === null) ? null : (
+                <View className="z-auto flex-row flex-wrap items-center gap-tight">
                     <View
-                        testID={`${testID}-actions`}
-                        className="z-auto ms-auto flex-row items-center gap-2"
+                        testID={`${testID}-figures`}
+                        className="min-w-0 shrink flex-row flex-wrap items-center gap-1.5"
                     >
-                        {actions}
+                        {figures.map((figure) => (
+                            <LensFigureCell
+                                key={figure.key}
+                                figure={figure}
+                                narrow={narrow}
+                                chip
+                                testID={`${testID}-figure-${figure.key}`}
+                            />
+                        ))}
                     </View>
-                )}
-            </View>
+                    {actions === undefined || actions === null ? null : (
+                        <View
+                            testID={`${testID}-actions`}
+                            className="z-auto ms-auto flex-row items-center gap-2"
+                        >
+                            {actions}
+                        </View>
+                    )}
+                </View>
+            )}
             {notice}
             <View
                 className={`z-auto border border-stroke-subtle bg-surface-raised ${
@@ -557,11 +419,8 @@ function SplitLens({
     );
 }
 
-/** The split query row carries more controls before the search, so it gives way sooner. */
-const SPLIT_SEARCH_MIN_WIDTH = 150;
-
-/** The narrowest the search gives way to: an order number and a short name. */
-const SEARCH_MIN_WIDTH = 200;
+/** The query row carries scope pickers before the search, so the search gives way early. */
+const SEARCH_MIN_WIDTH = 150;
 
 /** A space the layout cannot collapse, so an otherwise empty line still takes its full height. */
 const NO_BREAK_SPACE = String.fromCharCode(0xa0);
@@ -576,7 +435,7 @@ export function LensFigureCell({
     readonly figure: LensFigure;
     /** Beside the issue tray: 6px pills instead of 8, so the actions keep the first line. */
     readonly narrow: boolean;
-    /** The split layout's look: each figure a bordered chip standing on the page. */
+    /** The Lens bar's look: each figure a bordered chip standing on the page. Off for a record's facts, drawn inline. */
     readonly chip?: boolean | undefined;
     /**
      * With `chip`: the chip takes its cell's whole width and the number moves to its end, so a
@@ -719,3 +578,54 @@ export function LensFigureCell({
         </>
     );
 }
+
+export interface FigureChipsProps {
+    readonly figures: readonly LensFigure[];
+    /**
+     * Each chip takes an equal share of the row (never under 150px) and its number moves to its
+     * end, so the row reads as label | value columns — a home page's counts, a summary.
+     */
+    readonly fill?: boolean | undefined;
+    readonly testID: string;
+}
+
+/**
+ * A row of figures without a list under them — the kitchen home's counts, a record's facts. The
+ * Lens bar's own chips, so a number you can press looks the same on every page.
+ */
+export function FigureChips({ figures, fill = false, testID }: FigureChipsProps) {
+    return (
+        <View testID={testID} className="flex-row flex-wrap items-center gap-1.5">
+            {figures.map((figure) =>
+                fill ? (
+                    <View
+                        key={figure.key}
+                        className="flex-row"
+                        style={{ flexGrow: 1, flexBasis: 0, minWidth: FILL_MIN_WIDTH }}
+                    >
+                        <View className="flex-1">
+                            <LensFigureCell
+                                figure={figure}
+                                narrow={false}
+                                chip
+                                fill
+                                testID={`${testID}-${figure.key}`}
+                            />
+                        </View>
+                    </View>
+                ) : (
+                    <LensFigureCell
+                        key={figure.key}
+                        figure={figure}
+                        narrow={false}
+                        chip
+                        testID={`${testID}-${figure.key}`}
+                    />
+                ),
+            )}
+        </View>
+    );
+}
+
+/** A filled chip's narrowest: a two-word label and a four-digit count. */
+const FILL_MIN_WIDTH = 150;

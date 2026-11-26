@@ -17,6 +17,7 @@ import {
     EmptyState,
     ErrorState,
     FormSection,
+    LensBar,
     RecordSkeleton,
     RecordWindowFieldGrid,
     Stack,
@@ -26,7 +27,14 @@ import {
     useTablePort,
     useToast,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensMixPart,
+    LensTone,
+    MenuItem,
+} from '@healthy360/design-system';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -43,8 +51,6 @@ import {
     useQuoteQuotationMutation,
 } from '../../../data/kitchen-quotations-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart, LensTone } from '../catalogue/lens-bar.tsx';
 import { quotationLineColumns } from '../commercial/quotation-line-columns.tsx';
 import {
     B2B_QUOTATION_QUOTE_PERMISSION,
@@ -362,7 +368,6 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-quotations-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures(all, pending, filter, t, (next) => {

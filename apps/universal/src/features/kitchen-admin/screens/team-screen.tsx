@@ -12,6 +12,7 @@ import {
     ErrorState,
     Heading,
     Icon,
+    LensBar,
     Select,
     Stack,
     TablePager,
@@ -19,7 +20,12 @@ import {
     Text,
     useColumnControls,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -35,8 +41,6 @@ import {
     useTeamWholeSetQuery,
 } from '../../../data/access-admin-hooks.ts';
 import { toFailure } from '../../../data/hooks.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import {
     MEMBERSHIP_END_PERMISSION,
     MEMBERSHIP_INVITE_PERMISSION,
@@ -484,7 +488,6 @@ function TeamList() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-team-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures({

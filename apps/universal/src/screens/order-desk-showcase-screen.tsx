@@ -6,17 +6,16 @@ import {
     FilterChip,
     Icon,
     Inline,
+    LensBar,
     SegmentedControl,
     Select,
     Tabs,
     Text,
 } from '@healthy360/design-system';
-import type { DataTableColumn } from '@healthy360/design-system';
+import type { DataTableColumn, LensFigure } from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { LensBar } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
-import type { LensFigure } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
 import { DeskTableTitle } from '../features/kitchen-admin/order-desk/desk-parts.tsx';
 import {
     KindTiles,
@@ -165,7 +164,6 @@ export function OrderDeskShowcaseScreen() {
                     <View>
                         <LensBar
                             testID="showcase-desk-lens"
-                            layout="split"
                             joined
                             label="Order desk summary and filters"
                             figures={figures}
@@ -206,7 +204,6 @@ export function OrderDeskShowcaseScreen() {
                     <Text variant="title">Split, nothing under it — loading figures</Text>
                     <LensBar
                         testID="showcase-desk-lens-loading"
-                        layout="split"
                         label="Order desk summary and filters"
                         figures={figures.map((figure) => ({ ...figure, value: null }))}
                         actions={actions}

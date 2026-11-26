@@ -9,6 +9,7 @@ import {
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     Select,
     TableSkeleton,
     Text,
@@ -29,10 +30,13 @@ import {
     useStartProductionOrderMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+} from '@healthy360/design-system';
 
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PRODUCTION_MANAGE_PERMISSION, PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     nextProductionEdge,
@@ -330,7 +334,6 @@ function ProductionDesk() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-production-desk-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     // A failed read counts nothing: its figures are dashes, as past the first page.

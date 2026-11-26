@@ -5,15 +5,15 @@ import {
     DensityProvider,
     Icon,
     Inline,
+    LensBar,
+    LensFigureCell,
     Select,
     Text,
 } from '@healthy360/design-system';
+import type { LensFigure, LensMixPart } from '@healthy360/design-system';
 import type { PublishableStatus } from '@healthy360/api-client/contracts';
 import { useState } from 'react';
 import { View } from 'react-native';
-
-import { LensBar, LensFigureCell } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
 
 type Kind = 'all' | 'meal' | 'sauce' | 'preparation';
 

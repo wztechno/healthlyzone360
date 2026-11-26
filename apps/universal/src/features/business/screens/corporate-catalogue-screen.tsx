@@ -9,10 +9,17 @@ import {
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     TableSkeleton,
     useColumnControls,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensTone,
+    MenuItem,
+} from '@healthy360/design-system';
 import type { CatalogueItem, CatalogueItemKind } from '@healthy360/api-client/contracts';
 import { CorporateProgrammeId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -22,8 +29,6 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { toFailure, useCorporateCatalogueQuery } from '../../../data/business-hooks.ts';
-import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
-import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import { catalogueColumns } from '../catalogue-columns.tsx';
 import { CORPORATE_HOME_HREF, CORPORATE_NEW_QUOTATION_HREF } from '../corporate-chrome.tsx';
 import { PickedLinesBar } from '../corporate-parts.tsx';
@@ -235,7 +240,6 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="corporate-catalogue-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={figures}

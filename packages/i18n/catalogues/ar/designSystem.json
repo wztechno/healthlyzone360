@@ -104,6 +104,21 @@
     "infoTip": {
         "label": "حول {{label}}"
     },
+    "period": {
+        "label": "الفترة",
+        "all": "الكل",
+        "today": "اليوم",
+        "yesterday": "أمس",
+        "week": "هذا الأسبوع",
+        "month": "هذا الشهر",
+        "lastMonth": "الشهر الماضي",
+        "quarter": "آخر 3 أشهر",
+        "year": "هذه السنة",
+        "tomorrow": "غدًا",
+        "nextWeek": "الأسبوع القادم",
+        "twoWeeks": "الأسبوعان القادمان",
+        "custom": "مخصص"
+    },
     "datePicker": {
         "previousMonth": "الشهر السابق",
         "nextMonth": "الشهر التالي",

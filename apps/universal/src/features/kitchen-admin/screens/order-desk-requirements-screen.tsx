@@ -11,12 +11,19 @@ import {
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
+    PeriodScope,
     Select,
     TableSkeleton,
     Text,
     useColumnControls,
 } from '@healthy360/design-system';
-import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -34,14 +41,11 @@ import {
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { unitCodeLabel } from '../format.ts';
-import { PeriodScope } from '../catalogue/period-scope.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { PageBackPill, useAreaTrailDrawn } from '../../../shell/area-trail.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
 import { ORDERS_HREF } from '../orders/orders-url.ts';
 import { shortDay } from '../orders/order-columns.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 
 /**
  * `/kitchen/order-desk/requirements` — what this branch must buy to cook the days ahead.
@@ -470,7 +474,6 @@ function OrderDeskRequirements() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-order-desk-requirements-toolbar"
-                    layout="split"
                     compactSearch
                     joined={joined}
                     label={t('kitchen:lens.label')}

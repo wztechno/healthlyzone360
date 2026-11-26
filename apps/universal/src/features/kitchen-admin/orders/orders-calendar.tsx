@@ -5,12 +5,14 @@ import {
     ErrorState,
     Icon,
     IconButton,
+    LensBar,
     Select,
     Skeleton,
     Tabs,
     Text,
     useBreakpoint,
 } from '@healthy360/design-system';
+import type { LensFigure } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
@@ -24,8 +26,6 @@ import {
 } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { addDays, dateInstant, mondayOf, weekDates } from '../../planner/format.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { kitchenOrderFulfilmentTypeKey, kitchenOrderRowTestId } from '../ops-format.ts';
 import { windowCodesOfMeal } from '../order-desk-calendar.ts';
 import type { CalendarMeal } from '../order-desk-calendar.ts';
@@ -209,7 +209,6 @@ export function CalendarTab({
         <View className="z-auto flex-col gap-4">
             <LensBar
                 testID="kitchen-orders-calendar-toolbar"
-                layout="split"
                 compactSearch
                 label={t('kitchen:orders.calendar.label')}
                 figures={figures}

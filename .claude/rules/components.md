@@ -49,8 +49,9 @@ decides by itself:
 Not dropdowns, and not `Select`: a row's actions (`⋯`) are `RowMenu`, and Show columns is
 `ColumnPicker` (both under Tables).
 
-**Removed, never recreate:** `DeskSelect`, `DeskPicker`, `LensScope`. `SlotScope` and `PeriodScope`
-are presets that draw `Select` inside — fine to use, not a pattern to copy.
+**Removed, never recreate:** `DeskSelect`, `DeskPicker`, `LensScope`. `PeriodScope` (design system) and
+the Orders page's own `SlotScope` are presets that draw `Select` inside — fine to use, not a pattern to
+copy.
 
 ## Buttons — `Button` and `IconButton`
 
@@ -176,7 +177,26 @@ The row menu is `RowMenu` alone — a `⋯` that turns soft green while open (`I
 headers' sort and filter menus are `ColumnHeader`, drawn by `useColumnControls`. **Removed, never
 recreate:** `DeskColumnPicker`, `DropTrigger`, `CatalogueColumnHeader`.
 
+## Toolbars — the one `LensBar`
+
+Every admin list or report opens with `LensBar` from `@healthy360/design-system`: the figures as chips
+on the page with the actions at their end, the mix on the card's top edge, and the query row as the
+top of the list's card. There is one look; there is no `layout` to pick.
+
+| Job                                                           | How                                                             |
+| ------------------------------------------------------------- | --------------------------------------------------------------- |
+| A list's opening (Ingredients, Orders, Suppliers)             | `<LensBar figures mix actions search tokens result />`          |
+| The list under it closes the card                             | `joined` on both the `LensBar` and the `DataTable`              |
+| A report with no search (Activity, Cash report)               | `figures={[]}` + `scope` — the empty figures row is left out    |
+| A period before From / To                                     | `PeriodScope` in `scope`, then two `DatePicker` pills           |
+| A camera scan beside the search                               | `scanAction={<CameraScanButton … />}` (the app owns the camera) |
+| Counts with no list under them (kitchen home, a bill's facts) | `FigureChips` (`fill` for an even row)                          |
+
+**Removed, never recreate:** `CatalogueToolbar`, `ToolbarPanel`, `ListToolbar`, `CatalogueStatCards`,
+`StatTile`, the unused `TodayCard`, and `LensBar`'s one-panel `layout="bar"`. The web shop keeps its own
+`toolbar-row.tsx`.
+
 ## Canvas designs
 
-A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs, pills, dates and tables as `/showcase-components` shows them. If a design
+A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs, pills, dates, tables and toolbars as `/showcase-components` shows them. If a design
 needs a part that is not on that page, say so — it is a new design-system part, not a one-off.

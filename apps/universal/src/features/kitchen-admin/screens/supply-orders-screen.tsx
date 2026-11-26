@@ -17,6 +17,7 @@ import {
     ErrorState,
     FormSection,
     Icon,
+    LensBar,
     Select,
     Stack,
     TABLE_PAGE_SIZE,
@@ -28,6 +29,7 @@ import {
 import type {
     ControlledColumn,
     DataTableColumn,
+    LensFigure,
     MenuItem,
     SelectOption,
     SortDirection,
@@ -50,8 +52,6 @@ import {
     usePurchaseOrderQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { displayName, unitCodeLabel } from '../format.ts';
 import {
@@ -682,7 +682,6 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
             <View className={bookJoined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-supply-orders-toolbar"
-                    layout="split"
                     joined={bookJoined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures({

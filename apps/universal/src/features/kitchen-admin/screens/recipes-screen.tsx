@@ -10,6 +10,7 @@ import {
     Icon,
     Inline,
     IssueTrayFrame,
+    LensBar,
     Menu,
     Select,
     Stack,
@@ -18,7 +19,13 @@ import {
     useColumnControls,
     useToast,
 } from '@healthy360/design-system';
-import type { ColumnControl, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ColumnControl,
+    DataTableColumn,
+    LensFigure,
+    LensToken,
+    MenuItem,
+} from '@healthy360/design-system';
 import { RECIPE_KINDS } from '@healthy360/api-client/contracts';
 import type {
     PublishableStatus,
@@ -53,8 +60,6 @@ import {
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { RecipeCardGrid } from '../catalogue/recipe-card-grid.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField, RecordViewSection } from '../catalogue/record-view-page.tsx';
@@ -431,7 +436,6 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                 <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                     <LensBar
                         testID="kitchen-recipes-toolbar"
-                        layout="split"
                         joined={joined}
                         label={t('kitchen:lens.label')}
                         figures={lensFigures(list, t)}

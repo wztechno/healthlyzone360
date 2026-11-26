@@ -100,6 +100,21 @@
     "infoTip": {
         "label": "About {{label}}"
     },
+    "period": {
+        "label": "Period",
+        "all": "All",
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "week": "This week",
+        "month": "This month",
+        "lastMonth": "Last month",
+        "quarter": "Last 3 months",
+        "year": "This year",
+        "tomorrow": "Tomorrow",
+        "nextWeek": "Next week",
+        "twoWeeks": "Next 2 weeks",
+        "custom": "Custom"
+    },
     "datePicker": {
         "previousMonth": "Previous month",
         "nextMonth": "Next month",

@@ -7,6 +7,8 @@ import {
     DatePicker,
     EmptyState,
     ErrorState,
+    LensBar,
+    PeriodScope,
     SegmentedControl,
     Stack,
     TableSkeleton,
@@ -25,8 +27,6 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useActivityQuery, useStockActivityQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { daysBetween, isIsoDate, todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import { PeriodScope } from '../catalogue/period-scope.tsx';
 import { AUDIT_VIEW_PERMISSION } from '../entity-registry.ts';
 import { humaniseCode, unitCodeLabel } from '../format.ts';
 
