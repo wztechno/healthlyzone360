@@ -21,6 +21,7 @@ import {
     Dialog,
     ErrorState,
     Icon,
+    PageHeader,
     RecordSkeleton,
     Select,
     Text,
@@ -54,7 +55,6 @@ import {
     useSendAgreementMutation,
 } from '../../../data/platform-b2b-hooks.ts';
 import { useTrailLeaf } from '../../../shell/area-trail.tsx';
-import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
 import { SheetCard, SheetFacts } from '../../kitchen-admin/catalogue/record-sheet.tsx';
 import type { SheetFact } from '../../kitchen-admin/catalogue/record-sheet.tsx';
 import { AgreementEditor } from '../agreement-editor.tsx';
@@ -203,8 +203,7 @@ function ApplicationFile() {
     return (
         <Cascade space="md" testID="platform-b2b-application-screen">
             <View className="flex-col gap-1">
-                <CataloguePageHeader
-                    titleLook="board"
+                <PageHeader
                     testID="platform-b2b-application-header"
                     titleTestID="platform-b2b-application-title"
                     title={company}

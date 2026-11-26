@@ -1,11 +1,21 @@
-import { Button, Dialog, FormIssueBanner, Inline, IssueUnanchored, Stack, Tabs, Text, useIssueGroup } from '@healthy360/design-system';
+import {
+    Button,
+    Dialog,
+    FormIssueBanner,
+    Inline,
+    IssueUnanchored,
+    PageHeader,
+    Stack,
+    Tabs,
+    Text,
+    useIssueGroup,
+} from '@healthy360/design-system';
 import type { FormIssueItem, IssueCardItem, TabItem } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
-import { CataloguePageHeader } from './catalogue/catalogue-page-header.tsx';
 import { focusField } from './field-focus.ts';
 import { serverFieldErrors } from './server-field-errors.ts';
 import type { ServerFieldTarget } from './server-field-errors.ts';
@@ -131,8 +141,7 @@ export function RecordFormOpening<Step extends string>({
 
     return (
         <Stack space="sm">
-            <CataloguePageHeader
-                titleLook="board"
+            <PageHeader
                 testID={`${testID}-header`}
                 titleTestID={`${testID}-title`}
                 title={title}
@@ -142,7 +151,7 @@ export function RecordFormOpening<Step extends string>({
                         {dirty ? <UnsavedMark testID={`${testID}-dirty`} /> : null}
                     </Inline>
                 }
-                primaryAction={
+                actions={
                     actions === undefined && save === undefined ? undefined : (
                         <Inline
                             space="xs"

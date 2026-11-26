@@ -10,6 +10,7 @@ import {
     Heading,
     Icon,
     InfoTip,
+    PageHeader,
     Select,
     Switch,
     Text,
@@ -39,7 +40,6 @@ import { useValidationTranslate } from '../../../screens/form-helpers.ts';
 import { useSession } from '../../../session/session-provider.tsx';
 import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
 import { earliestStartDate } from '../../commerce/dates.ts';
-import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
 import { focusField } from '../../kitchen-admin/field-focus.ts';
 import { serverFieldErrors } from '../../kitchen-admin/server-field-errors.ts';
 import type { ServerFieldTarget } from '../../kitchen-admin/server-field-errors.ts';
@@ -240,8 +240,7 @@ export function QuotationBuilderScreen({
     if (submitted !== null) {
         return (
             <Cascade space="md" testID="quotation-builder-screen">
-                <CataloguePageHeader
-                    titleLook="board"
+                <PageHeader
                     testID="quotation-builder-header"
                     titleTestID="quotation-builder-title"
                     title={t('business:nav.newQuotation')}
@@ -252,7 +251,7 @@ export function QuotationBuilderScreen({
                             label={t('business:quotationStates.submitted')}
                         />
                     }
-                    primaryAction={
+                    actions={
                         <Button
                             testID="quotation-builder-back"
                             variant="secondary"
@@ -765,8 +764,7 @@ export function QuotationBuilderScreen({
     return (
         <Cascade space="md" testID="quotation-builder-screen">
             <View className="flex-col gap-1">
-                <CataloguePageHeader
-                    titleLook="board"
+                <PageHeader
                     testID="quotation-builder-header"
                     titleTestID="quotation-builder-title"
                     title={t('business:nav.newQuotation')}
@@ -789,7 +787,7 @@ export function QuotationBuilderScreen({
                             </View>
                         ) : undefined
                     }
-                    primaryAction={
+                    actions={
                         <View className="flex-row flex-wrap items-center justify-end gap-2">
                             <Button
                                 testID="quotation-builder-cancel"

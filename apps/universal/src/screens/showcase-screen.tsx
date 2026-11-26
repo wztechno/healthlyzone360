@@ -64,6 +64,7 @@ import {
     NUTRITION_LEVELS,
     OfflineIndicator,
     OtpInput,
+    PageHeader,
     PageTransition,
     Pagination,
     PasswordInput,
@@ -154,8 +155,6 @@ import { RecipeCardGrid } from '../features/kitchen-admin/catalogue/recipe-card-
 import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
 import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
 import { RecordSummaryAside } from '../features/kitchen-admin/record-summary-aside.tsx';
-import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
-import { KpiTile } from '../features/kitchen-admin/kpi-tile.tsx';
 import { PackCard } from '../features/kitchen-admin/packs-prices-section.tsx';
 import { ToolbarRow } from '../features/marketplace/toolbar-row.tsx';
 import { AiBand, AiRailCard } from '../ui/ai-surface.tsx';
@@ -5118,11 +5117,11 @@ export function ShowcaseScreen() {
                 {/* English literals, like `hero` and `ai` above: the section demonstrates one
                     feature-level composition rather than a translated design-system primitive. */}
                 <Section id="kitchen" title="Kitchen templates">
-                    <KitchenPageHeader
+                    <PageHeader
                         testID="showcase-kitchen-header"
                         title="Stock"
-                        subtitle="What is on hand, what the minimum is, and how tomorrow reads."
-                        statusChip={<Badge tone="danger" label="1 item short" />}
+                        info="What is on hand, what the minimum is, and how tomorrow reads."
+                        titleAside={<Badge tone="danger" label="1 item short" />}
                         actions={
                             <Button
                                 testID="showcase-kitchen-header-action"
@@ -5131,34 +5130,6 @@ export function ShowcaseScreen() {
                             />
                         }
                     />
-                    <KitchenPageHeader
-                        testID="showcase-kitchen-header-band"
-                        variant="band"
-                        title="Grilled Halloumi & Rocket Plate"
-                        subtitle="Creating and editing share this form — leaving with unsaved changes asks first."
-                        statusChip={<Badge tone="warning" label="Draft" />}
-                    />
-                    <View className="flex-row flex-wrap gap-3">
-                        <KpiTile
-                            testID="showcase-kitchen-kpi"
-                            label="Spend"
-                            value="$18,240"
-                            size="lg"
-                            hint="what arrived this month"
-                        />
-                        <KpiTile
-                            testID="showcase-kitchen-kpi-pending"
-                            label="Cost of goods"
-                            value={null}
-                            pending
-                        />
-                        <KpiTile
-                            testID="showcase-kitchen-kpi-null"
-                            label="Margin"
-                            value={null}
-                            nullCaption="The count could not be read."
-                        />
-                    </View>
                     {/* Packs & prices — one pack, costed, priced on both places, Counter ticked. */}
                     <PackCard
                         testID="showcase-kitchen-pack-card"

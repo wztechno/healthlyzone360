@@ -4,18 +4,11 @@
  * A list screen is these in order and nothing else:
  *
  * ```tsx
- * <CataloguePageHeader … />     // breadcrumb (with the ☰), optional title, the actions
  * <LensBar … />                 // the figures and the query row (design system)
  * <DataTable … />           // the spec-driven grid, or two-line rows below `md`
  * <TablePager … />          // range + compact buttons
  * ```
- *
- * All of it wrapped once, high up, in `CatalogueNavProvider` — the open state has to outlive the
- * screen for the rail not to reappear on every navigation.
  */
-
-export { CataloguePageHeader } from './catalogue-page-header.tsx';
-export type { CataloguePageHeaderProps } from './catalogue-page-header.tsx';
 
 export { DerivedPanel } from './derived-panel.tsx';
 export type { DerivedFigure, DerivedPanelProps } from './derived-panel.tsx';
@@ -26,18 +19,6 @@ export type {
     RecordViewPageProps,
     RecordViewSection,
 } from './record-view-page.tsx';
-
-export {
-    CATALOGUE_NAV_TRANSITION_MS,
-    CatalogueNavProvider,
-    CatalogueNavToggle,
-    useCatalogueNav,
-} from './catalogue-nav.tsx';
-export type {
-    CatalogueNavProviderProps,
-    CatalogueNavState,
-    CatalogueNavToggleProps,
-} from './catalogue-nav.tsx';
 
 /* ── the per-entity specs and their list state ───────────────────────────────────────────────── */
 

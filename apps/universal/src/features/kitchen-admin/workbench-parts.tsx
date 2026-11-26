@@ -1,9 +1,7 @@
-import { Badge, Text } from '@healthy360/design-system';
+import { Badge, PageHeader, Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
-
-import { CataloguePageHeader } from './catalogue/catalogue-page-header.tsx';
 
 /**
  * The pieces the four Workbench screens draw the same way (Workbench handoff §3y).
@@ -32,7 +30,7 @@ export function WorkbenchHeader({
     readonly titleTestID?: string | undefined;
 }) {
     return (
-        <CataloguePageHeader
+        <PageHeader
             testID={testID}
             title={title}
             titleTestID={titleTestID}

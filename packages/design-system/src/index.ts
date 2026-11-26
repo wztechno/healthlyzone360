@@ -248,6 +248,8 @@ export { parseTypedTime } from './forms/time-field-shared.ts';
 
 export { CARD_PADDINGS, CARD_TONES, Card } from './content/card.tsx';
 export type { CardPadding, CardProps, CardTone } from './content/card.tsx';
+export { PageHeader } from './content/page-header.tsx';
+export type { PageHeaderProps } from './content/page-header.tsx';
 export { DerivedChipPanel } from './content/derived-chip-panel.tsx';
 export type { DerivedChipPanelProps } from './content/derived-chip-panel.tsx';
 export { ListSummaryCards, SUMMARY_CARD_TONES } from './content/list-summary-cards.tsx';

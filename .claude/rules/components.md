@@ -196,7 +196,23 @@ top of the list's card. There is one look; there is no `layout` to pick.
 `StatTile`, the unused `TodayCard`, and `LensBar`'s one-panel `layout="bar"`. The web shop keeps its own
 `toolbar-row.tsx`.
 
+## Page openings — the one `PageHeader`
+
+An editor, a record or a settings page opens with `PageHeader` from `@healthy360/design-system`: a
+24px bold title, the record's status beside it (`titleAside`), and the actions at the row's end. A
+list page has none — its `LensBar` is its opening. Neither draws a breadcrumb: the top bar's trail
+names the page.
+
+| Job                                        | How                                           |
+| ------------------------------------------ | --------------------------------------------- |
+| An editor (recipe, product, quotation)     | `title` + `titleAside` (status) + `actions`   |
+| What a page is for, when it needs saying   | `info` — an (i) beside the title, never prose |
+| A way back the trail cannot give (a sheet) | `back` above the title                        |
+
+**Removed, never recreate:** `CataloguePageHeader` (and its `titleLook`), `KitchenPageHeader` (and its
+`band` variant and subtitle line), `CatalogueNavToggle` / `catalogue-nav.tsx`, `OpsPanel`, `KpiTile`.
+
 ## Canvas designs
 
-A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs, pills, dates, tables and toolbars as `/showcase-components` shows them. If a design
+A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs, pills, dates, tables, toolbars and page headers as `/showcase-components` shows them. If a design
 needs a part that is not on that page, say so — it is a new design-system part, not a one-off.

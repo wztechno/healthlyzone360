@@ -6,6 +6,7 @@ import {
     Dialog,
     Inline,
     IssueUnanchored,
+    PageHeader,
     Stack,
     Text,
     useContentWidth,
@@ -19,7 +20,6 @@ import type { BadgeTone } from '@healthy360/design-system';
 
 import { EDITOR_FORM_MIN } from './desk-layout.ts';
 import { statusKey, statusTone } from './format.ts';
-import { CataloguePageHeader } from './catalogue/catalogue-page-header.tsx';
 import { useKitchenTrailLeaf } from './kitchen-ops-shell.tsx';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
@@ -32,7 +32,7 @@ const EDITOR_RAIL_WIDTH = 330;
 /**
  * The chrome every record editor in this workspace shares.
  *
- * Drawn as the Catalogue editor draws its opening — `CataloguePageHeader` with Cancel and Save, the
+ * Drawn as the Catalogue editor draws its opening — `PageHeader` with Cancel and Save, the
  * record-facts line, the form on the page. Still owns no form state — screens pass data and
  * callbacks.
  */
@@ -243,8 +243,7 @@ export function EditorFrame({
                 </Inline>
             ) : (
                 <Stack space="xs">
-                    <CataloguePageHeader
-                        titleLook="board"
+                    <PageHeader
                         testID={`${testID}-header`}
                         titleTestID={`${testID}-title`}
                         title={hideTitle ? undefined : title}
@@ -265,7 +264,7 @@ export function EditorFrame({
                                 </Inline>
                             )
                         }
-                        primaryAction={
+                        actions={
                             <Inline
                                 space="xs"
                                 align="center"

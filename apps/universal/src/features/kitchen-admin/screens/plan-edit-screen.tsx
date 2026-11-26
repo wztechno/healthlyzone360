@@ -16,6 +16,7 @@ import {
     Inline,
     IssueTrayFrame,
     IssueUnanchored,
+    PageHeader,
     Stack,
     Tabs,
     Text,
@@ -49,7 +50,6 @@ import {
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
-import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { PlanMatrixGrid } from '../commercial/plan-matrix-grid.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { focusField, focusSection } from '../field-focus.ts';
@@ -1272,8 +1272,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                  * No trail here — `KitchenOpsShell` draws it.
                  */}
                 <Stack space="sm">
-                    <CataloguePageHeader
-                        titleLook="board"
+                    <PageHeader
                         testID="kitchen-plan-editor-screen-header"
                         titleTestID="kitchen-plan-editor-screen-title"
                         title={title}
@@ -1301,7 +1300,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                 ) : null}
                             </Inline>
                         }
-                        primaryAction={
+                        actions={
                             <Inline space="xs" align="center" wrap justify="end">
                                 <Button
                                     testID="kitchen-plan-editor-screen-back"

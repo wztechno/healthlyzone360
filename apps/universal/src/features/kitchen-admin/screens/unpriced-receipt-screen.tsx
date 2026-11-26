@@ -15,6 +15,7 @@ import {
     FormSection,
     IssueTrayFrame,
     IssueUnanchored,
+    PageHeader,
     QuantityInput,
     RecordSkeleton,
     Text,
@@ -46,7 +47,6 @@ import {
     useGoodsReceiptQuery,
     useStockItemsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import { unitCodeLabel } from '../format.ts';
@@ -346,7 +346,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
     return (
         <IssueTrayFrame tray={trayContent} controller={issueTray}>
             <Cascade space="md" testID="kitchen-unpriced-receipt-screen">
-                <CataloguePageHeader
+                <PageHeader
                     testID="kitchen-unpriced-receipt-header"
                     title={title ?? undefined}
                     titleAside={
@@ -356,7 +356,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                             label={t(receiptCostStatusKey(detail.costStatus))}
                         />
                     }
-                    primaryAction={
+                    actions={
                         <View className="flex-row flex-wrap items-center gap-tight">
                             <Button
                                 testID="kitchen-unpriced-receipt-cancel"

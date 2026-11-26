@@ -14,6 +14,7 @@ import {
     IconButton,
     initialsOf,
     LensBar,
+    PageHeader,
     PeriodScope,
     QuantityInput,
     SEARCH_THRESHOLD,
@@ -1027,6 +1028,63 @@ function TablesSection() {
     );
 }
 
+function PageHeaderSection() {
+    return (
+        <Stack space="lg" testID="components-showcase-page-header">
+            <Stack space="xs">
+                <Text variant="section">Page header</Text>
+                <Text variant="caption" tone="secondary">
+                    PageHeader · how an editor, a record or a settings page opens · a list opens
+                    with its LensBar instead
+                </Text>
+            </Stack>
+
+            <Sample
+                title="An editor"
+                note="title · the record's status beside it · the actions at the end"
+            >
+                <View className="w-full">
+                    <PageHeader
+                        testID="components-showcase-header-editor"
+                        title="New recipe"
+                        titleAside={<Badge variant="dot" tone="warning" label="Draft" />}
+                        actions={
+                            <>
+                                <Button
+                                    testID="components-showcase-header-cancel"
+                                    variant="secondary"
+                                    size="sm"
+                                    label="Cancel"
+                                    onPress={() => undefined}
+                                />
+                                <Button
+                                    testID="components-showcase-header-save"
+                                    size="sm"
+                                    label="Save draft"
+                                    onPress={() => undefined}
+                                />
+                            </>
+                        }
+                    />
+                </View>
+            </Sample>
+
+            <Sample
+                title="A settings page"
+                note="info · what the page is for, behind an (i) — never a sentence under the title"
+            >
+                <View className="w-full">
+                    <PageHeader
+                        testID="components-showcase-header-settings"
+                        title="Storefront"
+                        info="The tagline, description and cuisines customers read on your marketplace page."
+                    />
+                </View>
+            </Sample>
+        </Stack>
+    );
+}
+
 type Shelf = 'all' | 'published' | 'draft' | 'review';
 
 const SHELF_COUNTS: Readonly<Record<Exclude<Shelf, 'all'>, number>> = {
@@ -1263,6 +1321,7 @@ export function ComponentsShowcaseScreen() {
                     <StepsSection />
                     <DatesSection />
                     <TablesSection />
+                    <PageHeaderSection />
                     <ToolbarSection />
                 </Stack>
             </View>

@@ -1,4 +1,14 @@
-import { Button, Callout, EmptyState, ErrorState, FormSection, RecordSkeleton, Stack, Text } from '@healthy360/design-system';
+import {
+    Button,
+    Callout,
+    EmptyState,
+    ErrorState,
+    FormSection,
+    PageHeader,
+    RecordSkeleton,
+    Stack,
+    Text,
+} from '@healthy360/design-system';
 import { ProductionOrderId } from '@healthy360/domain-types';
 import { useLocalSearchParams } from 'expo-router';
 import { useFormatter } from '@healthy360/i18n';
@@ -9,7 +19,6 @@ import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useProductionTechnicalSheetQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
-import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { BatchLinesPanel } from '../production-desk/batch-lines-panel.tsx';
 
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
@@ -110,10 +119,10 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
 
     return (
         <Stack space="lg" testID="kitchen-production-batch-sheet-screen">
-            <KitchenPageHeader
+            <PageHeader
                 testID="kitchen-production-batch-sheet-header"
                 title={t('kitchen:ops.production.sheetTitle')}
-                subtitle={t('kitchen:ops.production.sheetSubtitle')}
+                info={t('kitchen:ops.production.sheetSubtitle')}
                 back={
                     <View className="flex-row">
                         <Button

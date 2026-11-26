@@ -1,5 +1,16 @@
 import type { LocalisedText } from '@healthy360/api-client/contracts';
-import { Button, Callout, Cascade, cx, FormSection, Text, TextInputField, useContentWidth, useToast } from '@healthy360/design-system';
+import {
+    Button,
+    Callout,
+    Cascade,
+    cx,
+    FormSection,
+    PageHeader,
+    Text,
+    TextInputField,
+    useContentWidth,
+    useToast,
+} from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +24,6 @@ import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
 import { SendChecklist } from '../../business/corporate-parts.tsx';
 import type { SendCheck } from '../../business/corporate-parts.tsx';
 import { BilingualField } from '../../kitchen-admin/bilingual-field.tsx';
-import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
 import { PLATFORM_KITCHENS_HREF, platformKitchenHref } from '../platform-admin-chrome.tsx';
 
 /**
@@ -368,8 +378,7 @@ function CreateKitchenForm() {
 
     return (
         <Cascade space="md" testID="platform-admin-create-screen">
-            <CataloguePageHeader
-                titleLook="board"
+            <PageHeader
                 testID="platform-admin-create-header"
                 titleTestID="platform-admin-create-title"
                 title={t('platformAdmin:create.title')}
@@ -386,7 +395,7 @@ function CreateKitchenForm() {
                         </View>
                     ) : undefined
                 }
-                primaryAction={
+                actions={
                     <View className="flex-row flex-wrap items-center justify-end gap-2">
                         <Button
                             testID="platform-admin-create-cancel"

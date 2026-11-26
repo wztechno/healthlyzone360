@@ -14,6 +14,7 @@ import {
     FormSkeleton,
     Icon,
     Inline,
+    PageHeader,
     Stack,
     Text,
     useToast,
@@ -45,7 +46,6 @@ import {
     PRICE_LIST_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { displayName, statusShortKey, statusTone } from '../format.ts';
-import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { NewPriceListDialog } from '../new-price-list-dialog.tsx';
 
 const PAGE = 'kitchen-wholesale';
@@ -300,10 +300,10 @@ function WholesaleSetup() {
 
     return (
         <Cascade space="md" testID={`${PAGE}-screen`}>
-            <KitchenPageHeader
+            <PageHeader
                 testID={`${PAGE}-header`}
                 title={t('kitchen:families.wholesale.name')}
-                subtitle={t('kitchen:wholesale.subtitle')}
+                info={t('kitchen:wholesale.subtitle')}
             />
 
             <SetupStep

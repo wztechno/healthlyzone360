@@ -11,7 +11,7 @@ import { View } from 'react-native';
  * └───────────────────────────┘
  * ```
  *
- * Replaces `kpi-tile.tsx` on Cost report and Analytics, where the figures *are* the content and so
+ * Replaced the old `KpiTile` on Cost report and Analytics, where the figures *are* the content and so
  * earn a tile rather than the Catalogue's one summary line. A hairline on the raised fill and the card
  * cast, the same card as the header's summary strip at a larger figure.
  *

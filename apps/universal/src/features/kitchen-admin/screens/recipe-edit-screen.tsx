@@ -14,7 +14,34 @@ import type {
     RecipeVersionSummary,
     ReferenceSeries,
 } from '@healthy360/api-client/contracts';
-import { Badge, Button, Callout, Cascade, CascadeItem, Checkbox, Dialog, ErrorState, FormGrid, FormSection, FormSkeleton, Icon, Inline, IssueTrayFrame, IssueUnanchored, QuantityInput, SectionLook, Select, Stack, Tabs, Tag, Text, TextInputField, useIssueTrayController, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    CascadeItem,
+    Checkbox,
+    Dialog,
+    ErrorState,
+    FormGrid,
+    FormSection,
+    FormSkeleton,
+    Icon,
+    Inline,
+    IssueTrayFrame,
+    IssueUnanchored,
+    PageHeader,
+    QuantityInput,
+    SectionLook,
+    Select,
+    Stack,
+    Tabs,
+    Tag,
+    Text,
+    TextInputField,
+    useIssueTrayController,
+    useToast,
+} from '@healthy360/design-system';
 import type {
     FormIssueItem,
     IssueCardItem,
@@ -70,7 +97,6 @@ import {
 } from '../../../data/kitchen-admin-hooks.ts';
 import { BilingualField } from '../bilingual-field.tsx';
 import { returnCrumbLabel } from '../came-from.ts';
-import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
 import {
@@ -3011,10 +3037,9 @@ function RecipeEditor({
                      * last crumb through `useKitchenTrailLeaf`.
                      */}
                     <Stack space="sm">
-                        <CataloguePageHeader
+                        <PageHeader
                             testID="kitchen-recipe-editor-screen-header"
                             titleTestID="kitchen-recipe-editor-screen-title"
-                            titleLook="board"
                             title={title}
                             titleAside={
                                 <Inline space="xs" align="center" wrap>
@@ -3063,7 +3088,7 @@ function RecipeEditor({
                                     ) : null}
                                 </Inline>
                             }
-                            primaryAction={
+                            actions={
                                 <Inline space="xs" align="center">
                                     <InlineChecksButton testID="kitchen-recipe-checks" />
                                     {/*

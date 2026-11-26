@@ -20,6 +20,7 @@ import {
     Inline,
     IssueTrayFrame,
     IssueUnanchored,
+    PageHeader,
     QuantityInput,
     Select,
     Stack,
@@ -74,7 +75,6 @@ import {
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import { BilingualField } from '../bilingual-field.tsx';
-import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
 import { AllergenAssessmentCallout, AssessmentBadges } from '../catalogue/allergen-assessment.tsx';
 import { stockBlockersSentence } from '../catalogue/recipe-columns.tsx';
 import {
@@ -1816,8 +1816,7 @@ function ProductEditor({
                         {actions}
                     </Inline>
                 ) : (
-                    <CataloguePageHeader
-                        titleLook="board"
+                    <PageHeader
                         testID="kitchen-product-editor-screen-header"
                         titleTestID="kitchen-product-editor-screen-title"
                         title={title}
@@ -1847,7 +1846,7 @@ function ProductEditor({
                                 {dirtyBadge}
                             </Inline>
                         }
-                        primaryAction={actions}
+                        actions={actions}
                     />
                 )}
 
