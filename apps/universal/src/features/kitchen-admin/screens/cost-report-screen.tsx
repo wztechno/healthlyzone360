@@ -2,6 +2,7 @@ import type { MonthlyCostReportRow } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Cascade,
+    DatePicker,
     EmptyState,
     ErrorState,
     TableSkeleton,
@@ -33,7 +34,6 @@ import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 /**
@@ -491,7 +491,8 @@ function CostReport() {
                         }}
                     />
                     <View className="z-auto flex-row items-center gap-tight">
-                        <DeskDateButton
+                        <DatePicker
+                            trigger="pill"
                             testID="kitchen-cost-report-filter-from"
                             label={t('kitchen:ops.costReport.filterFrom')}
                             value={fromDate}
@@ -503,7 +504,8 @@ function CostReport() {
                         <Text variant="caption" tone="secondary" aria-hidden>
                             {t('kitchen:ops.requirements.windowTo')}
                         </Text>
-                        <DeskDateButton
+                        <DatePicker
+                            trigger="pill"
                             testID="kitchen-cost-report-filter-to"
                             label={t('kitchen:ops.costReport.filterTo')}
                             value={toDate}

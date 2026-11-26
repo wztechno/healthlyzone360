@@ -1,6 +1,21 @@
 import { PRICE_STATUSES } from '@healthy360/api-client/contracts';
 import type { CatalogueItemRef, PriceStatus } from '@healthy360/api-client/contracts';
-import { Badge, Button, Checkbox, cx, GRID_CONTENT_ATTR, Icon, IconButton, PickerField, QuantityInput, SearchInput, SegmentedControl, Select, Text, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Checkbox,
+    cx,
+    GRID_CONTENT_ATTR,
+    Icon,
+    IconButton,
+    DatePicker,
+    QuantityInput,
+    SearchInput,
+    SegmentedControl,
+    Select,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
 import type { SelectOption, TabItem } from '@healthy360/design-system';
 import { minorUnitExponent } from '@healthy360/domain-types';
 import type { CurrencyCode } from '@healthy360/domain-types';
@@ -947,7 +962,7 @@ export function PriceEntriesCard({
                         <SegmentedControl<PriceStatus>
                             testID={`${base}-basis`}
                             label={t('kitchen:priceLists.basisFieldLabel', { name })}
-                            block
+                            radio
                             value={row.priceStatus}
                             onChange={(next) => {
                                 onChange(
@@ -1011,17 +1026,15 @@ export function PriceEntriesCard({
                     </View>
 
                     <View role="cell" style={fixedTrack(TRACK.from)}>
-                        <PickerField
-                            kind="date"
+                        <DatePicker
                             testID={`${base}-effective-from`}
                             label={t('kitchen:priceLists.fromFieldLabel', { name })}
                             labelHidden
-                            fullWidth
                             disabled={!canManage}
                             value={row.effectiveFrom}
-                            displayValue={formatEntryDate(formatter, row.effectiveFrom)}
+                            valueLabel={formatEntryDate(formatter, row.effectiveFrom)}
                             onChange={(next) => {
-                                if (next !== '') patchRow(row.key, { effectiveFrom: next });
+                                patchRow(row.key, { effectiveFrom: next });
                             }}
                         />
                     </View>
@@ -1032,23 +1045,23 @@ export function PriceEntriesCard({
                         className="flex-row items-center gap-hair"
                     >
                         <View className="min-w-0 flex-1">
-                            <PickerField
-                                kind="date"
+                            <DatePicker
                                 testID={`${base}-effective-until`}
                                 label={t('kitchen:priceLists.untilFieldLabel', { name })}
                                 labelHidden
-                                fullWidth
                                 disabled={!canManage}
-                                value={row.effectiveUntil ?? ''}
-                                displayValue={
-                                    row.effectiveUntil === null
-                                        ? t('kitchen:priceLists.openEnded')
-                                        : formatEntryDate(formatter, row.effectiveUntil)
-                                }
+                                value={row.effectiveUntil}
+                                placeholder={t('kitchen:priceLists.openEnded')}
+                                {...(row.effectiveUntil === null
+                                    ? {}
+                                    : {
+                                          valueLabel: formatEntryDate(
+                                              formatter,
+                                              row.effectiveUntil,
+                                          ),
+                                      })}
                                 onChange={(next) => {
-                                    patchRow(row.key, {
-                                        effectiveUntil: next === '' ? null : next,
-                                    });
+                                    patchRow(row.key, { effectiveUntil: next });
                                 }}
                             />
                         </View>

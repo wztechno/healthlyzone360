@@ -6,6 +6,7 @@ import {
     Checkbox,
     cx,
     DataList,
+    DatePicker,
     EmptyState,
     ErrorState,
     Icon,
@@ -81,7 +82,6 @@ import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskDateField } from '../desk-kit/desk-date-field.tsx';
 import { ReviewBox, StepCard } from '../process-parts.tsx';
 /**
  * `/kitchen/procurement/receive` — booking in a delivery against an issued order (SUP5, §7).
@@ -1035,15 +1035,17 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             render: (line) => {
                 const index = lines.indexOf(line);
                 return (
-                    <DeskDateField
+                    <DatePicker
                         testID={`${lineFieldId(index, 'trace')}-expires`}
                         label={t('kitchen:barcodes.expiresLabel')}
                         labelHidden
-                        clearable
                         className="w-full"
                         value={line.expiresOn ?? ''}
                         onChange={(next) => {
-                            patchLine(index, { expiresOn: next ?? '' });
+                            patchLine(index, { expiresOn: next });
+                        }}
+                        onClear={() => {
+                            patchLine(index, { expiresOn: '' });
                         }}
                     />
                 );
@@ -1058,16 +1060,18 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             render: (line) => {
                 const index = lines.indexOf(line);
                 return (
-                    <DeskDateField
+                    <DatePicker
                         testID={`${lineFieldId(index, 'trace')}-best-before`}
                         label={t('kitchen:barcodes.bestBeforeLabel')}
                         labelHidden
-                        clearable
                         align="end"
                         className="w-full"
                         value={line.bestBeforeOn ?? ''}
                         onChange={(next) => {
-                            patchLine(index, { bestBeforeOn: next ?? '' });
+                            patchLine(index, { bestBeforeOn: next });
+                        }}
+                        onClear={() => {
+                            patchLine(index, { bestBeforeOn: '' });
                         }}
                     />
                 );
@@ -1307,7 +1311,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                 title={t('kitchen:ops.receiving.sectionDelivery')}
                             >
                                 <View className="flex-row flex-wrap items-start gap-3">
-                                    <DeskDateField
+                                    <DatePicker
                                         testID="kitchen-receive-received-on"
                                         id={RECEIVED_ON_ID}
                                         {...server.flag('received_on')}
@@ -1319,7 +1323,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         onChange={(next) => {
                                             editHeader((current) => ({
                                                 ...current,
-                                                receivedOn: next ?? '',
+                                                receivedOn: next,
                                             }));
                                         }}
                                     />
@@ -1358,11 +1362,10 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         }}
                                         className={field}
                                     />
-                                    <DeskDateField
+                                    <DatePicker
                                         testID="kitchen-receive-invoice-date"
                                         id={INVOICE_DATE_ID}
                                         {...server.flag('invoice_date')}
-                                        clearable
                                         align="end"
                                         label={t('kitchen:ops.receiving.fieldInvoiceDate')}
                                         value={header.invoiceDate}
@@ -1370,7 +1373,13 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         onChange={(next) => {
                                             editHeader((current) => ({
                                                 ...current,
-                                                invoiceDate: next ?? '',
+                                                invoiceDate: next,
+                                            }));
+                                        }}
+                                        onClear={() => {
+                                            editHeader((current) => ({
+                                                ...current,
+                                                invoiceDate: '',
                                             }));
                                         }}
                                     />

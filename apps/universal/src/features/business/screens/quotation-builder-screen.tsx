@@ -4,7 +4,7 @@ import {
     Callout,
     Cascade,
     cx,
-    DatePickerButton,
+    DatePicker,
     FormSection,
     Heading,
     Icon,
@@ -588,7 +588,8 @@ export function QuotationBuilderScreen({
             >
                 <View className="z-auto flex-col gap-1.5">
                     <View className="z-auto w-full md:w-1/2">
-                        <DatePickerButton
+                        <DatePicker
+                            trigger="pill"
                             testID="quotation-builder-delivery-date"
                             label={t('business:builder.deliveryDate')}
                             labelVisible

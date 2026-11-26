@@ -4,6 +4,7 @@ import {
     Checkbox,
     ChoiceChips,
     ChoiceRow,
+    DatePicker,
     DensityProvider,
     FilterChip,
     Icon,
@@ -749,6 +750,83 @@ function StepsSection() {
     );
 }
 
+function DatesSection() {
+    const [day, setDay] = useState('2026-11-26');
+    const [from, setFrom] = useState('');
+    const [received, setReceived] = useState<string | null>('2026-11-24');
+    const [expires, setExpires] = useState('');
+    return (
+        <Stack space="lg" testID="components-showcase-dates">
+            <Stack space="xs">
+                <Text variant="section">Dates</Text>
+                <Text variant="caption" tone="secondary">
+                    DatePicker · one small month · a pill on a toolbar, a field in a form
+                </Text>
+            </Stack>
+
+            <Sample title="A toolbar's day" note={'trigger="pill" · valueLabel, marked days'}>
+                <DatePicker
+                    testID="components-showcase-date-day"
+                    trigger="pill"
+                    label="Pick a day"
+                    value={day}
+                    today="2026-11-26"
+                    valueLabel={day === '2026-11-26' ? 'Today · Thu, Nov 26' : undefined}
+                    marked={(candidate) => candidate.endsWith('5')}
+                    onChange={setDay}
+                />
+            </Sample>
+
+            <Sample title="An open bound" note={'trigger="pill" · placeholder, onClear'}>
+                <DatePicker
+                    testID="components-showcase-date-from"
+                    trigger="pill"
+                    label="From"
+                    placeholder="Any day"
+                    value={from}
+                    onChange={setFrom}
+                    onClear={() => {
+                        setFrom('');
+                    }}
+                />
+                <DatePicker
+                    testID="components-showcase-date-due"
+                    trigger="pill"
+                    label="Due on"
+                    labelVisible
+                    value={day}
+                    onChange={setDay}
+                />
+            </Sample>
+
+            <Sample title="A form's date" note={'trigger="field" · Today, Clear with onClear'}>
+                <View className="z-auto w-full flex-row gap-3">
+                    <DatePicker
+                        testID="components-showcase-date-received"
+                        label="Received on"
+                        required
+                        max="2026-11-26"
+                        value={received}
+                        onChange={setReceived}
+                        className="min-w-0 flex-1"
+                    />
+                    <DatePicker
+                        testID="components-showcase-date-expires"
+                        label="Expires"
+                        hint="Leave empty if it has no date"
+                        value={expires}
+                        onChange={setExpires}
+                        onClear={() => {
+                            setExpires('');
+                        }}
+                        className="min-w-0 flex-1"
+                    />
+                </View>
+            </Sample>
+        </Stack>
+    );
+}
+
 export function ComponentsShowcaseScreen() {
     return (
         <DensityProvider value="compact">
@@ -762,6 +840,7 @@ export function ComponentsShowcaseScreen() {
                     <ChoicesSection />
                     <TabsSection />
                     <StepsSection />
+                    <DatesSection />
                 </Stack>
             </View>
         </DensityProvider>

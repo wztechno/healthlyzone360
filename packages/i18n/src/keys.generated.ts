@@ -2965,7 +2965,9 @@ export interface NamespaceKeys {
     | 'dateField.year'
     | 'datePicker.clear'
     | 'datePicker.nextMonth'
+    | 'datePicker.placeholder'
     | 'datePicker.previousMonth'
+    | 'datePicker.today'
     | 'emptyState.prototypeBadge'
     | 'emptyState.prototypeBody'
     | 'fileUpload.choose'
@@ -4028,8 +4030,6 @@ export interface NamespaceKeys {
     | 'conflict.title'
     | 'containment.contains'
     | 'containment.mayContain'
-    | 'dateField.placeholder'
-    | 'dateField.today'
     | 'deliveryWindows.emptyBody'
     | 'deliveryWindows.emptyTitle'
     | 'deliveryWindows.intro'
@@ -13979,7 +13979,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:dateField.year',
   'designSystem:datePicker.clear',
   'designSystem:datePicker.nextMonth',
+  'designSystem:datePicker.placeholder',
   'designSystem:datePicker.previousMonth',
+  'designSystem:datePicker.today',
   'designSystem:emptyState.prototypeBadge',
   'designSystem:emptyState.prototypeBody',
   'designSystem:fileUpload.choose',
@@ -15038,8 +15040,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:conflict.title',
   'kitchen:containment.contains',
   'kitchen:containment.mayContain',
-  'kitchen:dateField.placeholder',
-  'kitchen:dateField.today',
   'kitchen:deliveryWindows.emptyBody',
   'kitchen:deliveryWindows.emptyTitle',
   'kitchen:deliveryWindows.intro',

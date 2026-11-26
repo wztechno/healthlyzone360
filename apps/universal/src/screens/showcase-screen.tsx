@@ -3,7 +3,6 @@ import {
     Accordion,
     ActionSheet,
     AppShell,
-    RailAccount,
     Avatar,
     Badge,
     BADGE_TONES,
@@ -12,30 +11,25 @@ import {
     BUTTON_SIZES,
     BUTTON_VARIANTS,
     CalendarGrid,
-    CardGridSkeleton,
     Callout,
     CALLOUT_TONES,
     Card,
-    Cascade,
-    CommandPalette,
-    CARD_TONES,
     CARD_PADDINGS,
+    CARD_TONES,
+    CardGridSkeleton,
+    Cascade,
     Checkbox,
     Chip,
     Collapse,
+    CommandPalette,
     DataList,
     DateField,
-    DatePickerButton,
-    DerivedChipPanel,
-    ListSummaryCards,
-    PickerField,
-    TimeField,
-    RecordSkeleton,
-    RecordWindow,
-    RecordWindowFieldGrid,
+    DatePicker,
     DensityProvider,
+    DerivedChipPanel,
     Dialog,
     Drawer,
+    DRAWN_ICON_FALLBACKS,
     Dropdown,
     EmptyState,
     ErrorState,
@@ -50,13 +44,14 @@ import {
     FormSkeleton,
     Heading,
     Icon,
-    DRAWN_ICON_FALLBACKS,
     ICON_GLYPHS,
     IconButton,
     ImagePlaceholder,
+    InfoTip,
     Inline,
     INPUT_SIZES,
     ListItem,
+    ListSummaryCards,
     Menu,
     MeterBar,
     NumberStepper,
@@ -66,39 +61,44 @@ import {
     PageTransition,
     Pagination,
     PasswordInput,
-    InfoTip,
+    PickerField,
     Popover,
     ProgressRing,
     QuantityInput,
+    RailAccount,
     RangeFilter,
     Rating,
     RECORD_STATUSES,
+    RecordSkeleton,
+    RecordWindow,
+    RecordWindowFieldGrid,
+    SearchInput,
     SegmentedControl,
     Select,
-    SearchInput,
     Separator,
     Skeleton,
-    StatTilesSkeleton,
-    TableSkeleton,
     SlideIn,
     SliderField,
     Spinner,
     Stack,
+    StatTilesSkeleton,
     StatusBadge,
-    StepProgress,
     Stepper,
+    StepProgress,
     Switch,
     Table,
+    TableSkeleton,
     Tabs,
     TABS_VARIANTS,
-    TAG_TONES,
     Tag,
+    TAG_TONES,
     TagRow,
     Text,
     TEXT_ALIGNMENTS,
     TEXT_TONES,
     TEXT_VARIANTS,
     TextInputField,
+    TimeField,
     UNDROPPABLE_PRIORITY,
     useAnimatedNumber,
     useFormSteps,
@@ -4332,7 +4332,8 @@ export function ShowcaseScreen() {
                             onChange={setStartDate}
                         />
                     </DensityProvider>
-                    <DatePickerButton
+                    <DatePicker
+                        trigger="pill"
                         testID="showcase-date-picker"
                         label={t('designSystem:showcase.dateLabel')}
                         value={startDate ?? '2026-08-03'}
@@ -4341,7 +4342,8 @@ export function ShowcaseScreen() {
                         onChange={setStartDate}
                     />
                     {/* An optional bound: labelled like a field, empty until picked, clearable. */}
-                    <DatePickerButton
+                    <DatePicker
+                        trigger="pill"
                         testID="showcase-date-picker-optional"
                         label="From"
                         labelVisible
@@ -4352,12 +4354,12 @@ export function ShowcaseScreen() {
                             setBoundDate('');
                         }}
                     />
-                    {/* Near the foot of a card: the month opens upward, clear of the frame. */}
-                    <DatePickerButton
+                    {/* Labelled like a field, above the pill. */}
+                    <DatePicker
+                        trigger="pill"
                         testID="showcase-date-picker-above"
                         label={t('designSystem:showcase.dateLabel')}
                         labelVisible
-                        side="above"
                         value={startDate ?? '2026-08-03'}
                         onChange={setStartDate}
                     />

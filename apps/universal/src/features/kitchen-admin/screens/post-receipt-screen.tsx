@@ -9,6 +9,7 @@ import {
     Callout,
     Cascade,
     Checkbox,
+    DatePicker,
     Dialog,
     FormIssueScope,
     FormSkeleton,
@@ -93,7 +94,6 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskDateField } from '../desk-kit/desk-date-field.tsx';
 import { ReviewBox, StepCard } from '../process-parts.tsx';
 /**
  * `/kitchen/procurement/new` — post a goods receipt (O2, SUP5, INV1.1), from the Post Receipt design.
@@ -1398,7 +1398,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                         value={invoiceRef}
                                         onChangeText={edited(setInvoiceRef)}
                                     />
-                                    <DeskDateField
+                                    <DatePicker
                                         testID="kitchen-procurement-post-received-on"
                                         id="kitchen-procurement-post-received-on"
                                         label={t('kitchen:ops.procurement.fieldReceivedOn')}
@@ -1412,7 +1412,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                                 : server.errorFor('received_on')
                                         }
                                         onChange={(next) => {
-                                            setReceivedOn(next ?? '');
+                                            setReceivedOn(next);
                                             guard.markDirty();
                                         }}
                                     />

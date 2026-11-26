@@ -6,6 +6,7 @@ import type {
 import {
     Callout,
     Cascade,
+    DatePicker,
     EmptyState,
     ErrorState,
     Select,
@@ -34,7 +35,7 @@ import {
 } from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
-import { DeskColumnPicker, MiniMonthPicker } from '../desk-kit/index.ts';
+import { DeskColumnPicker } from '../desk-kit/index.ts';
 import { shortDay } from '../orders/order-columns.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PeriodScope } from '../catalogue/period-scope.tsx';
@@ -347,7 +348,8 @@ function OrderDeskCashReport() {
                                 }}
                             />
                             <View className="z-auto flex-row items-center gap-tight">
-                                <MiniMonthPicker
+                                <DatePicker
+                                    trigger="pill"
                                     testID="kitchen-order-desk-cash-report-from"
                                     label={t('kitchen:ops.cashReport.fromLabel')}
                                     value={isIsoDate(from) ? from : today}
@@ -359,7 +361,8 @@ function OrderDeskCashReport() {
                                 <Text variant="caption" tone="secondary" aria-hidden>
                                     {t('kitchen:ops.requirements.windowTo')}
                                 </Text>
-                                <MiniMonthPicker
+                                <DatePicker
+                                    trigger="pill"
                                     testID="kitchen-order-desk-cash-report-to"
                                     label={t('kitchen:ops.cashReport.toLabel')}
                                     value={isIsoDate(to) ? to : today}

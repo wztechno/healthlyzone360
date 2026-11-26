@@ -17,6 +17,7 @@ import {
     Button,
     Callout,
     Checkbox,
+    DatePicker,
     Dropdown,
     EmptyState,
     ErrorState,
@@ -74,7 +75,6 @@ import { displayName } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
-import { MiniMonthPicker } from '../desk-kit/index.ts';
 import { allergenLabel, kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import type { BasketLine } from '../order-desk/basket.ts';
 import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
@@ -1259,10 +1259,11 @@ function WhenSection({
              */}
             <View className="z-auto flex-col gap-base">
                 <View className="z-auto flex-row flex-wrap items-end gap-snug">
-                    <MiniMonthPicker
+                    <DatePicker
+                        trigger="pill"
                         testID="kitchen-order-desk-sale-date"
                         label={t('kitchen:desk.sale.dateLabel')}
-                        caption={t('kitchen:desk.sale.dateLabel')}
+                        labelVisible
                         value={schedule.requestedDeliveryDate}
                         today={today}
                         valueLabel={dayLabel(schedule.requestedDeliveryDate)}

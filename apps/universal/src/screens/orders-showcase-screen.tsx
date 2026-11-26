@@ -6,6 +6,7 @@ import {
     Cascade,
     Checkbox,
     ChoiceRow,
+    DatePicker,
     DensityProvider,
     Icon,
     IconButton,
@@ -27,10 +28,8 @@ import {
 } from '../features/kitchen-admin/catalogue/compact-record-popup.tsx';
 import {
     DeskColumnPicker,
-    DeskDateButton,
     DeskRowMenu,
     ListGroupRow,
-    MiniMonthPicker,
 } from '../features/kitchen-admin/desk-kit/index.ts';
 import { RecordPopup } from '../features/kitchen-admin/catalogue/record-popup.tsx';
 import { DayStepper } from '../features/kitchen-admin/orders/day-stepper.tsx';
@@ -470,7 +469,8 @@ export function OrdersShowcaseScreen() {
                                 />
                             )}
                         />
-                        <MiniMonthPicker
+                        <DatePicker
+                            trigger="pill"
                             testID="showcase-orders-month"
                             label="Pick a day"
                             value={day}
@@ -479,8 +479,9 @@ export function OrdersShowcaseScreen() {
                             onChange={setDay}
                             marked={(candidate) => candidate.endsWith('5')}
                         />
-                        {/* `DatePickerButton`'s props: a placeholder until a day is set, and Clear. */}
-                        <DeskDateButton
+                        {/* A placeholder until a day is set, and Clear. */}
+                        <DatePicker
+                            trigger="pill"
                             testID="showcase-orders-from"
                             label="From"
                             placeholder="Any day"

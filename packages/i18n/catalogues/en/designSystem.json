@@ -103,7 +103,9 @@
     "datePicker": {
         "previousMonth": "Previous month",
         "nextMonth": "Next month",
-        "clear": "Clear date"
+        "clear": "Clear date",
+        "placeholder": "Pick a day",
+        "today": "Today"
     },
     "rating": {
         "summary": "{{value}} out of {{max}}",

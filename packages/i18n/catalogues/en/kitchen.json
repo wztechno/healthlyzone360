@@ -6011,9 +6011,5 @@
         "perHundredGrams": "per 100 g",
         "marginNote": "per {{unit}} · margin {{percent}} %",
         "ofTotal": "of {{total}}"
-    },
-    "dateField": {
-        "placeholder": "Pick a day",
-        "today": "Today"
     }
 }

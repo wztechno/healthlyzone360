@@ -3,6 +3,7 @@ import {
     Badge,
     Button,
     Cascade,
+    DatePicker,
     EmptyState,
     ErrorState,
     Icon,
@@ -53,7 +54,6 @@ import { AwaitingDeliveries } from '../awaiting-deliveries.tsx';
 import { ReceiptOrderRef, useReceiptOpenOrderActions } from '../receipt-order-ref.tsx';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 /**
  * `/kitchen/procurement` — the receipts book, and the direct-purchase path (O2, SUP5).
  *
@@ -530,7 +530,8 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 onChange={pickWindow}
                             />
                             <View className="z-auto flex-row items-center gap-tight">
-                                <DeskDateButton
+                                <DatePicker
+                                    trigger="pill"
                                     testID="kitchen-procurement-filter-from"
                                     label={t('kitchen:ops.ledger.filterFrom')}
                                     value={from}
@@ -546,7 +547,8 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 <Text variant="caption" tone="secondary" aria-hidden>
                                     {t('kitchen:ops.requirements.windowTo')}
                                 </Text>
-                                <DeskDateButton
+                                <DatePicker
+                                    trigger="pill"
                                     testID="kitchen-procurement-filter-to"
                                     label={t('kitchen:ops.ledger.filterTo')}
                                     value={to}

@@ -3,7 +3,7 @@ import {
     Checkbox,
     DATA_LIST_HEAD_TEXT_CLASS,
     DataList,
-    DateField,
+    DatePicker,
     Icon,
     IconButton,
     InfoTip,
@@ -712,7 +712,7 @@ export function MealAvailabilityEditor({
                 const error = errors.get(row.key) ?? fieldError?.(row, 'date');
                 return (
                     <View className="z-auto w-full py-tight">
-                        <DateField
+                        <DatePicker
                             testID={`${rowId(row)}-date`}
                             id={`${rowId(row)}-date`}
                             label={t('kitchen:availability.dateLabel')}

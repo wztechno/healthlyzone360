@@ -1,5 +1,16 @@
 import type { ActivityEntry, StockActivityMovement } from '@healthy360/api-client/contracts';
-import { Button, Callout, Cascade, EmptyState, ErrorState, SegmentedControl, Stack, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Button,
+    Callout,
+    Cascade,
+    DatePicker,
+    EmptyState,
+    ErrorState,
+    SegmentedControl,
+    Stack,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -20,7 +31,6 @@ import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { AUDIT_VIEW_PERMISSION } from '../entity-registry.ts';
 import { humaniseCode, unitCodeLabel } from '../format.ts';
 
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 /**
@@ -129,7 +139,8 @@ function Activity() {
                             }}
                         />
                         <View className="z-auto flex-row items-center gap-tight">
-                            <DeskDateButton
+                            <DatePicker
+                                trigger="pill"
                                 testID="kitchen-activity-from"
                                 label={t('kitchen:ops.cashReport.fromLabel')}
                                 value={from}
@@ -139,7 +150,8 @@ function Activity() {
                             <Text variant="caption" tone="secondary" aria-hidden>
                                 {t('kitchen:ops.requirements.windowTo')}
                             </Text>
-                            <DeskDateButton
+                            <DatePicker
+                                trigger="pill"
                                 testID="kitchen-activity-to"
                                 label={t('kitchen:ops.cashReport.toLabel')}
                                 value={to}

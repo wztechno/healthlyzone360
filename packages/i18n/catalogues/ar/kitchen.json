@@ -6782,9 +6782,5 @@
         "perHundredGrams": "لكل 100 غ",
         "marginNote": "لكل {{unit}} · هامش {{percent}} %",
         "ofTotal": "من {{total}}"
-    },
-    "dateField": {
-        "placeholder": "اختر يومًا",
-        "today": "اليوم"
     }
 }

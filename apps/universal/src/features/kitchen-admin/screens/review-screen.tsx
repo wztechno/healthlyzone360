@@ -1,5 +1,14 @@
 import { apiFailure } from '@healthy360/api-client/contracts';
-import { Button, Cascade, EmptyState, ErrorState, Stack, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    DatePicker,
+    EmptyState,
+    ErrorState,
+    Stack,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -25,7 +34,6 @@ import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { useListMemory, useRememberedFilter, useRememberedQuery } from '../list-memory.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 /**
  * `/kitchen/review` — the publication review queue (K1.8), as `Workbench.dc.html` draws it.
  *
@@ -278,7 +286,8 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                                     onChange={pickWindow}
                                 />
                                 <View className="z-auto flex-row items-center gap-tight">
-                                    <DeskDateButton
+                                    <DatePicker
+                                        trigger="pill"
                                         testID="kitchen-review-filter-from"
                                         label={t('kitchen:review.filterFrom')}
                                         value={from}
@@ -294,7 +303,8 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                                     <Text variant="caption" tone="secondary" aria-hidden>
                                         {t('kitchen:ops.requirements.windowTo')}
                                     </Text>
-                                    <DeskDateButton
+                                    <DatePicker
+                                        trigger="pill"
                                         testID="kitchen-review-filter-to"
                                         label={t('kitchen:review.filterTo')}
                                         value={to}

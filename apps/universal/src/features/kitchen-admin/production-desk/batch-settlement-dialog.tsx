@@ -1,5 +1,17 @@
 import type { ProductionOrderLine } from '@healthy360/api-client/contracts';
-import { Button, DataList, DateField, Dialog, Heading, InfoTip, Inline, QuantityInput, Stack, Text, TextInputField } from '@healthy360/design-system';
+import {
+    Button,
+    DataList,
+    DatePicker,
+    Dialog,
+    Heading,
+    InfoTip,
+    Inline,
+    QuantityInput,
+    Stack,
+    Text,
+    TextInputField,
+} from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
@@ -341,7 +353,7 @@ export function BatchSettlementDialog({
 
             <View className="flex-row items-start gap-base">
                 <View className="min-w-0 flex-1">
-                    <DateField
+                    <DatePicker
                         testID={`${testID}-production-date`}
                         id={`${testID}-production-date`}
                         label={t('kitchen:ops.production.productionDateLabel')}
@@ -353,7 +365,7 @@ export function BatchSettlementDialog({
                 </View>
                 <View className="min-w-0 flex-1">
                     {shelfLifeDays === null ? (
-                        <DateField
+                        <DatePicker
                             testID={`${testID}-expiry-date`}
                             id={`${testID}-expiry-date`}
                             label={t('kitchen:ops.production.expiryDateLabel')}

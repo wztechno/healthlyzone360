@@ -125,7 +125,25 @@ page.
 
 **Removed, never recreate:** `DeskTabs`, `LensViewSwitch`.
 
+## Dates — the one `DatePicker`
+
+Every day picked in the admin is `DatePicker` from `@healthy360/design-system`. It always opens the
+same small month (other months faded, today ringed, the chosen day filled, `marked` days dotted).
+
+| Job                                        | How                                                           |
+| ------------------------------------------ | ------------------------------------------------------------- |
+| A toolbar's day (Orders day, a sale's day) | `trigger="pill"` + `valueLabel` ("Today · Thu, Nov 26")       |
+| A toolbar's From / To                      | `trigger="pill"` + `min` / `max`; `onClear` if it may be open |
+| A pill with its name above it (Due on)     | `trigger="pill"` `labelVisible`                               |
+| A form's date (Received on, Expires)       | `trigger="field"` (default) — Today under the month           |
+| A date a form may leave empty              | pass `onClear` — that is what adds Clear                      |
+
+The web shop keeps `DateField`. Times are `TimeField`.
+
+**Removed, never recreate:** `MiniMonthPicker`, `DeskDateButton`, `DeskDateField`,
+`DatePickerButton`, and the admin's `DateField` / `PickerField kind="date"` uses.
+
 ## Canvas designs
 
-A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs and pills as `/showcase-components` shows them. If a design
+A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs, pills and dates as `/showcase-components` shows them. If a design
 needs a part that is not on that page, say so — it is a new design-system part, not a one-off.

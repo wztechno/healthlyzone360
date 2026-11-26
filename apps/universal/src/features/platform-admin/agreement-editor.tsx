@@ -5,7 +5,16 @@ import type {
     PlatformB2bApplication,
 } from '@healthy360/api-client/contracts';
 import { B2B_PAYMENT_TERMS } from '@healthy360/api-client/contracts';
-import { Button, Callout, Checkbox, DatePickerButton, Dialog, Select, Text, TextInputField } from '@healthy360/design-system';
+import {
+    Button,
+    Callout,
+    Checkbox,
+    DatePicker,
+    Dialog,
+    Select,
+    Text,
+    TextInputField,
+} from '@healthy360/design-system';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -363,7 +372,8 @@ export function AgreementEditor({
 
                     <View className="z-auto flex-row flex-wrap gap-x-3 gap-y-3.5">
                         <View className="z-auto min-w-[200px] flex-1 flex-col gap-1">
-                            <DatePickerButton
+                            <DatePicker
+                                trigger="pill"
                                 testID="platform-b2b-agreement-starts-on"
                                 label={t('platformAdmin:b2b.editor.startsOn')}
                                 labelVisible
@@ -379,7 +389,8 @@ export function AgreementEditor({
                             <FieldError message={fieldError('starts_on')} />
                         </View>
                         <View className="z-auto min-w-[200px] flex-1 flex-col gap-1">
-                            <DatePickerButton
+                            <DatePicker
+                                trigger="pill"
                                 testID="platform-b2b-agreement-ends-on"
                                 label={t('platformAdmin:b2b.editor.endsOn')}
                                 labelVisible

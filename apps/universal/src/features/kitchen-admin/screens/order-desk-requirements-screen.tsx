@@ -1,5 +1,16 @@
 import type { OrderDeskRequirement } from '@healthy360/api-client/contracts';
-import { Button, Callout, Cascade, EmptyState, ErrorState, Icon, Select, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Button,
+    Callout,
+    Cascade,
+    DatePicker,
+    EmptyState,
+    ErrorState,
+    Icon,
+    Select,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
@@ -33,7 +44,7 @@ import { PageBackPill, useAreaTrailDrawn } from '../../../shell/area-trail.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import { ORDERS_HREF } from '../orders/orders-url.ts';
 import { shortDay } from '../orders/order-columns.tsx';
-import { DeskColumnPicker, MiniMonthPicker } from '../desk-kit/index.ts';
+import { DeskColumnPicker } from '../desk-kit/index.ts';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 
 /**
@@ -532,7 +543,8 @@ function OrderDeskRequirements() {
                                     setToDay(next.to);
                                 }}
                             />
-                            <MiniMonthPicker
+                            <DatePicker
+                                trigger="pill"
                                 testID="kitchen-order-desk-requirements-from"
                                 label={t('kitchen:ops.requirements.filterFrom')}
                                 value={isIsoDate(from) ? from : today}
@@ -543,7 +555,8 @@ function OrderDeskRequirements() {
                             <Text variant="caption" tone="secondary" aria-hidden>
                                 {t('kitchen:ops.requirements.windowTo')}
                             </Text>
-                            <MiniMonthPicker
+                            <DatePicker
+                                trigger="pill"
                                 testID="kitchen-order-desk-requirements-to"
                                 label={t('kitchen:ops.requirements.filterTo')}
                                 value={isIsoDate(to) ? to : today}

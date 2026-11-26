@@ -5,7 +5,14 @@ import type {
     KitchenAnalyticsReport,
     KitchenAnalyticsTotals,
 } from '@healthy360/api-client/contracts';
-import { Cascade, EmptyState, ErrorState, RecordSkeleton, Text } from '@healthy360/design-system';
+import {
+    Cascade,
+    DatePicker,
+    EmptyState,
+    ErrorState,
+    RecordSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
@@ -33,7 +40,6 @@ import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
 import { addDays, daysBetween, todayIso } from '../../commerce/dates.ts';
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 /**
  * `/kitchen/analytics` — what the order book did over a window of days, as `Workbench.dc.html`
  * draws the dashboard (§3.3).
@@ -262,7 +268,8 @@ function AnalyticsDashboard() {
                         onChange={pickWindow}
                     />
                     <View className="z-auto flex-row items-center gap-tight">
-                        <DeskDateButton
+                        <DatePicker
+                            trigger="pill"
                             testID="kitchen-analytics-from"
                             label={t('kitchen:analytics.filters.from')}
                             value={from}
@@ -275,7 +282,8 @@ function AnalyticsDashboard() {
                         <Text variant="caption" tone="secondary" aria-hidden>
                             {t('kitchen:ops.requirements.windowTo')}
                         </Text>
-                        <DeskDateButton
+                        <DatePicker
+                            trigger="pill"
                             testID="kitchen-analytics-to"
                             label={t('kitchen:analytics.filters.to')}
                             value={to}

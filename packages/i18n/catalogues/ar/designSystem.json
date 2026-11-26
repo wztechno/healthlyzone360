@@ -107,7 +107,9 @@
     "datePicker": {
         "previousMonth": "الشهر السابق",
         "nextMonth": "الشهر التالي",
-        "clear": "مسح التاريخ"
+        "clear": "مسح التاريخ",
+        "placeholder": "اختر يومًا",
+        "today": "اليوم"
     },
     "rating": {
         "summary": "{{value}} من {{max}}",

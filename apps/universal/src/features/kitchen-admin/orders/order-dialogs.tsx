@@ -17,6 +17,7 @@ import {
     Button,
     Callout,
     ChoiceRow,
+    DatePicker,
     Dialog,
     EmptyState,
     ErrorState,
@@ -67,7 +68,6 @@ import {
 } from '../ops-format.ts';
 import { serverFieldErrors } from '../server-field-errors.ts';
 
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 /**
  * The Orders page's dialogs — one copy each, opened from a row's next step or from the order's
  * pop-up. They were the order desk's and the order book's; their behaviour is unchanged.
@@ -938,7 +938,8 @@ export function DeliveryActionDialog({
                 )}
                 {action !== 'redeliver' ? null : (
                     <>
-                        <DeskDateButton
+                        <DatePicker
+                            trigger="pill"
                             testID="kitchen-orders-delivery-date"
                             label={t('kitchen:ops.orders.deliveryAction.dateLabel')}
                             labelVisible

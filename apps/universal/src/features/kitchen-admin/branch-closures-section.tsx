@@ -3,7 +3,7 @@ import {
     Badge,
     Button,
     DataList,
-    DateField,
+    DatePicker,
     Dialog,
     ErrorState,
     FormSection,
@@ -277,24 +277,24 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                 {/* Two equal columns: a `FormGrid` track sized for a page squeezed them in the pop-up. */}
                 <View className="z-auto flex-row gap-3" testID="kitchen-branch-closures-form">
                     <View className="z-auto min-w-0 flex-1">
-                        <DateField
+                        <DatePicker
                             testID="kitchen-branch-closures-from"
                             label={t('kitchen:branchClosures.fromLabel')}
                             required
                             value={from}
                             onChange={(next) => {
-                                setFrom(next ?? '');
+                                setFrom(next);
                             }}
                         />
                     </View>
                     <View className="z-auto min-w-0 flex-1">
-                        <DateField
+                        <DatePicker
                             testID="kitchen-branch-closures-to"
                             label={t('kitchen:branchClosures.toLabel')}
                             hint={t('kitchen:branchClosures.toHint')}
                             value={to}
                             onChange={(next) => {
-                                setTo(next ?? '');
+                                setTo(next);
                             }}
                         />
                     </View>

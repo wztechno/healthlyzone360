@@ -1,5 +1,18 @@
 import type { Payable } from '@healthy360/api-client/contracts';
-import { Badge, Button, Cascade, Dialog, EmptyState, ErrorState, Stack, TableSkeleton, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    DatePicker,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    Stack,
+    TableSkeleton,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -20,7 +33,6 @@ import {
     INVENTORY_VIEW_COSTS_PERMISSION,
 } from '../entity-registry.ts';
 
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/supplier-bills?tab=bills` — what is owed for deliveries.
@@ -453,7 +465,8 @@ function PayDialog({ row, onClose }: { readonly row: Payable; readonly onClose: 
             }
         >
             <Stack space="sm">
-                <DeskDateButton
+                <DatePicker
+                    trigger="pill"
                     testID="kitchen-payable-due"
                     label={t('kitchen:ops.payables.dueLabel')}
                     labelVisible

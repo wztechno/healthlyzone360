@@ -1,8 +1,14 @@
 import { formatGtin } from '@healthy360/api-client/contracts';
-import { Checkbox, Inline, Stack, Text, TextInputField } from '@healthy360/design-system';
+import {
+    Checkbox,
+    DatePicker,
+    Inline,
+    Stack,
+    Text,
+    TextInputField,
+} from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
 
-import { DeskDateField } from './desk-kit/desk-date-field.tsx';
 import { lotCheckPending, lotIsReadable } from './receive-delivery-model.ts';
 import type { ScanTrace } from './receive-delivery-model.ts';
 
@@ -49,24 +55,28 @@ export function ReceiveLineTrace({ testID, trace, onChange, title }: ReceiveLine
                         onChange({ supplierLot: next, lotUnverified: false });
                     }}
                 />
-                <DeskDateField
+                <DatePicker
                     testID={`${testID}-expires`}
-                    clearable
                     className="w-[180px]"
                     label={t('kitchen:barcodes.expiresLabel')}
                     value={trace.expiresOn ?? ''}
                     onChange={(next) => {
-                        onChange({ expiresOn: next ?? '' });
+                        onChange({ expiresOn: next });
+                    }}
+                    onClear={() => {
+                        onChange({ expiresOn: '' });
                     }}
                 />
-                <DeskDateField
+                <DatePicker
                     testID={`${testID}-best-before`}
-                    clearable
                     className="w-[180px]"
                     label={t('kitchen:barcodes.bestBeforeLabel')}
                     value={trace.bestBeforeOn ?? ''}
                     onChange={(next) => {
-                        onChange({ bestBeforeOn: next ?? '' });
+                        onChange({ bestBeforeOn: next });
+                    }}
+                    onClear={() => {
+                        onChange({ bestBeforeOn: '' });
                     }}
                 />
             </Inline>

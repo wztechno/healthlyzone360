@@ -63,7 +63,7 @@ const VISIBLE_ROWS = 6;
  *   Arabic digits → `09:30`). Arrow ↑/↓ moves by the minute step, Shift+arrow by an hour.
  * - **The panel** is plain React Native, so it is the same on the web and on a device. Choosing an
  *   hour keeps the panel open for the minute; choosing a minute closes it. Escape or a press outside
- *   closes it on the web, as `DatePickerButton` does.
+ *   closes it on the web, as `DatePicker` does.
  * - **Bounds** (`min`/`max`) grey out what cannot be chosen, so a close time before the opening time
  *   is not on offer. A typed value is still the page's to validate.
  */
@@ -179,7 +179,7 @@ export function TimeField({
 
     return (
         // `z-auto`: React Native Web gives every View `z-index: 0`, which would trap the panel under
-        // whatever the page draws after the field. Same reason, same fix, as `DatePickerButton`.
+        // whatever the page draws after the field. Same reason, same fix, as `DatePicker`.
         <View
             ref={containerRef}
             className="z-auto flex-col"

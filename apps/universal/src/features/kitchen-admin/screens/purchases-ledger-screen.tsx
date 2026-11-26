@@ -8,6 +8,7 @@ import { RECEIPT_COST_STATUSES } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Cascade,
+    DatePicker,
     EmptyState,
     ErrorState,
     InfoTip,
@@ -62,7 +63,6 @@ import {
 } from '../list-memory.ts';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 /**
  * `/kitchen/purchases-ledger` — the browsable record behind the monthly spend figure (INV1.1), and
  * since SUP6 the weekly and monthly check over the same rows (§3.7, §7).
@@ -844,7 +844,8 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                             />
                             <View aria-hidden className="mx-1 h-5 w-px bg-brand-100" />
                             <View className="flex-row items-center gap-tight">
-                                <DeskDateButton
+                                <DatePicker
+                                    trigger="pill"
                                     testID="kitchen-ledger-filter-from"
                                     label={t('kitchen:ops.ledger.filterFrom')}
                                     value={from}
@@ -865,7 +866,8 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                                 <Text variant="caption" tone="secondary" aria-hidden>
                                     {t('kitchen:ops.requirements.windowTo')}
                                 </Text>
-                                <DeskDateButton
+                                <DatePicker
+                                    trigger="pill"
                                     testID="kitchen-ledger-filter-to"
                                     label={t('kitchen:ops.ledger.filterTo')}
                                     value={to}
