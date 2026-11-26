@@ -3203,7 +3203,6 @@
         "lastUpdatedBySeed": "Last changed {{when}}",
         "lastUpdatedBy": "Last changed {{when}} by {{name}}",
         "neverSaved": "Not saved yet",
-        "unsaved": "Unsaved changes",
         "sectionDetails": "Name",
         "sectionClassification": "Classification",
         "sectionAliases": "Other names",
@@ -3241,11 +3240,7 @@
         "pendingNutritionBody": "Its Arabic name, category and nutrition match were suggested by AI. Check them, confirm a nutrition reference below and assess its allergens. Until the reference is confirmed, recipes using this ingredient cannot be published."
     },
     "bilingual": {
-        "englishLabel": "{{field}} (English)",
-        "arabicLabel": "{{field}} (Arabic)",
-        "copyFromEnglish": "Copy the English",
         "missingArabic": "No Arabic yet",
-        "missingArabicHint": "A draft saves without it; publication does not.",
         "englishShort": "{{field}} (EN)",
         "arabicShort": "{{field}} (AR)"
     },
@@ -3705,10 +3700,6 @@
         "sheetAllergensDerived": "Allergens (from the ingredients)",
         "sheetRestrictedValue": "Yes — not for circulation",
         "publishChecksTitle": "Publish checks",
-        "checksCount": "{{done}}/{{total}} checks",
-        "checksNextFix": "Next fix →",
-        "checksNextFixLabel": "{{done}} of {{total}} checks pass. Next fix: {{next}}",
-        "checksAllPass": "All checks pass",
         "kitchenNameLabel": "Name",
         "costBatchTitle": "One batch",
         "costUnitTitle": "Per {{unit}}",

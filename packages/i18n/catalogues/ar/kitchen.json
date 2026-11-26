@@ -3570,7 +3570,6 @@
         "lastUpdatedBySeed": "آخر تغيير {{when}}",
         "lastUpdatedBy": "آخر تغيير {{when}} بواسطة {{name}}",
         "neverSaved": "لم يُحفظ بعد",
-        "unsaved": "تغييرات غير محفوظة",
         "sectionDetails": "الاسم",
         "sectionClassification": "التصنيف",
         "sectionAliases": "أسماء أخرى",
@@ -3608,11 +3607,7 @@
         "pendingNutritionBody": "اقترح الذكاء الاصطناعي اسمه العربي وفئته ومطابقته الغذائية. راجعها، وأكّد مرجعًا غذائيًا أدناه، وقيّم مسبّبات الحساسية فيه. إلى أن يُؤكَّد المرجع، لا يمكن نشر الوصفات التي تستخدم هذا المكوّن."
     },
     "bilingual": {
-        "englishLabel": "{{field}} (بالإنجليزية)",
-        "arabicLabel": "{{field}} (بالعربية)",
-        "copyFromEnglish": "نسخ النص الإنجليزي",
         "missingArabic": "لا يوجد نص عربي بعد",
-        "missingArabicHint": "تُحفظ المسودة بدونه، أما النشر فلا.",
         "englishShort": "{{field}} (EN)",
         "arabicShort": "{{field}} (AR)"
     },
@@ -4128,10 +4123,6 @@
         "sheetAllergensDerived": "مسببات الحساسية (من المكوّنات)",
         "sheetRestrictedValue": "نعم — ليست للتداول",
         "publishChecksTitle": "فحوص النشر",
-        "checksCount": "{{done}}/{{total}} فحوص",
-        "checksNextFix": "الإصلاح التالي ←",
-        "checksNextFixLabel": "نجح {{done}} من {{total}} فحوص. الإصلاح التالي: {{next}}",
-        "checksAllPass": "نجحت كل الفحوص",
         "kitchenNameLabel": "الاسم",
         "costBatchTitle": "دفعة واحدة",
         "costUnitTitle": "لكل {{unit}}",

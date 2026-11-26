@@ -1,6 +1,7 @@
 import type { ServiceArea } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    BilingualField,
     Button,
     Callout,
     Checkbox,
@@ -29,7 +30,6 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
 import { weekdayKey } from '../marketplace/format.ts';
-import { BilingualField } from './bilingual-field.tsx';
 import {
     areaMatches,
     groupServiceAreas,

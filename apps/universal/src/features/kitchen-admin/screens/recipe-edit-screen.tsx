@@ -16,6 +16,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    BilingualField,
     Button,
     Callout,
     Cascade,
@@ -29,6 +30,7 @@ import {
     FormSkeleton,
     Icon,
     Inline,
+    InlineChecksButton,
     IssueTrayFrame,
     IssueUnanchored,
     LeaveDialog,
@@ -41,6 +43,7 @@ import {
     Tag,
     Text,
     TextInputField,
+    UnsavedMark,
     useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
@@ -97,7 +100,6 @@ import {
     useSetRecipeLinesMutation,
     useUpdateRecipeMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { BilingualField } from '../bilingual-field.tsx';
 import { returnCrumbLabel } from '../came-from.ts';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
@@ -150,8 +152,6 @@ import { TechnicalSheetPanel } from '../technical-sheet-panel.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { InlineChecksButton } from '../inline-checks-button.tsx';
-import { UnsavedMark } from '../unsaved-mark.tsx';
 /**
  * `/kitchen/recipes/{recipe}` — the recipe editor, as `Catalogue.dc.html` draws it (`isRecipeEdit`,
  * around line 313).

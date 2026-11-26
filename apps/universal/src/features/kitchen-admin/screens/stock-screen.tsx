@@ -51,7 +51,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
-import { CameraScanButton } from '../camera-scan-button.tsx';
+import { CameraScanButton } from '../../../ui/camera-scan-button.tsx';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import {

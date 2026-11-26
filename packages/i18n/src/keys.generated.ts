@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10996 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10999 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2953,7 +2953,18 @@ export interface NamespaceKeys {
     | 'unsaved.keepEditing'
     | 'unsaved.title';
   readonly "designSystem":
+    | 'bilingual.arabicLabel'
+    | 'bilingual.arabicShort'
+    | 'bilingual.copyFromEnglish'
+    | 'bilingual.englishLabel'
+    | 'bilingual.englishShort'
+    | 'bilingual.missingArabic'
+    | 'bilingual.missingArabicHint'
     | 'breadcrumbs.label'
+    | 'checks.allPass'
+    | 'checks.count'
+    | 'checks.nextFix'
+    | 'checks.nextFixLabel'
     | 'chip.remove'
     | 'columns.clearFilter'
     | 'columns.columnFilter'
@@ -3175,7 +3186,8 @@ export interface NamespaceKeys {
     | 'timeField.minute'
     | 'timeField.open'
     | 'timeField.placeholder'
-    | 'undoBar.undo';
+    | 'undoBar.undo'
+    | 'unsavedMark.label';
   readonly "errors":
     | 'cart.otherKitchen'
     | 'failure.access_self_lockout'
@@ -3814,13 +3826,9 @@ export interface NamespaceKeys {
     | 'barcodes.title'
     | 'barcodes.typeQuantity'
     | 'barcodes.unknown'
-    | 'bilingual.arabicLabel'
     | 'bilingual.arabicShort'
-    | 'bilingual.copyFromEnglish'
-    | 'bilingual.englishLabel'
     | 'bilingual.englishShort'
     | 'bilingual.missingArabic'
-    | 'bilingual.missingArabicHint'
     | 'branchClosures.add'
     | 'branchClosures.addedToast'
     | 'branchClosures.description'
@@ -4551,7 +4559,6 @@ export interface NamespaceKeys {
     | 'editor.sectionOtherNames'
     | 'editor.stepCounter'
     | 'editor.stepsLabel'
-    | 'editor.unsaved'
     | 'families.activity.description'
     | 'families.activity.name'
     | 'families.allergenClasses.description'
@@ -7767,10 +7774,6 @@ export interface NamespaceKeys {
     | 'recipes.checkYield'
     | 'recipes.checkYieldMissing'
     | 'recipes.checkYieldOk'
-    | 'recipes.checksAllPass'
-    | 'recipes.checksCount'
-    | 'recipes.checksNextFix'
-    | 'recipes.checksNextFixLabel'
     | 'recipes.coefficientsHint'
     | 'recipes.columnAllergens'
     | 'recipes.columnKind'
@@ -13971,7 +13974,18 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:unsaved.discard',
   'common:unsaved.keepEditing',
   'common:unsaved.title',
+  'designSystem:bilingual.arabicLabel',
+  'designSystem:bilingual.arabicShort',
+  'designSystem:bilingual.copyFromEnglish',
+  'designSystem:bilingual.englishLabel',
+  'designSystem:bilingual.englishShort',
+  'designSystem:bilingual.missingArabic',
+  'designSystem:bilingual.missingArabicHint',
   'designSystem:breadcrumbs.label',
+  'designSystem:checks.allPass',
+  'designSystem:checks.count',
+  'designSystem:checks.nextFix',
+  'designSystem:checks.nextFixLabel',
   'designSystem:chip.remove',
   'designSystem:columns.clearFilter',
   'designSystem:columns.columnFilter',
@@ -14194,6 +14208,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:timeField.open',
   'designSystem:timeField.placeholder',
   'designSystem:undoBar.undo',
+  'designSystem:unsavedMark.label',
   'errors:cart.otherKitchen',
   'errors:failure.access_self_lockout',
   'errors:failure.account_customer_missing',
@@ -14828,13 +14843,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:barcodes.title',
   'kitchen:barcodes.typeQuantity',
   'kitchen:barcodes.unknown',
-  'kitchen:bilingual.arabicLabel',
   'kitchen:bilingual.arabicShort',
-  'kitchen:bilingual.copyFromEnglish',
-  'kitchen:bilingual.englishLabel',
   'kitchen:bilingual.englishShort',
   'kitchen:bilingual.missingArabic',
-  'kitchen:bilingual.missingArabicHint',
   'kitchen:branchClosures.add',
   'kitchen:branchClosures.addedToast',
   'kitchen:branchClosures.description',
@@ -15565,7 +15576,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:editor.sectionOtherNames',
   'kitchen:editor.stepCounter',
   'kitchen:editor.stepsLabel',
-  'kitchen:editor.unsaved',
   'kitchen:families.activity.description',
   'kitchen:families.activity.name',
   'kitchen:families.allergenClasses.description',
@@ -18781,10 +18791,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.checkYield',
   'kitchen:recipes.checkYieldMissing',
   'kitchen:recipes.checkYieldOk',
-  'kitchen:recipes.checksAllPass',
-  'kitchen:recipes.checksCount',
-  'kitchen:recipes.checksNextFix',
-  'kitchen:recipes.checksNextFixLabel',
   'kitchen:recipes.coefficientsHint',
   'kitchen:recipes.columnAllergens',
   'kitchen:recipes.columnKind',

@@ -5,7 +5,6 @@ import type {
     AllergenReferenceSelection,
 } from '@healthy360/api-client/contracts';
 import { NutritionReferencePicker } from '../nutrition-reference-picker.tsx';
-import { InlineChecksButton } from '../inline-checks-button.tsx';
 import type {
     AllergenClass,
     CostAmount,
@@ -20,6 +19,7 @@ import {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    BilingualField,
     Button,
     Callout,
     Cascade,
@@ -31,6 +31,7 @@ import {
     FormSkeleton,
     Icon,
     Inline,
+    InlineChecksButton,
     IssueTrayFrame,
     IssueUnanchored,
     LeaveDialog,
@@ -42,6 +43,7 @@ import {
     TagRow,
     Text,
     TextInputField,
+    UnsavedMark,
     useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
@@ -97,7 +99,6 @@ import { forgetKeptWork, keepWork } from '../../../navigation/kept-work.ts';
 import { pathnameOf, withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { createSessionDraftStore } from '../../../navigation/session-draft.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
-import { BilingualField } from '../bilingual-field.tsx';
 import { returnCrumbLabel } from '../came-from.ts';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
@@ -146,7 +147,6 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
-import { UnsavedMark } from '../unsaved-mark.tsx';
 /**
  * `/kitchen/ingredients/{ingredient}` — the record editor, as `Catalogue Forms.dc.html` draws it
  * (`isIngredient` and `isPackaging`).

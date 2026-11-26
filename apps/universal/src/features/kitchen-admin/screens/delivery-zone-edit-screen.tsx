@@ -5,6 +5,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    BilingualField,
     Button,
     Callout,
     Cascade,
@@ -53,7 +54,6 @@ import {
 } from '../../../data/kitchen-admin-hooks.ts';
 import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useAccessState, useSession } from '../../../session/session-provider.tsx';
-import { BilingualField } from '../bilingual-field.tsx';
 import { weekdayKey } from '../../marketplace/format.ts';
 import {
     moneyInputState,

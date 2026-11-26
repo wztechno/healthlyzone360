@@ -22,7 +22,7 @@ import {
     useResolveBarcodeScan,
 } from '../../data/kitchen-ops-hooks.ts';
 import { barcodeFailureText, shelfForIngredient, unlinkedScanMessage } from './barcode-scan.ts';
-import { CameraScanButton } from './camera-scan-button.tsx';
+import { CameraScanButton } from '../../ui/camera-scan-button.tsx';
 import { focusField } from './field-focus.ts';
 import { unitShortKey } from './format.ts';
 import type { ScannedPack } from './receive-delivery-model.ts';

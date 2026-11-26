@@ -183,14 +183,14 @@ Every admin list or report opens with `LensBar` from `@healthy360/design-system`
 on the page with the actions at their end, the mix on the card's top edge, and the query row as the
 top of the list's card. There is one look; there is no `layout` to pick.
 
-| Job                                                           | How                                                             |
-| ------------------------------------------------------------- | --------------------------------------------------------------- |
-| A list's opening (Ingredients, Orders, Suppliers)             | `<LensBar figures mix actions search tokens result />`          |
-| The list under it closes the card                             | `joined` on both the `LensBar` and the `DataTable`              |
-| A report with no search (Activity, Cash report)               | `figures={[]}` + `scope` — the empty figures row is left out    |
-| A period before From / To                                     | `PeriodScope` in `scope`, then two `DatePicker` pills           |
-| A camera scan beside the search                               | `scanAction={<CameraScanButton … />}` (the app owns the camera) |
-| Counts with no list under them (kitchen home, a bill's facts) | `FigureChips` (`fill` for an even row)                          |
+| Job                                                           | How                                                                 |
+| ------------------------------------------------------------- | ------------------------------------------------------------------- |
+| A list's opening (Ingredients, Orders, Suppliers)             | `<LensBar figures mix actions search tokens result />`              |
+| The list under it closes the card                             | `joined` on both the `LensBar` and the `DataTable`                  |
+| A report with no search (Activity, Cash report)               | `figures={[]}` + `scope` — the empty figures row is left out        |
+| A period before From / To                                     | `PeriodScope` in `scope`, then two `DatePicker` pills               |
+| A camera scan beside the search                               | `scanAction={<CameraScanButton … />}` (`ui/camera-scan-button.tsx`) |
+| Counts with no list under them (kitchen home, a bill's facts) | `FigureChips` (`fill` for an even row)                              |
 
 **Removed, never recreate:** `CatalogueToolbar`, `ToolbarPanel`, `ListToolbar`, `CatalogueStatCards`,
 `StatTile`, the unused `TodayCard`, and `LensBar`'s one-panel `layout="bar"`. The web shop keeps its own
@@ -253,7 +253,19 @@ sizes live in the design system's sheet parts — never set them on a page.
 look of `RecordViewPage`), `CompactRecordPopup` (now `RecordPopupWindow`), `RecordDialog`, the old
 `RecordWindow` window (its `RecordWindowFieldGrid` stays), and `/showcase-record-canopy`.
 
+## Form bits
+
+| Job                                                               | Part                                                        |
+| ----------------------------------------------------------------- | ----------------------------------------------------------- |
+| A name, a description — one label, an English and an Arabic box   | `BilingualField` (`multiline`, `layout`, `requiredEnglish`) |
+| "● Unsaved changes" beside an editor's title                      | `UnsavedMark`                                               |
+| The checks pill ("1/3 checks · Next fix →") in an editor's header | `InlineChecksButton`, inside the page's `IssueTrayFrame`    |
+| A camera scan beside a search or barcode field                    | the app's `ui/camera-scan-button.tsx` (it loads the camera) |
+
+Import / Export on the catalogue lists stays the catalogue's own (`CatalogueTransferActions`): it reads
+and writes catalogue data, and no other page has it.
+
 ## Canvas designs
 
-A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs, pills, dates, tables, toolbars, page headers, banners, pop-ups and record pop-ups as `/showcase-components` shows them. If a design
+A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs, pills, dates, tables, toolbars, page headers, banners, pop-ups and record pop-ups and form bits as `/showcase-components` shows them. If a design
 needs a part that is not on that page, say so — it is a new design-system part, not a one-off.

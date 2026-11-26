@@ -134,6 +134,24 @@
   "undoBar": {
     "undo": "[[Úñðó āē]]"
   },
+  "bilingual": {
+    "arabicLabel": "[[{{field}} (Áŕáƀíç) āēīōūāēī]]",
+    "englishShort": "[[{{field}} (ÉÑ) āēīōūā]]",
+    "arabicShort": "[[{{field}} (ÁŔ) āēīōūā]]",
+    "englishLabel": "[[{{field}} (Éñĝłíšĥ) āēīōūāēī]]",
+    "missingArabic": "[[Ñó Áŕáƀíç ýéţ āēīōūā]]",
+    "copyFromEnglish": "[[Çóþý ţĥé Éñĝłíšĥ āēīōūāē]]",
+    "missingArabicHint": "[[Á ðŕáƒţ šáṽéš ŵíţĥóúţ íţ; þúƀłíçáţíóñ ðóéš ñóţ. āēīōūāēīōūāēīōūāēīō]]"
+  },
+  "checks": {
+    "allPass": "[[Áłł çĥéçķš þášš āēīōūā]]",
+    "nextFixLabel": "[[{{done}} óƒ {{total}} çĥéçķš þášš. Ñéẋţ ƒíẋ: {{next}} āēīōūāēīōūāēīōūāēīōūāē]]",
+    "count": "[[{{done}}/{{total}} çĥéçķš āēīōūāēīōū]]",
+    "nextFix": "[[Ñéẋţ ƒíẋ → āēīō]]"
+  },
+  "unsavedMark": {
+    "label": "[[Úñšáṽéð çĥáñĝéš āēīōūā]]"
+  },
   "datePicker": {
     "previousMonth": "[[Þŕéṽíóúš ɱóñţĥ āēīōūā]]",
     "nextMonth": "[[Ñéẋţ ɱóñţĥ āēīō]]",

@@ -1,5 +1,6 @@
 import type { LocalisedText, StorefrontProfile } from '@healthy360/api-client/contracts';
 import {
+    BilingualField,
     Button,
     Cascade,
     ErrorState,
@@ -18,7 +19,6 @@ import {
     useSaveStorefrontProfileMutation,
     useStorefrontProfileQuery,
 } from '../../../data/staff-alerts-hooks.ts';
-import { BilingualField } from '../bilingual-field.tsx';
 import { CATALOGUE_MANAGE_PERMISSION } from '../entity-registry.ts';
 import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';

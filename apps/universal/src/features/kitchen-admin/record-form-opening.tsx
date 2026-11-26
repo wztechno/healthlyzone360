@@ -8,6 +8,7 @@ import {
     PageHeader,
     Stack,
     Tabs,
+    UnsavedMark,
     useIssueGroup,
 } from '@healthy360/design-system';
 import type { FormIssueItem, IssueCardItem, TabItem } from '@healthy360/design-system';
@@ -21,8 +22,6 @@ import { serverFieldErrors } from './server-field-errors.ts';
 import type { ServerFieldTarget } from './server-field-errors.ts';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
-
-import { UnsavedMark } from './unsaved-mark.tsx';
 
 /** The editor's commit, drawn last among the header's actions. */
 export interface RecordFormSave {

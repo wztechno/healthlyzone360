@@ -29,7 +29,7 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { CameraScanButton } from '../camera-scan-button.tsx';
+import { CameraScanButton } from '../../../ui/camera-scan-button.tsx';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';

@@ -6,6 +6,7 @@ import {
     Avatar,
     Badge,
     BADGE_TONES,
+    BilingualField,
     Breadcrumbs,
     Button,
     BUTTON_SIZES,
@@ -146,7 +147,6 @@ import type {
     ReceiptFeedMotion,
     ReceiptPrinterStage,
 } from '../features/commerce/receipt-printer.tsx';
-import { BilingualField } from '../features/kitchen-admin/bilingual-field.tsx';
 import { DerivedPanel } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
 import { RecordPhoto } from '../features/kitchen-admin/catalogue/record-photo.tsx';

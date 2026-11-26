@@ -1,5 +1,6 @@
 import type { LocalisedText } from '@healthy360/api-client/contracts';
 import {
+    BilingualField,
     Button,
     Callout,
     Cascade,
@@ -23,7 +24,6 @@ import { useCreateKitchenMutation } from '../../../data/platform-admin-hooks.ts'
 import { useUnsavedGuardFor } from '../../../navigation/use-unsaved-guard.ts';
 import { SendChecklist } from '../../business/corporate-parts.tsx';
 import type { SendCheck } from '../../business/corporate-parts.tsx';
-import { BilingualField } from '../../kitchen-admin/bilingual-field.tsx';
 import { PLATFORM_KITCHENS_HREF, platformKitchenHref } from '../platform-admin-chrome.tsx';
 
 /**

@@ -10,6 +10,7 @@ import {
     PageHeader,
     Stack,
     Text,
+    UnsavedMark,
     useContentWidth,
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
@@ -24,7 +25,6 @@ import { statusKey, statusTone } from './format.ts';
 import { useKitchenTrailLeaf } from './kitchen-ops-shell.tsx';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
-import { UnsavedMark } from './unsaved-mark.tsx';
 import { PageBackPill } from '../../shell/area-trail.tsx';
 
 /** The editor rail's width beside the form. A style: there is no rail-width token. */

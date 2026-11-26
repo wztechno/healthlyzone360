@@ -138,6 +138,24 @@
     "undoBar": {
         "undo": "تراجع"
     },
+    "bilingual": {
+        "arabicLabel": "{{field}} (بالعربية)",
+        "englishShort": "{{field}} (EN)",
+        "arabicShort": "{{field}} (AR)",
+        "englishLabel": "{{field}} (بالإنجليزية)",
+        "missingArabic": "لا يوجد نص عربي بعد",
+        "copyFromEnglish": "نسخ النص الإنجليزي",
+        "missingArabicHint": "تُحفظ المسودة بدونه، أما النشر فلا."
+    },
+    "checks": {
+        "allPass": "نجحت كل الفحوص",
+        "nextFixLabel": "نجح {{done}} من {{total}} فحوص. الإصلاح التالي: {{next}}",
+        "count": "{{done}}/{{total}} فحوص",
+        "nextFix": "الإصلاح التالي ←"
+    },
+    "unsavedMark": {
+        "label": "تغييرات غير محفوظة"
+    },
     "datePicker": {
         "previousMonth": "الشهر السابق",
         "nextMonth": "الشهر التالي",

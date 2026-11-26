@@ -1,5 +1,14 @@
 import type { LocalisedText, PriceListCustomerScope } from '@healthy360/api-client/contracts';
-import { Button, Dialog, Select, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    BilingualField,
+    Button,
+    Dialog,
+    Select,
+    Stack,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -9,7 +18,6 @@ import { useCan } from '../../access/gate.tsx';
 import { toFailure } from '../../data/hooks.ts';
 import { useProcurementReferenceQuery } from '../../data/kitchen-ops-hooks.ts';
 import { useCreatePriceListMutation } from '../../data/kitchen-wholesale-hooks.ts';
-import { BilingualField } from './bilingual-field.tsx';
 import { INVENTORY_VIEW_PERMISSION } from './entity-registry.ts';
 import { displayName } from './format.ts';
 import { serverFieldErrors } from './server-field-errors.ts';

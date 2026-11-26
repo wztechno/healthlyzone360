@@ -1,6 +1,21 @@
 import { isDeletableRole, isValidationFailure } from '@healthy360/api-client/contracts';
 import type { ApiFailure } from '@healthy360/api-client/contracts';
-import { Button, Callout, Cascade, Dialog, ErrorState, FormGrid, FormSection, FormSkeleton, IssueTrayFrame, Text, TextInputField, useIssueTrayController, useToast } from '@healthy360/design-system';
+import {
+    BilingualField,
+    Button,
+    Callout,
+    Cascade,
+    Dialog,
+    ErrorState,
+    FormGrid,
+    FormSection,
+    FormSkeleton,
+    IssueTrayFrame,
+    Text,
+    TextInputField,
+    useIssueTrayController,
+    useToast,
+} from '@healthy360/design-system';
 import type { IssueCardItem, IssueTrayContent, TabItem } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -19,7 +34,6 @@ import {
 } from '../../../data/access-admin-hooks.ts';
 import { toFailure } from '../../../data/hooks.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
-import { BilingualField } from '../bilingual-field.tsx';
 import { ROLE_MANAGE_PERMISSION, ROLE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';

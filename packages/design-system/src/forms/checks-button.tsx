@@ -1,4 +1,5 @@
-import { Icon, useInlineIssues } from '@healthy360/design-system';
+import { Icon } from '../icons/icon.tsx';
+import { useInlineIssues } from '../issues/issue-anchor.tsx';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
@@ -43,7 +44,7 @@ export function InlineChecksButton({ testID }: { readonly testID: string }) {
                 {bars}
                 <Icon name="check" size="sm" className="text-content-on-brand-subtle" />
                 <RNText className="text-sm font-semibold text-content-on-brand-subtle">
-                    {t('kitchen:recipes.checksAllPass')}
+                    {t('designSystem:checks.allPass')}
                 </RNText>
             </View>
         );
@@ -52,7 +53,7 @@ export function InlineChecksButton({ testID }: { readonly testID: string }) {
         <Pressable
             testID={testID}
             accessibilityRole="button"
-            accessibilityLabel={t('kitchen:recipes.checksNextFixLabel', {
+            accessibilityLabel={t('designSystem:checks.nextFixLabel', {
                 done: passedCount,
                 total,
                 next: first?.label ?? '',
@@ -65,11 +66,11 @@ export function InlineChecksButton({ testID }: { readonly testID: string }) {
         >
             {bars}
             <RNText className="text-sm font-semibold tabular-nums text-content-primary">
-                {t('kitchen:recipes.checksCount', { done: passedCount, total })}
+                {t('designSystem:checks.count', { done: passedCount, total })}
             </RNText>
             {first === undefined ? null : (
                 <RNText className="text-sm font-bold text-warning-on-subtle">
-                    {t('kitchen:recipes.checksNextFix')}
+                    {t('designSystem:checks.nextFix')}
                 </RNText>
             )}
         </Pressable>

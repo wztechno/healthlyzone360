@@ -1,4 +1,4 @@
-import { Text } from '@healthy360/design-system';
+import { Text } from '../primitives/text.tsx';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -13,7 +13,7 @@ export function UnsavedMark({ testID }: { readonly testID: string }) {
         <View testID={testID} className="flex-row items-center gap-1.5">
             <View aria-hidden className="h-2 w-2 rounded-full bg-warning-border" />
             <Text variant="label" tone="warning">
-                {t('kitchen:editor.unsaved')}
+                {t('designSystem:unsavedMark.label')}
             </Text>
         </View>
     );

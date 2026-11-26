@@ -1,6 +1,14 @@
 import type { LocalisedText } from '@healthy360/api-client/contracts';
-import { Badge, Button, cx, FormField, Inline, inputControlClass, inputFrameClassName, Stack, Text, useDensity } from '@healthy360/design-system';
-import type { FieldControlProps, GridSpanProps } from '@healthy360/design-system';
+import { Badge } from '../content/badge.tsx';
+import { Button } from '../actions/button.tsx';
+import { cx } from '../internal/class-names.ts';
+import { FormField } from './form-field.tsx';
+import { Inline, Stack } from '../primitives/stack.tsx';
+import { inputControlClass, inputFrameClassName } from './text-input.tsx';
+import { Text } from '../primitives/text.tsx';
+import { useDensity } from '../hooks/use-density.tsx';
+import type { FieldControlProps } from './form-field.tsx';
+import type { GridSpanProps } from '../primitives/grid-shared.ts';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { TextInput, View } from 'react-native';
@@ -263,7 +271,7 @@ export function BilingualField({
                 <View className="z-auto min-w-0 flex-1">
                     <BilingualHalf
                         testID={`${testID}-ar`}
-                        label={t('kitchen:bilingual.arabicLabel', { field: fieldLabel })}
+                        label={t('designSystem:bilingual.arabicLabel', { field: fieldLabel })}
                         labelHidden={labelHidden}
                         value={value.ar}
                         onChangeText={(next) => {
@@ -296,7 +304,7 @@ export function BilingualField({
                 <View className="w-field">
                     <BilingualHalf
                         testID={`${testID}-en`}
-                        label={t('kitchen:bilingual.englishShort', { field: fieldLabel })}
+                        label={t('designSystem:bilingual.englishShort', { field: fieldLabel })}
                         value={value.en}
                         onChangeText={(next) => {
                             onChange({ ...value, en: next });
@@ -313,7 +321,7 @@ export function BilingualField({
                 <View className="w-field">
                     <BilingualHalf
                         testID={`${testID}-ar`}
-                        label={t('kitchen:bilingual.arabicShort', { field: fieldLabel })}
+                        label={t('designSystem:bilingual.arabicShort', { field: fieldLabel })}
                         value={value.ar}
                         onChangeText={(next) => {
                             onChange({ ...value, ar: next });
@@ -334,7 +342,7 @@ export function BilingualField({
         <>
             <BilingualHalf
                 testID={`${testID}-en`}
-                label={t('kitchen:bilingual.englishLabel', { field: fieldLabel })}
+                label={t('designSystem:bilingual.englishLabel', { field: fieldLabel })}
                 value={value.en}
                 onChangeText={(next) => {
                     onChange({ ...value, en: next });
@@ -350,7 +358,7 @@ export function BilingualField({
 
             <BilingualHalf
                 testID={`${testID}-ar`}
-                label={t('kitchen:bilingual.arabicLabel', { field: fieldLabel })}
+                label={t('designSystem:bilingual.arabicLabel', { field: fieldLabel })}
                 value={value.ar}
                 onChangeText={(next) => {
                     onChange({ ...value, ar: next });
@@ -375,7 +383,7 @@ export function BilingualField({
                         testID={`${testID}-missing-arabic`}
                         tone="warning"
                         icon="warning"
-                        label={t('kitchen:bilingual.missingArabic')}
+                        label={t('designSystem:bilingual.missingArabic')}
                     />
                 ) : null}
                 {disabled ? null : (
@@ -383,7 +391,7 @@ export function BilingualField({
                         testID={`${testID}-copy-english`}
                         size="sm"
                         variant="ghost"
-                        label={t('kitchen:bilingual.copyFromEnglish')}
+                        label={t('designSystem:bilingual.copyFromEnglish')}
                         disabled={value.en.trim() === ''}
                         onPress={() => {
                             onChange({ ...value, ar: value.en });
@@ -394,7 +402,7 @@ export function BilingualField({
 
             {arabicMissing ? (
                 <Text testID={`${testID}-missing-arabic-hint`} variant="caption" tone="secondary">
-                    {t('kitchen:bilingual.missingArabicHint')}
+                    {t('designSystem:bilingual.missingArabicHint')}
                 </Text>
             ) : null}
         </Stack>

@@ -1,5 +1,6 @@
 import {
     Badge,
+    BilingualField,
     Button,
     Callout,
     Checkbox,
@@ -35,6 +36,7 @@ import {
     Tag,
     Text,
     UndoBar,
+    UnsavedMark,
     useColumnControls,
     useToast,
 } from '@healthy360/design-system';
@@ -1366,6 +1368,50 @@ function RecordPopupSection() {
     );
 }
 
+function FormBitsSection() {
+    const [name, setName] = useState({ en: 'Tahini paste', ar: '' });
+    const [notes, setNotes] = useState({ en: '', ar: '' });
+    return (
+        <Stack space="lg" testID="components-showcase-form-bits">
+            <Stack space="xs">
+                <Text variant="section">Form bits</Text>
+                <Text variant="caption" tone="secondary">
+                    the small parts every admin editor shares
+                </Text>
+            </Stack>
+
+            <Sample
+                title="English and Arabic"
+                note="BilingualField · one label, two boxes · the Arabic box reads right to left"
+            >
+                <Stack space="md" className="w-full">
+                    <BilingualField
+                        testID="components-showcase-bilingual"
+                        fieldLabel="Name"
+                        requiredEnglish
+                        value={name}
+                        onChange={setName}
+                    />
+                    <BilingualField
+                        testID="components-showcase-bilingual-notes"
+                        fieldLabel="Notes"
+                        multiline
+                        value={notes}
+                        onChange={setNotes}
+                    />
+                </Stack>
+            </Sample>
+
+            <Sample
+                title="Unsaved"
+                note="UnsavedMark · beside the title while the form holds changes"
+            >
+                <UnsavedMark testID="components-showcase-unsaved" />
+            </Sample>
+        </Stack>
+    );
+}
+
 type Shelf = 'all' | 'published' | 'draft' | 'review';
 
 const SHELF_COUNTS: Readonly<Record<Exclude<Shelf, 'all'>, number>> = {
@@ -1606,6 +1652,7 @@ export function ComponentsShowcaseScreen() {
                     <ToolbarSection />
                     <FeedbackSection />
                     <RecordPopupSection />
+                    <FormBitsSection />
                 </Stack>
             </View>
         </DensityProvider>

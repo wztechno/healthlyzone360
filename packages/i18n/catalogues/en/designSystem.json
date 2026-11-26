@@ -134,6 +134,24 @@
     "undoBar": {
         "undo": "Undo"
     },
+    "bilingual": {
+        "arabicLabel": "{{field}} (Arabic)",
+        "englishShort": "{{field}} (EN)",
+        "arabicShort": "{{field}} (AR)",
+        "englishLabel": "{{field}} (English)",
+        "missingArabic": "No Arabic yet",
+        "copyFromEnglish": "Copy the English",
+        "missingArabicHint": "A draft saves without it; publication does not."
+    },
+    "checks": {
+        "allPass": "All checks pass",
+        "nextFixLabel": "{{done}} of {{total}} checks pass. Next fix: {{next}}",
+        "count": "{{done}}/{{total}} checks",
+        "nextFix": "Next fix →"
+    },
+    "unsavedMark": {
+        "label": "Unsaved changes"
+    },
     "datePicker": {
         "previousMonth": "Previous month",
         "nextMonth": "Next month",

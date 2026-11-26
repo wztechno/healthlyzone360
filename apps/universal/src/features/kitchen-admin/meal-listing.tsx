@@ -7,6 +7,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    BilingualField,
     Button,
     Callout,
     Dialog,
@@ -18,6 +19,7 @@ import {
     Icon,
     InfoTip,
     Inline,
+    InlineChecksButton,
     IssueTrayFrame,
     IssueUnanchored,
     Select,
@@ -40,7 +42,6 @@ import { View } from 'react-native';
 
 import { Gate, useCan } from '../../access/gate.tsx';
 import { DishOptionsSection } from './dish-options-section.tsx';
-import { InlineChecksButton } from './inline-checks-button.tsx';
 import { toFailure } from '../../data/hooks.ts';
 import { useDishOptionsQuery } from '../../data/order-desk-hooks.ts';
 import {
@@ -53,7 +54,6 @@ import {
     useUpdateMealMutation,
 } from '../../data/kitchen-admin-hooks.ts';
 import { useProcurementReferenceQuery } from '../../data/kitchen-ops-hooks.ts';
-import { BilingualField } from './bilingual-field.tsx';
 import {
     MealAvailabilityEditor,
     availabilityErrors,

@@ -5,6 +5,7 @@ import {
     FormGrid,
     FormSection,
     Inline,
+    InlineChecksButton,
     IssueRevealScope,
     IssueTrayFrame,
     IssueUnanchored,
@@ -19,7 +20,6 @@ import { useCallback, useState } from 'react';
 import { View } from 'react-native';
 
 import { focusField } from '../features/kitchen-admin/field-focus.ts';
-import { InlineChecksButton } from '../features/kitchen-admin/inline-checks-button.tsx';
 
 type DemoTab = 'details' | 'ingredients' | 'yield' | 'selling';
 

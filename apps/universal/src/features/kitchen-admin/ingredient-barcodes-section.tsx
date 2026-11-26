@@ -29,7 +29,7 @@ import {
     useRemoveIngredientBarcodeMutation,
 } from '../../data/kitchen-ops-hooks.ts';
 import { barcodeFailureText } from './barcode-scan.ts';
-import { CameraScanButton } from './camera-scan-button.tsx';
+import { CameraScanButton } from '../../ui/camera-scan-button.tsx';
 import { unitCodeLabel, unitShortKey } from './format.ts';
 
 /**

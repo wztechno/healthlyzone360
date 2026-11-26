@@ -7,6 +7,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    BilingualField,
     Button,
     Callout,
     Cascade,
@@ -19,6 +20,7 @@ import {
     FormSkeleton,
     Icon,
     Inline,
+    InlineChecksButton,
     IssueTrayFrame,
     IssueUnanchored,
     LeaveDialog,
@@ -28,6 +30,7 @@ import {
     Stack,
     Tag,
     Text,
+    UnsavedMark,
     useIssueGroup,
     useIssueTrayController,
     useToast,
@@ -76,7 +79,6 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
-import { BilingualField } from '../bilingual-field.tsx';
 import { AllergenAssessmentCallout, AssessmentBadges } from '../catalogue/allergen-assessment.tsx';
 import { stockBlockersSentence } from '../catalogue/recipe-columns.tsx';
 import {
@@ -117,13 +119,11 @@ import {
 import { ImageSlot } from '../image-slot.tsx';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useFinishDetour } from '../finish-detour.ts';
-import { UnsavedMark } from '../unsaved-mark.tsx';
 import {
     PacksHostContext,
     packsIssueLabel,
     packsIssuesFromRefusal,
 } from '../packs-prices-section.tsx';
-import { InlineChecksButton } from '../inline-checks-button.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { focusFirstRefusal } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';

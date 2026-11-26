@@ -1,6 +1,7 @@
 import type { LocalisedText, SuppliedItem, SupplierDetail } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    BilingualField,
     Button,
     Callout,
     Cascade,
@@ -43,7 +44,6 @@ import {
     useUpsertSupplierLinkMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
-import { BilingualField } from '../bilingual-field.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,

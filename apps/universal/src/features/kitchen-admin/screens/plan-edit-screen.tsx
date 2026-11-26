@@ -2,6 +2,7 @@ import { isValidationFailure } from '@healthy360/api-client/contracts';
 import type { LocalisedText, PlanAdmin } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    BilingualField,
     Button,
     Callout,
     Cascade,
@@ -23,6 +24,7 @@ import {
     Tabs,
     Text,
     TextInputField,
+    UnsavedMark,
     useFormSteps,
     useIssueTrayController,
     useToast,
@@ -51,7 +53,6 @@ import {
 } from '../../../data/kitchen-admin-hooks.ts';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
-import { BilingualField } from '../bilingual-field.tsx';
 import { PlanMatrixGrid } from '../commercial/plan-matrix-grid.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { focusField, focusSection } from '../field-focus.ts';
@@ -90,7 +91,6 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
-import { UnsavedMark } from '../unsaved-mark.tsx';
 /**
  * `/kitchen/plans/{plan}` — the commercial definition of a subscription plan.
  *
