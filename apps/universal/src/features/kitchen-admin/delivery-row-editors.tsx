@@ -546,9 +546,22 @@ export function DayToggle({
  * Branch operating week
  * ---------------------------------------------------------------------------------------------- */
 
-/** The time tracks: wide enough for a 12-hour value with its clock glyph. */
-const TIME_TRACK = 120;
-const CUT_OFF_TRACK = 172;
+/**
+ * The trading week's columns, wider than their boxes so each has air around it (2026-11-26): the
+ * day fits "Wednesday" beside its Closed tag, Open | Closed fits both words, and every time box is a
+ * fixed 140 (the cut-off's 160) — wide enough for a 12-hour value and its clock — inside a wider
+ * column.
+ */
+const OPERATING_TRACKS = {
+    day: 190,
+    trading: 210,
+    opens: 180,
+    closes: 180,
+    cutOff: 210,
+    copy: 72,
+} as const;
+const TIME_FIELD = 140;
+const CUT_OFF_FIELD = 160;
 
 export interface OperatingWeekRowsProps {
     readonly rows: readonly OperatingDayDraft[];
@@ -627,6 +640,8 @@ export function OperatingWeekRows({
         serverField: string,
         label: string,
         width: number,
+        /** The box itself — narrower than its column, so the columns breathe. */
+        fieldWidth: number,
         priority: number,
         read: (day: OperatingDayDraft) => string,
         write: (day: OperatingDayDraft, value: string) => OperatingDayDraft,
@@ -641,7 +656,7 @@ export function OperatingWeekRows({
         render: (day) => {
             const issue = issues.get(day.weekday);
             return (
-                <View className="w-full py-tight">
+                <View className="py-tight" style={{ width: fieldWidth }}>
                     <TimeField
                         fullWidth
                         min={
@@ -672,7 +687,7 @@ export function OperatingWeekRows({
         {
             key: 'day',
             label: t('kitchen:branchHours.columnDay'),
-            width: 128,
+            width: OPERATING_TRACKS.day,
             priority: 100,
             grow: false,
             render: (day) => {
@@ -696,7 +711,7 @@ export function OperatingWeekRows({
         {
             key: 'trading',
             label: t('kitchen:branchHours.columnTrading'),
-            width: 176,
+            width: OPERATING_TRACKS.trading,
             priority: 95,
             grow: false,
             /*
@@ -712,7 +727,7 @@ export function OperatingWeekRows({
                     <View className="z-auto min-w-0 flex-1">
                         {canManage ? (
                             <Tabs<Trading>
-                                variant="strip"
+                                variant="segmented"
                                 testID={`${dayID}-trading`}
                                 radio
                                 label={t('kitchen:branchHours.tradingLabel', {
@@ -756,7 +771,8 @@ export function OperatingWeekRows({
             'opens',
             'opens_at',
             t('kitchen:branchHours.opensLabel'),
-            TIME_TRACK,
+            OPERATING_TRACKS.opens,
+            TIME_FIELD,
             90,
             (day) => day.opensAt,
             (day, value) => ({ ...day, opensAt: value }),
@@ -766,7 +782,8 @@ export function OperatingWeekRows({
             'closes',
             'closes_at',
             t('kitchen:branchHours.closesLabel'),
-            TIME_TRACK,
+            OPERATING_TRACKS.closes,
+            TIME_FIELD,
             90,
             (day) => day.closesAt,
             (day, value) => ({ ...day, closesAt: value }),
@@ -777,7 +794,8 @@ export function OperatingWeekRows({
             'cutOff',
             'order_cut_off_at',
             t('kitchen:branchHours.cutOffLabel'),
-            CUT_OFF_TRACK,
+            OPERATING_TRACKS.cutOff,
+            CUT_OFF_FIELD,
             85,
             (day) => day.orderCutOffAt,
             (day, value) => ({ ...day, orderCutOffAt: value }),
@@ -787,7 +805,7 @@ export function OperatingWeekRows({
                   {
                       key: 'copy',
                       label: t('kitchen:list.actionHeader'),
-                      width: 56,
+                      width: OPERATING_TRACKS.copy,
                       priority: 80,
                       sortable: false,
                       filterable: false,
