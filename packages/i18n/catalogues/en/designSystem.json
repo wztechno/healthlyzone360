@@ -255,5 +255,10 @@
         "done": "Done",
         "placeholder": "--:--",
         "invalid": "Enter a time as HH:mm, for example 09:30."
+    },
+    "dataTable": {
+        "pagerLabel": "Pages",
+        "actionHeader": "Actions",
+        "clearFilters": "Clear the filters"
     }
 }

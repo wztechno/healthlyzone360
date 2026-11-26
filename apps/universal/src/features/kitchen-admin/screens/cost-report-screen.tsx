@@ -2,12 +2,14 @@ import type { MonthlyCostReportRow } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Cascade,
+    DataTable,
     DatePicker,
     EmptyState,
     ErrorState,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -19,8 +21,6 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useCostReportQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { PairedBars } from '../analytics/paired-bars.tsx';
 import { RatioBars } from '../analytics/ratio-bars.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
     compareNumber,
@@ -172,7 +172,7 @@ function CostReport() {
             : `${amount(value)} ${activeCurrency}`;
     const columns: readonly ControlledColumn<
         MonthlyCostReportRow,
-        CatalogueColumn<MonthlyCostReportRow>
+        DataTableColumn<MonthlyCostReportRow>
     >[] = [
         {
             key: 'month',
@@ -242,7 +242,7 @@ function CostReport() {
         ).map(
             ([key, labelKey, read, priority]): ControlledColumn<
                 MonthlyCostReportRow,
-                CatalogueColumn<MonthlyCostReportRow>
+                DataTableColumn<MonthlyCostReportRow>
             > => ({
                 key,
                 label: t(`kitchen:ops.costReport.${labelKey}`),
@@ -600,7 +600,7 @@ function CostReport() {
                             </View>
                         )}
                     </View>
-                    <CatalogueList<MonthlyCostReportRow>
+                    <DataTable<MonthlyCostReportRow>
                         testID="kitchen-cost-report-table"
                         label={t('kitchen:ops.costReport.caption')}
                         columns={controls.columns}

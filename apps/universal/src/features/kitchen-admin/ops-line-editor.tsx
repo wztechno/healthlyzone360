@@ -1,4 +1,4 @@
-import { Button, DataList, Icon, IconButton, QuantityInput, Select, Stack, TableCellTextContext, Text, useSummariseFields } from '@healthy360/design-system';
+import { Button, DataTable, Icon, IconButton, QuantityInput, Select, Stack, TableCellTextContext, Text, useSummariseFields } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -440,7 +440,8 @@ export function StockItemLineEditor({
     return (
         <Stack space="sm">
             {lines.length === 0 ? null : (
-                <DataList<StockItemLineDraft>
+                <DataTable<StockItemLineDraft>
+                    lines
                     testID={testID}
                     label={itemLabel}
                     columns={columns}

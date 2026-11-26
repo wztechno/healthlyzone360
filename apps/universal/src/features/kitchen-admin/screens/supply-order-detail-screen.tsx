@@ -1,5 +1,5 @@
 import type { PurchaseOrderLine, StockItem } from '@healthy360/api-client/contracts';
-import { Badge, Button, Callout, Cascade, DataList, Dialog, EmptyState, ErrorState, FormSection, FormSkeleton, Icon, QuantityInput, Select, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
+import { Badge, Button, Callout, Cascade, DataTable, Dialog, EmptyState, ErrorState, FormSection, FormSkeleton, Icon, QuantityInput, Select, Stack, Text, TextInputField, useTablePort, useToast } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { PurchaseOrderId, StockItemId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -19,7 +19,6 @@ import {
     useUpdatePurchaseOrderMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
-import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { focusField } from '../field-focus.ts';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
@@ -206,7 +205,7 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
      * Read from the node rather than `onLayout`, which on the web delivered one early width and
      * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
      */
-    const port = useCataloguePort();
+    const port = useTablePort();
     const bodyWidth = port.width;
 
     const data = record.data;
@@ -702,7 +701,8 @@ function SupplyOrderDetail({ order, returnTo }: SupplyOrderDetailScreenProps) {
         data.supplier?.archivedAt != null;
 
     const linesTable = (
-        <DataList<LineDraft>
+        <DataTable<LineDraft>
+            lines
             testID="kitchen-supply-order-detail-lines-table"
             label={t('kitchen:ops.supplyOrders.linesCaption')}
             columns={columns}

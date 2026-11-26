@@ -1,4 +1,6 @@
-import type { DataListColumn } from '@healthy360/design-system';
+import type { ReactNode } from 'react';
+
+import type { DataListColumn } from '../content/data-list.tsx';
 
 /**
  * The Catalogue's column spec — handoff §4.1.
@@ -14,7 +16,7 @@ import type { DataListColumn } from '@healthy360/design-system';
  * title and which is the headline metric. Stating it here keeps the entity difference in the array
  * where it belongs, rather than in a second per-entity narrow-row component.
  */
-export interface CatalogueColumn<Row> extends DataListColumn<Row> {
+export interface DataTableColumn<Row> extends DataListColumn<Row> {
     /**
      * The width below which this column is not worth drawing. Distinct from `width`, which is the
      * track it gets when it is drawn: `min` is the floor `fitColumns` charges against the budget.
@@ -26,29 +28,29 @@ export interface CatalogueColumn<Row> extends DataListColumn<Row> {
     /** Drives `localeCompare` versus numeric ordering when the header sorts (§4.3). */
     readonly sortType?: 'text' | 'number' | undefined;
     /** What this column becomes in the two-line row below `md`. */
-    readonly role?: CatalogueColumnRole | undefined;
+    readonly role?: DataTableColumnRole | undefined;
     /**
-     * The row's photograph id — `ingredient-<slug>`, `recipe-<slug>`, `product-<slug>` — as
-     * `EntityImage` resolves it. Read on the `title` column only.
-     *
-     * An id rather than an element, so the two renderers can each draw it at their own size: the
-     * wide table at 20px inside the title cell, because a 28px row has no photography track; the
-     * narrow row at avatar size on the leading edge, where a two-line row has the height for it.
-     * `CatalogueList` draws both, so a spec states the picture once and neither layout can forget
-     * it. An id with no bundled photograph draws the generated pattern, which is the designed
-     * fallback, not a gap — and so does `undefined`, a row whose picture the kitchen took off.
+     * The row's picture, read on the `title` column only. The table calls it at two sizes — `table`
+     * (20px inside the title cell, because a 28px row has no photography track) and `narrow` (avatar
+     * size on the two-line row's leading edge) — so a spec states the picture once and neither
+     * layout can forget it. `shape` carries the size, a stable `seed` (the row's key), the row's
+     * name as `label`, and the picture's `testID`.
      */
-    readonly thumbnail?: ((row: Row) => string | undefined) | undefined;
-    /**
-     * The kitchen's own photo of the row (BUG-14), read beside `thumbnail` on the `title` column.
-     * When it returns a link, both renderers draw that instead of the bundled photograph; `null`
-     * or absent keeps `thumbnail`'s picture.
-     */
-    readonly thumbnailUrl?: ((row: Row) => string | null | undefined) | undefined;
+    readonly thumbnail?: ((row: Row, shape: DataTableThumbnailShape) => ReactNode) | undefined;
 }
 
-export const CATALOGUE_COLUMN_ROLES = ['title', 'status', 'metric', 'meta', 'actions'] as const;
-export type CatalogueColumnRole = (typeof CATALOGUE_COLUMN_ROLES)[number];
+/** What the table hands a column's `thumbnail` to draw the row's picture with. */
+export interface DataTableThumbnailShape {
+    readonly size: 'table' | 'narrow';
+    /** The row's key — keeps a generated fallback pattern stable across renames. */
+    readonly seed: string;
+    /** The row's name; the picture is decorative beside it. */
+    readonly label: string;
+    readonly testID: string;
+}
+
+export const DATA_TABLE_COLUMN_ROLES = ['title', 'status', 'metric', 'meta', 'actions'] as const;
+export type DataTableColumnRole = (typeof DATA_TABLE_COLUMN_ROLES)[number];
 
 /**
  * The priority ladder, as `Catalogue.dc.html` states it.
@@ -67,7 +69,7 @@ export type CatalogueColumnRole = (typeof CATALOGUE_COLUMN_ROLES)[number];
  * `metric` has no ingredient consumer — there is no cost or yield on `IngredientAdmin` — and stays
  * for Recipes and Sauces, whose Cost / kg is the 85.
  */
-export const CATALOGUE_PRIORITY = {
+export const DATA_TABLE_PRIORITY = {
     designation: 100,
     actions: 95,
     reference: 88,
@@ -81,15 +83,15 @@ export const CATALOGUE_PRIORITY = {
 } as const;
 
 /** The fitting floor for a column, falling back to its track width. */
-export function columnFloor<Row>(column: CatalogueColumn<Row>): number {
+export function columnFloor<Row>(column: DataTableColumn<Row>): number {
     return column.min ?? column.width;
 }
 
 /** The first column carrying `role`, or undefined. Specs declare each role at most once. */
 export function columnForRole<Row>(
-    columns: readonly CatalogueColumn<Row>[],
-    role: CatalogueColumnRole,
-): CatalogueColumn<Row> | undefined {
+    columns: readonly DataTableColumn<Row>[],
+    role: DataTableColumnRole,
+): DataTableColumn<Row> | undefined {
     return columns.find((column) => column.role === role);
 }
 

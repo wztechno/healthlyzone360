@@ -3,6 +3,7 @@ import {
     Badge,
     Button,
     Cascade,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
@@ -25,10 +26,8 @@ import {
     useStartProductionOrderMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import type { MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
@@ -180,7 +179,7 @@ function ProductionDesk() {
     // The lot, or what a cook typed on the tray before lots were minted.
     const lotCaption = (row: ProductionOrder) => formatLot(row.lotNumber) ?? row.batchReference;
 
-    const columns: readonly ControlledColumn<ProductionOrder, CatalogueColumn<ProductionOrder>>[] =
+    const columns: readonly ControlledColumn<ProductionOrder, DataTableColumn<ProductionOrder>>[] =
         [
             {
                 key: 'reference',
@@ -274,7 +273,7 @@ function ProductionDesk() {
     /**
      * The one edge a row can take, as the list's own row action.
      *
-     * `CatalogueList` draws these as buttons beside the row above `md` and folds them into the
+     * `DataTable` draws these as buttons beside the row above `md` and folds them into the
      * overflow menu below it, and the `actions` track is undroppable at every width — which a
      * column of my own would not have been. An empty list is no control at all rather than a
      * disabled one: a batch in production has an edge, and it is a form.
@@ -425,7 +424,7 @@ function ProductionDesk() {
                         retrying={batches.isFetching}
                     />
                 ) : rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-production-desk-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -445,7 +444,7 @@ function ProductionDesk() {
                         }
                     />
                 ) : searched.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-production-desk-no-match-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -466,7 +465,7 @@ function ProductionDesk() {
                     />
                 ) : (
                     <View className="flex-col gap-2.5">
-                        <CatalogueList<ProductionOrder>
+                        <DataTable<ProductionOrder>
                             testID="kitchen-production-desk-table"
                             joined
                             label={t('kitchen:ops.production.title')}

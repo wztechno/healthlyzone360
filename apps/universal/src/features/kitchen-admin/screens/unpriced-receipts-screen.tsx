@@ -3,12 +3,14 @@ import {
     Badge,
     Button,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -20,9 +22,6 @@ import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useSuppliersQuery, useUnpricedReceiptsQuery } from '../../../data/kitchen-ops-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart, LensTone, LensToken } from '../catalogue/lens-bar.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
@@ -43,7 +42,7 @@ import {
  *
  * On the Catalogue list parts since the Operations handoff: the Lens bar (figures counted over the
  * queue in hand, the two unfinished states among them as filters, the search over supplier and
- * references) and `CatalogueList`, whose one row action — and whose row press — opens the
+ * references) and `DataTable`, whose one row action — and whose row press — opens the
  * receipt's own page, `unpriced-receipt-screen.tsx`, where the prices are typed.
  *
  * A delivery may be posted with no prices at all: the goods are on the shelf and the paperwork is in
@@ -136,7 +135,7 @@ function UnpricedReceipts() {
             ? '—'
             : formatter.formatDate(row.receivedOn, { dateStyle: 'medium' });
 
-    const columns: readonly ControlledColumn<UnpricedReceipt, CatalogueColumn<UnpricedReceipt>>[] =
+    const columns: readonly ControlledColumn<UnpricedReceipt, DataTableColumn<UnpricedReceipt>>[] =
         [
             {
                 key: 'receivedOn',
@@ -338,7 +337,7 @@ function UnpricedReceipts() {
                         retrying={queue.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-unpriced-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -379,7 +378,7 @@ function UnpricedReceipts() {
                         }
                     />
                 ) : (
-                    <CatalogueList<UnpricedReceipt>
+                    <DataTable<UnpricedReceipt>
                         testID="kitchen-unpriced-table"
                         joined
                         label={t('kitchen:ops.unpricedReceipts.title')}
@@ -399,7 +398,7 @@ function UnpricedReceipts() {
                             {
                                 key: 'open',
                                 label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
+                                icon: DATA_TABLE_ROW_ICONS.edit,
                                 testID: `kitchen-unpriced-${String(row.id)}-open`,
                                 onSelect: () => {
                                     openReceipt(row);

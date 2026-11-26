@@ -1,6 +1,7 @@
 import {
     Button,
     Cascade,
+    DataTable,
     DensityProvider,
     FilterChip,
     Icon,
@@ -10,11 +11,10 @@ import {
     Tabs,
     Text,
 } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { CatalogueList } from '../features/kitchen-admin/catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../features/kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { LensBar } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
 import { DeskTableTitle } from '../features/kitchen-admin/order-desk/desk-parts.tsx';
@@ -67,7 +67,7 @@ const ROWS: readonly SampleRow[] = [
     },
 ];
 
-const COLUMNS: readonly CatalogueColumn<SampleRow>[] = [
+const COLUMNS: readonly DataTableColumn<SampleRow>[] = [
     { key: 'id', label: 'Order', width: 140, priority: 90, value: (row) => row.id, mono: true },
     {
         key: 'customer',
@@ -191,7 +191,7 @@ export function OrderDeskShowcaseScreen() {
                                   }
                                 : {})}
                         />
-                        <CatalogueList<SampleRow>
+                        <DataTable<SampleRow>
                             testID="showcase-desk-list"
                             label="Open orders"
                             columns={COLUMNS}

@@ -267,7 +267,7 @@ export {
     growWeights,
     spreadColumns,
 } from './content/data-list.tsx';
-export type { DataListColumn, DataListProps } from './content/data-list.tsx';
+export type { DataListColumn, DataListProps, DataListRowTone } from './content/data-list.tsx';
 export { RECORD_STATUSES, STATUS_TONE, StatusBadge } from './content/status-badge.tsx';
 export type { RecordStatus, StatusBadgeProps } from './content/status-badge.tsx';
 export {
@@ -325,6 +325,31 @@ export type {
 } from './navigation/breadcrumbs.tsx';
 export { Pagination, paginationSlots } from './navigation/pagination.tsx';
 export type { PaginationProps } from './navigation/pagination.tsx';
+
+export { DataTable } from './data/data-table.tsx';
+export type { DataTableProps } from './data/data-table.tsx';
+export { DATA_TABLE_ROW_ICONS, DataTableItem } from './data/data-table-item.tsx';
+export type { DataTableItemProps } from './data/data-table-item.tsx';
+export {
+    DATA_TABLE_COLUMN_ROLES,
+    DATA_TABLE_PRIORITY,
+    columnFloor,
+    columnForRole,
+    missingLast,
+} from './data/data-table-columns.ts';
+export type {
+    DataTableColumn,
+    DataTableColumnRole,
+    DataTableThumbnailShape,
+} from './data/data-table-columns.ts';
+export { DataTableBody } from './data/data-table-body.tsx';
+export type { DataTableBodyProps, DataTableBodyState } from './data/data-table-body.tsx';
+export { TABLE_PAGE_SIZE, TablePager } from './data/table-pager.tsx';
+export type { TablePagerProps } from './data/table-pager.tsx';
+export { useTablePort } from './data/table-port.ts';
+export type { TablePort } from './data/table-port.ts';
+export { ROW_ACTIONS_WIDTH, RowActionsMenu } from './data/row-actions-menu.tsx';
+export { DeskRowMenu } from './data/desk-row-menu.tsx';
 
 export { Table } from './data/table.tsx';
 export type {

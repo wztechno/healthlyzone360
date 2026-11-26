@@ -9,13 +9,15 @@ import {
     Button,
     Callout,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -29,9 +31,6 @@ import {
     usePlatformKitchensQuery,
 } from '../../../data/platform-admin-hooks.ts';
 import { useTrailLeaf } from '../../../shell/area-trail.tsx';
-import { CATALOGUE_ROW_ICONS } from '../../kitchen-admin/catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.tsx';
@@ -160,7 +159,7 @@ function KitchensList() {
         },
     }));
 
-    const columns: readonly CatalogueColumn<PlatformKitchenSummary>[] = [
+    const columns: readonly DataTableColumn<PlatformKitchenSummary>[] = [
         {
             key: 'kitchen',
             role: 'title',
@@ -344,7 +343,7 @@ function KitchensList() {
                               })}
                     />
                 ) : (
-                    <CatalogueList<PlatformKitchenSummary>
+                    <DataTable<PlatformKitchenSummary>
                         testID="platform-admin-kitchens-table"
                         joined
                         label={t('platformAdmin:kitchens.caption')}
@@ -361,7 +360,7 @@ function KitchensList() {
                             {
                                 key: 'view',
                                 label: t('platformAdmin:kitchens.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `${kitchenRowTestId(row.id)}-view`,
                                 onSelect: () => {
                                     open(row.slug);
@@ -493,7 +492,7 @@ function KitchenSheet({
     const target = targetOf(record);
     const owners = record.owners;
 
-    const ownerColumns: readonly CatalogueColumn<PlatformKitchenOwner>[] = [
+    const ownerColumns: readonly DataTableColumn<PlatformKitchenOwner>[] = [
         {
             key: 'person',
             role: 'title',
@@ -547,7 +546,7 @@ function KitchenSheet({
         },
     ];
 
-    const branchColumns: readonly CatalogueColumn<(typeof record.branches)[number]>[] = [
+    const branchColumns: readonly DataTableColumn<(typeof record.branches)[number]>[] = [
         {
             key: 'name',
             role: 'title',
@@ -693,7 +692,7 @@ function KitchenSheet({
                     />
                 ) : (
                     <View className="overflow-hidden rounded-[14px] border border-stroke-subtle">
-                        <CatalogueList<PlatformKitchenOwner>
+                        <DataTable<PlatformKitchenOwner>
                             testID={`${testID}-owners-table`}
                             label={t('platformAdmin:owners.title')}
                             columns={ownerColumns}
@@ -731,7 +730,7 @@ function KitchenSheet({
                     title: t('platformAdmin:detail.branchesTitle'),
                     content: (
                         <View className="overflow-hidden rounded-[14px] border border-stroke-subtle">
-                            <CatalogueList
+                            <DataTable
                                 testID={`${testID}-branches-table`}
                                 label={t('platformAdmin:detail.branchesTitle')}
                                 columns={branchColumns}

@@ -10,6 +10,7 @@ import {
     Button,
     Callout,
     Cascade,
+    DataTable,
     Dialog,
     EmptyState,
     ErrorState,
@@ -20,6 +21,7 @@ import {
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -33,9 +35,7 @@ import {
     useSignOffDailyCloseMutation,
 } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { DeskTableTitle } from '../order-desk/desk-parts.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
 import { FailureToast } from '../failure-toast.tsx';
@@ -91,7 +91,7 @@ function OrderDeskClose() {
             </Text>
         );
 
-    const openColumns: readonly CatalogueColumn<OpenDailyClose>[] = [
+    const openColumns: readonly DataTableColumn<OpenDailyClose>[] = [
         {
             key: 'shift',
             role: 'title',
@@ -173,7 +173,7 @@ function OrderDeskClose() {
         },
     ];
 
-    const recentColumns: readonly CatalogueColumn<DailyCloseRecord>[] = [
+    const recentColumns: readonly DataTableColumn<DailyCloseRecord>[] = [
         {
             key: 'shift',
             role: 'title',
@@ -321,7 +321,7 @@ function OrderDeskClose() {
         ['counted', 'columnCounted', (row: DailyCloseTotal) => row.countedMinor, 95],
         ['variance', 'columnVariance', (row: DailyCloseTotal) => row.varianceMinor, 92],
     ] as const;
-    const totalColumns: readonly CatalogueColumn<DailyCloseTotal>[] = [
+    const totalColumns: readonly DataTableColumn<DailyCloseTotal>[] = [
         {
             key: 'day',
             role: 'title',
@@ -340,7 +340,7 @@ function OrderDeskClose() {
                 </Stack>
             ),
         },
-        ...totalFigures.map(([key, label, amount, priority]): CatalogueColumn<DailyCloseTotal> => ({
+        ...totalFigures.map(([key, label, amount, priority]): DataTableColumn<DailyCloseTotal> => ({
             key,
             ...(key === 'counted' ? { role: 'metric' as const } : {}),
             label: t(`kitchen:ops.dailyClose.${label}`),
@@ -406,7 +406,7 @@ function OrderDeskClose() {
                             </Text>
                         }
                     />
-                    <CatalogueList<OpenDailyClose>
+                    <DataTable<OpenDailyClose>
                         testID="kitchen-close-open"
                         label={t('kitchen:ops.dailyClose.openHeading')}
                         columns={openColumns}
@@ -425,7 +425,7 @@ function OrderDeskClose() {
                     />
 
                     <DeskTableTitle title={t('kitchen:ops.dailyClose.recentHeading')} />
-                    <CatalogueList<DailyCloseRecord>
+                    <DataTable<DailyCloseRecord>
                         testID="kitchen-close-recent"
                         label={t('kitchen:ops.dailyClose.recentHeading')}
                         columns={recentColumns}
@@ -453,7 +453,7 @@ function OrderDeskClose() {
                                     </Text>
                                 }
                             />
-                            <CatalogueList<DailyCloseTotal>
+                            <DataTable<DailyCloseTotal>
                                 testID="kitchen-close-total"
                                 label={t('kitchen:ops.dailyClose.totalHeading')}
                                 columns={totalColumns}

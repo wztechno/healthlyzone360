@@ -1,5 +1,5 @@
 import type { RecipeAdminSummary } from '@healthy360/api-client/contracts';
-import { Badge, Inline, Text } from '@healthy360/design-system';
+import { Badge, Inline, RowActionsMenu, Text } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { KitchenId } from '@healthy360/domain-types';
 import type { TFunction } from 'i18next';
@@ -17,7 +17,6 @@ import {
     recipeHandle,
     recipePhotoId,
 } from './recipe-columns.tsx';
-import { RowActionsMenu } from './row-actions-menu.tsx';
 
 /**
  * The recipe book as cards — the other half of the Table / Cards switch on the recipes screen.

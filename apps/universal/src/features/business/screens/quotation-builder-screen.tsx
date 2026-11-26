@@ -4,6 +4,7 @@ import {
     Callout,
     Cascade,
     cx,
+    DataTable,
     DatePicker,
     FormSection,
     Heading,
@@ -16,6 +17,7 @@ import {
     useContentWidth,
     useToast,
 } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import type { CatalogueItem, Quotation } from '@healthy360/api-client/contracts';
 import { CorporateProgrammeId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -37,8 +39,6 @@ import { useValidationTranslate } from '../../../screens/form-helpers.ts';
 import { useSession } from '../../../session/session-provider.tsx';
 import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
 import { earliestStartDate } from '../../commerce/dates.ts';
-import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
 import { focusField } from '../../kitchen-admin/field-focus.ts';
 import { serverFieldErrors } from '../../kitchen-admin/server-field-errors.ts';
@@ -370,7 +370,7 @@ export function QuotationBuilderScreen({
         />
     );
 
-    const lineColumns: readonly CatalogueColumn<CatalogueItem>[] = [
+    const lineColumns: readonly DataTableColumn<CatalogueItem>[] = [
         {
             key: 'name',
             role: 'title',
@@ -549,7 +549,7 @@ export function QuotationBuilderScreen({
                             </Text>
                         </View>
                     ) : (
-                        <CatalogueList<CatalogueItem>
+                        <DataTable<CatalogueItem>
                             testID="quotation-builder-request-lines"
                             label={t('business:quotations.linesTitle')}
                             columns={lineColumns}

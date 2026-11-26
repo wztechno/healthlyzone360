@@ -1,13 +1,12 @@
 import type { OrderDeskDeliveryWindow } from '@healthy360/api-client/contracts';
 import { Badge, Button, Text } from '@healthy360/design-system';
-import type { BadgeTone } from '@healthy360/design-system';
+import type { BadgeTone, DataTableColumn } from '@healthy360/design-system';
 import type { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { Text as RNText, View } from 'react-native';
 
 import { formatMoney } from '../../marketplace/format.ts';
 import { dateInstant } from '../../planner/format.ts';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type {
     ColumnComparator,
     ColumnFilter,
@@ -141,11 +140,11 @@ export function whenLines(
     return { main: `${relative} · ${slot}`, sub };
 }
 
-export function orderColumns(context: OrderColumnContext): readonly CatalogueColumn<BookRow>[] {
+export function orderColumns(context: OrderColumnContext): readonly DataTableColumn<BookRow>[] {
     const { t, formatter, now, windows, driverName, onStep, pendingId } = context;
     const id = (order: BookRow) => kitchenOrderRowTestId(String(order.id));
 
-    const columns: CatalogueColumn<BookRow>[] = [
+    const columns: DataTableColumn<BookRow>[] = [
         {
             key: 'number',
             role: 'title',
@@ -489,7 +488,7 @@ function byNumber(read: (order: BookRow) => number | null): ColumnComparator<Boo
  */
 export function orderColumnControls(
     context: OrderColumnContext,
-): readonly ControlledColumn<BookRow, CatalogueColumn<BookRow>>[] {
+): readonly ControlledColumn<BookRow, DataTableColumn<BookRow>>[] {
     const { t, formatter, now, windows, driverName } = context;
     const status = byLabel((order) => orderStatusLabel(order, t));
     const filters: Readonly<Record<string, ColumnFilter<BookRow>>> = {

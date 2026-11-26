@@ -1,8 +1,8 @@
 import type { ConsumptionException } from '@healthy360/api-client/contracts';
 import type { MenuItem } from '@healthy360/design-system';
+import { RowActionsMenu } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
 
-import { RowActionsMenu } from '../catalogue/row-actions-menu.tsx';
 
 /**
  * The gap's fix (`Fix in recipe`, `Add stock`, `Set unit price` …) and `Accept gap` on one open

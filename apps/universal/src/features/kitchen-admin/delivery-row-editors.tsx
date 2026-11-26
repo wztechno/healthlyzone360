@@ -1,24 +1,5 @@
 import type { ServiceArea } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Callout,
-    Checkbox,
-    cx,
-    DataList,
-    fieldWidth,
-    Icon,
-    IconButton,
-    Inline,
-    Select,
-    Stack,
-    Tabs,
-    Tag,
-    Text,
-    TextInputField,
-    TimeField,
-    useContentWidth,
-} from '@healthy360/design-system';
+import { Badge, Button, Callout, Checkbox, cx, DataTable, fieldWidth, Icon, IconButton, Inline, Select, Stack, Tabs, Tag, Text, TextInputField, TimeField, useContentWidth } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import type { ServiceAreaId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
@@ -445,7 +426,8 @@ export function DeliveryWindowRows({
 
     return (
         <Stack space="sm">
-            <DataList<DeliveryWindowDraft>
+            <DataTable<DeliveryWindowDraft>
+                lines
                 testID={testID}
                 label={t('kitchen:zones.sectionWindows')}
                 columns={columns}
@@ -816,7 +798,8 @@ export function OperatingWeekRows({
 
     return (
         <Stack space="none">
-            <DataList<OperatingDayDraft>
+            <DataTable<OperatingDayDraft>
+                lines
                 testID={testID}
                 label={t('kitchen:branchHours.weekTitle')}
                 columns={columns}

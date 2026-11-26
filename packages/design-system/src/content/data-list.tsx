@@ -250,6 +250,13 @@ function trackStyle<Row>(column: DataListColumn<Row>, weights: ReadonlyMap<strin
     } as const;
 }
 
+export type DataListRowTone = 'danger' | 'new';
+
+const ROW_TONE_CLASS: Readonly<Record<DataListRowTone, string>> = {
+    danger: 'bg-danger-subtle/50',
+    new: 'bg-surface-brand-subtle/40',
+};
+
 export interface DataListProps<Row> {
     readonly columns: readonly DataListColumn<Row>[];
     readonly rows: readonly Row[];
@@ -265,6 +272,11 @@ export interface DataListProps<Row> {
      * choice reads from the whole row, not only from a radio dot at its start.
      */
     readonly isRowSelected?: ((row: Row) => boolean) | undefined;
+    /**
+     * A row's ground when it needs the reader's eye: `danger` for a line that will not save,
+     * `new` for one added since the list was read. A selected row's own ground wins.
+     */
+    readonly rowTone?: ((row: Row) => DataListRowTone | undefined) | undefined;
     readonly emptyState?: ReactNode | undefined;
     /**
      * The list sits inside a `rounded-panel` frame drawn by the caller. The header takes the frame's
@@ -399,6 +411,7 @@ export function DataList<Row>({
     density = 'md',
     onRowPress,
     isRowSelected,
+    rowTone,
     emptyState,
     framed = false,
     flushTop = false,
@@ -675,10 +688,15 @@ export function DataList<Row>({
                            * hands both to the note, which closes the row instead.
                            */
                           const selected = isRowSelected?.(row) === true;
+                          const tone = rowTone?.(row);
                           const rowClass = cx(
                               ROW_HEIGHT_CLASS[density],
                               'flex-row items-center',
-                              selected ? 'bg-surface-brand-subtle' : null,
+                              selected
+                                  ? 'bg-surface-brand-subtle'
+                                  : tone === undefined
+                                    ? null
+                                    : ROW_TONE_CLASS[tone],
                               last || noted ? null : 'border-b border-stroke-subtle',
                               framed && last && !noted ? 'rounded-b-panel' : null,
                           );
@@ -755,6 +773,11 @@ export function DataList<Row>({
                                       }
                                       className={cx(
                                           '-mt-1 px-control-sm pb-snug',
+                                          selected
+                                              ? 'bg-surface-brand-subtle'
+                                              : tone === undefined
+                                                ? null
+                                                : ROW_TONE_CLASS[tone],
                                           last ? null : 'border-b border-stroke-subtle',
                                           framed && last ? 'rounded-b-panel' : null,
                                       )}

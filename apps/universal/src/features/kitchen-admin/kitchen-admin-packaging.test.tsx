@@ -297,7 +297,7 @@ describe('the packaging list', () => {
         const base = `kitchen-packaging-row-${String(row.id)}`;
 
         // A packaging row is an ingredient row, so its photograph is `ingredient-<slug>`, drawn
-        // by `CatalogueList` from the spec's `thumbnail` — the packaging list had none before.
+        // by `DataTable` from the spec's `thumbnail` — the packaging list had none before.
         expect(
             screen.getByTestId(`kitchen-packaging-table-row-${String(row.id)}-image`, {
                 includeHiddenElements: true,

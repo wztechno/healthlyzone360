@@ -1,4 +1,4 @@
-import { Pagination } from '@healthy360/design-system';
+import { Pagination } from '../navigation/pagination.tsx';
 import { View } from 'react-native';
 
 /**
@@ -22,9 +22,9 @@ import { View } from 'react-native';
  * A list that fits on one page draws nothing: there is nowhere to go.
  */
 /** Rows on one page of any admin table — the server's `perPage` and every client-side slice. */
-export const CATALOGUE_PAGE_SIZE = 18;
+export const TABLE_PAGE_SIZE = 18;
 
-export interface CataloguePagerProps {
+export interface TablePagerProps {
     readonly page: number;
     readonly totalPages: number;
     readonly onPageChange: (page: number) => void;
@@ -33,13 +33,7 @@ export interface CataloguePagerProps {
     readonly testID: string;
 }
 
-export function CataloguePager({
-    page,
-    totalPages,
-    onPageChange,
-    label,
-    testID,
-}: CataloguePagerProps) {
+export function TablePager({ page, totalPages, onPageChange, label, testID }: TablePagerProps) {
     if (totalPages <= 1) return null;
 
     return (

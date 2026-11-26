@@ -32,7 +32,7 @@ import { DeskColumnPicker } from '../desk-kit/desk-column-picker.tsx';
  *
  * Once six are on, every unchecked row greys out; unchecking one frees a slot. A reader sees the
  * limit before hitting it instead of pressing a seventh and watching nothing happen. The row-actions
- * track is `CatalogueList`'s own and is not a column here, so it never counts against the six.
+ * track is `DataTable`'s own and is not a column here, so it never counts against the six.
  *
  * ## Locked columns
  *

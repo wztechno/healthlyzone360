@@ -4,17 +4,20 @@ import {
     Badge,
     Button,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     Dialog,
     EmptyState,
     ErrorState,
     Select,
     Stack,
+    TablePager,
     TableSkeleton,
     Text,
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { parseMinorAmount } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -31,10 +34,6 @@ import {
     useUpdateComplaintMutation,
 } from '../../../data/kitchen-orders-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
@@ -123,7 +122,7 @@ function Complaints({ view }: { readonly view: string | undefined }) {
     );
     const [page, setPage] = useRememberedPage(memory, `${trimmed}|${state}`);
 
-    const columns: readonly ControlledColumn<OrderComplaint, CatalogueColumn<OrderComplaint>>[] = [
+    const columns: readonly ControlledColumn<OrderComplaint, DataTableColumn<OrderComplaint>>[] = [
         {
             key: 'order',
             role: 'title',
@@ -357,7 +356,7 @@ function Complaints({ view }: { readonly view: string | undefined }) {
                         retrying={complaints.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-complaints-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -378,7 +377,7 @@ function Complaints({ view }: { readonly view: string | undefined }) {
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<OrderComplaint>
+                        <DataTable<OrderComplaint>
                             testID="kitchen-complaints-list"
                             joined
                             label={t('kitchen:families.complaints.name')}
@@ -392,7 +391,7 @@ function Complaints({ view }: { readonly view: string | undefined }) {
                                 {
                                     key: 'view',
                                     label: t('kitchen:list.view'),
-                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    icon: DATA_TABLE_ROW_ICONS.view,
                                     testID: `kitchen-complaints-row-${row.id}-view`,
                                     onSelect: () => {
                                         openRecord(row);
@@ -400,7 +399,7 @@ function Complaints({ view }: { readonly view: string | undefined }) {
                                 },
                             ]}
                         />
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-complaints-pagination"
                             page={currentPage}
                             totalPages={totalPages}

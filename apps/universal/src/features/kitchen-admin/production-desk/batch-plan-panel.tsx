@@ -1,9 +1,9 @@
 import type { ProductionPlan, ProductionPlanLine } from '@healthy360/api-client/contracts';
 import { Callout, Stack, Text, useIssueGroup } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareAmount, compareText } from '../catalogue/use-column-controls.tsx';
 import { formatMoney, knownCurrency } from '../format.ts';
@@ -51,7 +51,7 @@ export interface BatchPlanPanelProps {
     readonly first?: boolean | undefined;
 }
 
-type PlanColumn = ControlledColumn<ProductionPlanLine, CatalogueColumn<ProductionPlanLine>>;
+type PlanColumn = ControlledColumn<ProductionPlanLine, DataTableColumn<ProductionPlanLine>>;
 
 export function BatchPlanPanel({ testID, plan, costsVisible, first = false }: BatchPlanPanelProps) {
     const { t } = useTranslation();

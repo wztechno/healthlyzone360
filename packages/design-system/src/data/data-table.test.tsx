@@ -1,7 +1,6 @@
+import { DataTable } from './data-table.tsx';
+import type { DataTableColumn } from './data-table-columns.ts';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
-
-import { CatalogueList } from './catalogue-list.tsx';
-import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
 /**
  * Every admin table shows eighteen rows a page. A screen that hands over one server page never
@@ -12,7 +11,7 @@ interface Row {
     readonly id: string;
 }
 
-const columns: readonly CatalogueColumn<Row>[] = [
+const columns: readonly DataTableColumn<Row>[] = [
     {
         key: 'name',
         label: 'Name',
@@ -28,7 +27,7 @@ const rowsOf = (count: number): readonly Row[] =>
 
 function renderList(count: number) {
     return render(
-        <CatalogueList<Row>
+        <DataTable<Row>
             testID="list"
             label="Rows"
             columns={columns}
@@ -39,7 +38,7 @@ function renderList(count: number) {
     );
 }
 
-describe('CatalogueList paging', () => {
+describe('DataTable paging', () => {
     it('draws no pager for a set that fits on one page', async () => {
         await renderList(18);
 
@@ -63,7 +62,7 @@ describe('CatalogueList paging', () => {
     });
 });
 
-describe('CatalogueList coming back', () => {
+describe('DataTable coming back', () => {
     function renderReturning(props: {
         readonly count: number;
         readonly highlightedId?: string;
@@ -71,7 +70,7 @@ describe('CatalogueList coming back', () => {
         readonly onPageChange?: (page: number) => void;
     }) {
         return render(
-            <CatalogueList<Row>
+            <DataTable<Row>
                 testID="list"
                 label="Rows"
                 columns={columns}

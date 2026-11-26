@@ -1,5 +1,7 @@
-import { Icon, IconButton, Menu } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import { Icon } from '../icons/icon.tsx';
+import { IconButton } from '../actions/icon-button.tsx';
+import { Menu } from '../overlays/menu.tsx';
+import type { MenuItem } from '../overlays/menu.tsx';
 import { Platform, View } from 'react-native';
 
 /** The action track: the word "Actions" over one `⋯`. */

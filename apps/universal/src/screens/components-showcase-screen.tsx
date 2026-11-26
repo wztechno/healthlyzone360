@@ -4,11 +4,13 @@ import {
     Checkbox,
     ChoiceChips,
     ChoiceRow,
+    DataTable,
     DatePicker,
     DensityProvider,
     FilterChip,
     Icon,
     IconButton,
+    QuantityInput,
     SEARCH_THRESHOLD,
     Select,
     Stack,
@@ -19,7 +21,7 @@ import {
     Text,
     initialsOf,
 } from '@healthy360/design-system';
-import type { SelectOption } from '@healthy360/design-system';
+import type { DataTableColumn, SelectOption } from '@healthy360/design-system';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
@@ -827,6 +829,175 @@ function DatesSection() {
     );
 }
 
+interface StockRow {
+    readonly id: string;
+    readonly name: string;
+    readonly category: string;
+    readonly price: string;
+    readonly status: 'published' | 'draft';
+}
+
+const STOCK_ROWS: readonly StockRow[] = [
+    {
+        id: 'ING-050',
+        name: 'Cheddar, melted',
+        category: 'Dairy',
+        price: '7.68',
+        status: 'published',
+    },
+    {
+        id: 'ING-052',
+        name: 'Emmental cheese',
+        category: 'Dairy',
+        price: '14.45',
+        status: 'published',
+    },
+    { id: 'ING-053', name: 'Feta cheese', category: 'Dairy', price: '7.79', status: 'draft' },
+];
+
+interface LineRow {
+    readonly key: string;
+    readonly item: string;
+    readonly quantity: string;
+}
+
+function TablesSection() {
+    const [lines, setLines] = useState<readonly LineRow[]>([
+        { key: 'a', item: 'Mayonnaise', quantity: '1.5' },
+        { key: 'b', item: 'Ketchup', quantity: '' },
+    ]);
+    const records: readonly DataTableColumn<StockRow>[] = [
+        { key: 'id', label: 'ID', width: 96, priority: 60, role: 'meta', value: (row) => row.id },
+        {
+            key: 'name',
+            label: 'Item',
+            width: 200,
+            priority: 100,
+            role: 'title',
+            value: (row) => row.name,
+        },
+        {
+            key: 'category',
+            label: 'Category',
+            width: 140,
+            priority: 40,
+            role: 'meta',
+            value: (row) => row.category,
+        },
+        {
+            key: 'price',
+            label: 'Unit price',
+            width: 110,
+            priority: 50,
+            role: 'metric',
+            value: (row) => row.price,
+        },
+        {
+            key: 'status',
+            label: 'Status',
+            width: 120,
+            priority: 70,
+            role: 'status',
+            value: (row) => (row.status === 'published' ? 'Published' : 'Draft'),
+            render: (row) => (
+                <Badge
+                    tone={row.status === 'published' ? 'success' : 'neutral'}
+                    label={row.status === 'published' ? 'Published' : 'Draft'}
+                />
+            ),
+        },
+    ];
+    const lineColumns: readonly DataTableColumn<LineRow>[] = [
+        {
+            key: 'item',
+            label: 'Item',
+            width: 220,
+            priority: 100,
+            fill: true,
+            value: (row) => row.item,
+        },
+        {
+            key: 'quantity',
+            label: 'Quantity',
+            width: 140,
+            priority: 90,
+            render: (row) => (
+                <View className="w-full">
+                    <QuantityInput
+                        testID={`components-showcase-lines-${row.key}-quantity`}
+                        id={`components-showcase-lines-${row.key}-quantity`}
+                        label={`Quantity of ${row.item}`}
+                        labelHidden
+                        size="sm"
+                        unit="kg"
+                        value={row.quantity}
+                        onChangeText={(quantity) => {
+                            setLines((current) =>
+                                current.map((line) =>
+                                    line.key === row.key ? { ...line, quantity } : line,
+                                ),
+                            );
+                        }}
+                    />
+                </View>
+            ),
+        },
+    ];
+    return (
+        <Stack space="lg" testID="components-showcase-tables">
+            <Stack space="xs">
+                <Text variant="section">Tables</Text>
+                <Text variant="caption" tone="secondary">
+                    DataTable · a list of records, or a form&apos;s lines
+                </Text>
+            </Stack>
+
+            <Sample
+                title="A list of records"
+                note="DataTable · ⋯ per row, pages past 18, two-line rows on a phone"
+            >
+                <View className="w-full">
+                    <DataTable<StockRow>
+                        testID="components-showcase-table"
+                        label="Ingredients"
+                        columns={records}
+                        rows={STOCK_ROWS}
+                        rowKey={(row) => row.id}
+                        rowActions={() => [
+                            { key: 'view', label: 'View', onSelect: () => undefined },
+                            { key: 'archive', label: 'Archive', onSelect: () => undefined },
+                        ]}
+                    />
+                </View>
+            </Sample>
+
+            <Sample
+                title="A form's lines"
+                note="DataTable lines · every row, every width, no pager"
+            >
+                <View className="w-full">
+                    <DataTable<LineRow>
+                        lines
+                        testID="components-showcase-lines"
+                        label="Recipe lines"
+                        columns={lineColumns}
+                        rows={lines}
+                        rowKey={(row) => row.key}
+                        rowTone={(row) => (row.quantity === '' ? 'danger' : undefined)}
+                        rowNote={(row) =>
+                            row.quantity === '' ? (
+                                <Text variant="caption" tone="danger">
+                                    Enter a quantity
+                                </Text>
+                            ) : null
+                        }
+                    />
+                </View>
+            </Sample>
+        </Stack>
+    );
+}
+
 export function ComponentsShowcaseScreen() {
     return (
         <DensityProvider value="compact">
@@ -841,6 +1012,7 @@ export function ComponentsShowcaseScreen() {
                     <TabsSection />
                     <StepsSection />
                     <DatesSection />
+                    <TablesSection />
                 </Stack>
             </View>
         </DensityProvider>

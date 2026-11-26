@@ -1,12 +1,16 @@
 import type { ApiFailure } from '@healthy360/api-client/contracts';
-import { Button, EmptyState, ErrorState, Inline, Stack, TableSkeleton } from '@healthy360/design-system';
+import { Button } from '../actions/button.tsx';
+import { EmptyState } from '../status/empty-state.tsx';
+import { ErrorState } from '../status/error-state.tsx';
+import { Inline, Stack } from '../primitives/stack.tsx';
+import { TableSkeleton } from '../status/skeleton-layouts.tsx';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { CataloguePager } from './catalogue-pager.tsx';
+import { TablePager } from './table-pager.tsx';
 
 /** The part of a list hook's state the body reads. Every catalogue list hook already carries it. */
-export interface CatalogueListBodyState {
+export interface DataTableBodyState {
     readonly isPending: boolean;
     readonly isFetching: boolean;
     readonly failure: ApiFailure | null;
@@ -27,13 +31,13 @@ interface EmptyCopy {
     readonly body: string;
 }
 
-export interface CatalogueListBodyProps {
+export interface DataTableBodyProps {
     /**
      * The list's id. `-loading`, `-skeleton-{1..5}`, `-error`, `-empty`, `-clear`, `-empty-create`
      * and `-pagination` hang off it; the table keeps the id its screen gives it.
      */
     readonly testID: string;
-    readonly list: CatalogueListBodyState;
+    readonly list: DataTableBodyState;
     /** A list with nothing in it at all. */
     readonly empty: EmptyCopy;
     /** A filter that matched nothing. */
@@ -51,14 +55,14 @@ export interface CatalogueListBodyProps {
  *
  * Clear filters is offered only when a filter is on. On an unfiltered list it cleared nothing.
  */
-export function CatalogueListBody({
+export function DataTableBody({
     testID,
     list,
     empty,
     filteredEmpty,
     create,
     children,
-}: CatalogueListBodyProps) {
+}: DataTableBodyProps) {
     const { t } = useTranslation();
 
     if (list.isPending) {
@@ -92,7 +96,7 @@ export function CatalogueListBody({
                                 <Button
                                     testID={`${testID}-clear`}
                                     variant="secondary"
-                                    label={t('kitchen:toolbar.clearFilters')}
+                                    label={t('designSystem:dataTable.clearFilters')}
                                     onPress={list.clearFilters}
                                 />
                             )}
@@ -113,12 +117,12 @@ export function CatalogueListBody({
     return (
         <Stack space="sm">
             {children}
-            <CataloguePager
+            <TablePager
                 testID={`${testID}-pagination`}
                 page={list.page}
                 totalPages={list.totalPages}
                 onPageChange={list.setPage}
-                label={t('kitchen:catalogue.pagerLabel')}
+                label={t('designSystem:dataTable.pagerLabel')}
             />
         </Stack>
     );

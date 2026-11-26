@@ -1,25 +1,6 @@
 import { formatGtin } from '@healthy360/api-client/contracts';
 import type { ReceivableOrder } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Checkbox,
-    cx,
-    DataList,
-    DatePicker,
-    EmptyState,
-    ErrorState,
-    Icon,
-    IssueTrayFrame,
-    SearchInput,
-    Skeleton,
-    Stack,
-    Tabs,
-    Text,
-    TextInputField,
-    useIssueTrayController,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Checkbox, cx, DataTable, DatePicker, EmptyState, ErrorState, Icon, IssueTrayFrame, SearchInput, Skeleton, Stack, Tabs, Text, TextInputField, useIssueTrayController, useToast } from '@healthy360/design-system';
 import type {
     DataListColumn,
     IssueCardItem,
@@ -1247,7 +1228,8 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                 }
                             >
                                 {order === undefined ? (
-                                    <DataList<ReceivableOrder>
+                                    <DataTable<ReceivableOrder>
+                                        lines
                                         testID="kitchen-receive-order-picker"
                                         label={t('kitchen:ops.receiving.fieldOrder')}
                                         columns={pickColumns}
@@ -1479,7 +1461,8 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                     />
                                 }
                             >
-                                <DataList<ReceiveLineDraft>
+                                <DataTable<ReceiveLineDraft>
+                                    lines
                                     testID="kitchen-receive-lines"
                                     label={t('kitchen:ops.receiving.linesTitle')}
                                     columns={lineColumns}

@@ -1,5 +1,6 @@
 import type { CostAmount, IngredientAdmin } from '@healthy360/api-client/contracts';
-import { Inline, Text } from '@healthy360/design-system';
+import { DATA_TABLE_PRIORITY, Inline, Text } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { View } from 'react-native';
@@ -14,9 +15,8 @@ import {
 import { allergenLabel } from '../ops-format.ts';
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 import { AllergenChip } from './allergen-chip.tsx';
-import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
-import type { CatalogueColumn } from './catalogue-column-spec.ts';
 import { ingredientStockPhotoId } from './ingredient-photo.ts';
+import { RowThumbnail } from './row-thumbnail.tsx';
 
 /**
  * Ingredients, as an array — the eight tracks `Catalogue.dc.html` draws.
@@ -24,7 +24,7 @@ import { ingredientStockPhotoId } from './ingredient-photo.ts';
  * This file *is* the ingredient list. The screen beside it holds the shell parts in order and knows
  * nothing about references, units, prices or Arabic names; everything entity-specific is here,
  * which is the claim §4.1 makes and the reason Sauces is expected to be a file like this one and no
- * screen at all. The ninth track — the `⋯` overflow — belongs to `CatalogueList` and is appended
+ * screen at all. The ninth track — the `⋯` overflow — belongs to `DataTable` and is appended
  * there, so three specs cannot disagree about the one control that must always be reachable.
  *
  * ## The tracks, and where the numbers come from
@@ -54,7 +54,7 @@ import { ingredientStockPhotoId } from './ingredient-photo.ts';
  *
  * ## The thumbnail is 20px, and decorative
  *
- * The title column names the picture with `thumbnail` and `CatalogueList` draws it: inside the
+ * The title column names the picture with `thumbnail` and `DataTable` draws it: inside the
  * title cell in the wide table, because a 28px row has no track for photography, and avatar-sized
  * on the leading edge of the narrow row. It is `decorative` in both — the designation beside it
  * carries the meaning, and announcing both would say the name twice (WCAG H67).
@@ -129,7 +129,7 @@ export function ingredientColumns({
     locale,
     formatter,
     categoryName,
-}: IngredientColumnDeps): readonly CatalogueColumn<IngredientAdmin>[] {
+}: IngredientColumnDeps): readonly DataTableColumn<IngredientAdmin>[] {
     const allergensOf = (row: IngredientAdmin): string =>
         row.allergens.length === 0
             ? t('kitchen:list.noAllergens')
@@ -148,12 +148,12 @@ export function ingredientColumns({
         key: string,
         label: string,
         figure: (row: IngredientAdmin) => string | null,
-    ): CatalogueColumn<IngredientAdmin> => ({
+    ): DataTableColumn<IngredientAdmin> => ({
         key,
         label,
         width: 112,
         min: 84,
-        priority: CATALOGUE_PRIORITY.updated,
+        priority: DATA_TABLE_PRIORITY.updated,
         role: 'meta',
         mono: true,
         value: (row) => figure(row) ?? noValue,
@@ -182,7 +182,7 @@ export function ingredientColumns({
             label: t('kitchen:list.columnReference'),
             width: 96,
             min: 84,
-            priority: CATALOGUE_PRIORITY.reference,
+            priority: DATA_TABLE_PRIORITY.reference,
             role: 'meta',
             mono: true,
             sortable: true,
@@ -213,13 +213,18 @@ export function ingredientColumns({
             label: t('kitchen:list.columnItem'),
             width: 200,
             min: 150,
-            priority: CATALOGUE_PRIORITY.designation,
+            priority: DATA_TABLE_PRIORITY.designation,
             role: 'title',
             sortable: true,
             sortType: 'text',
             value: (row) => displayName(row.name, locale).value,
-            thumbnail: ingredientStockPhotoId,
-            thumbnailUrl: (row) => row.photoUrl,
+            thumbnail: (row, shape) => (
+                <RowThumbnail
+                    {...shape}
+                    assetId={ingredientStockPhotoId(row)}
+                    photoUrl={row.photoUrl}
+                />
+            ),
             render: (row) => {
                 const name = displayName(row.name, locale);
                 return (
@@ -247,7 +252,7 @@ export function ingredientColumns({
             label: t('kitchen:list.columnCategory'),
             width: 160,
             min: 120,
-            priority: CATALOGUE_PRIORITY.category,
+            priority: DATA_TABLE_PRIORITY.category,
             role: 'meta',
             sortable: true,
             sortType: 'text',
@@ -283,7 +288,7 @@ export function ingredientColumns({
             label: t('kitchen:list.columnUnit'),
             width: 72,
             min: 56,
-            priority: CATALOGUE_PRIORITY.unit,
+            priority: DATA_TABLE_PRIORITY.unit,
             role: 'meta',
             sortable: true,
             sortType: 'text',
@@ -300,7 +305,7 @@ export function ingredientColumns({
             label: t('kitchen:list.columnUnitPrice'),
             width: 104,
             min: 84,
-            priority: CATALOGUE_PRIORITY.unitPrice,
+            priority: DATA_TABLE_PRIORITY.unitPrice,
             // The ingredient list's headline number: no cost per kg and no yield on this entity, so
             // the price a kitchen buys at is what a row is scanned for after its name.
             role: 'metric',
@@ -323,7 +328,7 @@ export function ingredientColumns({
             label: t('kitchen:list.columnAllergens'),
             width: 160,
             min: 132,
-            priority: CATALOGUE_PRIORITY.allergens,
+            priority: DATA_TABLE_PRIORITY.allergens,
             role: 'meta',
             // Chips, as the Ingredients board draws them: "contains" solid, "may contain" dashed and
             // worded. They wrap rather than clip — a cut-off allergen on a row is a false answer.
@@ -361,7 +366,7 @@ export function ingredientColumns({
             label: t('kitchen:list.columnStatus'),
             width: 110,
             min: 78,
-            priority: CATALOGUE_PRIORITY.status,
+            priority: DATA_TABLE_PRIORITY.status,
             role: 'status',
             badge: true,
             sortable: true,
@@ -382,7 +387,7 @@ export function ingredientColumns({
             label: t('kitchen:list.columnSubcategory'),
             width: 160,
             min: 120,
-            priority: CATALOGUE_PRIORITY.updated,
+            priority: DATA_TABLE_PRIORITY.updated,
             role: 'meta',
             value: (row) => optionalText(row.subcategoryCode, categoryName),
             render: (row) => (
@@ -399,7 +404,7 @@ export function ingredientColumns({
             label: t('kitchen:list.columnPurchaseUnit'),
             width: 104,
             min: 80,
-            priority: CATALOGUE_PRIORITY.updated,
+            priority: DATA_TABLE_PRIORITY.updated,
             role: 'meta',
             value: (row) => optionalText(row.purchaseUnit, (unit) => t(unitShortKey(unit))),
             render: (row) => (
@@ -431,7 +436,7 @@ export function ingredientColumns({
             label: t('kitchen:list.columnComposition'),
             width: 220,
             min: 160,
-            priority: CATALOGUE_PRIORITY.updated,
+            priority: DATA_TABLE_PRIORITY.updated,
             role: 'meta',
             value: (row) => row.composition ?? t('kitchen:list.noValue'),
             render: (row) => (
@@ -449,7 +454,7 @@ export function ingredientColumns({
             label: t('kitchen:list.columnUpdated'),
             width: 120,
             min: 96,
-            priority: CATALOGUE_PRIORITY.updated,
+            priority: DATA_TABLE_PRIORITY.updated,
             role: 'meta',
             sortable: true,
             sortType: 'text',

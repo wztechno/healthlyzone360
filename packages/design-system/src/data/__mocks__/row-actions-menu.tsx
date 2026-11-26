@@ -1,5 +1,5 @@
-import { Button } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import { Button } from '../../actions/button.tsx';
+import type { MenuItem } from '../../overlays/menu.tsx';
 import { View } from 'react-native';
 
 /** The row's actions drawn flat, for screen tests: see `jest.setup.js`. */

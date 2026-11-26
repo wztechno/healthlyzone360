@@ -11,7 +11,6 @@ import {
 } from 'react';
 import type { ReactNode } from 'react';
 import { Platform } from 'react-native';
-import type { LayoutChangeEvent, View } from 'react-native';
 
 /**
  * The collapsible navigation — handoff §4.2.
@@ -40,7 +39,7 @@ import type { LayoutChangeEvent, View } from 'react-native';
  * 3. **On window resize**, for the width changes the nav had nothing to do with.
  *
  * On native there is no width transition to wait out and no window to listen to, so `onLayout` is
- * the whole story — it fires with the settled width and nothing else is needed. `useCataloguePort`
+ * the whole story — it fires with the settled width and nothing else is needed. `useTablePort`
  * returns both paths and the caller wires whichever its platform hands it.
  *
  * ## The toggle is inert until the shell reads it
@@ -61,8 +60,8 @@ export interface CatalogueNavState {
     readonly toggle: () => void;
     readonly setOpen: (open: boolean) => void;
     /**
-     * Registers a port measurer. Returns its unsubscribe. Called by `useCataloguePort`; a screen
-     * should not need it directly.
+     * Registers a port measurer. Returns its unsubscribe. Nothing reads it since the
+     * table's port moved to the design system's `useTablePort`.
      */
     readonly subscribe: (measure: Measurer) => () => void;
     /** Re-runs every registered measurer. Exposed for the rare caller that resizes its own port. */
@@ -140,68 +139,6 @@ export function CatalogueNavProvider({ children, initialOpen = true }: Catalogue
  */
 export function useCatalogueNav(): CatalogueNavState | undefined {
     return useContext(CatalogueNavContext);
-}
-
-export interface CataloguePort {
-    /** The measured port width in dp. `0` until the first measurement lands. */
-    readonly width: number;
-    /** Native's measurement. Pass to the port `View`'s `onLayout`. */
-    readonly onLayout: (event: LayoutChangeEvent) => void;
-    /** Web's measurement. Pass as the port `View`'s `ref`. */
-    readonly ref: (node: View | null) => void;
-}
-
-/**
- * Measures a scroll port across the nav's width transition.
- *
- * The web branch holds the node and reads it on demand, because *when* to read is the whole
- * problem here (see the three moments above) and a `ResizeObserver` decides that for itself. The
- * native branch is `onLayout` and needs none of it.
- */
-export function useCataloguePort(): CataloguePort {
-    const [width, setWidth] = useState(0);
-    const node = useRef<View | null>(null);
-    const nav = useCatalogueNav();
-    const subscribe = nav?.subscribe;
-
-    const measure = useCallback(() => {
-        const current = node.current as unknown as {
-            getBoundingClientRect?: () => { width: number };
-        } | null;
-        const rect = current?.getBoundingClientRect?.();
-        if (rect === undefined) return;
-        setWidth(rect.width);
-    }, []);
-
-    useEffect(() => {
-        if (Platform.OS !== 'web' || subscribe === undefined) return undefined;
-        return subscribe(measure);
-    }, [subscribe, measure]);
-
-    // The shell's page panel changes this port's width without the window resizing, and announces
-    // the settled width with one `resize` once its slide ends — so the fit is re-read then, once,
-    // rather than on every frame of the slide.
-    useEffect(() => {
-        if (Platform.OS !== 'web' || typeof window === 'undefined') return undefined;
-        window.addEventListener('resize', measure);
-        return () => {
-            window.removeEventListener('resize', measure);
-        };
-    }, [measure]);
-
-    const ref = useCallback(
-        (next: View | null) => {
-            node.current = next;
-            if (Platform.OS === 'web' && next !== null) measure();
-        },
-        [measure],
-    );
-
-    const onLayout = useCallback((event: LayoutChangeEvent) => {
-        setWidth(event.nativeEvent.layout.width);
-    }, []);
-
-    return { width, onLayout, ref };
 }
 
 export interface CatalogueNavToggleProps {

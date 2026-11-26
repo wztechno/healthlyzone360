@@ -1,6 +1,17 @@
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import { Button, Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
+    DataTableBody,
+    Dialog,
+    Icon,
+    Inline,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -9,10 +20,6 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
@@ -137,7 +144,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
         [t, locale, formatter, categoryName],
     );
 
-    const controls = useColumnControls<IngredientAdmin, CatalogueColumn<IngredientAdmin>>(
+    const controls = useColumnControls<IngredientAdmin, DataTableColumn<IngredientAdmin>>(
         list.rows,
         columns.map((column) => ({ ...column, ...columnControl(column.key, list, t, locale) })),
         'kitchen-packaging',
@@ -244,7 +251,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                     }
                 />
 
-                <CatalogueListBody
+                <DataTableBody
                     testID="kitchen-packaging"
                     list={list}
                     empty={{
@@ -256,7 +263,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                         body: t('kitchen:list.filteredEmptyBody'),
                     }}
                 >
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-packaging-table"
                         joined
                         label={t('kitchen:packaging.caption')}
@@ -277,7 +284,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'view',
                                 label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `${packagingRowTestId(row.id)}-view`,
                                 onSelect: () => {
                                     list.openView(row);
@@ -289,7 +296,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'edit',
                                 label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
+                                icon: DATA_TABLE_ROW_ICONS.edit,
                                 testID: `${packagingRowTestId(row.id)}-open`,
                                 onSelect: () => {
                                     list.openEditor(String(row.id));
@@ -313,7 +320,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                                       {
                                           key: 'archive',
                                           label: t('kitchen:list.archive'),
-                                          icon: CATALOGUE_ROW_ICONS.archive,
+                                          icon: DATA_TABLE_ROW_ICONS.archive,
                                           tone: 'danger' as const,
                                           disabled:
                                               !row.isEditable || row.meta.status === 'retired',
@@ -326,7 +333,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                                 : []),
                         ]}
                     />
-                </CatalogueListBody>
+                </DataTableBody>
             </View>
 
             {/*

@@ -3,6 +3,7 @@ import {
     Badge,
     Button,
     Cascade,
+    DataTable,
     DatePicker,
     Dialog,
     EmptyState,
@@ -13,6 +14,7 @@ import {
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,8 +28,6 @@ import {
     usePayPayableMutation,
     useSetPayableDueDateMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import {
     INVENTORY_APPROVE_PAYABLES_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
@@ -90,7 +90,7 @@ function Payables() {
 
     const failure = toFailure(report.error);
 
-    const owedColumns: readonly CatalogueColumn<Payable>[] = [
+    const owedColumns: readonly DataTableColumn<Payable>[] = [
         {
             key: 'supplier',
             role: 'title',
@@ -214,7 +214,7 @@ function Payables() {
         },
     ];
 
-    const paidColumns: readonly CatalogueColumn<Payable>[] = [
+    const paidColumns: readonly DataTableColumn<Payable>[] = [
         {
             key: 'supplier',
             role: 'title',
@@ -295,7 +295,7 @@ function Payables() {
                             title={t('kitchen:ops.payables.owedEmpty')}
                         />
                     ) : (
-                        <CatalogueList<Payable>
+                        <DataTable<Payable>
                             testID="kitchen-payables-owed"
                             label={t('kitchen:ops.payables.owedHeading')}
                             columns={owedColumns}
@@ -314,7 +314,7 @@ function Payables() {
                             title={t('kitchen:ops.payables.paidEmpty')}
                         />
                     ) : (
-                        <CatalogueList<Payable>
+                        <DataTable<Payable>
                             testID="kitchen-payables-paid"
                             label={t('kitchen:ops.payables.paidHeading')}
                             columns={paidColumns}

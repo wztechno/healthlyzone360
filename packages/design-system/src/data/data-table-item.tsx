@@ -1,5 +1,11 @@
-import { cx, Icon, IconButton, ListItem, Menu, Text } from '@healthy360/design-system';
-import type { IconName, MenuItem } from '@healthy360/design-system';
+import { cx } from '../internal/class-names.ts';
+import { Icon } from '../icons/icon.tsx';
+import { IconButton } from '../actions/icon-button.tsx';
+import { ListItem } from '../content/list-item.tsx';
+import { Menu } from '../overlays/menu.tsx';
+import { Text } from '../primitives/text.tsx';
+import type { IconName } from '../icons/icon.tsx';
+import type { MenuItem } from '../overlays/menu.tsx';
 import { Fragment } from 'react';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
@@ -7,10 +13,10 @@ import { View } from 'react-native';
 /**
  * The Catalogue row below `md` — handoff §4.1.
  *
- * Above `md` a record is a set of tracks and `CatalogueList` draws it through `DataList`. Below it
+ * Above `md` a record is a set of tracks and `DataTable` draws it through `DataList`. Below it
  * there is no room for tracks, so the same record renders two-line: title with its status badge,
  * then the meta run, the metric and the overflow. It is not a narrower grid — it is a different
- * shape, which is why the break is a JavaScript branch in `CatalogueList` rather than a class
+ * shape, which is why the break is a JavaScript branch in `DataTable` rather than a class
  * variant. Rendering both trees and hiding one would put every row in the accessibility tree twice.
  *
  * The composition sits over `ListItem`, which already owns the two-line geometry, the density
@@ -28,7 +34,7 @@ import { View } from 'react-native';
  *
  * §4.5 gives each item a leading icon — `eye` · `pen` · `archive` — and §10.0 recorded that the
  * last two were missing from `ICON_GLYPHS`. They are there now (`✎` and `▥`; the handoff's `▤` was
- * already `calendar`, and its next candidate `▣` was already `basket`), so {@link CATALOGUE_ROW_ICONS}
+ * already `calendar`, and its next candidate `▣` was already `basket`), so {@link DATA_TABLE_ROW_ICONS}
  * names them once and a spec supplies the labels and the handlers.
  */
 /**
@@ -38,17 +44,17 @@ import { View } from 'react-native';
  * literals per entity — the same reasoning that keeps the priority ladder in the column spec file.
  * The action *labels* stay with the caller: they are translated, and this file holds no copy.
  */
-export const CATALOGUE_ROW_ICONS = {
+export const DATA_TABLE_ROW_ICONS = {
     view: 'eye',
     edit: 'pen',
     archive: 'archive',
 } as const satisfies Readonly<Record<string, IconName>>;
 
-export interface CatalogueListItemProps {
+export interface DataTableItemProps {
     readonly title: string;
     /**
      * The row's photograph, first on the leading edge, before the status badge. Supplied by
-     * `CatalogueList` from the title column's `thumbnail`; omitted, the row is exactly as before.
+     * `DataTable` from the title column's `thumbnail`; omitted, the row is exactly as before.
      */
     readonly media?: ReactNode | undefined;
     /** Rendered beside the title. A `StatusBadge`, from the spec's `badge` column. */
@@ -76,7 +82,7 @@ export interface CatalogueListItemProps {
     readonly testID?: string | undefined;
 }
 
-export function CatalogueListItem({
+export function DataTableItem({
     title,
     media,
     status,
@@ -88,7 +94,7 @@ export function CatalogueListItem({
     divider,
     highlighted = false,
     testID,
-}: CatalogueListItemProps) {
+}: DataTableItemProps) {
     const overflow =
         actions === undefined || actions.length === 0 ? null : (
             <Menu
@@ -173,7 +179,7 @@ export function CatalogueListItem({
                 highlighted ? 'bg-surface-brand-subtle' : null,
             )}
         >
-            {/* eslint-disable-next-line no-restricted-syntax -- this is the list row itself, filling its line beside the menu */}
+            { }
             <View className="min-w-0 flex-1">{item}</View>
             {overflow}
         </View>

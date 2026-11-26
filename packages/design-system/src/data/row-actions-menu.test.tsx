@@ -1,9 +1,5 @@
-import { act, fireEvent, render, screen } from '@testing-library/react-native';
-
 import { RowActionsMenu } from './row-actions-menu.tsx';
-
-// `jest.setup.js` flattens this menu for screen tests; this is the one place the real one runs.
-jest.unmock('./row-actions-menu.tsx');
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 describe('a table row’s actions', () => {
     const actions = (onView: () => void) => [

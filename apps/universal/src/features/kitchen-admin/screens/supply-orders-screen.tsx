@@ -8,16 +8,20 @@ import {
     Button,
     Callout,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     FormSection,
     Icon,
     Select,
     Stack,
+    TABLE_PAGE_SIZE,
+    TablePager,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { MenuItem, SelectOption } from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem, SelectOption } from '@healthy360/design-system';
 import { PurchaseOrderId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -36,10 +40,6 @@ import {
     usePurchaseOrderQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CATALOGUE_PAGE_SIZE, CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import {
@@ -260,7 +260,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
             ...(status === 'all' ? {} : { status }),
             ...(supplier === null ? {} : { supplierId: SupplierId.unsafe(supplier) }),
             ...(cursor === undefined ? {} : { cursor }),
-            limit: CATALOGUE_PAGE_SIZE,
+            limit: TABLE_PAGE_SIZE,
         }),
         [status, supplier, cursor],
     );
@@ -332,7 +332,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
             ? EM_DASH
             : formatter.formatDate(row.createdAt, { dateStyle: 'medium' });
 
-    const orderColumns: readonly ControlledColumn<PurchaseOrder, CatalogueColumn<PurchaseOrder>>[] =
+    const orderColumns: readonly ControlledColumn<PurchaseOrder, DataTableColumn<PurchaseOrder>>[] =
         [
             {
                 key: 'number',
@@ -461,7 +461,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
 
     const previewColumns: readonly ControlledColumn<
         OrderProposalItem,
-        CatalogueColumn<OrderProposalItem>
+        DataTableColumn<OrderProposalItem>
     >[] = [
         {
             key: 'item',
@@ -574,12 +574,12 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
         previewColumns,
         'kitchen-supply-orders-preview',
     );
-    const queuePages = Math.max(1, Math.ceil(previewControls.rows.length / CATALOGUE_PAGE_SIZE));
+    const queuePages = Math.max(1, Math.ceil(previewControls.rows.length / TABLE_PAGE_SIZE));
     const queuePage =
         queuePaging.key === previewControls.key ? Math.min(queuePaging.page, queuePages) : 1;
     const preview = previewControls.rows.slice(
-        (queuePage - 1) * CATALOGUE_PAGE_SIZE,
-        queuePage * CATALOGUE_PAGE_SIZE,
+        (queuePage - 1) * TABLE_PAGE_SIZE,
+        queuePage * TABLE_PAGE_SIZE,
     );
 
     const statusOptions: readonly SelectOption<StatusSegmentValue>[] = [
@@ -760,7 +760,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                         retrying={orders.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-supply-orders-book-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -807,7 +807,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<PurchaseOrder>
+                        <DataTable<PurchaseOrder>
                             testID="kitchen-supply-orders-book-table"
                             joined
                             label={t('kitchen:ops.supplyOrders.ordersCaption')}
@@ -825,7 +825,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                                 {
                                     key: 'view',
                                     label: t('kitchen:list.view'),
-                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    icon: DATA_TABLE_ROW_ICONS.view,
                                     testID: `${purchaseOrderRowTestId(String(row.id))}-view`,
                                     onSelect: () => {
                                         rememberOpened(String(row.id));
@@ -835,7 +835,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                                 {
                                     key: 'open',
                                     label: t('kitchen:catalogue.edit'),
-                                    icon: CATALOGUE_ROW_ICONS.edit,
+                                    icon: DATA_TABLE_ROW_ICONS.edit,
                                     testID: `${purchaseOrderRowTestId(String(row.id))}-open`,
                                     onSelect: () => {
                                         openOrder(row);
@@ -843,7 +843,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                                 },
                             ]}
                         />
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-supply-orders-book-pagination"
                             page={page}
                             totalPages={cursors.length}
@@ -914,7 +914,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<OrderProposalItem>
+                        <DataTable<OrderProposalItem>
                             testID="kitchen-supply-orders-preview"
                             label={t('kitchen:ops.supplyOrders.previewCaption')}
                             columns={previewControls.columns}
@@ -923,7 +923,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                             density="sm"
                             rowActionsLabel={t('kitchen:list.rowActions')}
                         />
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-supply-orders-preview-pagination"
                             page={queuePage}
                             totalPages={queuePages}

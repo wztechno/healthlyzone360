@@ -23,6 +23,9 @@ import {
     Collapse,
     CommandPalette,
     DataList,
+    DataTable,
+    DataTableBody,
+    DataTableItem,
     DateField,
     DatePicker,
     DensityProvider,
@@ -87,6 +90,7 @@ import {
     StepProgress,
     Switch,
     Table,
+    TablePager,
     TableSkeleton,
     Tabs,
     TABS_VARIANTS,
@@ -107,6 +111,8 @@ import {
 import type {
     CommandPaletteItem,
     DataListColumn,
+    DataTableBodyState,
+    DataTableColumn,
     IconName,
     RangeValue,
     RecordStatus,
@@ -137,14 +143,8 @@ import type {
 import { BilingualField } from '../features/kitchen-admin/bilingual-field.tsx';
 import { DerivedPanel } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
-import { CatalogueList } from '../features/kitchen-admin/catalogue/catalogue-list.tsx';
-import { CatalogueListItem } from '../features/kitchen-admin/catalogue/catalogue-list-item.tsx';
-import type { CatalogueColumn } from '../features/kitchen-admin/catalogue/catalogue-column-spec.ts';
-import { CatalogueListBody } from '../features/kitchen-admin/catalogue/catalogue-list-body.tsx';
 import { RecordPhoto } from '../features/kitchen-admin/catalogue/record-photo.tsx';
 import { RowThumbnail } from '../features/kitchen-admin/catalogue/row-thumbnail.tsx';
-import type { CatalogueListBodyState } from '../features/kitchen-admin/catalogue/catalogue-list-body.tsx';
-import { CataloguePager } from '../features/kitchen-admin/catalogue/catalogue-pager.tsx';
 import { CatalogueStatCards } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../features/kitchen-admin/catalogue/catalogue-toolbar.tsx';
@@ -400,10 +400,10 @@ const CATALOGUE_KINDS = ['paste', 'spice', 'dairy'] as const;
 
 /**
  * The smallest spec that shows a row photograph: a title column naming it through `thumbnail`,
- * which `CatalogueList` draws at 20px in the title cell. The three ingredients are real records
+ * which `DataTable` draws at 20px in the title cell. The three ingredients are real records
  * with bundled photographs, so the block shows the shipped files rather than a pattern.
  */
-const CATALOGUE_PHOTO_COLUMNS: readonly CatalogueColumn<CatalogueRow>[] = [
+const CATALOGUE_PHOTO_COLUMNS: readonly DataTableColumn<CatalogueRow>[] = [
     {
         key: 'designation',
         label: 'Item',
@@ -568,7 +568,7 @@ function SwitchStory({ prefix }: { readonly prefix: string }) {
     );
 }
 
-const LIST_BODY_BASE: CatalogueListBodyState = {
+const LIST_BODY_BASE: DataTableBodyState = {
     isPending: false,
     isFetching: false,
     failure: null,
@@ -2732,7 +2732,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         ['paged', { rows: [1], shown: 18, total: 306, page: 7, totalPages: 17 }],
                     ] as const
                 ).map(([state, over]) => (
-                    <CatalogueListBody
+                    <DataTableBody
                         key={state}
                         testID={id(`list-body-${state}`)}
                         list={{ ...LIST_BODY_BASE, ...over }}
@@ -2744,7 +2744,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         create={{ label: 'New ingredient', onPress: () => undefined }}
                     >
                         <Text tone="secondary">The table goes here.</Text>
-                    </CatalogueListBody>
+                    </DataTableBody>
                 ))}
             </Stack>
 
@@ -3193,7 +3193,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     label="Pages"
                 />
                 {/* The list footer: the range in the pager's own box, its figures picked out. */}
-                <CataloguePager
+                <TablePager
                     testID={id('catalogue-pager')}
                     page={1}
                     totalPages={2}
@@ -3232,7 +3232,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     framed
                 </Text>
                 {/*
-                 * The Catalogue's frame, as `CatalogueList` draws it: the header takes the top
+                 * The Catalogue's frame, as `DataTable` draws it: the header takes the top
                  * corners and the last row the bottom ones; no row draws a rule of its own.
                  */}
                 <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card">
@@ -3340,16 +3340,16 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
 
             {/*
              * Row photographs. The spec names each row's picture once (`thumbnail`) and
-             * `CatalogueList` draws it: 20px inside the wide table's title cell, 32px on the
+             * `DataTable` draws it: 20px inside the wide table's title cell, 32px on the
              * narrow row's leading edge beside the status badge. Both shapes are drawn here,
-             * because the showcase is wide enough that `CatalogueList` alone would only ever
+             * because the showcase is wide enough that `DataTable` alone would only ever
              * show the first.
              */}
             <Stack space="xs">
                 <Text variant="section" tone="secondary">
                     Catalogue row photographs
                 </Text>
-                <CatalogueList
+                <DataTable
                     testID={id('catalogue-photos')}
                     label="Ingredients, with photographs"
                     columns={CATALOGUE_PHOTO_COLUMNS}
@@ -3358,7 +3358,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     rowActionsLabel="Row actions"
                 />
                 <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised">
-                    <CatalogueListItem
+                    <DataTableItem
                         testID={id('catalogue-photos-narrow')}
                         title="Zaatar blend"
                         media={

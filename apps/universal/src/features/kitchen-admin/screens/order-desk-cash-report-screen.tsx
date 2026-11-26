@@ -6,6 +6,7 @@ import type {
 import {
     Callout,
     Cascade,
+    DataTable,
     DatePicker,
     EmptyState,
     ErrorState,
@@ -13,6 +14,7 @@ import {
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import type { BranchId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
@@ -25,8 +27,6 @@ import { useOrderDeskCashReportQuery } from '../../../data/order-desk-hooks.ts';
 import { daysBetween, isIsoDate, todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
     compareNumber,
@@ -164,7 +164,7 @@ function OrderDeskCashReport() {
 
     const columns: readonly ControlledColumn<
         OrderDeskCashReportRow,
-        CatalogueColumn<OrderDeskCashReportRow>
+        DataTableColumn<OrderDeskCashReportRow>
     >[] = [
         {
             key: 'day',
@@ -440,7 +440,7 @@ function OrderDeskCashReport() {
                         retrying={report.isFetching}
                     />
                 ) : rows.length === 0 ? (
-                    <CatalogueList<OrderDeskCashReportRow>
+                    <DataTable<OrderDeskCashReportRow>
                         testID="kitchen-order-desk-cash-report-table"
                         label={t('kitchen:ops.cashReport.caption')}
                         columns={controls.columns}
@@ -462,7 +462,7 @@ function OrderDeskCashReport() {
                     />
                 ) : (
                     <View className="flex-col gap-loose">
-                        <CatalogueList<OrderDeskCashReportRow>
+                        <DataTable<OrderDeskCashReportRow>
                             testID="kitchen-order-desk-cash-report-table"
                             label={t('kitchen:ops.cashReport.caption')}
                             columns={controls.columns}

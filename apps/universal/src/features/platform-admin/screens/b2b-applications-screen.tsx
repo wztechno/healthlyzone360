@@ -6,13 +6,15 @@ import {
     Badge,
     Button,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     TableSkeleton,
     Text,
     useToast,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -25,9 +27,6 @@ import {
     useClaimApplicationMutation,
     usePlatformB2bApplicationsQuery,
 } from '../../../data/platform-b2b-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../../kitchen-admin/catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import {
@@ -149,7 +148,7 @@ function ApplicationsQueue() {
         },
     }));
 
-    const columns: readonly CatalogueColumn<PlatformB2bApplicationSummary>[] = [
+    const columns: readonly DataTableColumn<PlatformB2bApplicationSummary>[] = [
         {
             key: 'company',
             role: 'title',
@@ -322,7 +321,7 @@ function ApplicationsQueue() {
                               })}
                     />
                 ) : (
-                    <CatalogueList<PlatformB2bApplicationSummary>
+                    <DataTable<PlatformB2bApplicationSummary>
                         testID="platform-b2b-applications-table"
                         joined
                         label={t('platformAdmin:b2b.caption')}
@@ -337,7 +336,7 @@ function ApplicationsQueue() {
                             {
                                 key: 'open',
                                 label: t('platformAdmin:b2b.openShort'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `${applicationRowTestId(row.id)}-open`,
                                 onSelect: () => {
                                     openApplication(row);

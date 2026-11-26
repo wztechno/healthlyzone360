@@ -3,14 +3,18 @@ import {
     Badge,
     Button,
     Cascade,
+    DataTable,
     DatePicker,
     Dialog,
     EmptyState,
     ErrorState,
+    ROW_ACTIONS_WIDTH,
+    TablePager,
     TableSkeleton,
     Text,
     useToast,
 } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { can } from '@healthy360/permissions';
 import { useRouter } from 'expo-router';
@@ -55,11 +59,7 @@ import {
     PRODUCTION_VIEW_PERMISSION,
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { ROW_ACTIONS_WIDTH } from '../catalogue/row-actions-menu.tsx';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { useListPage } from '../use-list-page.ts';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
@@ -413,7 +413,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
 
     const columns: readonly ControlledColumn<
         ConsumptionException,
-        CatalogueColumn<ConsumptionException>
+        DataTableColumn<ConsumptionException>
     >[] = [
         {
             key: 'order',
@@ -826,7 +826,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                     />
                 ) : (
                     <View className="flex-col gap-2.5">
-                        <CatalogueList<ConsumptionException>
+                        <DataTable<ConsumptionException>
                             testID="kitchen-consumption-exceptions-table"
                             joined
                             label={t('kitchen:ops.exceptions.title')}
@@ -836,7 +836,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                             onRowPress={openRecord}
                             rowActionsLabel={t('kitchen:list.rowActions')}
                         />
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-consumption-exceptions-pagination"
                             page={page}
                             totalPages={totalPages}

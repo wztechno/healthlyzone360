@@ -8,6 +8,8 @@ import { RECEIPT_COST_STATUSES } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     DatePicker,
     EmptyState,
     ErrorState,
@@ -15,10 +17,12 @@ import {
     Inline,
     SegmentedControl,
     Stack,
+    TABLE_PAGE_SIZE,
+    TablePager,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { BadgeTone, MenuItem } from '@healthy360/design-system';
+import type { BadgeTone, DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -34,10 +38,6 @@ import {
     useStockItemsQuery,
     useSuppliersQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CATALOGUE_PAGE_SIZE, CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart, LensToken } from '../catalogue/lens-bar.tsx';
 import {
@@ -236,7 +236,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
             ...shared,
             ...(costStatus === null ? {} : { costStatus }),
             ...(cursor === undefined ? {} : { cursor }),
-            limit: CATALOGUE_PAGE_SIZE,
+            limit: TABLE_PAGE_SIZE,
         }),
         [shared, costStatus, cursor],
     );
@@ -342,7 +342,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
 
     const columns: readonly ControlledColumn<
         PurchaseLedgerLine,
-        CatalogueColumn<PurchaseLedgerLine>
+        DataTableColumn<PurchaseLedgerLine>
     >[] = [
         {
             key: 'item',
@@ -911,7 +911,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                     />
                 ) : isDetail ? (
                     controls.rows.length === 0 ? (
-                        <CatalogueList
+                        <DataTable
                             testID="kitchen-purchases-ledger-empty-list"
                             label={t('kitchen:lens.label')}
                             columns={controls.columns}
@@ -932,7 +932,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                         />
                     ) : (
                         <Stack space="sm">
-                            <CatalogueList<PurchaseLedgerLine>
+                            <DataTable<PurchaseLedgerLine>
                                 testID="kitchen-purchases-ledger-table"
                                 joined
                                 label={t('kitchen:ops.ledger.title')}
@@ -948,7 +948,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                                     {
                                         key: 'view',
                                         label: t('kitchen:list.view'),
-                                        icon: CATALOGUE_ROW_ICONS.view,
+                                        icon: DATA_TABLE_ROW_ICONS.view,
                                         testID: `kitchen-ledger-${row.id}-view`,
                                         onSelect: () => {
                                             openView(row);
@@ -956,7 +956,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                                     },
                                 ]}
                             />
-                            <CataloguePager
+                            <TablePager
                                 testID="kitchen-purchases-ledger-pagination"
                                 page={page}
                                 totalPages={cursors.length}
@@ -969,7 +969,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                         </Stack>
                     )
                 ) : periods.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-purchases-ledger-summary-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={summaryControls.columns}
@@ -988,7 +988,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                         }
                     />
                 ) : (
-                    <CatalogueList<SpendSummaryPeriod>
+                    <DataTable<SpendSummaryPeriod>
                         testID="kitchen-purchases-ledger-summary"
                         joined
                         label={t(
@@ -1232,7 +1232,7 @@ function periodColumns(
     periods: readonly SpendSummaryPeriod[],
     t: TFunction,
     formatter: Formatter,
-): readonly ControlledColumn<SpendSummaryPeriod, CatalogueColumn<SpendSummaryPeriod>>[] {
+): readonly ControlledColumn<SpendSummaryPeriod, DataTableColumn<SpendSummaryPeriod>>[] {
     const largest = new Map<string, number>();
     for (const entry of periods) {
         for (const totals of entry.totalsByCurrency) {
@@ -1268,7 +1268,7 @@ function periodColumns(
         key: string,
         labelKey: string,
         amount: (totals: SpendSummaryCurrencyTotals) => string,
-    ): ControlledColumn<SpendSummaryPeriod, CatalogueColumn<SpendSummaryPeriod>> => ({
+    ): ControlledColumn<SpendSummaryPeriod, DataTableColumn<SpendSummaryPeriod>> => ({
         key,
         label: t(labelKey),
         width: 120,

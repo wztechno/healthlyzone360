@@ -1,11 +1,10 @@
 import type { AllergenClass } from '@healthy360/api-client/contracts';
-import { Badge, Inline, Text } from '@healthy360/design-system';
+import { Badge, DATA_TABLE_PRIORITY, Inline, Text } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 
 import { displayName } from '../format.ts';
-import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
-import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
@@ -73,7 +72,7 @@ export function allergenColumns({
     t,
     locale,
     formatter,
-}: AllergenColumnDeps): readonly CatalogueColumn<AllergenClass>[] {
+}: AllergenColumnDeps): readonly DataTableColumn<AllergenClass>[] {
     return [
         {
             // The ID is the regulatory reference — `ALG-01` — which is what a label, an audit and
@@ -85,7 +84,7 @@ export function allergenColumns({
             // Wide enough for "EU 1169/2011 Annex II 1", which the board holds on one line.
             width: 180,
             min: 120,
-            priority: CATALOGUE_PRIORITY.reference,
+            priority: DATA_TABLE_PRIORITY.reference,
             role: 'meta',
             mono: true,
             sortable: true,
@@ -102,7 +101,7 @@ export function allergenColumns({
             label: t('kitchen:classes.columnClass'),
             width: 200,
             min: 150,
-            priority: CATALOGUE_PRIORITY.designation,
+            priority: DATA_TABLE_PRIORITY.designation,
             role: 'title',
             sortable: true,
             sortType: 'text',
@@ -133,7 +132,7 @@ export function allergenColumns({
             label: t('kitchen:classes.columnMarkets'),
             width: 160,
             min: 120,
-            priority: CATALOGUE_PRIORITY.unit,
+            priority: DATA_TABLE_PRIORITY.unit,
             role: 'meta',
             // Badges here and a comma run in the ingredient list's Allergens column, which look
             // like the same decision made twice differently. They are not: a market code is two or
@@ -169,7 +168,7 @@ export function allergenColumns({
             label: t('kitchen:classes.columnThreshold'),
             width: 120,
             min: 88,
-            priority: CATALOGUE_PRIORITY.metric,
+            priority: DATA_TABLE_PRIORITY.metric,
             // The row's headline figure: what a kitchen is actually looking up when it opens this
             // page is the amount at which a class becomes declarable.
             role: 'metric',
@@ -191,7 +190,7 @@ export function allergenColumns({
             label: t('kitchen:list.columnStatus'),
             width: 110,
             min: 78,
-            priority: CATALOGUE_PRIORITY.status,
+            priority: DATA_TABLE_PRIORITY.status,
             role: 'status',
             badge: true,
             sortable: true,

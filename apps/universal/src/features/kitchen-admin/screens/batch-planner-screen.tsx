@@ -24,6 +24,7 @@ import {
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -43,7 +44,6 @@ import {
 import { withQuery } from '../../../navigation/return-to.ts';
 import { batchFactor, scaleLine, scalePackaging, withWaste } from '../batch-scaling.ts';
 import type { BatchMode } from '../batch-scaling.ts';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { LensFigureCell } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import type {
@@ -822,10 +822,10 @@ function useSheetColumns(
     factor: number,
     ingredients: Readonly<Record<string, IngredientAdmin>>,
 ): {
-    readonly lineColumns: readonly ControlledColumn<RecipeLine, CatalogueColumn<RecipeLine>>[];
+    readonly lineColumns: readonly ControlledColumn<RecipeLine, DataTableColumn<RecipeLine>>[];
     readonly packagingColumns: readonly ControlledColumn<
         RecipePackagingLine,
-        CatalogueColumn<RecipePackagingLine>
+        DataTableColumn<RecipePackagingLine>
     >[];
     /** The kilogram lines' To issue, summed — the summary's Total weight. */
     readonly totalWeight: number | null;
@@ -879,7 +879,7 @@ function useSheetColumns(
         };
     }
 
-    const lineColumns: readonly ControlledColumn<RecipeLine, CatalogueColumn<RecipeLine>>[] = [
+    const lineColumns: readonly ControlledColumn<RecipeLine, DataTableColumn<RecipeLine>>[] = [
         {
             key: 'reference',
             role: 'meta',
@@ -975,7 +975,7 @@ function useSheetColumns(
 
     const packagingColumns: readonly ControlledColumn<
         RecipePackagingLine,
-        CatalogueColumn<RecipePackagingLine>
+        DataTableColumn<RecipePackagingLine>
     >[] = [
         {
             key: 'reference',
@@ -1066,10 +1066,10 @@ function useSheetColumns(
 
 interface ScaledSheetProps {
     readonly version: RecipeVersionAdmin;
-    readonly lines: ColumnControls<RecipeLine, CatalogueColumn<RecipeLine>>;
+    readonly lines: ColumnControls<RecipeLine, DataTableColumn<RecipeLine>>;
     readonly packagingColumns: readonly ControlledColumn<
         RecipePackagingLine,
-        CatalogueColumn<RecipePackagingLine>
+        DataTableColumn<RecipePackagingLine>
     >[];
 }
 

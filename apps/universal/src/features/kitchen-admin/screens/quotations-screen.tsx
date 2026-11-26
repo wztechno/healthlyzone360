@@ -10,6 +10,8 @@ import {
     Button,
     Callout,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     FormSection,
@@ -18,9 +20,10 @@ import {
     Stack,
     TableSkeleton,
     Text,
+    useTablePort,
     useToast,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -37,10 +40,6 @@ import {
     useQuoteQuotationMutation,
 } from '../../../data/kitchen-quotations-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart, LensTone } from '../catalogue/lens-bar.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
@@ -185,7 +184,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
 
     const columns: readonly ControlledColumn<
         KitchenQuotation,
-        CatalogueColumn<KitchenQuotation>
+        DataTableColumn<KitchenQuotation>
     >[] = [
         {
             key: 'reference',
@@ -445,7 +444,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                         }
                     />
                 ) : (
-                    <CatalogueList<KitchenQuotation>
+                    <DataTable<KitchenQuotation>
                         testID="kitchen-quotations-table"
                         joined
                         label={t('kitchen:ops.quotations.caption')}
@@ -461,7 +460,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'view',
                                 label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `${kitchenQuotationRowTestId(String(row.id))}-view`,
                                 onSelect: () => {
                                     setViewing(row);
@@ -470,7 +469,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'edit',
                                 label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
+                                icon: DATA_TABLE_ROW_ICONS.edit,
                                 testID: `${kitchenQuotationRowTestId(String(row.id))}-open`,
                                 onSelect: () => {
                                     setOpenId(row.id);
@@ -523,7 +522,7 @@ function QuotationPricing({
     const [prices, setPrices] = useState<Readonly<Record<string, string>>>({});
     const detail = useKitchenQuotationQuery(id);
     const quote = useQuoteQuotationMutation();
-    const port = useCataloguePort();
+    const port = useTablePort();
 
     const quotation = detail.data ?? null;
     const lines: readonly KitchenQuotationLine[] = quotation?.lines ?? NO_LINES;
@@ -807,7 +806,7 @@ function QuotationPricing({
                                 {t('kitchen:ops.quotations.noLines')}
                             </Text>
                         ) : (
-                            <CatalogueList<KitchenQuotationLine>
+                            <DataTable<KitchenQuotationLine>
                                 testID="kitchen-quotations-detail-lines"
                                 label={t('kitchen:ops.quotations.linesHeading')}
                                 columns={lineControls.columns}

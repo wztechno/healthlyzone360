@@ -3,13 +3,14 @@ import {
     Badge,
     Callout,
     Cascade,
+    DataTable,
     EmptyState,
     ErrorState,
     Select,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { BadgeTone, SelectOption } from '@healthy360/design-system';
+import type { BadgeTone, DataTableColumn, SelectOption } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -20,8 +21,6 @@ import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useKitchenCustomersQuery } from '../../../data/kitchen-customers-hooks.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
@@ -120,7 +119,7 @@ function CustomersList() {
             ? t('kitchen:ops.customers.neverOrdered')
             : formatter.formatDate(row.lastOrderedAt);
 
-    const columns: readonly ControlledColumn<KitchenCustomer, CatalogueColumn<KitchenCustomer>>[] =
+    const columns: readonly ControlledColumn<KitchenCustomer, DataTableColumn<KitchenCustomer>>[] =
         [
             {
                 key: 'name',
@@ -320,7 +319,7 @@ function CustomersList() {
                         retrying={customers.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-customers-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -348,7 +347,7 @@ function CustomersList() {
                         }
                     />
                 ) : (
-                    <CatalogueList<KitchenCustomer>
+                    <DataTable<KitchenCustomer>
                         testID="kitchen-customers-table"
                         joined
                         label={t('kitchen:ops.customers.caption')}

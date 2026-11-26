@@ -1,17 +1,5 @@
 import type { ProductionOrderLine } from '@healthy360/api-client/contracts';
-import {
-    Button,
-    DataList,
-    DatePicker,
-    Dialog,
-    Heading,
-    InfoTip,
-    Inline,
-    QuantityInput,
-    Stack,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
+import { Button, DataTable, DatePicker, Dialog, Heading, InfoTip, Inline, QuantityInput, Stack, Text, TextInputField } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
@@ -337,10 +325,11 @@ export function BatchSettlementDialog({
                     </Inline>
                     {/*
                      * A plain `DataList`, unframed: inside a window a raised panel is a card on a
-                     * card. Not `CatalogueList` either — that one pages at eighteen rows and turns
+                     * card. Not `DataTable` either — that one pages at eighteen rows and turns
                      * two-line below `md`, and either would hide an input.
                      */}
-                    <DataList<ProductionOrderLine>
+                    <DataTable<ProductionOrderLine>
+                        lines
                         testID={`${testID}-lines`}
                         label={t('kitchen:ops.production.consumedHeading')}
                         columns={columns}

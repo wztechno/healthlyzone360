@@ -6,8 +6,10 @@ import {
     Cascade,
     Checkbox,
     ChoiceRow,
+    DataTable,
     DatePicker,
     DensityProvider,
+    DeskRowMenu,
     Icon,
     IconButton,
     initialsOf,
@@ -20,17 +22,12 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { CatalogueList } from '../features/kitchen-admin/catalogue/catalogue-list.tsx';
 import {
     CompactField,
     CompactRecordPopup,
     CompactSection,
 } from '../features/kitchen-admin/catalogue/compact-record-popup.tsx';
-import {
-    DeskColumnPicker,
-    DeskRowMenu,
-    ListGroupRow,
-} from '../features/kitchen-admin/desk-kit/index.ts';
+import { DeskColumnPicker, ListGroupRow } from '../features/kitchen-admin/desk-kit/index.ts';
 import { RecordPopup } from '../features/kitchen-admin/catalogue/record-popup.tsx';
 import { DayStepper } from '../features/kitchen-admin/orders/day-stepper.tsx';
 import { orderColumns } from '../features/kitchen-admin/orders/order-columns.tsx';
@@ -42,7 +39,7 @@ import { OrderPopupProposal } from './orders-popup-proposal.tsx';
  * `/showcase-orders` — the parts the Orders redesign (Option A, 2026-11-10) added, on a page of
  * their own: the desk kit (`kitchen-admin/desk-kit/` — buttons, chips, the dropdown, the mini
  * month, the tabs, the group row), the day stepper, the order table with its slot headings
- * (`DataList` / `CatalogueList` `sectionHeader`), and the compact pop-up with its thin scrollbar.
+ * (`DataList` / `DataTable` `sectionHeader`), and the compact pop-up with its thin scrollbar.
  *
  * Literal copy, like `/showcase`: a development page, never a customer one.
  */
@@ -515,7 +512,7 @@ export function OrdersShowcaseScreen() {
                     />
 
                     <Text variant="title">Order table — slot headings over the rows</Text>
-                    <CatalogueList<BookRow>
+                    <DataTable<BookRow>
                         testID="showcase-orders-table"
                         label="Orders"
                         columns={columns}

@@ -98,7 +98,7 @@ export interface ColumnControl<Row> {
     readonly filter?: ColumnFilter<Row> | undefined;
 }
 
-/** Any column shape — `DataListColumn`, `CatalogueColumn` — plus the two control fields. */
+/** Any column shape — `DataListColumn`, `DataTableColumn` — plus the two control fields. */
 export type ControlledColumn<Row, Base extends DataListColumn<Row> = DataListColumn<Row>> = Base &
     ColumnControl<Row>;
 

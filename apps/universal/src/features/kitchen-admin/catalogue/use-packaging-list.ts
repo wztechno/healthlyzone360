@@ -1,3 +1,4 @@
+import { missingLast } from '@healthy360/design-system';
 import { IngredientId } from '@healthy360/domain-types';
 import type {
     ApiFailure,
@@ -21,7 +22,6 @@ import {
     useIngredientQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
-import { missingLast } from './catalogue-column-spec.ts';
 import { inStatuses, statusTally, withoutStatuses } from './use-catalogue-filters.ts';
 import { useDestructiveRow } from './use-destructive-row.ts';
 import {

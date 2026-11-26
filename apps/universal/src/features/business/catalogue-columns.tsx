@@ -1,12 +1,10 @@
-import { Badge, Text } from '@healthy360/design-system';
-import type { BadgeTone } from '@healthy360/design-system';
+import { Badge, DATA_TABLE_PRIORITY, Text } from '@healthy360/design-system';
+import type { BadgeTone, DataTableColumn } from '@healthy360/design-system';
 import type { CatalogueItem, CatalogueItemKind } from '@healthy360/api-client/contracts';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { View } from 'react-native';
 
-import type { CatalogueColumn } from '../kitchen-admin/catalogue/catalogue-column-spec.ts';
-import { CATALOGUE_PRIORITY } from '../kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { compareNumber, compareText } from '../kitchen-admin/catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../kitchen-admin/catalogue/use-column-controls.tsx';
 import { EntityImage } from '../../media/entity-image.tsx';
@@ -43,7 +41,7 @@ export function packText(t: TFunction, formatter: Formatter, item: CatalogueItem
 export function catalogueColumns(
     t: TFunction,
     formatter: Formatter,
-): readonly ControlledColumn<CatalogueItem, CatalogueColumn<CatalogueItem>>[] {
+): readonly ControlledColumn<CatalogueItem, DataTableColumn<CatalogueItem>>[] {
     const priceText = (item: CatalogueItem): string => {
         if (item.contractPrice === null) return t('business:catalogue.unpricedShort');
         const price = formatMoney(formatter, item.contractPrice);
@@ -59,7 +57,7 @@ export function catalogueColumns(
             width: 260,
             min: 180,
             grow: true,
-            priority: CATALOGUE_PRIORITY.designation,
+            priority: DATA_TABLE_PRIORITY.designation,
             value: (item) => item.name,
             sort: (left, right, direction) => compareText(left.name, right.name, direction),
             // The board's 30px rounded-square photo (`.lth`), not the list's 20px avatar.
@@ -93,7 +91,7 @@ export function catalogueColumns(
             role: 'status',
             label: t('business:catalogue.kindLabel'),
             width: 150,
-            priority: CATALOGUE_PRIORITY.status,
+            priority: DATA_TABLE_PRIORITY.status,
             value: (item) => t(catalogueKindKey(item.kind)),
             sort: (left, right, direction) =>
                 compareText(
@@ -114,7 +112,7 @@ export function catalogueColumns(
             role: 'meta',
             label: t('business:catalogue.columnPack'),
             width: 90,
-            priority: CATALOGUE_PRIORITY.unit,
+            priority: DATA_TABLE_PRIORITY.unit,
             sort: false,
             value: (item) => packText(t, formatter, item) ?? '—',
             render: (item) => (
@@ -128,7 +126,7 @@ export function catalogueColumns(
             role: 'metric',
             label: t('business:catalogue.columnPrice'),
             width: 170,
-            priority: CATALOGUE_PRIORITY.metric,
+            priority: DATA_TABLE_PRIORITY.metric,
             value: priceText,
             // Unpriced last both ways. Across currencies the order is by minor units within each
             // currency's code, never by a converted figure — there is no rate to convert with.
@@ -172,7 +170,7 @@ export function catalogueColumns(
             role: 'meta',
             label: t('business:item.fieldDescription'),
             width: 260,
-            priority: CATALOGUE_PRIORITY.category,
+            priority: DATA_TABLE_PRIORITY.category,
             sort: false,
             value: (item) => item.description,
             render: (item) => (

@@ -14,6 +14,7 @@ import {
     REQUIRED_MARK,
     Text,
     TextInputField,
+    useTablePort,
     useToast,
 } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
@@ -51,7 +52,6 @@ import {
 import type { OperatingDayDraft } from '../delivery-model.ts';
 import { OperatingWeekRows } from '../delivery-row-editors.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
-import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';
@@ -214,7 +214,7 @@ function BranchOperatingEditor() {
      * Read from the node rather than `onLayout`, which on the web delivered one early width and
      * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
      */
-    const port = useCataloguePort();
+    const port = useTablePort();
     const bodyWidth = port.width;
 
     const title = t('kitchen:branchHours.title');

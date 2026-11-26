@@ -1,18 +1,5 @@
 import type { DishOptionDraft, KitchenDishOption } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    DataList,
-    FormSection,
-    Icon,
-    IconButton,
-    Inline,
-    Select,
-    Stack,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, DataTable, FormSection, Icon, IconButton, Inline, Select, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -225,7 +212,8 @@ export function DishOptionsSection({
                  * quiet dash; a choice's allergens sit under its recipe.
                  */}
                 {rows.length === 0 ? null : (
-                    <DataList<IndexedOption>
+                    <DataTable<IndexedOption>
+                        lines
                         testID="kitchen-dish-options-table"
                         label={t('kitchen:dishOptions.title')}
                         columns={columns}

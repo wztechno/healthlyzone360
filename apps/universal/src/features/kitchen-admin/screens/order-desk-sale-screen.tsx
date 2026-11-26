@@ -28,9 +28,11 @@ import {
     SearchInput,
     Select,
     Skeleton,
+    TablePager,
     Tabs,
     Text,
     TextInputField,
+    useTablePort,
     useToast,
 } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
@@ -61,8 +63,6 @@ import {
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { KindTiles, SectionRail, TicketLabel, TileStepper } from '../order-desk/sale-parts.tsx';
 import type { SectionTint } from '../order-desk/sale-parts.tsx';
 import {
@@ -410,7 +410,7 @@ function Sale() {
      * cut for a narrower row than the one on screen and a band of nothing opened between the last
      * tile and the ticket. The port hook reads on mount, on resize and when the nav rail settles.
      */
-    const port = useCataloguePort();
+    const port = useTablePort();
     const bodyWidth = port.width;
 
     const place = usePlaceOrderDeskSaleMutation();
@@ -878,7 +878,7 @@ function Sale() {
                 />
             )}
             <View
-                // Both measurement paths, each inert on the other's platform — as `CatalogueList`.
+                // Both measurement paths, each inert on the other's platform — as `DataTable`.
                 ref={Platform.OS === 'web' ? port.ref : undefined}
                 onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
                 className={
@@ -1740,7 +1740,7 @@ function MenuGrid({
                             );
                         })}
                     </View>
-                    <CataloguePager
+                    <TablePager
                         testID="kitchen-order-desk-sale-menu-pager"
                         label={t('kitchen:catalogue.pagerLabel')}
                         page={page}

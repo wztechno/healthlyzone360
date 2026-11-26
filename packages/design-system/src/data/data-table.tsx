@@ -1,19 +1,22 @@
-import { DataList, Inline, Text, fitColumns, useBreakpoint } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import { DataList, fitColumns } from '../content/data-list.tsx';
+import type { DataListRowTone } from '../content/data-list.tsx';
+import { Inline } from '../primitives/stack.tsx';
+import { Text } from '../primitives/text.tsx';
+import { useBreakpoint } from '../hooks/use-breakpoint.ts';
+import type { MenuItem } from '../overlays/menu.tsx';
 import type { RowDensity } from '@healthy360/design-tokens';
 import type { ReactNode, RefObject } from 'react';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
-import { CatalogueListItem } from './catalogue-list-item.tsx';
-import { CATALOGUE_PRIORITY, columnFloor, columnForRole } from './catalogue-column-spec.ts';
-import type { CatalogueColumn } from './catalogue-column-spec.ts';
-import { useCataloguePort } from './catalogue-nav.tsx';
-import { CATALOGUE_PAGE_SIZE, CataloguePager } from './catalogue-pager.tsx';
+import { DataTableItem } from './data-table-item.tsx';
+import { DATA_TABLE_PRIORITY, columnFloor, columnForRole } from './data-table-columns.ts';
+import type { DataTableColumn } from './data-table-columns.ts';
+import { useTablePort } from './table-port.ts';
+import { TABLE_PAGE_SIZE, TablePager } from './table-pager.tsx';
 import { ROW_ACTIONS_WIDTH, RowActionsMenu } from './row-actions-menu.tsx';
-import { DeskRowMenu } from '../desk-kit/desk-row-menu.tsx';
-import { RowThumbnail } from './row-thumbnail.tsx';
+import { DeskRowMenu } from './desk-row-menu.tsx';
 
 /**
  * The list's panel — the same surface as the toolbar above it and every other admin panel, so the
@@ -49,7 +52,7 @@ const JOINED_FRAME_CLASS = 'flex-col rounded-b-panel border border-stroke-subtle
  * own. It is not sufficient here, because §4.2's warning is precisely that the measurement which
  * matters — the port after the nav's width transition — is the one an automatic observer misses,
  * and `DataList` reads its node after every commit while the transition is still running. So the
- * port is measured by `useCataloguePort` (commit, *settled*, resize) and the columns are fitted
+ * port is measured by `useTablePort` (commit, *settled*, resize) and the columns are fitted
  * against that before they reach `DataList`.
  *
  * The double fit is deliberate and idempotent: `fitColumns` over an already-fitting set returns it
@@ -79,14 +82,14 @@ const JOINED_FRAME_CLASS = 'flex-col rounded-b-panel border border-stroke-subtle
  *
  * ## The narrow branch
  *
- * Below `md` the tracks are gone and each record renders through `CatalogueListItem`. The branch is
+ * Below `md` the tracks are gone and each record renders through `DataTableItem`. The branch is
  * in JavaScript, on `useBreakpoint`, because the two trees have different element counts — the
  * reasoning `ListItem` already carries. The roles in the spec are what let one array feed both
  * shapes.
  */
-export interface CatalogueListProps<Row> {
+export interface DataTableProps<Row> {
     /** The spec. The only thing that differs between Ingredients, Recipes and Sauces. */
-    readonly columns: readonly CatalogueColumn<Row>[];
+    readonly columns: readonly DataTableColumn<Row>[];
     readonly rows: readonly Row[];
     readonly rowKey: (row: Row) => string;
     /** Accessible name for the list as a whole. */
@@ -96,8 +99,8 @@ export interface CatalogueListProps<Row> {
     readonly onRowPress?: ((row: Row) => void) | undefined;
     /** View · Edit · Archive for one row. Rendered by the `actions` column, and by the narrow row. */
     readonly rowActions?: ((row: Row) => readonly MenuItem[]) | undefined;
-    /** Accessible name for the overflow trigger. */
-    readonly rowActionsLabel: string;
+    /** Accessible name for the overflow trigger. Defaults to "Actions". */
+    readonly rowActionsLabel?: string | undefined;
     /** `desk`: the desk kit's `⋯` and dropdown card (`DeskRowMenu`) — the desk pages' look. */
     readonly rowActionsLook?: 'list' | 'desk' | undefined;
     readonly emptyState?: ReactNode | undefined;
@@ -129,24 +132,43 @@ export interface CatalogueListProps<Row> {
     readonly frameEmpty?: boolean | undefined;
     /** A heading row before a row — `DataList`'s `sectionHeader`, at both widths. */
     readonly sectionHeader?: ((row: Row, previous: Row | undefined) => ReactNode) | undefined;
+    /**
+     * A form's own lines — recipe lines, an order's items, a closure list: every row at every
+     * width, no panel and no pager, because the rows are fields being filled in, not records being
+     * browsed. Folding them into two-line rows below `md` would hide the inputs, and paging them
+     * would hide lines the form still saves.
+     */
+    readonly lines?: boolean | undefined;
+    /** `lines` only: a full-width note under a row — a line's warning or its trace fields. */
+    readonly rowNote?: ((row: Row) => ReactNode) | undefined;
+    /** `lines` only: draws a row as the one in hand. */
+    readonly isRowSelected?: ((row: Row) => boolean) | undefined;
+    /** `lines` only: a row's ground — `danger` for a line that will not save, `new` for one added. */
+    readonly rowTone?: ((row: Row) => DataListRowTone | undefined) | undefined;
+    /** `lines` only: `false` drops the header band's ground, for lines inside a card of their own. */
+    readonly framed?: boolean | undefined;
+    /** `lines` only. */
+    readonly className?: string | undefined;
     readonly testID: string;
 }
 
 /**
- * Every admin table shows {@link CATALOGUE_PAGE_SIZE} rows a page, whoever fetched them.
+ * Every admin table shows {@link TABLE_PAGE_SIZE} rows a page, whoever fetched them.
  *
  * A screen that pages on the server hands over one page, which never exceeds the size, so nothing
  * is drawn here and its own pager stays in charge. A screen that hands over the whole set is cut
  * into pages here, with the same pager under it — so no table runs on past eighteen rows just
  * because its screen never wrote a pager of its own.
  */
-export function CatalogueList<Row>(props: CatalogueListProps<Row>) {
+export function DataTable<Row>(props: DataTableProps<Row>) {
     const { t } = useTranslation();
     const { rows, rowKey, highlightedId, initialPage, onPageChange, testID } = props;
     // `null` until the reader pages: before that the list opens where it was left.
     const [requested, setRequested] = useState<number | null>(null);
 
-    const totalPages = Math.max(1, Math.ceil(rows.length / CATALOGUE_PAGE_SIZE));
+    if (props.lines === true) return <FormLines {...props} />;
+
+    const totalPages = Math.max(1, Math.ceil(rows.length / TABLE_PAGE_SIZE));
     if (totalPages === 1) return <CatalogueTable {...props} />;
 
     const setPage = (next: number) => {
@@ -159,23 +181,62 @@ export function CatalogueList<Row>(props: CatalogueListProps<Row>) {
         requested ?? pageHolding(rows, rowKey, highlightedId) ?? initialPage ?? 1,
         totalPages,
     );
-    const from = (page - 1) * CATALOGUE_PAGE_SIZE;
+    const from = (page - 1) * TABLE_PAGE_SIZE;
 
     return (
         <View className="flex-col gap-3">
-            <CatalogueTable {...props} rows={rows.slice(from, from + CATALOGUE_PAGE_SIZE)} />
-            <CataloguePager
+            <CatalogueTable {...props} rows={rows.slice(from, from + TABLE_PAGE_SIZE)} />
+            <TablePager
                 testID={`${testID}-pagination`}
                 page={page}
                 totalPages={totalPages}
                 onPageChange={setPage}
-                label={t('kitchen:catalogue.pagerLabel')}
+                label={t('designSystem:dataTable.pagerLabel')}
             />
         </View>
     );
 }
 
-/** The 1-based page of {@link CATALOGUE_PAGE_SIZE} rows holding `id`, or `undefined`. */
+/** {@link DataTableProps.lines}: the bare rows, every one, at every width. */
+function FormLines<Row>({
+    columns,
+    rows,
+    rowKey,
+    label,
+    density = 'md',
+    onRowPress,
+    emptyState,
+    rowEntrance = false,
+    sectionHeader,
+    rowNote,
+    isRowSelected,
+    rowTone,
+    framed,
+    className,
+    testID,
+}: DataTableProps<Row>) {
+    return (
+        <DataList
+            columns={columns}
+            rows={rows}
+            rowKey={rowKey}
+            label={label}
+            density={density}
+            onRowPress={onRowPress}
+            isRowSelected={isRowSelected}
+            rowTone={rowTone}
+            emptyState={emptyState}
+            framed={framed}
+            rowEntrance={rowEntrance}
+            sectionHeader={sectionHeader}
+            rowNote={rowNote}
+            className={className}
+            testID={testID}
+        />
+    );
+}
+
+/** The 1-based page of {@link TABLE_PAGE_SIZE} rows holding `id`, or `undefined`. */
 function pageHolding<Row>(
     rows: readonly Row[],
     rowKey: (row: Row) => string,
@@ -183,7 +244,7 @@ function pageHolding<Row>(
 ): number | undefined {
     if (id === null || id === undefined) return undefined;
     const index = rows.findIndex((row) => rowKey(row) === id);
-    return index < 0 ? undefined : Math.floor(index / CATALOGUE_PAGE_SIZE) + 1;
+    return index < 0 ? undefined : Math.floor(index / TABLE_PAGE_SIZE) + 1;
 }
 
 function CatalogueTable<Row>({
@@ -203,11 +264,12 @@ function CatalogueTable<Row>({
     frameEmpty = false,
     sectionHeader,
     testID,
-}: CatalogueListProps<Row>) {
+}: DataTableProps<Row>) {
     const { t } = useTranslation();
+    const actionsLabel = rowActionsLabel ?? t('designSystem:dataTable.actionHeader');
     const frameClass = joined ? JOINED_FRAME_CLASS : FRAME_CLASS;
     const { atLeast } = useBreakpoint();
-    const port = useCataloguePort();
+    const port = useTablePort();
     const wide = atLeast('md');
     const frame = useRef<View | null>(null);
     const highlighted =
@@ -239,7 +301,7 @@ function CatalogueTable<Row>({
                               {sectionHeader === undefined ? null : (
                                   <NarrowSection heading={sectionHeader(row, rows[index - 1])} />
                               )}
-                              <CatalogueListItem
+                              <DataTableItem
                                   key={rowKey(row)}
                                   title={cellText(columnForRole(columns, 'title'), row)}
                                   media={narrowThumbnail(columns, row, rowKey, testID)}
@@ -247,7 +309,7 @@ function CatalogueTable<Row>({
                                   metric={renderRole(columns, 'metric', row)}
                                   meta={metaEntries(columns, row)}
                                   actions={rowActions?.(row)}
-                                  actionsLabel={rowActionsLabel}
+                                  actionsLabel={actionsLabel}
                                   onPress={
                                       onRowPress === undefined
                                           ? undefined
@@ -278,8 +340,8 @@ function CatalogueTable<Row>({
                   ...drawn,
                   actionColumn<Row>(
                       rowActions,
-                      rowActionsLabel,
-                      t('kitchen:list.actionHeader'),
+                      actionsLabel,
+                      t('designSystem:dataTable.actionHeader'),
                       rowKey,
                       testID,
                       rowActionsLook,
@@ -400,7 +462,7 @@ function NarrowSection({ heading }: { readonly heading: ReactNode }) {
     return <View>{heading}</View>;
 }
 
-function cellText<Row>(column: CatalogueColumn<Row> | undefined, row: Row): string {
+function cellText<Row>(column: DataTableColumn<Row> | undefined, row: Row): string {
     return column?.value?.(row) ?? '';
 }
 
@@ -411,10 +473,10 @@ function cellText<Row>(column: CatalogueColumn<Row> | undefined, row: Row): stri
  * reads — the missing-Arabic badge, the weight — and only the picture is added in front of it.
  */
 function withTableThumbnail<Row>(
-    columns: readonly CatalogueColumn<Row>[],
+    columns: readonly DataTableColumn<Row>[],
     rowKey: (row: Row) => string,
     testID: string,
-): readonly CatalogueColumn<Row>[] {
+): readonly DataTableColumn<Row>[] {
     return columns.map((column) => {
         const thumbnail = column.thumbnail;
         if (column.role !== 'title' || thumbnail === undefined) return column;
@@ -435,17 +497,15 @@ function withTableThumbnail<Row>(
         return {
             ...column,
             render: (row: Row) => (
-                // eslint-disable-next-line no-restricted-syntax -- the list row's title column, not a control: it fills its track.
+                 
                 <Inline space="xs" align="center" wrap={false} className="min-w-0 flex-1">
-                    <RowThumbnail
-                        assetId={thumbnail(row)}
-                        photoUrl={column.thumbnailUrl?.(row)}
-                        seed={rowKey(row)}
-                        label={cellText(column, row)}
-                        size="table"
-                        testID={`${testID}-row-${rowKey(row)}-image`}
-                    />
-                    {/* eslint-disable-next-line no-restricted-syntax -- the title beside the picture takes the rest of the title track. */}
+                    {thumbnail(row, {
+                        size: 'table',
+                        seed: rowKey(row),
+                        label: cellText(column, row),
+                        testID: `${testID}-row-${rowKey(row)}-image`,
+                    })}
+                    { }
                     <View className="min-w-0 flex-1">{titleCell(row)}</View>
                 </Inline>
             ),
@@ -455,7 +515,7 @@ function withTableThumbnail<Row>(
 
 /** The same photograph for the two-line row below `md`, or nothing when the spec names none. */
 function narrowThumbnail<Row>(
-    columns: readonly CatalogueColumn<Row>[],
+    columns: readonly DataTableColumn<Row>[],
     row: Row,
     rowKey: (row: Row) => string,
     testID: string,
@@ -463,20 +523,16 @@ function narrowThumbnail<Row>(
     const title = columnForRole(columns, 'title');
     if (title?.thumbnail === undefined) return undefined;
 
-    return (
-        <RowThumbnail
-            assetId={title.thumbnail(row)}
-            photoUrl={title.thumbnailUrl?.(row)}
-            seed={rowKey(row)}
-            label={cellText(title, row)}
-            size="narrow"
-            testID={`${testID}-row-${rowKey(row)}-image`}
-        />
-    );
+    return title.thumbnail(row, {
+        size: 'narrow',
+        seed: rowKey(row),
+        label: cellText(title, row),
+        testID: `${testID}-row-${rowKey(row)}-image`,
+    });
 }
 
 function renderRole<Row>(
-    columns: readonly CatalogueColumn<Row>[],
+    columns: readonly DataTableColumn<Row>[],
     role: 'status' | 'metric',
     row: Row,
 ): ReactNode {
@@ -493,7 +549,7 @@ function renderRole<Row>(
  * there; a lock version does not.
  */
 function metaEntries<Row>(
-    columns: readonly CatalogueColumn<Row>[],
+    columns: readonly DataTableColumn<Row>[],
     row: Row,
 ): readonly ReactNode[] {
     return columns
@@ -516,13 +572,13 @@ function actionColumn<Row>(
     rowKey: (row: Row) => string,
     testID: string,
     look: 'list' | 'desk' = 'list',
-): CatalogueColumn<Row> {
+): DataTableColumn<Row> {
     return {
         key: 'actions',
         label: header,
         width: ROW_ACTIONS_WIDTH,
         min: ROW_ACTIONS_WIDTH,
-        priority: CATALOGUE_PRIORITY.actions,
+        priority: DATA_TABLE_PRIORITY.actions,
         align: 'end',
         // The one column whose width is its content. `DataList` shares the port's leftover width
         // out over the other tracks; a share here would only spend it on padding.

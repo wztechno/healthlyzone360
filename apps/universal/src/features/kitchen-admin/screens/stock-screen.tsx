@@ -6,8 +6,28 @@ import type {
     StockWasteReason,
 } from '@healthy360/api-client/contracts';
 import { STOCK_WASTE_REASONS } from '@healthy360/api-client/contracts';
-import { Badge, Button, Callout, Cascade, EmptyState, ErrorState, FormGrid, FormSection, SegmentedControl, Select, Stack, TableSkeleton, Text, TextInputField, useToast } from '@healthy360/design-system';
-import type { BadgeTone, MenuItem } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
+    EmptyState,
+    ErrorState,
+    FormGrid,
+    FormSection,
+    SegmentedControl,
+    Select,
+    Stack,
+    TablePager,
+    TableSkeleton,
+    Text,
+    TextInputField,
+    useTablePort,
+    useToast,
+} from '@healthy360/design-system';
+import type { BadgeTone, DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { IngredientId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
@@ -29,11 +49,6 @@ import {
     useStockLevelsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { barcodeFailureText, shelfForIngredient, unlinkedScanMessage } from '../barcode-scan.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart, LensToken } from '../catalogue/lens-bar.tsx';
@@ -72,6 +87,7 @@ import { useViewedRecord } from '../use-viewed-record.ts';
 
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
+import { RowThumbnail } from '../catalogue/row-thumbnail.tsx';
 /**
  * The photograph of what is on the shelf: the ingredient's own, or the product's.
  *
@@ -353,7 +369,7 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
         });
     };
 
-    const columns: readonly ControlledColumn<StockRow, CatalogueColumn<StockRow>>[] = [
+    const columns: readonly ControlledColumn<StockRow, DataTableColumn<StockRow>>[] = [
         {
             key: 'item',
             role: 'title',
@@ -361,7 +377,7 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
             width: 220,
             priority: 100,
             value: (row) => row.item.nameEn,
-            thumbnail: (row) => stockPhotoId(row.item),
+            thumbnail: (row, shape) => <RowThumbnail {...shape} assetId={stockPhotoId(row.item)} />,
             sort: (left, right, direction) =>
                 compareText(left.item.nameEn, right.item.nameEn, direction),
             render: (row) => {
@@ -678,7 +694,7 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
             {
                 key: 'view',
                 label: t('kitchen:list.view'),
-                icon: CATALOGUE_ROW_ICONS.view,
+                icon: DATA_TABLE_ROW_ICONS.view,
                 testID: `${testID}-view`,
                 onSelect: () => {
                     openView(row);
@@ -689,7 +705,7 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
                       {
                           key: 'adjust',
                           label: t('kitchen:catalogue.edit'),
-                          icon: CATALOGUE_ROW_ICONS.edit,
+                          icon: DATA_TABLE_ROW_ICONS.edit,
                           testID: `${testID}-adjust`,
                           onSelect: () => {
                               openEditor(row);
@@ -967,7 +983,7 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
                         retrying={items.isFetching || levels.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-stock-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -1008,7 +1024,7 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<StockRow>
+                        <DataTable<StockRow>
                             testID="kitchen-stock-table"
                             joined
                             label={t(
@@ -1026,7 +1042,7 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
                             rowActions={rowActions}
                         />
 
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-stock-pagination"
                             page={currentPage}
                             totalPages={totalPages}
@@ -1247,7 +1263,7 @@ function StockMovementEditor({
      * Read from the node rather than `onLayout`, which on the web delivered one early width and
      * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
      */
-    const port = useCataloguePort();
+    const port = useTablePort();
     const bodyWidth = port.width;
 
     useKitchenTrailLeaf(

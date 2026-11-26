@@ -1,6 +1,17 @@
 import type { DuplicateStockGroup } from '@healthy360/api-client/contracts';
-import { Button, Cascade, Dialog, EmptyState, ErrorState, TableSkeleton, Text, useToast } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    TableSkeleton,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,9 +25,6 @@ import {
     useMergeDuplicateStockMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { unitCodeLabel } from '../format.ts';
 
@@ -140,7 +148,7 @@ function StockDuplicatesList() {
             ? row.shelves.filter(isHeld).map((shelf): MenuItem => ({
                   key: `count-${shelf.id}`,
                   label: t('kitchen:stockDuplicates.countToZero', { code: shelf.code }),
-                  icon: CATALOGUE_ROW_ICONS.edit,
+                  icon: DATA_TABLE_ROW_ICONS.edit,
                   testID: `${testID}-count-${shelf.id}`,
                   onSelect: () => {
                       router.push(
@@ -183,7 +191,7 @@ function StockDuplicatesList() {
             )
             .join(' · ');
 
-    const columns: readonly CatalogueColumn<DuplicateStockGroup>[] = [
+    const columns: readonly DataTableColumn<DuplicateStockGroup>[] = [
         {
             key: 'name',
             role: 'title',
@@ -249,7 +257,7 @@ function StockDuplicatesList() {
                     body={t('kitchen:stockDuplicates.emptyBody')}
                 />
             ) : (
-                <CatalogueList<DuplicateStockGroup>
+                <DataTable<DuplicateStockGroup>
                     testID="kitchen-stock-duplicates-table"
                     label={t('kitchen:stockDuplicates.caption')}
                     columns={columns}

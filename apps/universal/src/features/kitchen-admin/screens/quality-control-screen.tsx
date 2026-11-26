@@ -3,8 +3,21 @@ import {
     QUALITY_CHECK_STATUSES,
     QUALITY_CHECK_SUBJECT_TYPES,
 } from '@healthy360/api-client/contracts';
-import { Button, Cascade, EmptyState, ErrorState, Icon, Stack, TableSkeleton, Text, useToast } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
+    EmptyState,
+    ErrorState,
+    Icon,
+    Stack,
+    TablePager,
+    TableSkeleton,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
@@ -18,10 +31,6 @@ import {
     useQualityChecksQuery,
     useReleaseQualityCheckMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart, LensTone, LensToken } from '../catalogue/lens-bar.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
@@ -228,7 +237,7 @@ function QualityCheckList({
         return null;
     };
 
-    const columns: readonly ControlledColumn<QualityCheck, CatalogueColumn<QualityCheck>>[] = [
+    const columns: readonly ControlledColumn<QualityCheck, DataTableColumn<QualityCheck>>[] = [
         {
             key: 'subject',
             role: 'title',
@@ -473,7 +482,7 @@ function QualityCheckList({
                         retrying={checks.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-qc-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -502,7 +511,7 @@ function QualityCheckList({
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<QualityCheck>
+                        <DataTable<QualityCheck>
                             testID="kitchen-qc-checks"
                             joined
                             label={t('kitchen:ops.qc.checksHeading')}
@@ -518,7 +527,7 @@ function QualityCheckList({
                                     {
                                         key: 'view',
                                         label: t('kitchen:list.view'),
-                                        icon: CATALOGUE_ROW_ICONS.view,
+                                        icon: DATA_TABLE_ROW_ICONS.view,
                                         testID: `${qualityCheckRowTestId(String(row.id))}-view`,
                                         onSelect: () => {
                                             openView(row);
@@ -542,7 +551,7 @@ function QualityCheckList({
                             }}
                         />
 
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-qc-pagination"
                             page={currentPage}
                             totalPages={totalPages}

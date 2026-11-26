@@ -143,7 +143,29 @@ The web shop keeps `DateField`. Times are `TimeField`.
 **Removed, never recreate:** `MiniMonthPicker`, `DeskDateButton`, `DeskDateField`,
 `DatePickerButton`, and the admin's `DateField` / `PickerField kind="date"` uses.
 
+## Tables — the one `DataTable`
+
+Every admin table is `DataTable` from `@healthy360/design-system`. It draws the rows through
+`DataList`, which a page never uses on its own.
+
+| Job                                                     | How                                                                  |
+| ------------------------------------------------------- | -------------------------------------------------------------------- |
+| A list of records (Ingredients, Orders, Suppliers)      | `<DataTable columns rows rowKey label rowActions />` — pages past 18 |
+| A list the screen pages on the server                   | the same, plus `TablePager` under it (`TABLE_PAGE_SIZE`)             |
+| A form's own lines (recipe lines, an order's items)     | `<DataTable lines … />` — every row, every width, no pager           |
+| A line with a problem, or added since the list was read | `lines` + `rowTone` (`danger` / `new`) and `rowNote` under it        |
+| A row's picture                                         | the title column's `thumbnail(row, shape)` draws it (`RowThumbnail`) |
+
+The column spec is `DataTableColumn` (`role`: title / status / metric / meta / actions, which is
+what a row becomes on a phone). Columns are dropped by `priority` when the page is narrow, never
+scrolled away; a column that must stay says `UNDROPPABLE_PRIORITY`.
+
+Not tables: a printed sheet (technical sheet, print sheets) and the web shop's `Table`.
+
+**Removed, never recreate:** `CatalogueList`, `CatalogueListItem`, `CatalogueListBody`,
+`CataloguePager`, `catalogue-column-spec.ts`, and the price list's hand-drawn `role="table"` grid.
+
 ## Canvas designs
 
-A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs, pills and dates as `/showcase-components` shows them. If a design
+A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs, pills, dates and tables as `/showcase-components` shows them. If a design
 needs a part that is not on that page, say so — it is a new design-system part, not a one-off.

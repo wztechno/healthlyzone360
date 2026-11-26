@@ -261,7 +261,7 @@ in `packages/design-system`, never in a feature folder; check `/showcase-compone
 Every "pick a value" dropdown is `Select` (`trigger="pill"` on a toolbar); every button is `Button`
 or `IconButton`; a status label is `Badge`; a tick is `Checkbox`; a choice is `ChoiceChips` or
 `ChoiceRow`; tabs are `Tabs` strip (page views) or segmented (toggles); steps are `Tabs` pills (a form's
-sections) or `StatusSteps` (a record's progress); a day is `DatePicker` (`trigger="pill"` on a toolbar). The admin look comes from `AreaLookScope look="desk"` in the area's layout.
+sections) or `StatusSteps` (a record's progress); a day is `DatePicker` (`trigger="pill"` on a toolbar); a table is `DataTable` (`lines` for a form's own rows). The admin look comes from `AreaLookScope look="desk"` in the area's layout.
 
 The wellness-green handoff's component phase shipped. Use these rather than rebuilding:
 

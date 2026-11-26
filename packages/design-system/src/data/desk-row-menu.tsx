@@ -1,5 +1,6 @@
-import { Icon, Menu } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import { Icon } from '../icons/icon.tsx';
+import { Menu } from '../overlays/menu.tsx';
+import type { MenuItem } from '../overlays/menu.tsx';
 import { Platform, Pressable, View } from 'react-native';
 
 /**

@@ -4,16 +4,19 @@ import {
     Badge,
     Button,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Heading,
     Icon,
     Select,
     Stack,
+    TablePager,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -29,10 +32,6 @@ import {
     useTeamWholeSetQuery,
 } from '../../../data/access-admin-hooks.ts';
 import { toFailure } from '../../../data/hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
@@ -155,7 +154,7 @@ function PendingInvitations({ invitations }: { readonly invitations: readonly St
     const roleName = (row: StaffInvitation) =>
         t(`accessAdmin:codes.${row.roleCode}.name` as never, { defaultValue: row.roleCode });
 
-    const columns: readonly CatalogueColumn<StaffInvitation>[] = [
+    const columns: readonly DataTableColumn<StaffInvitation>[] = [
         {
             key: 'email',
             role: 'title',
@@ -236,7 +235,7 @@ function PendingInvitations({ invitations }: { readonly invitations: readonly St
                 </Text>
             </Stack>
 
-            <CatalogueList<StaffInvitation>
+            <DataTable<StaffInvitation>
                 testID="kitchen-team-invitations-table"
                 label={t('accessAdmin:team.invitations.caption')}
                 columns={columns}
@@ -310,7 +309,7 @@ function TeamList() {
 
     const columns: readonly ControlledColumn<
         TeamMemberSummary,
-        CatalogueColumn<TeamMemberSummary>
+        DataTableColumn<TeamMemberSummary>
     >[] = [
         {
             key: 'person',
@@ -570,7 +569,7 @@ function TeamList() {
                         retrying={team.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-team-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -599,7 +598,7 @@ function TeamList() {
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<TeamMemberSummary>
+                        <DataTable<TeamMemberSummary>
                             testID="kitchen-team-table"
                             joined
                             label={t('accessAdmin:team.caption')}
@@ -614,7 +613,7 @@ function TeamList() {
                                 {
                                     key: 'open',
                                     label: t('accessAdmin:team.open'),
-                                    icon: CATALOGUE_ROW_ICONS.edit,
+                                    icon: DATA_TABLE_ROW_ICONS.edit,
                                     testID: `${teamRowTestId(String(row.membershipId))}-open`,
                                     onSelect: () => {
                                         openMember(row);
@@ -623,7 +622,7 @@ function TeamList() {
                             ]}
                         />
 
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-team-pagination"
                             page={page}
                             totalPages={totalPages}

@@ -1,14 +1,13 @@
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import { Text } from '@healthy360/design-system';
-import type { BadgeTone } from '@healthy360/design-system';
+import { DATA_TABLE_PRIORITY, Text } from '@healthy360/design-system';
+import type { BadgeTone, DataTableColumn } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 
 import { displayName, statusShortKey, statusTone, unitShortKey } from '../format.ts';
-import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
-import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
+import { RowThumbnail } from './row-thumbnail.tsx';
 /**
  * The columns of `/kitchen/packaging`.
  *
@@ -79,7 +78,7 @@ export function packagingColumns({
     locale,
     formatter,
     categoryName,
-}: PackagingColumnDeps): readonly CatalogueColumn<IngredientAdmin>[] {
+}: PackagingColumnDeps): readonly DataTableColumn<IngredientAdmin>[] {
     const dash = t('kitchen:list.noValue');
 
     /** The board's quiet ink, for the figures a reader looks past on the way to the price. */
@@ -95,7 +94,7 @@ export function packagingColumns({
             label: t('kitchen:list.columnReference'),
             width: 96,
             min: 84,
-            priority: CATALOGUE_PRIORITY.reference,
+            priority: DATA_TABLE_PRIORITY.reference,
             role: 'meta',
             mono: true,
             sortable: true,
@@ -118,13 +117,18 @@ export function packagingColumns({
             label: t('kitchen:list.columnItem'),
             width: 200,
             min: 150,
-            priority: CATALOGUE_PRIORITY.designation,
+            priority: DATA_TABLE_PRIORITY.designation,
             role: 'title',
             sortable: true,
             sortType: 'text',
             value: (row) => displayName(row.name, locale).value,
-            thumbnail: (row) => `ingredient-${row.slug}`,
-            thumbnailUrl: (row) => row.photoUrl,
+            thumbnail: (row, shape) => (
+                <RowThumbnail
+                    {...shape}
+                    assetId={`ingredient-${row.slug}`}
+                    photoUrl={row.photoUrl}
+                />
+            ),
             /*
              * The `label` step, which is what the other five Catalogue lists give the column that
              * names the row — ingredients, products, recipes, meals and allergen classes all draw
@@ -151,7 +155,7 @@ export function packagingColumns({
             label: t('kitchen:list.columnCategory'),
             width: 160,
             min: 112,
-            priority: CATALOGUE_PRIORITY.category,
+            priority: DATA_TABLE_PRIORITY.category,
             role: 'meta',
             sortable: true,
             sortType: 'text',
@@ -180,7 +184,7 @@ export function packagingColumns({
             label: t('kitchen:fields.purchaseUnit'),
             width: 108,
             min: 64,
-            priority: CATALOGUE_PRIORITY.unit,
+            priority: DATA_TABLE_PRIORITY.unit,
             sortable: true,
             sortType: 'text',
             value: (row) => (row.purchaseUnit === null ? dash : t(unitShortKey(row.purchaseUnit))),
@@ -193,7 +197,7 @@ export function packagingColumns({
             label: t('kitchen:fields.itemsPerUnit'),
             width: 108,
             min: 68,
-            priority: CATALOGUE_PRIORITY.unit,
+            priority: DATA_TABLE_PRIORITY.unit,
             sortable: true,
             sortType: 'number',
             value: (row) =>
@@ -206,7 +210,7 @@ export function packagingColumns({
             label: t('kitchen:packaging.columnPackPrice'),
             width: 96,
             min: 88,
-            priority: CATALOGUE_PRIORITY.unitPrice,
+            priority: DATA_TABLE_PRIORITY.unitPrice,
             // The page's headline number. Packaging exists as records so a recipe can cost what it
             // ships in, and this is that cost.
             role: 'metric',
@@ -243,7 +247,7 @@ export function packagingColumns({
             label: t('kitchen:packaging.columnCapacity'),
             width: 88,
             min: 80,
-            priority: CATALOGUE_PRIORITY.metric,
+            priority: DATA_TABLE_PRIORITY.metric,
             sortable: true,
             sortType: 'number',
             value: (row) =>
@@ -262,7 +266,7 @@ export function packagingColumns({
             label: t('kitchen:packaging.columnWaste'),
             width: 80,
             min: 68,
-            priority: CATALOGUE_PRIORITY.updated,
+            priority: DATA_TABLE_PRIORITY.updated,
             sortable: true,
             sortType: 'number',
             // `0` and `null` are different answers — "none is thrown away" against "nobody has
@@ -281,7 +285,7 @@ export function packagingColumns({
             label: t('kitchen:list.columnStatus'),
             width: 112,
             min: 88,
-            priority: CATALOGUE_PRIORITY.status,
+            priority: DATA_TABLE_PRIORITY.status,
             role: 'status',
             badge: true,
             sortable: false,

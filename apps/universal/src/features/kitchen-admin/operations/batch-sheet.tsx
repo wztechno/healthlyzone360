@@ -6,6 +6,7 @@ import type {
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
 import { Badge, Inline, Text } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import type { IngredientId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { MeasureUnit } from '@healthy360/nutrition';
@@ -16,7 +17,6 @@ import { useCan } from '../../../access/gate.tsx';
 import { useIngredientsByIds } from '../../../data/kitchen-admin-hooks.ts';
 import { useStockItemsQuery, useStockLevelsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { displayQuantity, scaleLine, scalePackaging, withWaste } from '../batch-scaling.ts';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ColumnFilter, ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareAmount, compareNumber, compareText } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -204,7 +204,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         );
     };
 
-    const shelfLineColumns: readonly ControlledColumn<RecipeLine, CatalogueColumn<RecipeLine>>[] = [
+    const shelfLineColumns: readonly ControlledColumn<RecipeLine, DataTableColumn<RecipeLine>>[] = [
         {
             key: 'item',
             role: 'title',
@@ -330,7 +330,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
 
     const packagingColumns: readonly ControlledColumn<
         RecipePackagingLine,
-        CatalogueColumn<RecipePackagingLine>
+        DataTableColumn<RecipePackagingLine>
     >[] = [
         {
             key: 'item',

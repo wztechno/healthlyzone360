@@ -3,6 +3,8 @@ import {
     Badge,
     Button,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     DatePicker,
     EmptyState,
     ErrorState,
@@ -12,7 +14,7 @@ import {
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -23,9 +25,6 @@ import { View } from 'react-native';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useGoodsReceiptsQuery, useStockItemsQuery } from '../../../data/kitchen-ops-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart, LensToken } from '../catalogue/lens-bar.tsx';
 import { PeriodScope } from '../catalogue/period-scope.tsx';
@@ -64,7 +63,7 @@ import { useViewedRecord } from '../use-viewed-record.ts';
  * ```
  *
  * The Operations handoff's list on the Catalogue parts: the Lens bar, whose price-completeness
- * figures are counted over the receipts in hand and filter them, `CatalogueList`, and the
+ * figures are counted over the receipts in hand and filter them, `DataTable`, and the
  * `RecordWindow` behind View. `listGoodsReceipts` takes no filter and publishes no page, so search and
  * the figures narrow the rows already loaded and there is no pager. A posted receipt is immutable,
  * so View is the only row action.
@@ -182,7 +181,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                   maximumFractionDigits: 2,
               })} ${row.currencyCode}`;
 
-    const columns: readonly ControlledColumn<GoodsReceipt, CatalogueColumn<GoodsReceipt>>[] = [
+    const columns: readonly ControlledColumn<GoodsReceipt, DataTableColumn<GoodsReceipt>>[] = [
         {
             key: 'receivedAt',
             role: 'title',
@@ -662,7 +661,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                         retrying={receipts.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-procurement-receipts-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -691,7 +690,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<GoodsReceipt>
+                        <DataTable<GoodsReceipt>
                             testID="kitchen-procurement-receipts-table"
                             joined
                             label={t('kitchen:ops.procurement.receiptsTitle')}
@@ -707,7 +706,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 {
                                     key: 'view',
                                     label: t('kitchen:list.view'),
-                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    icon: DATA_TABLE_ROW_ICONS.view,
                                     testID: `${goodsReceiptRowTestId(String(row.id))}-view`,
                                     onSelect: () => {
                                         setViewing(row);

@@ -2,12 +2,15 @@ import { OrderId } from '@healthy360/domain-types';
 import {
     Button,
     Cascade,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
     IssueTrayFrame,
     IssueUnanchored,
     Select,
+    TABLE_PAGE_SIZE,
+    TablePager,
     TableSkeleton,
     Tabs,
 } from '@healthy360/design-system';
@@ -23,8 +26,6 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { useOrderDeskDriversQuery } from '../../../data/order-desk-hooks.ts';
 import { safeReturnTo, withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CATALOGUE_PAGE_SIZE, CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import {
@@ -539,7 +540,7 @@ function OrdersTable({
     }
     return (
         <View className="flex-col gap-3">
-            <CatalogueList<BookRow>
+            <DataTable<BookRow>
                 testID={testID}
                 joined
                 frameEmpty
@@ -814,7 +815,7 @@ function AllOrdersTab({
             query: query.q,
             today,
             page,
-            perPage: CATALOGUE_PAGE_SIZE,
+            perPage: TABLE_PAGE_SIZE,
         },
         quick === null,
     );
@@ -961,7 +962,7 @@ function AllOrdersTab({
                 onOpenOrder={onOpenOrder}
                 paged={
                     quick === null && book.totalPages > 1 ? (
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-orders-all-pagination"
                             page={page}
                             totalPages={book.totalPages}

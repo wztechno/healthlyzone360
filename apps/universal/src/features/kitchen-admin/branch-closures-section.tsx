@@ -1,16 +1,5 @@
 import type { BranchClosure } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    DataList,
-    DatePicker,
-    Dialog,
-    ErrorState,
-    FormSection,
-    Text,
-    TextInputField,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, DataTable, DatePicker, DeskRowMenu, Dialog, ErrorState, FormSection, Text, TextInputField, useToast } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
@@ -24,7 +13,6 @@ import {
 } from '../../data/kitchen-ops-hooks.ts';
 import { toFailure } from '../../data/hooks.ts';
 
-import { DeskRowMenu } from './desk-kit/desk-row-menu.tsx';
 import { FailureToast } from './failure-toast.tsx';
 
 /**
@@ -230,7 +218,8 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                     {t('kitchen:branchClosures.empty')}
                 </Text>
             ) : (
-                <DataList<BranchClosure>
+                <DataTable<BranchClosure>
+                    lines
                     testID="kitchen-branch-closures-list"
                     label={t('kitchen:branchClosures.title')}
                     columns={columns}

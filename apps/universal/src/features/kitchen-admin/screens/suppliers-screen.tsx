@@ -3,6 +3,8 @@ import {
     Badge,
     Button,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
@@ -10,7 +12,7 @@ import {
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { MenuItem, SelectOption } from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem, SelectOption } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -21,9 +23,6 @@ import { View } from 'react-native';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useSuppliersQuery } from '../../../data/kitchen-ops-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import {
@@ -216,7 +215,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
         );
     };
 
-    const columns: readonly ControlledColumn<Supplier, CatalogueColumn<Supplier>>[] = [
+    const columns: readonly ControlledColumn<Supplier, DataTableColumn<Supplier>>[] = [
         {
             key: 'name',
             role: 'title',
@@ -494,7 +493,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                         retrying={suppliers.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-suppliers-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -522,7 +521,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                         }
                     />
                 ) : (
-                    <CatalogueList<Supplier>
+                    <DataTable<Supplier>
                         testID="kitchen-suppliers-table"
                         joined
                         label={t('kitchen:ops.suppliers.caption')}
@@ -545,7 +544,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'view',
                                 label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `${supplierRowTestId(String(row.id))}-view`,
                                 onSelect: () => {
                                     rememberOpened(String(row.id));
@@ -555,7 +554,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'open',
                                 label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
+                                icon: DATA_TABLE_ROW_ICONS.edit,
                                 testID: `${supplierRowTestId(String(row.id))}-open`,
                                 onSelect: () => {
                                     openRecord(row);

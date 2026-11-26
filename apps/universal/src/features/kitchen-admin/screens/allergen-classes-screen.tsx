@@ -1,6 +1,15 @@
 import type { AllergenClass } from '@healthy360/api-client/contracts';
-import { Button, Cascade, EmptyState, ErrorState, Inline, TableSkeleton } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
+    EmptyState,
+    ErrorState,
+    Inline,
+    TableSkeleton,
+} from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -14,11 +23,8 @@ import {
     allergenRowTestId,
     thresholdLabel,
 } from '../catalogue/allergen-columns.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
@@ -116,7 +122,7 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
         [t, locale, formatter],
     );
 
-    const controls = useColumnControls<AllergenClass, CatalogueColumn<AllergenClass>>(
+    const controls = useColumnControls<AllergenClass, DataTableColumn<AllergenClass>>(
         list.rows,
         columns.map((column) => ({ ...column, ...columnControl(column.key, list, t) })),
         'kitchen-allergen-classes',
@@ -244,7 +250,7 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
                         }
                     />
                 ) : (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-allergen-classes-table"
                         joined
                         label={t('kitchen:classes.title')}
@@ -265,7 +271,7 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'view',
                                 label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `${allergenRowTestId(String(entry.code))}-view`,
                                 onSelect: () => {
                                     openView(entry);

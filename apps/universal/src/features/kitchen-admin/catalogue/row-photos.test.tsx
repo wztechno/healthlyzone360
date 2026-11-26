@@ -1,17 +1,18 @@
+import { DataTable } from '@healthy360/design-system';
+import type { DataTableColumn, DataTableThumbnailShape } from '@healthy360/design-system';
 import { createI18n } from '@healthy360/i18n';
 import { render, screen } from '@testing-library/react-native';
 import { I18nextProvider } from 'react-i18next';
 import { Dimensions, Text } from 'react-native';
 
-import { CatalogueList } from './catalogue-list.tsx';
-import type { CatalogueColumn } from './catalogue-column-spec.ts';
 import { RecordPhoto } from './record-photo.tsx';
+import { RowThumbnail } from './row-thumbnail.tsx';
 
 /**
  * Row and record photographs across every Catalogue list, tested once here rather than per entity.
  *
  * The screens each assert their own thumbnail id; what this file pins is the mechanism under them:
- * a spec names the picture once with `thumbnail`, and `CatalogueList` draws it in **both** of its
+ * a spec names the picture once with `thumbnail`, and `DataTable` draws it in **both** of its
  * shapes. That second shape is the one that was missing — every list that had a photograph drew it
  * only in the wide table, because the narrow row reads a column's plain `value` and never calls its
  * renderer — so both widths are rendered here on purpose.
@@ -27,7 +28,7 @@ const ROWS: readonly Row[] = [
     { id: 'no-photo', name: 'Unphotographed' },
 ];
 
-function spec(withThumbnail: boolean): readonly CatalogueColumn<Row>[] {
+function spec(withThumbnail: boolean): readonly DataTableColumn<Row>[] {
     return [
         {
             key: 'name',
@@ -38,7 +39,13 @@ function spec(withThumbnail: boolean): readonly CatalogueColumn<Row>[] {
             value: (row) => row.name,
             // The spec's own title renderer, which the photograph must wrap and not replace.
             render: (row) => <Text testID={`title-${row.id}`}>{row.name}</Text>,
-            ...(withThumbnail ? { thumbnail: (row: Row) => `ingredient-${row.id}` } : {}),
+            ...(withThumbnail
+                ? {
+                      thumbnail: (row: Row, shape: DataTableThumbnailShape) => (
+                          <RowThumbnail {...shape} assetId={`ingredient-${row.id}`} />
+                      ),
+                  }
+                : {}),
         },
     ];
 }
@@ -48,7 +55,7 @@ const HIDDEN = { includeHiddenElements: true } as const;
 
 function renderList(withThumbnail: boolean) {
     return render(
-        <CatalogueList
+        <DataTable
             testID="list"
             label="Ingredients"
             columns={spec(withThumbnail)}
@@ -175,12 +182,18 @@ describe('the kitchen’s own photo (BUG-14)', () => {
     const UPLOAD = '/api/v1/media/photos/42';
 
     function renderUploaded() {
-        const columns: readonly CatalogueColumn<Row>[] = spec(true).map((column) => ({
+        const columns: readonly DataTableColumn<Row>[] = spec(true).map((column) => ({
             ...column,
-            thumbnailUrl: (row: Row) => (row.id === 'no-photo' ? UPLOAD : null),
+            thumbnail: (row: Row, shape: DataTableThumbnailShape) => (
+                <RowThumbnail
+                    {...shape}
+                    assetId={`ingredient-${row.id}`}
+                    photoUrl={row.id === 'no-photo' ? UPLOAD : null}
+                />
+            ),
         }));
         return render(
-            <CatalogueList
+            <DataTable
                 testID="list"
                 label="Ingredients"
                 columns={columns}

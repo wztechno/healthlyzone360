@@ -5,27 +5,7 @@ import type {
     SupplierOption,
 } from '@healthy360/api-client/contracts';
 import type { StockItemId, SupplierId } from '@healthy360/domain-types';
-import {
-    Badge,
-    Button,
-    Callout,
-    Cascade,
-    Checkbox,
-    DataList,
-    Dialog,
-    EmptyState,
-    ErrorState,
-    FormSection,
-    Icon,
-    InfoTip,
-    QuantityInput,
-    Select,
-    Skeleton,
-    Stack,
-    TableSkeleton,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Callout, Cascade, Checkbox, DataTable, Dialog, EmptyState, ErrorState, FormSection, Icon, InfoTip, QuantityInput, Select, Skeleton, Stack, TableSkeleton, Text, useTablePort, useToast } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -47,7 +27,6 @@ import {
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { displayName, unitCodeLabel } from '../format.ts';
-import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { NewSupplierDialog } from '../new-supplier-dialog.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
@@ -238,7 +217,7 @@ function SupplyOrderBuilder() {
      * Read from the node rather than `onLayout`, which on the web delivered one early width and
      * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
      */
-    const port = useCataloguePort();
+    const port = useTablePort();
     const bodyWidth = port.width;
 
     const proposal = useOrderProposalQuery(branchId, requestedIds);
@@ -977,7 +956,8 @@ function SupplyOrderBuilder() {
                                                 )}
                                             />
                                         ) : (
-                                            <DataList<OrderProposalItem>
+                                            <DataTable<OrderProposalItem>
+                                                lines
                                                 testID="kitchen-supply-order-rows"
                                                 label={t('kitchen:ops.supplyOrders.builderCaption')}
                                                 columns={assignedColumns}
@@ -1042,7 +1022,8 @@ function SupplyOrderBuilder() {
                                             />
                                         }
                                     >
-                                        <DataList<OrderProposalItem>
+                                        <DataTable<OrderProposalItem>
+                                            lines
                                             testID="kitchen-supply-order-unlinked-rows"
                                             label={t('kitchen:ops.supplyOrders.unlinkedCaption')}
                                             columns={unlinkedColumns}

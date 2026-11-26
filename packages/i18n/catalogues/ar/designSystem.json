@@ -287,5 +287,10 @@
         "done": "تم",
         "placeholder": "--:--",
         "invalid": "أدخل الوقت بالصيغة HH:mm، مثل 09:30."
+    },
+    "dataTable": {
+        "pagerLabel": "الصفحات",
+        "actionHeader": "إجراءات",
+        "clearFilters": "مسح عوامل التصفية"
     }
 }

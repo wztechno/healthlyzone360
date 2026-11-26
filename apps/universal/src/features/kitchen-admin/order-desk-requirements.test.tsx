@@ -14,7 +14,7 @@ import { OrderDeskRequirementsScreen } from './screens/order-desk-requirements-s
 import { Dimensions } from 'react-native';
 
 /**
- * These screens draw their tables through `CatalogueList`, which only lays out columns at `md` and
+ * These screens draw their tables through `DataTable`, which only lays out columns at `md` and
  * above; React Native's Jest window is 750px. Desk width for the whole file, restored afterwards.
  */
 const narrowWindow = Dimensions.get('window');

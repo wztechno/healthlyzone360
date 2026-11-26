@@ -3,6 +3,7 @@ import {
     Button,
     Callout,
     Cascade,
+    DataTable,
     DatePicker,
     EmptyState,
     ErrorState,
@@ -11,6 +12,7 @@ import {
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -22,8 +24,6 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useActivityQuery, useStockActivityQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { daysBetween, isIsoDate, todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import { PeriodScope } from '../catalogue/period-scope.tsx';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
@@ -196,7 +196,7 @@ function StockMovements({ window }: { readonly window: { from: string; to: strin
 
     const columns: readonly ControlledColumn<
         StockActivityMovement,
-        CatalogueColumn<StockActivityMovement>
+        DataTableColumn<StockActivityMovement>
     >[] = [
         {
             key: 'when',
@@ -375,7 +375,7 @@ function StockMovements({ window }: { readonly window: { from: string; to: strin
                     </Text>
                 )}
             </Stack>
-            <CatalogueList<StockActivityMovement>
+            <DataTable<StockActivityMovement>
                 testID="kitchen-activity-stock-table"
                 label={t('kitchen:ops.activity.view.stock')}
                 columns={controls.columns}
@@ -394,7 +394,7 @@ function AuditTrail({ window }: { readonly window: { from: string; to: string } 
     const failure = toFailure(activity.error);
     const rows = activity.data?.entries ?? [];
 
-    const columns: readonly ControlledColumn<ActivityEntry, CatalogueColumn<ActivityEntry>>[] = [
+    const columns: readonly ControlledColumn<ActivityEntry, DataTableColumn<ActivityEntry>>[] = [
         {
             key: 'when',
             label: t('kitchen:ops.activity.columnWhen'),
@@ -499,7 +499,7 @@ function AuditTrail({ window }: { readonly window: { from: string; to: string } 
                     title={t('kitchen:ops.activity.truncated')}
                 />
             ) : null}
-            <CatalogueList<ActivityEntry>
+            <DataTable<ActivityEntry>
                 testID="kitchen-activity-audit-table"
                 label={t('kitchen:ops.activity.view.audit')}
                 columns={controls.columns}

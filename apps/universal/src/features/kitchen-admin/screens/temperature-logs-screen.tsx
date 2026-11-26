@@ -8,6 +8,7 @@ import type {
 import {
     Badge,
     Button,
+    DataTable,
     Dialog,
     EmptyState,
     ErrorState,
@@ -20,6 +21,7 @@ import {
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -35,8 +37,6 @@ import {
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useProductionOrdersQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { listPrintJob, useListPrint } from '../catalogue/list-print.ts';
 import {
     INVENTORY_MANAGE_PERMISSION,
@@ -98,7 +98,7 @@ function TemperatureLogs() {
     const celsius = (value: string) =>
         t('kitchen:temperature.celsius', { value: formatter.formatNumber(Number(value)) });
 
-    const readingColumns: readonly CatalogueColumn<TemperatureReading>[] = [
+    const readingColumns: readonly DataTableColumn<TemperatureReading>[] = [
         {
             key: 'date',
             role: 'title',
@@ -184,7 +184,7 @@ function TemperatureLogs() {
         },
     ];
 
-    const cookingColumns: readonly CatalogueColumn<CookingTemperature>[] = [
+    const cookingColumns: readonly DataTableColumn<CookingTemperature>[] = [
         {
             key: 'when',
             role: 'title',
@@ -229,7 +229,7 @@ function TemperatureLogs() {
         },
     ];
 
-    const unitColumns: readonly CatalogueColumn<TemperatureUnit>[] = [
+    const unitColumns: readonly DataTableColumn<TemperatureUnit>[] = [
         {
             key: 'name',
             role: 'title',
@@ -305,7 +305,7 @@ function TemperatureLogs() {
                     body={t('kitchen:temperature.emptyBody')}
                 />
             ) : (
-                <CatalogueList<TemperatureReading>
+                <DataTable<TemperatureReading>
                     testID="kitchen-temperature-readings"
                     label={t('kitchen:temperature.tabReadings')}
                     columns={readingColumns}
@@ -323,7 +323,7 @@ function TemperatureLogs() {
                     body={t('kitchen:temperature.cookingEmptyBody')}
                 />
             ) : (
-                <CatalogueList<CookingTemperature>
+                <DataTable<CookingTemperature>
                     testID="kitchen-temperature-cooking"
                     label={t('kitchen:temperature.tabCooking')}
                     columns={cookingColumns}
@@ -340,7 +340,7 @@ function TemperatureLogs() {
                 body={t('kitchen:temperature.unitsEmptyBody')}
             />
         ) : (
-            <CatalogueList<TemperatureUnit>
+            <DataTable<TemperatureUnit>
                 testID="kitchen-temperature-units"
                 label={t('kitchen:temperature.tabUnits')}
                 columns={unitColumns}

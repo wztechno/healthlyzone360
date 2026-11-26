@@ -11,7 +11,7 @@ import { Pressable, Text as RNText, View } from 'react-native';
  * ```
  *
  * It owns its ground — sunken, or the danger tint for a group that is itself a warning — so it is
- * passed to `CatalogueList`'s `sectionHeader` as it is; the list draws only the rule above it.
+ * passed to `DataTable`'s `sectionHeader` as it is; the list draws only the rule above it.
  *
  * With `onPress` the whole row is the way on, like an order row under it: it takes the hover and
  * the press, and `actionLabel` ("See all ›") says where it goes. The label is words on the row,

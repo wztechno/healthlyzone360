@@ -6,19 +6,7 @@ import type {
     RecipeLineCost,
 } from '@healthy360/api-client/contracts';
 import { PACKAGING_CATEGORY_CODE } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    DataList,
-    growWeights,
-    Icon,
-    IconButton,
-    inputControlClass,
-    inputFrameClassName,
-    Select,
-    Text,
-    UNDROPPABLE_PRIORITY,
-} from '@healthy360/design-system';
+import { Badge, Button, DataTable, growWeights, Icon, IconButton, inputControlClass, inputFrameClassName, Select, Text, UNDROPPABLE_PRIORITY } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { MeasureUnit } from '@healthy360/nutrition';
@@ -852,7 +840,8 @@ export function RecipeLineTable({
                  * `testID` goes on the list itself rather than on a wrapper, so a row is still
                  * `${testID}-row-${key}` — the id `DataList` mints from its own id and the row key.
                  */}
-                <DataList<LineDraft>
+                <DataTable<LineDraft>
+                    lines
                     testID={testID}
                     label={t(
                         wantsIngredients

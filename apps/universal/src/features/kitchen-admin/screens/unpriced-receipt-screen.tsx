@@ -3,24 +3,7 @@ import type {
     GoodsReceiptLine,
     StockItem,
 } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Cascade,
-    DataList,
-    Dialog,
-    EmptyState,
-    ErrorState,
-    FormSection,
-    IssueTrayFrame,
-    IssueUnanchored,
-    QuantityInput,
-    RecordSkeleton,
-    Text,
-    useContentWidth,
-    useIssueTrayController,
-    useToast,
-} from '@healthy360/design-system';
+import { Badge, Button, Cascade, DataTable, Dialog, EmptyState, ErrorState, FormSection, IssueTrayFrame, IssueUnanchored, QuantityInput, RecordSkeleton, Text, useContentWidth, useIssueTrayController, useToast } from '@healthy360/design-system';
 import type {
     DataListColumn,
     IssueCardItem,
@@ -418,7 +401,8 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                                     : t('kitchen:ops.unpricedReceipts.quantitiesImmutable')
                             }
                         >
-                            <DataList<GoodsReceiptLine>
+                            <DataTable<GoodsReceiptLine>
+                                lines
                                 testID="kitchen-unpriced-receipt-lines-table"
                                 label={t('kitchen:ops.unpricedReceipts.linesHeading')}
                                 columns={columns}

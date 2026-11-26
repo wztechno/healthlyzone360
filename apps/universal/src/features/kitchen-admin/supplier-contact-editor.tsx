@@ -1,11 +1,10 @@
 import type { SupplierContact, SupplierContactInput } from '@healthy360/api-client/contracts';
-import { Badge, DataList, Stack, Text, TextInputField } from '@healthy360/design-system';
+import { Badge, DataTable, DeskRowMenu, Stack, Text, TextInputField } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import type { SupplierContactId } from '@healthy360/domain-types';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { DeskRowMenu } from './desk-kit/desk-row-menu.tsx';
 import { supplierContactRowTestId } from './ops-format.ts';
 /**
  * The supplier contact editor (SUP1) — a set of contacts edited together and saved once.
@@ -341,7 +340,8 @@ export function SupplierContactRows({
     ];
 
     return (
-        <DataList<SupplierContactDraft>
+        <DataTable<SupplierContactDraft>
+            lines
             testID={testID}
             label={t('kitchen:ops.suppliers.sectionContacts')}
             columns={columns}

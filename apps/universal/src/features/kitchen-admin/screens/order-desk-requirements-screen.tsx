@@ -3,6 +3,7 @@ import {
     Button,
     Callout,
     Cascade,
+    DataTable,
     DatePicker,
     EmptyState,
     ErrorState,
@@ -11,7 +12,7 @@ import {
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -24,8 +25,6 @@ import { useOrderDeskRequirementsQuery } from '../../../data/order-desk-hooks.ts
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { addDays, todayIso } from '../../commerce/dates.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
     compareNumber,
@@ -237,7 +236,7 @@ function OrderDeskRequirements() {
 
     const columns: readonly ControlledColumn<
         OrderDeskRequirement,
-        CatalogueColumn<OrderDeskRequirement>
+        DataTableColumn<OrderDeskRequirement>
     >[] = [
         {
             key: 'ingredient',
@@ -681,7 +680,7 @@ function OrderDeskRequirements() {
                 ) : (
                     <View className="flex-col gap-snug">
                         {rows.length === 0 ? (
-                            <CatalogueList<OrderDeskRequirement>
+                            <DataTable<OrderDeskRequirement>
                                 testID="kitchen-order-desk-requirements-table"
                                 label={t('kitchen:ops.requirements.title')}
                                 columns={controls.columns}
@@ -701,7 +700,7 @@ function OrderDeskRequirements() {
                                 }
                             />
                         ) : (
-                            <CatalogueList<OrderDeskRequirement>
+                            <DataTable<OrderDeskRequirement>
                                 testID="kitchen-order-desk-requirements-table"
                                 label={t('kitchen:ops.requirements.title')}
                                 columns={controls.columns}

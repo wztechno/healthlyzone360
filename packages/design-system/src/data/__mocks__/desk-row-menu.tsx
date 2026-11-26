@@ -1,4 +1,4 @@
-import type { MenuItem } from '@healthy360/design-system';
+import type { MenuItem } from '../../overlays/menu.tsx';
 import { Pressable, Text, View } from 'react-native';
 
 /**

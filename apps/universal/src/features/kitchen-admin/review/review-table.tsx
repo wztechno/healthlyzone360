@@ -1,4 +1,11 @@
-import { Text } from '@healthy360/design-system';
+import {
+    DataTable,
+    ROW_ACTIONS_WIDTH,
+    RowActionsMenu,
+    TablePager,
+    Text,
+} from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { useMemo, useState } from 'react';
@@ -7,10 +14,6 @@ import { View } from 'react-native';
 import { displayName, statusKey } from '../format.ts';
 import { reviewFamilyKey, reviewReasonKey, reviewRowTestId } from '../review-queue.ts';
 import type { ReviewItem } from '../review-queue.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { ROW_ACTIONS_WIDTH, RowActionsMenu } from '../catalogue/row-actions-menu.tsx';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ColumnControls, ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { ReviewReasonChip } from './review-reason-chip.tsx';
@@ -47,7 +50,7 @@ export function shortReference(reference: string): string {
     return hash === -1 ? reference : reference.slice(hash + 1);
 }
 
-export type ReviewColumnControls = ColumnControls<ReviewItem, CatalogueColumn<ReviewItem>>;
+export type ReviewColumnControls = ColumnControls<ReviewItem, DataTableColumn<ReviewItem>>;
 
 export interface ReviewTableProps {
     /** Already narrowed by the screen's search, scope and window, in the queue's own order. */
@@ -84,7 +87,7 @@ export function useReviewColumns({
             ? t(reviewFamilyKey(item.familyKey))
             : shortReference(item.reference);
 
-    const columns: readonly ControlledColumn<ReviewItem, CatalogueColumn<ReviewItem>>[] = [
+    const columns: readonly ControlledColumn<ReviewItem, DataTableColumn<ReviewItem>>[] = [
         {
             key: 'reference',
             role: 'meta',
@@ -261,7 +264,7 @@ export function ReviewTable({ items, controls, onView, joined, testID }: ReviewT
 
     return (
         <View className="flex-col gap-snug">
-            <CatalogueList<ReviewItem>
+            <DataTable<ReviewItem>
                 testID={`${testID}-list`}
                 label={t('kitchen:review.title')}
                 columns={controls.columns}
@@ -272,7 +275,7 @@ export function ReviewTable({ items, controls, onView, joined, testID }: ReviewT
                 rowActionsLabel={t('kitchen:list.rowActions')}
                 joined={joined}
             />
-            <CataloguePager
+            <TablePager
                 testID={`${testID}-pagination`}
                 page={page}
                 totalPages={totalPages}

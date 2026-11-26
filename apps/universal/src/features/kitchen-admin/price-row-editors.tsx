@@ -5,18 +5,19 @@ import {
     Button,
     Checkbox,
     cx,
-    GRID_CONTENT_ATTR,
+    DataTable,
+    DatePicker,
     Icon,
     IconButton,
-    DatePicker,
     QuantityInput,
     SearchInput,
     SegmentedControl,
     Select,
     Text,
+    UNDROPPABLE_PRIORITY,
     useToast,
 } from '@healthy360/design-system';
-import type { SelectOption, TabItem } from '@healthy360/design-system';
+import type { DataTableColumn, SelectOption, TabItem } from '@healthy360/design-system';
 import { minorUnitExponent } from '@healthy360/domain-types';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -544,11 +545,12 @@ const BASIS_KEYS: Readonly<Record<PriceStatus, string>> = {
 };
 
 /**
- * The tracks, in dp. The item takes whatever the row has left over its floor; every other track is
- * its figure's width. *How it's priced* is the design's 232 plus what the segments' 8px inset needs
- * for a bold *Confirmed*. *Until* is the date field plus the button that makes it open-ended again.
+ * What each cell holds, in dp. The item takes whatever the row has left over its floor; every other
+ * cell is its figure's width. *How it's priced* is the design's 232 plus what the segments' 8px
+ * inset needs for a bold *Confirmed*. *Until* is the date field plus the button that makes it
+ * open-ended again.
  */
-const TRACK = {
+const CONTENT = {
     select: 20,
     item: 180,
     pack: 88,
@@ -558,26 +560,29 @@ const TRACK = {
     until: 152,
     remove: 28,
 } as const;
-/*
- * 10 rather than the design's 12, and the item's floor 180 rather than 200: with the wider basis
- * track, that is what keeps the whole row inside a 1440 window with the page panel open — the width
- * the design is drawn at — instead of scrolling it by a few pixels.
- */
-const COLUMN_GAP = 10;
-const ROW_INSET = 16;
-const TRACK_COUNT = Object.keys(TRACK).length;
+
+/** `DataTable`'s cell inset — 8 a side, and 14 before the first cell — around what a cell holds. */
+const CELL_INSET = 16;
+const FIRST_CELL_INSET = 22;
+
+/** The tracks `DataTable` draws: each cell's content plus the table's own inset around it. */
+const TRACK = {
+    select: CONTENT.select + FIRST_CELL_INSET,
+    item: CONTENT.item + CELL_INSET,
+    pack: CONTENT.pack + CELL_INSET,
+    basis: CONTENT.basis + CELL_INSET,
+    amount: CONTENT.amount + CELL_INSET,
+    from: CONTENT.from + CELL_INSET,
+    until: CONTENT.until + CELL_INSET,
+    remove: CONTENT.remove + CELL_INSET,
+} as const;
 
 /** Below this the grid scrolls sideways rather than squeezing a figure. */
-export const PRICE_GRID_FLOOR =
-    Object.values(TRACK).reduce((sum, width) => sum + width, 0) +
-    COLUMN_GAP * (TRACK_COUNT - 1) +
-    ROW_INSET * 2;
+export const PRICE_GRID_FLOOR = Object.values(TRACK).reduce((sum, width) => sum + width, 0);
 
 function fixedTrack(width: number) {
     return { width, flexShrink: 0 } as const;
 }
-
-const ITEM_TRACK = { flexBasis: TRACK.item, flexGrow: 1, flexShrink: 0, minWidth: 0 } as const;
 
 /** What the server refused about one row's save, in its own words, by the field it is about. */
 export interface PriceEntryRefusal {
@@ -791,7 +796,7 @@ export function PriceEntriesCard({
         onChange(rows.map((entry) => (entry.key === key ? { ...entry, ...next } : entry)));
     };
 
-    const renderRow = (row: PriceEntryDraft) => {
+    const partsOf = (row: PriceEntryDraft) => {
         const base = `${gridID}-row-${row.key}`;
         const thing = describe(row);
         const name = nameOf(row);
@@ -907,312 +912,313 @@ export function PriceEntriesCard({
 
         const pack = thing?.pack ?? null;
 
-        return (
-            <View
-                key={row.key}
-                role="row"
-                testID={base}
-                nativeID={base}
-                className={cx(
-                    'border-b border-stroke-subtle px-base py-1.5',
-                    rowProblems !== undefined || refusal !== undefined
-                        ? 'bg-danger-subtle/50'
-                        : isSelected
-                          ? 'bg-surface-sunken'
-                          : isNew
-                            ? 'bg-surface-brand-subtle/40'
-                            : null,
-                )}
-            >
-                <View className="flex-row items-start gap-2.5">
-                    <View role="cell" style={fixedTrack(TRACK.select)} className="pt-1.5">
-                        {canManage && !lockedMeal ? (
-                            <Checkbox
-                                testID={`${base}-select`}
-                                checked={isSelected}
-                                onChange={(on) => {
-                                    toggleRow(row.key, on);
-                                }}
-                                label={t('kitchen:priceLists.selectEntry', { name })}
-                                labelHidden
-                            />
-                        ) : null}
-                    </View>
-
-                    <View role="cell" style={ITEM_TRACK}>
-                        {itemCell}
-                    </View>
-
-                    <View role="cell" style={fixedTrack(TRACK.pack)} className="items-start pt-1">
-                        {pack === null ? (
-                            <Text tone="secondary" testID={`${base}-pack-none`}>
-                                {t('kitchen:list.noValue')}
-                            </Text>
-                        ) : (
-                            <Badge
-                                testID={`${base}-pack`}
-                                variant="label"
-                                tone="neutral"
-                                label={pack}
-                            />
-                        )}
-                    </View>
-
-                    <View role="cell" style={fixedTrack(TRACK.basis)}>
-                        <SegmentedControl<PriceStatus>
-                            testID={`${base}-basis`}
-                            label={t('kitchen:priceLists.basisFieldLabel', { name })}
-                            radio
-                            value={row.priceStatus}
-                            onChange={(next) => {
-                                onChange(
-                                    rows.map((entry) =>
-                                        entry.key === row.key
-                                            ? withPriceStatus(
-                                                  entry,
-                                                  next,
-                                                  saved?.priceStatus === 'confirmed'
-                                                      ? saved.amount
-                                                      : '',
-                                              )
-                                            : entry,
-                                    ),
-                                );
+        return {
+            select: (
+                <>
+                    {canManage && !lockedMeal ? (
+                        <Checkbox
+                            testID={`${base}-select`}
+                            checked={isSelected}
+                            onChange={(on) => {
+                                toggleRow(row.key, on);
                             }}
-                            items={PRICE_STATUSES.map((status) => ({
-                                value: status,
-                                label: t(BASIS_KEYS[status]),
-                                disabled: !canManage || lockedMeal,
-                                testID: `${base}-basis-${status}`,
-                            }))}
-                        />
-                    </View>
-
-                    <View role="cell" style={fixedTrack(TRACK.amount)} className="gap-0.5">
-                        <QuantityInput
-                            testID={`${base}-amount`}
-                            id={`${base}-amount`}
-                            label={t('kitchen:priceLists.amountFieldLabel', { name, currency })}
+                            label={t('kitchen:priceLists.selectEntry', { name })}
                             labelHidden
-                            size="sm"
-                            value={row.amount}
-                            placeholder={confirmed ? minorAmountToInput(0, currency) : '—'}
-                            required={confirmed}
-                            disabled={!confirmed || !canManage || lockedMeal}
-                            error={amountError}
-                            onChangeText={(next) => {
-                                patchRow(row.key, { amount: next });
-                            }}
                         />
-                        {lockedMeal ? (
-                            <Text testID={`${base}-set-on-meal`} variant="micro" tone="secondary">
-                                {t('kitchen:priceLists.setOnMeal')}
-                            </Text>
-                        ) : !confirmed ? (
-                            <Text testID={`${base}-no-amount`} variant="micro" tone="secondary">
-                                {row.priceStatus === 'placeholder'
-                                    ? t('kitchen:priceLists.notOnSale')
-                                    : t('kitchen:priceLists.setAtCounter')}
-                            </Text>
-                        ) : was === null ? null : (
-                            <Text
-                                testID={`${base}-was`}
-                                variant="micro"
-                                tone={was.large ? 'danger' : 'warning'}
-                            >
-                                {was.text}
-                            </Text>
-                        )}
-                    </View>
-
-                    <View role="cell" style={fixedTrack(TRACK.from)}>
+                    ) : null}
+                </>
+            ),
+            item: <>{itemCell}</>,
+            pack: (
+                <>
+                    {pack === null ? (
+                        <Text tone="secondary" testID={`${base}-pack-none`}>
+                            {t('kitchen:list.noValue')}
+                        </Text>
+                    ) : (
+                        <Badge
+                            testID={`${base}-pack`}
+                            variant="label"
+                            tone="neutral"
+                            label={pack}
+                        />
+                    )}
+                </>
+            ),
+            basis: (
+                <>
+                    <SegmentedControl<PriceStatus>
+                        testID={`${base}-basis`}
+                        label={t('kitchen:priceLists.basisFieldLabel', { name })}
+                        radio
+                        value={row.priceStatus}
+                        onChange={(next) => {
+                            onChange(
+                                rows.map((entry) =>
+                                    entry.key === row.key
+                                        ? withPriceStatus(
+                                              entry,
+                                              next,
+                                              saved?.priceStatus === 'confirmed'
+                                                  ? saved.amount
+                                                  : '',
+                                          )
+                                        : entry,
+                                ),
+                            );
+                        }}
+                        items={PRICE_STATUSES.map((status) => ({
+                            value: status,
+                            label: t(BASIS_KEYS[status]),
+                            disabled: !canManage || lockedMeal,
+                            testID: `${base}-basis-${status}`,
+                        }))}
+                    />
+                </>
+            ),
+            amount: (
+                <View className="gap-0.5">
+                    <QuantityInput
+                        testID={`${base}-amount`}
+                        id={`${base}-amount`}
+                        label={t('kitchen:priceLists.amountFieldLabel', { name, currency })}
+                        labelHidden
+                        size="sm"
+                        value={row.amount}
+                        placeholder={confirmed ? minorAmountToInput(0, currency) : '—'}
+                        required={confirmed}
+                        disabled={!confirmed || !canManage || lockedMeal}
+                        error={amountError}
+                        onChangeText={(next) => {
+                            patchRow(row.key, { amount: next });
+                        }}
+                    />
+                    {lockedMeal ? (
+                        <Text testID={`${base}-set-on-meal`} variant="micro" tone="secondary">
+                            {t('kitchen:priceLists.setOnMeal')}
+                        </Text>
+                    ) : !confirmed ? (
+                        <Text testID={`${base}-no-amount`} variant="micro" tone="secondary">
+                            {row.priceStatus === 'placeholder'
+                                ? t('kitchen:priceLists.notOnSale')
+                                : t('kitchen:priceLists.setAtCounter')}
+                        </Text>
+                    ) : was === null ? null : (
+                        <Text
+                            testID={`${base}-was`}
+                            variant="micro"
+                            tone={was.large ? 'danger' : 'warning'}
+                        >
+                            {was.text}
+                        </Text>
+                    )}
+                </View>
+            ),
+            from: (
+                <>
+                    <DatePicker
+                        testID={`${base}-effective-from`}
+                        label={t('kitchen:priceLists.fromFieldLabel', { name })}
+                        labelHidden
+                        disabled={!canManage}
+                        value={row.effectiveFrom}
+                        valueLabel={formatEntryDate(formatter, row.effectiveFrom)}
+                        onChange={(next) => {
+                            patchRow(row.key, { effectiveFrom: next });
+                        }}
+                    />
+                </>
+            ),
+            until: (
+                <View className="flex-row items-center gap-hair">
+                    <View className="min-w-0 flex-1">
                         <DatePicker
-                            testID={`${base}-effective-from`}
-                            label={t('kitchen:priceLists.fromFieldLabel', { name })}
+                            testID={`${base}-effective-until`}
+                            label={t('kitchen:priceLists.untilFieldLabel', { name })}
                             labelHidden
                             disabled={!canManage}
-                            value={row.effectiveFrom}
-                            valueLabel={formatEntryDate(formatter, row.effectiveFrom)}
+                            value={row.effectiveUntil}
+                            placeholder={t('kitchen:priceLists.openEnded')}
+                            {...(row.effectiveUntil === null
+                                ? {}
+                                : {
+                                      valueLabel: formatEntryDate(formatter, row.effectiveUntil),
+                                  })}
                             onChange={(next) => {
-                                patchRow(row.key, { effectiveFrom: next });
+                                patchRow(row.key, { effectiveUntil: next });
                             }}
                         />
                     </View>
-
-                    <View
-                        role="cell"
-                        style={fixedTrack(TRACK.until)}
-                        className="flex-row items-center gap-hair"
-                    >
-                        <View className="min-w-0 flex-1">
-                            <DatePicker
-                                testID={`${base}-effective-until`}
-                                label={t('kitchen:priceLists.untilFieldLabel', { name })}
-                                labelHidden
-                                disabled={!canManage}
-                                value={row.effectiveUntil}
-                                placeholder={t('kitchen:priceLists.openEnded')}
-                                {...(row.effectiveUntil === null
-                                    ? {}
-                                    : {
-                                          valueLabel: formatEntryDate(
-                                              formatter,
-                                              row.effectiveUntil,
-                                          ),
-                                      })}
-                                onChange={(next) => {
-                                    patchRow(row.key, { effectiveUntil: next });
-                                }}
-                            />
-                        </View>
-                        {row.effectiveUntil === null || !canManage ? (
-                            <View style={fixedTrack(TRACK.remove)} />
-                        ) : (
-                            <IconButton
-                                testID={`${base}-effective-until-clear`}
-                                label={t('kitchen:priceLists.clearUntil', { name })}
-                                variant="ghost"
-                                size="sm"
-                                icon={<Icon name="close" size="sm" />}
-                                onPress={() => {
-                                    patchRow(row.key, { effectiveUntil: null });
-                                }}
-                            />
+                    {row.effectiveUntil === null || !canManage ? (
+                        <View style={fixedTrack(CONTENT.remove)} />
+                    ) : (
+                        <IconButton
+                            testID={`${base}-effective-until-clear`}
+                            label={t('kitchen:priceLists.clearUntil', { name })}
+                            variant="ghost"
+                            size="sm"
+                            icon={<Icon name="close" size="sm" />}
+                            onPress={() => {
+                                patchRow(row.key, { effectiveUntil: null });
+                            }}
+                        />
+                    )}
+                </View>
+            ),
+            remove: (
+                <>
+                    {canManage ? (
+                        <IconButton
+                            testID={`${base}-remove`}
+                            label={t('kitchen:priceLists.removeEntry', { name })}
+                            variant="ghost"
+                            tone="danger"
+                            size="sm"
+                            icon={<Icon name="close" size="sm" />}
+                            onPress={() => {
+                                onChange(rows.filter((entry) => entry.key !== row.key));
+                            }}
+                        />
+                    ) : null}
+                </>
+            ),
+            note:
+                rowProblems === undefined && refusalNote === '' ? null : (
+                    <View className="flex-col">
+                        {rowProblems === undefined ? null : (
+                            <View className="mt-1.5 ps-8">
+                                <Text testID={`${base}-problems`} variant="caption" tone="danger">
+                                    {t('kitchen:priceLists.problemsNote', {
+                                        problems: sentenceCase(
+                                            rowProblems
+                                                .map((problem) => problemText(problem, name))
+                                                .join(' · '),
+                                        ),
+                                    })}
+                                </Text>
+                            </View>
+                        )}
+                        {refusalNote === '' ? null : (
+                            <View className="mt-1.5 ps-8">
+                                <Text testID={`${base}-refused`} variant="caption" tone="danger">
+                                    {refusalNote}
+                                </Text>
+                            </View>
                         )}
                     </View>
-
-                    <View role="cell" style={fixedTrack(TRACK.remove)}>
-                        {canManage ? (
-                            <IconButton
-                                testID={`${base}-remove`}
-                                label={t('kitchen:priceLists.removeEntry', { name })}
-                                variant="ghost"
-                                tone="danger"
-                                size="sm"
-                                icon={<Icon name="close" size="sm" />}
-                                onPress={() => {
-                                    onChange(rows.filter((entry) => entry.key !== row.key));
-                                }}
-                            />
-                        ) : null}
-                    </View>
-                </View>
-
-                {rowProblems === undefined ? null : (
-                    <View className="mt-1.5 ps-8">
-                        <Text testID={`${base}-problems`} variant="caption" tone="danger">
-                            {t('kitchen:priceLists.problemsNote', {
-                                problems: sentenceCase(
-                                    rowProblems
-                                        .map((problem) => problemText(problem, name))
-                                        .join(' · '),
-                                ),
-                            })}
-                        </Text>
-                    </View>
-                )}
-                {refusalNote === '' ? null : (
-                    <View className="mt-1.5 ps-8">
-                        <Text testID={`${base}-refused`} variant="caption" tone="danger">
-                            {refusalNote}
-                        </Text>
-                    </View>
-                )}
-            </View>
-        );
+                ),
+            tone:
+                rowProblems !== undefined || refusal !== undefined
+                    ? ('danger' as const)
+                    : isNew
+                      ? ('new' as const)
+                      : undefined,
+        };
     };
 
     /* ── the grid ──────────────────────────────────────────────────────────────────────────── */
 
-    const headerCell = (label: string, align: 'start' | 'end' = 'start') => (
-        <RNText
-            className={cx(
-                'text-role-label font-semibold text-content-on-brand-subtle',
-                align === 'end' ? 'text-end' : 'text-start',
-            )}
-        >
-            {label}
-        </RNText>
-    );
+    /*
+     * Each row's cells are worked out once per draw and handed to the columns: the row's problems,
+     * its refusal and its "was" figure feed several cells, so the columns share one reading.
+     */
+    const ordered = groups.flatMap((entry) => entry.rows);
+    const partsByKey = new Map(ordered.map((row) => [row.key, partsOf(row)] as const));
+    const parts = (row: PriceEntryDraft) => partsByKey.get(row.key) ?? partsOf(row);
+
+    const fixed = (key: string, label: string, width: number) =>
+        ({ key, label, width, grow: false, priority: UNDROPPABLE_PRIORITY }) as const;
+
+    const columns: readonly DataTableColumn<PriceEntryDraft>[] = [
+        {
+            ...fixed('select', t('kitchen:priceLists.selectAll'), TRACK.select),
+            renderHeader: () =>
+                canManage && visibleKeys.length > 0 ? (
+                    <Checkbox
+                        testID={`${gridID}-select-all`}
+                        checked={allVisibleSelected}
+                        mixed={!allVisibleSelected && selected.size > 0}
+                        onChange={toggleAll}
+                        label={t('kitchen:priceLists.selectAll')}
+                        labelHidden
+                    />
+                ) : null,
+            render: (row) => parts(row).select,
+        },
+        {
+            key: 'item',
+            label: t('kitchen:priceLists.itemLabel'),
+            width: TRACK.item,
+            fill: true,
+            priority: UNDROPPABLE_PRIORITY,
+            render: (row) => parts(row).item,
+        },
+        {
+            ...fixed('pack', t('kitchen:priceLists.packLabel'), TRACK.pack),
+            render: (row) => parts(row).pack,
+        },
+        {
+            ...fixed('basis', t('kitchen:priceLists.basisLabel'), TRACK.basis),
+            render: (row) => parts(row).basis,
+        },
+        {
+            ...fixed('amount', t('kitchen:priceLists.amountLabel', { currency }), TRACK.amount),
+            render: (row) => parts(row).amount,
+        },
+        {
+            ...fixed('from', t('kitchen:priceLists.effectiveFromLabel'), TRACK.from),
+            render: (row) => parts(row).from,
+        },
+        {
+            ...fixed('until', t('kitchen:priceLists.effectiveUntilLabel'), TRACK.until),
+            render: (row) => parts(row).until,
+        },
+        {
+            ...fixed('remove', t('kitchen:priceLists.removeColumn'), TRACK.remove),
+            renderHeader: () => null,
+            render: (row) => parts(row).remove,
+        },
+    ];
+
+    const groupHeading = (row: PriceEntryDraft, previous: PriceEntryDraft | undefined) => {
+        const group = groupOf(row);
+        if (previous !== undefined && groupOf(previous) === group) return null;
+        const count = groups.find((entry) => entry.group === group)?.rows.length ?? 0;
+        return (
+            <View
+                testID={`${gridID}-group-${group}`}
+                role="rowheader"
+                className="flex-row items-baseline gap-tight border-b border-stroke-subtle px-base pb-1.5 pt-snug"
+            >
+                <RNText className="text-role-caption font-semibold uppercase tracking-wider text-content-secondary">
+                    {t(GROUP_TITLE_KEYS[group])}
+                </RNText>
+                <RNText
+                    testID={`${gridID}-group-${group}-count`}
+                    className="text-role-caption tabular-nums text-content-secondary"
+                >
+                    {String(count)}
+                </RNText>
+            </View>
+        );
+    };
 
     const grid = (
-        <View
-            testID={gridID}
-            role="table"
-            aria-label={t('kitchen:priceLists.entriesTitle')}
-            // Spread rather than declared: `data-*` is a web attribute React Native does not type.
-            // It marks the box whose width the item picker's panel keeps inside, as `DataList` does.
-            {...{ [GRID_CONTENT_ATTR]: 'true' }}
-            style={{ minWidth: PRICE_GRID_FLOOR }}
-            className="flex-col"
-        >
-            <View
-                role="row"
-                className="min-h-row-md flex-row items-center gap-2.5 border-b border-stroke-subtle bg-surface-brand-subtle px-base"
-            >
-                <View role="columnheader" style={fixedTrack(TRACK.select)}>
-                    {canManage && visibleKeys.length > 0 ? (
-                        <Checkbox
-                            testID={`${gridID}-select-all`}
-                            checked={allVisibleSelected}
-                            mixed={!allVisibleSelected && selected.size > 0}
-                            onChange={toggleAll}
-                            label={t('kitchen:priceLists.selectAll')}
-                            labelHidden
-                        />
-                    ) : null}
-                </View>
-                <View role="columnheader" style={ITEM_TRACK}>
-                    {headerCell(t('kitchen:priceLists.itemLabel'))}
-                </View>
-                <View role="columnheader" style={fixedTrack(TRACK.pack)}>
-                    {headerCell(t('kitchen:priceLists.packLabel'))}
-                </View>
-                <View role="columnheader" style={fixedTrack(TRACK.basis)}>
-                    {headerCell(t('kitchen:priceLists.basisLabel'))}
-                </View>
-                <View role="columnheader" style={fixedTrack(TRACK.amount)}>
-                    {headerCell(t('kitchen:priceLists.amountLabel', { currency }))}
-                </View>
-                <View role="columnheader" style={fixedTrack(TRACK.from)}>
-                    {headerCell(t('kitchen:priceLists.effectiveFromLabel'))}
-                </View>
-                <View role="columnheader" style={fixedTrack(TRACK.until)}>
-                    {headerCell(t('kitchen:priceLists.effectiveUntilLabel'))}
-                </View>
-                <View
-                    role="columnheader"
-                    aria-label={t('kitchen:priceLists.removeColumn')}
-                    style={fixedTrack(TRACK.remove)}
-                />
-            </View>
-
-            {groups.map(({ group, rows: groupRows }) => (
-                <View
-                    key={group}
-                    role="rowgroup"
-                    aria-label={t(GROUP_TITLE_KEYS[group])}
-                    testID={`${gridID}-group-${group}`}
-                >
-                    <View
-                        role="row"
-                        className="flex-row items-baseline gap-tight border-b border-stroke-subtle px-base pb-1.5 pt-snug"
-                    >
-                        <View role="rowheader" className="flex-row items-baseline gap-tight">
-                            <RNText className="text-role-caption font-semibold uppercase tracking-wider text-content-secondary">
-                                {t(GROUP_TITLE_KEYS[group])}
-                            </RNText>
-                            <RNText
-                                testID={`${gridID}-group-${group}-count`}
-                                className="text-role-caption tabular-nums text-content-secondary"
-                            >
-                                {String(groupRows.length)}
-                            </RNText>
-                        </View>
-                    </View>
-                    {groupRows.map(renderRow)}
-                </View>
-            ))}
+        <View style={{ minWidth: PRICE_GRID_FLOOR }} className="flex-col">
+            <DataTable<PriceEntryDraft>
+                lines
+                testID={gridID}
+                label={t('kitchen:priceLists.entriesTitle')}
+                columns={columns}
+                rows={ordered}
+                rowKey={(row) => row.key}
+                density="md"
+                framed={false}
+                sectionHeader={groupHeading}
+                rowNote={(row) => parts(row).note}
+                rowTone={(row) => parts(row).tone}
+                isRowSelected={(row) => selected.has(row.key)}
+            />
         </View>
     );
 

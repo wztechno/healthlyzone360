@@ -2,13 +2,15 @@ import {
     Badge,
     Button,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { MenuItem, StatusStep } from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem, StatusStep } from '@healthy360/design-system';
 import type { Quotation, QuotationState } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -23,9 +25,6 @@ import {
     useQuotationsQuery,
 } from '../../../data/business-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../../kitchen-admin/catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { ColumnPicker } from '../../kitchen-admin/catalogue/column-picker.tsx';
 import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
@@ -162,7 +161,7 @@ export function QuotationsScreen({ initialFilter, initialOpen }: QuotationsScree
     const scheduleText = (row: Quotation): string =>
         row.recurring ? t('business:quotations.recurring') : t('business:quotations.oneOff');
 
-    const columns: readonly ControlledColumn<Quotation, CatalogueColumn<Quotation>>[] = [
+    const columns: readonly ControlledColumn<Quotation, DataTableColumn<Quotation>>[] = [
         {
             key: 'reference',
             role: 'title',
@@ -488,7 +487,7 @@ export function QuotationsScreen({ initialFilter, initialOpen }: QuotationsScree
                         }
                     />
                 ) : (
-                    <CatalogueList<Quotation>
+                    <DataTable<Quotation>
                         testID="quotations-list"
                         joined
                         label={t('business:quotations.caption')}
@@ -505,7 +504,7 @@ export function QuotationsScreen({ initialFilter, initialOpen }: QuotationsScree
                             {
                                 key: 'view',
                                 label: t('business:quotations.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `quotation-${row.reference}-view`,
                                 onSelect: () => {
                                     setViewingRef(row.reference);
@@ -869,7 +868,7 @@ function QuotationLines({ quotation }: { readonly quotation: Quotation }) {
     const testId = `quotation-${quotation.reference}`;
     const priced = quotation.lines.some((line) => line.quotedUnitPrice !== null);
 
-    const columns: readonly CatalogueColumn<Quotation['lines'][number]>[] = [
+    const columns: readonly DataTableColumn<Quotation['lines'][number]>[] = [
         {
             key: 'name',
             role: 'title',
@@ -943,7 +942,7 @@ function QuotationLines({ quotation }: { readonly quotation: Quotation }) {
 
     return (
         <View className="overflow-hidden rounded-[14px] border border-stroke-subtle">
-            <CatalogueList
+            <DataTable
                 testID={`${testId}-line-table`}
                 label={t('business:quotations.linesTitle')}
                 columns={columns}

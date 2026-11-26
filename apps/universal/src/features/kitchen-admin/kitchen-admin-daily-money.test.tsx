@@ -18,7 +18,7 @@ import { DishMarginsScreen } from './screens/dish-margins-screen.tsx';
 import { OrderDeskCloseScreen } from './screens/order-desk-close-screen.tsx';
 import { PayablesScreen } from './screens/payables-screen.tsx';
 
-/** `CatalogueList` lays out columns from `md`; React Native's Jest window is 750px. */
+/** `DataTable` lays out columns from `md`; React Native's Jest window is 750px. */
 const narrowWindow = Dimensions.get('window');
 beforeAll(() => {
     Dimensions.set({

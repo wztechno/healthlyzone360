@@ -3,12 +3,14 @@ import {
     Callout,
     Cascade,
     Checkbox,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
     TableSkeleton,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 import type { CatalogueItem, CatalogueItemKind } from '@healthy360/api-client/contracts';
 import { CorporateProgrammeId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -18,9 +20,6 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { toFailure, useCorporateCatalogueQuery } from '../../../data/business-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../../kitchen-admin/catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { ColumnPicker } from '../../kitchen-admin/catalogue/column-picker.tsx';
 import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
@@ -121,7 +120,7 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
     };
     const shownPicked = items.filter((item) => picked.has(item.id));
 
-    const pickColumn: ControlledColumn<CatalogueItem, CatalogueColumn<CatalogueItem>> = {
+    const pickColumn: ControlledColumn<CatalogueItem, DataTableColumn<CatalogueItem>> = {
         key: 'pick',
         label: t('business:picked.pickAll'),
         width: 40,
@@ -323,7 +322,7 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
                         }
                     />
                 ) : (
-                    <CatalogueList<CatalogueItem>
+                    <DataTable<CatalogueItem>
                         testID="corporate-catalogue-list"
                         joined
                         label={t('business:catalogue.caption')}
@@ -340,7 +339,7 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
                             {
                                 key: 'open',
                                 label: t('business:quotations.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `catalogue-item-${item.id}-open`,
                                 onSelect: () => {
                                     router.push(catalogueLineHref(programme, item.id) as never);

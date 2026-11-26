@@ -9,21 +9,7 @@ import type {
     RecipeRollupPack,
     SetItemPacksRequest,
 } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Card,
-    ChoiceRow,
-    DataList,
-    FormSection,
-    Icon,
-    IconButton,
-    QuantityInput,
-    Select,
-    Stack,
-    Text,
-    UNDROPPABLE_PRIORITY,
-    useSectionLook,
-} from '@healthy360/design-system';
+import { Badge, Card, ChoiceRow, DataTable, FormSection, Icon, IconButton, QuantityInput, Select, Stack, Text, UNDROPPABLE_PRIORITY, useSectionLook } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { IngredientId, minorUnitExponent } from '@healthy360/domain-types';
 import type { CurrencyCode, MealId, ProductId } from '@healthy360/domain-types';
@@ -1471,7 +1457,8 @@ export function PackCostTable({
         );
     }
     return (
-        <DataList<PackSummary>
+        <DataTable<PackSummary>
+            lines
             testID={testID}
             label={t('kitchen:packs.costingTitle')}
             columns={columns}

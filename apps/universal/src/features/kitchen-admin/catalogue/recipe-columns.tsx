@@ -6,7 +6,15 @@ import type {
     RecipeSoldAsPack,
     StockBlocker,
 } from '@healthy360/api-client/contracts';
-import { Badge, Icon, IconButton, Inline, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    DATA_TABLE_PRIORITY,
+    Icon,
+    IconButton,
+    Inline,
+    Text,
+} from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import { SALES_CHANNELS } from '@healthy360/domain-types';
 import type { KitchenId, SalesChannel } from '@healthy360/domain-types';
 import type { Formatter } from '@healthy360/i18n';
@@ -23,17 +31,16 @@ import {
 } from '../format.ts';
 import { resolveEntityImage } from '../../../media/entity-image.tsx';
 import { allergenLabel } from '../ops-format.ts';
-import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
-import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
+import { RowThumbnail } from './row-thumbnail.tsx';
 /**
  * The recipe book, as an array — every track the merged page can draw, answering this entity's
  * questions: what the recipe is, what it is sold as, and whether that is on sale.
  *
  * This file *is* the recipe list. The screen beside it holds the Catalogue's shell parts in order
  * and knows nothing about slugs, versions, sellers or derived allergen labels, exactly as
- * `ingredient-columns.tsx` claims for its own entity. The row's controls belong to `CatalogueList`
+ * `ingredient-columns.tsx` claims for its own entity. The row's controls belong to `DataTable`
  * and are appended there.
  *
  * ## One book, and what sells each recipe
@@ -53,7 +60,7 @@ import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
  * ## The thumbnail is 20px, and decorative
  *
  * Same bargain as the ingredient and product lists: `thumbnail` names the picture and
- * `CatalogueList` draws it — in the title cell of the wide table, on the leading edge of the narrow
+ * `DataTable` draws it — in the title cell of the wide table, on the leading edge of the narrow
  * row — and it is `decorative`, because the designation beside it already carries the meaning (WCAG
  * H67). A sold recipe shows its seller's photograph, the one the menu shows; anything else is keyed
  * `recipe-<slug>`, the server's own, because that is what a recipe photograph is filed under.
@@ -322,7 +329,7 @@ export function recipeColumns({
     kitchenName,
     sells,
     onOpen,
-}: RecipeColumnDeps): readonly CatalogueColumn<RecipeAdminSummary>[] {
+}: RecipeColumnDeps): readonly DataTableColumn<RecipeAdminSummary>[] {
     const dash = t('kitchen:list.noValue');
     const rowID = (row: RecipeAdminSummary): string => recipeRowTestId(String(row.id));
 
@@ -374,12 +381,12 @@ export function recipeColumns({
                         ]),
               ];
 
-    const reference: CatalogueColumn<RecipeAdminSummary> = {
+    const reference: DataTableColumn<RecipeAdminSummary> = {
         key: 'reference',
         label: t('kitchen:list.columnReference'),
         width: 96,
         min: 84,
-        priority: CATALOGUE_PRIORITY.reference,
+        priority: DATA_TABLE_PRIORITY.reference,
         role: 'meta',
         mono: true,
         sortable: true,
@@ -403,18 +410,19 @@ export function recipeColumns({
         ),
     };
 
-    const name: CatalogueColumn<RecipeAdminSummary> = {
+    const name: DataTableColumn<RecipeAdminSummary> = {
         key: 'name',
         label: t('kitchen:recipes.columnName'),
         width: 200,
         min: 150,
-        priority: CATALOGUE_PRIORITY.designation,
+        priority: DATA_TABLE_PRIORITY.designation,
         role: 'title',
         sortable: true,
         sortType: 'text',
         value: (row) => displayName(row.name, locale).value,
-        thumbnail: recipePhotoId,
-        thumbnailUrl: (row) => row.photoUrl,
+        thumbnail: (row, shape) => (
+            <RowThumbnail {...shape} assetId={recipePhotoId(row)} photoUrl={row.photoUrl} />
+        ),
         render: (row) => {
             const title = displayName(row.name, locale);
             return (
@@ -490,12 +498,12 @@ export function recipeColumns({
 
     // No sort and no filter. The kind strip above the cards is the kind control, and a header
     // filter here would be reset by hiding the column — which must never move the reader's tab.
-    const kind: CatalogueColumn<RecipeAdminSummary> = {
+    const kind: DataTableColumn<RecipeAdminSummary> = {
         key: 'kind',
         label: t('kitchen:recipes.columnKind'),
         width: 120,
         min: 96,
-        priority: CATALOGUE_PRIORITY.unitPrice,
+        priority: DATA_TABLE_PRIORITY.unitPrice,
         role: 'meta',
         value: (row) => kindsLabel(row, t) ?? dash,
         render: (row) => <Text testID={`${rowID(row)}-kind`}>{kindsLabel(row, t) ?? dash}</Text>,
@@ -503,12 +511,12 @@ export function recipeColumns({
 
     // The recipe's own filing word, and the server's `category` filter matches exactly that; a
     // recipe filed under nothing borrows its seller's pair so the cell says where the menu files it.
-    const category: CatalogueColumn<RecipeAdminSummary> = {
+    const category: DataTableColumn<RecipeAdminSummary> = {
         key: 'category',
         label: t('kitchen:list.columnCategory'),
         width: 150,
         min: 112,
-        priority: CATALOGUE_PRIORITY.category,
+        priority: DATA_TABLE_PRIORITY.category,
         role: 'meta',
         value: categoryLabel,
         render: (row) => {
@@ -524,12 +532,12 @@ export function recipeColumns({
         },
     };
 
-    const allergens: CatalogueColumn<RecipeAdminSummary> = {
+    const allergens: DataTableColumn<RecipeAdminSummary> = {
         key: 'allergens',
         label: t('kitchen:recipes.columnAllergens'),
         width: 168,
         min: 132,
-        priority: CATALOGUE_PRIORITY.allergens,
+        priority: DATA_TABLE_PRIORITY.allergens,
         role: 'meta',
         value: allergensOf,
         render: (row) => {
@@ -554,12 +562,12 @@ export function recipeColumns({
 
     // The item's publication, not the recipe's: what a shopper can buy. `meta`, not `status` — a
     // spec states one status role, and the recipe's own state holds it.
-    const onSale: CatalogueColumn<RecipeAdminSummary> = {
+    const onSale: DataTableColumn<RecipeAdminSummary> = {
         key: 'onSale',
         label: t('kitchen:recipes.columnOnSale'),
         width: 110,
         min: 78,
-        priority: CATALOGUE_PRIORITY.unitPrice - 1,
+        priority: DATA_TABLE_PRIORITY.unitPrice - 1,
         role: 'meta',
         badge: true,
         value: onSaleLabel,
@@ -580,12 +588,12 @@ export function recipeColumns({
         },
     };
 
-    const status: CatalogueColumn<RecipeAdminSummary> = {
+    const status: DataTableColumn<RecipeAdminSummary> = {
         key: 'status',
         label: t('kitchen:list.columnStatus'),
         width: 110,
         min: 78,
-        priority: CATALOGUE_PRIORITY.status,
+        priority: DATA_TABLE_PRIORITY.status,
         role: 'status',
         badge: true,
         sortable: true,
@@ -600,12 +608,12 @@ export function recipeColumns({
         ),
     };
 
-    const channels: CatalogueColumn<RecipeAdminSummary> = {
+    const channels: DataTableColumn<RecipeAdminSummary> = {
         key: 'channels',
         label: t('kitchen:products.columnChannels'),
         width: 150,
         min: 110,
-        priority: CATALOGUE_PRIORITY.unit,
+        priority: DATA_TABLE_PRIORITY.unit,
         role: 'meta',
         value: channelLabel,
         render: (row) =>
@@ -618,12 +626,12 @@ export function recipeColumns({
             ),
     };
 
-    const packs: CatalogueColumn<RecipeAdminSummary> = {
+    const packs: DataTableColumn<RecipeAdminSummary> = {
         key: 'packs',
         label: t('kitchen:products.columnPacks'),
         width: 160,
         min: 118,
-        priority: CATALOGUE_PRIORITY.unit - 1,
+        priority: DATA_TABLE_PRIORITY.unit - 1,
         role: 'meta',
         value: packLabel,
         render: (row) => {
@@ -659,12 +667,12 @@ export function recipeColumns({
     };
 
     // One column for three caveats, as the product list has it; ids unchanged from there.
-    const flags: CatalogueColumn<RecipeAdminSummary> = {
+    const flags: DataTableColumn<RecipeAdminSummary> = {
         key: 'flags',
         label: t('kitchen:products.columnFlags'),
         width: 132,
         min: 96,
-        priority: CATALOGUE_PRIORITY.allergens - 1,
+        priority: DATA_TABLE_PRIORITY.allergens - 1,
         value: (row) => {
             const notes = flagNotes(row.soldAs?.[0]);
             return notes.length === 0 ? dash : notes.join(', ');
@@ -703,12 +711,12 @@ export function recipeColumns({
         },
     };
 
-    const kitchen: CatalogueColumn<RecipeAdminSummary> = {
+    const kitchen: DataTableColumn<RecipeAdminSummary> = {
         key: 'kitchen',
         label: t('kitchen:recipes.columnKitchen'),
         width: 140,
         min: 120,
-        priority: CATALOGUE_PRIORITY.updated,
+        priority: DATA_TABLE_PRIORITY.updated,
         role: 'meta',
         sortable: true,
         sortType: 'text',

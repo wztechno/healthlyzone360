@@ -2,6 +2,9 @@ import {
     Badge,
     Button,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
+    DataTableBody,
     Dialog,
     Icon,
     Inline,
@@ -13,7 +16,7 @@ import {
     Text,
     useToast,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { RECIPE_KINDS } from '@healthy360/api-client/contracts';
 import type {
     PublishableStatus,
@@ -47,10 +50,7 @@ import {
     RECIPE_MANAGE_PERMISSION,
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { RecipeCardGrid } from '../catalogue/recipe-card-grid.tsx';
-import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
@@ -61,7 +61,6 @@ import type { CatalogueViewField, RecordViewSection } from '../catalogue/record-
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { RECIPE_IMPORT_GUIDE } from '../catalogue/import-guides.ts';
 import { TECHNICAL_SHEETS_MAX, listPrintJob, useListPrint } from '../catalogue/list-print.ts';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import {
     identifierFragment,
     kindsLabel,
@@ -294,7 +293,7 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
         [t, locale, formatter, kitchenName, list.sells],
     );
 
-    const controls = useColumnControls<RecipeAdminSummary, CatalogueColumn<RecipeAdminSummary>>(
+    const controls = useColumnControls<RecipeAdminSummary, DataTableColumn<RecipeAdminSummary>>(
         list.rows,
         columns.map((column) => ({
             ...column,
@@ -564,7 +563,7 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                         }
                     />
 
-                    <CatalogueListBody
+                    <DataTableBody
                         testID="kitchen-recipes"
                         list={list}
                         empty={{
@@ -610,7 +609,7 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                                 }
                             />
                         ) : (
-                            <CatalogueList
+                            <DataTable
                                 testID="kitchen-recipes-table"
                                 joined
                                 label={t('kitchen:recipes.caption')}
@@ -637,7 +636,7 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                                 }
                             />
                         )}
-                    </CatalogueListBody>
+                    </DataTableBody>
                 </View>
 
                 {/*
@@ -888,7 +887,7 @@ function rowActions(
         {
             key: 'view',
             label: t('kitchen:list.view'),
-            icon: CATALOGUE_ROW_ICONS.view,
+            icon: DATA_TABLE_ROW_ICONS.view,
             testID: `${testID}-view`,
             onSelect: () => {
                 list.openView(row);
@@ -897,7 +896,7 @@ function rowActions(
         {
             key: 'edit',
             label: t('kitchen:catalogue.edit'),
-            icon: CATALOGUE_ROW_ICONS.edit,
+            icon: DATA_TABLE_ROW_ICONS.edit,
             testID: `${testID}-open`,
             onSelect: () => {
                 list.openEditor(String(row.id));
@@ -967,7 +966,7 @@ function rowActions(
                   {
                       key: 'archive',
                       label: t('kitchen:recipes.archive'),
-                      icon: CATALOGUE_ROW_ICONS.archive,
+                      icon: DATA_TABLE_ROW_ICONS.archive,
                       tone: 'danger' as const,
                       testID: `${testID}-archive`,
                       onSelect: () => {

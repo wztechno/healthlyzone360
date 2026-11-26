@@ -1,20 +1,5 @@
 import type { ChannelAvailability, LocalisedText } from '@healthy360/api-client/contracts';
-import {
-    Checkbox,
-    DATA_LIST_HEAD_TEXT_CLASS,
-    DataList,
-    DatePicker,
-    Icon,
-    IconButton,
-    InfoTip,
-    Select,
-    Stack,
-    Switch,
-    Text,
-    TextInputField,
-    TimeField,
-    UNDROPPABLE_PRIORITY,
-} from '@healthy360/design-system';
+import { Checkbox, DATA_LIST_HEAD_TEXT_CLASS, DataTable, DatePicker, Icon, IconButton, InfoTip, Select, Stack, Switch, Text, TextInputField, TimeField, UNDROPPABLE_PRIORITY } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { SALES_CHANNELS } from '@healthy360/domain-types';
 import type { SalesChannel } from '@healthy360/domain-types';
@@ -382,7 +367,8 @@ export function PackVariantEditor({
                 </View>
             ) : (
                 <>
-                    <DataList<PackDraft>
+                    <DataTable<PackDraft>
+                        lines
                         testID={testID}
                         label={t('kitchen:products.sectionPacks')}
                         columns={columns}
@@ -865,7 +851,8 @@ export function MealAvailabilityEditor({
         <Stack space="sm" {...(rows.length === 0 ? { testID } : {})}>
             {rows.length === 0 ? null : (
                 <>
-                    <DataList<AvailabilityDraft>
+                    <DataTable<AvailabilityDraft>
+                        lines
                         testID={testID}
                         label={t('kitchen:availability.sectionServiceDays')}
                         columns={columns}

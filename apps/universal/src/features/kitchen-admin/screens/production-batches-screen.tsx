@@ -3,12 +3,14 @@ import {
     Badge,
     Button,
     Cascade,
+    DataTable,
     EmptyState,
     ErrorState,
     Select,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -25,8 +27,6 @@ import {
     useProductionOrdersQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
@@ -160,7 +160,7 @@ function ProductionBatches() {
         row.reference ?? t('kitchen:ops.production.unreferenced');
     const makesLabel = (row: ProductionOrder) => row.productionItemNameEn ?? noValue;
 
-    const columns: readonly ControlledColumn<ProductionOrder, CatalogueColumn<ProductionOrder>>[] =
+    const columns: readonly ControlledColumn<ProductionOrder, DataTableColumn<ProductionOrder>>[] =
         [
             {
                 key: 'reference',
@@ -374,7 +374,7 @@ function ProductionBatches() {
                         retrying={batches.isFetching}
                     />
                 ) : rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-production-batches-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -395,7 +395,7 @@ function ProductionBatches() {
                     />
                 ) : (
                     <View className="flex-col gap-2.5">
-                        <CatalogueList<ProductionOrder>
+                        <DataTable<ProductionOrder>
                             testID="kitchen-production-batches-table"
                             joined
                             label={t('kitchen:ops.production.registerTitle')}

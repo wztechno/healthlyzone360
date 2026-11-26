@@ -7,12 +7,14 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Cascade,
+    DataTable,
     DatePicker,
     EmptyState,
     ErrorState,
     RecordSkeleton,
     Text,
 } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
@@ -24,8 +26,6 @@ import { useKitchenAnalyticsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { RatioBars } from '../analytics/ratio-bars.tsx';
 import { StatMix } from '../analytics/stat-mix.tsx';
 import { TrendBars } from '../analytics/trend-bars.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
     compareNumber,
@@ -161,7 +161,7 @@ function AnalyticsDashboard() {
     const totalUnits = data?.current.units ?? 0;
     const columns: readonly ControlledColumn<
         KitchenAnalyticsItem,
-        CatalogueColumn<KitchenAnalyticsItem>
+        DataTableColumn<KitchenAnalyticsItem>
     >[] = [
         {
             key: 'name',
@@ -453,7 +453,7 @@ function AnalyticsDashboard() {
                     </RecordTile>
                     <View className="flex-col">
                         <WorkbenchSectionHeading title={t('kitchen:analytics.table.title')} />
-                        <CatalogueList<KitchenAnalyticsItem>
+                        <DataTable<KitchenAnalyticsItem>
                             testID="kitchen-analytics-table"
                             label={t('kitchen:analytics.table.caption')}
                             columns={controls.columns}
