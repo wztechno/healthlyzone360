@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10995 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 10996 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2966,6 +2966,10 @@ export interface NamespaceKeys {
     | 'columns.columnsHeading'
     | 'columns.columnsLabel'
     | 'columns.columnsReset'
+    | 'conflict.body'
+    | 'conflict.keepEditing'
+    | 'conflict.reload'
+    | 'conflict.title'
     | 'controls.currentDirection'
     | 'controls.currentLocale'
     | 'controls.currentTheme'
@@ -3003,6 +3007,14 @@ export interface NamespaceKeys {
     | 'issueTray.progress'
     | 'issueTray.showMe'
     | 'issueTray.toFix'
+    | 'leave.body'
+    | 'leave.discard'
+    | 'leave.keepEditing'
+    | 'leave.keepForLater'
+    | 'leave.keepableBody'
+    | 'leave.keepableTitle'
+    | 'leave.stay'
+    | 'leave.title'
     | 'numberStepper.decrease'
     | 'numberStepper.increase'
     | 'pagination.label'
@@ -3162,7 +3174,8 @@ export interface NamespaceKeys {
     | 'timeField.invalid'
     | 'timeField.minute'
     | 'timeField.open'
-    | 'timeField.placeholder';
+    | 'timeField.placeholder'
+    | 'undoBar.undo';
   readonly "errors":
     | 'cart.otherKitchen'
     | 'failure.access_self_lockout'
@@ -4040,10 +4053,6 @@ export interface NamespaceKeys {
     | 'composition.fromDatabase'
     | 'composition.per100g'
     | 'composition.title'
-    | 'conflict.body'
-    | 'conflict.keepEditing'
-    | 'conflict.reload'
-    | 'conflict.title'
     | 'containment.contains'
     | 'containment.mayContain'
     | 'deliveryWindows.emptyBody'
@@ -8520,15 +8529,7 @@ export interface NamespaceKeys {
     | 'unitsShort.slice'
     | 'unitsShort.tbsp'
     | 'unitsShort.tsp'
-    | 'unsaved.body'
     | 'unsaved.browserPrompt'
-    | 'unsaved.discard'
-    | 'unsaved.keepEditing'
-    | 'unsaved.keepForLater'
-    | 'unsaved.keepableBody'
-    | 'unsaved.keepableTitle'
-    | 'unsaved.stay'
-    | 'unsaved.title'
     | 'verification.laboratoryTested'
     | 'verification.operatorConfirmed'
     | 'verification.supplierDeclared'
@@ -13983,6 +13984,10 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:columns.columnsHeading',
   'designSystem:columns.columnsLabel',
   'designSystem:columns.columnsReset',
+  'designSystem:conflict.body',
+  'designSystem:conflict.keepEditing',
+  'designSystem:conflict.reload',
+  'designSystem:conflict.title',
   'designSystem:controls.currentDirection',
   'designSystem:controls.currentLocale',
   'designSystem:controls.currentTheme',
@@ -14020,6 +14025,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:issueTray.progress',
   'designSystem:issueTray.showMe',
   'designSystem:issueTray.toFix',
+  'designSystem:leave.body',
+  'designSystem:leave.discard',
+  'designSystem:leave.keepEditing',
+  'designSystem:leave.keepForLater',
+  'designSystem:leave.keepableBody',
+  'designSystem:leave.keepableTitle',
+  'designSystem:leave.stay',
+  'designSystem:leave.title',
   'designSystem:numberStepper.decrease',
   'designSystem:numberStepper.increase',
   'designSystem:pagination.label',
@@ -14180,6 +14193,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:timeField.minute',
   'designSystem:timeField.open',
   'designSystem:timeField.placeholder',
+  'designSystem:undoBar.undo',
   'errors:cart.otherKitchen',
   'errors:failure.access_self_lockout',
   'errors:failure.account_customer_missing',
@@ -15053,10 +15067,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:composition.fromDatabase',
   'kitchen:composition.per100g',
   'kitchen:composition.title',
-  'kitchen:conflict.body',
-  'kitchen:conflict.keepEditing',
-  'kitchen:conflict.reload',
-  'kitchen:conflict.title',
   'kitchen:containment.contains',
   'kitchen:containment.mayContain',
   'kitchen:deliveryWindows.emptyBody',
@@ -19533,15 +19543,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:unitsShort.slice',
   'kitchen:unitsShort.tbsp',
   'kitchen:unitsShort.tsp',
-  'kitchen:unsaved.body',
   'kitchen:unsaved.browserPrompt',
-  'kitchen:unsaved.discard',
-  'kitchen:unsaved.keepEditing',
-  'kitchen:unsaved.keepForLater',
-  'kitchen:unsaved.keepableBody',
-  'kitchen:unsaved.keepableTitle',
-  'kitchen:unsaved.stay',
-  'kitchen:unsaved.title',
   'kitchen:verification.laboratoryTested',
   'kitchen:verification.operatorConfirmed',
   'kitchen:verification.supplierDeclared',

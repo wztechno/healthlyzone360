@@ -1,5 +1,21 @@
 import type { ChannelAvailability, LocalisedText } from '@healthy360/api-client/contracts';
-import { Checkbox, DATA_LIST_HEAD_TEXT_CLASS, DataTable, DatePicker, Icon, IconButton, InfoTip, Select, Stack, Switch, Text, TextInputField, TimeField, UNDROPPABLE_PRIORITY } from '@healthy360/design-system';
+import {
+    Checkbox,
+    DATA_LIST_HEAD_TEXT_CLASS,
+    DataTable,
+    DatePicker,
+    Icon,
+    IconButton,
+    InfoTip,
+    Select,
+    Stack,
+    Switch,
+    Text,
+    TextInputField,
+    TimeField,
+    UndoBar,
+    UNDROPPABLE_PRIORITY,
+} from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { SALES_CHANNELS } from '@healthy360/domain-types';
 import type { SalesChannel } from '@healthy360/domain-types';
@@ -20,7 +36,6 @@ import {
     unitDimensionKey,
     unitKey,
 } from './format.ts';
-import { UndoBar } from './row-editor-shell.tsx';
 
 /**
  * The three repeated-row editors K1.4 adds: pack variants, channel availability, availability days.

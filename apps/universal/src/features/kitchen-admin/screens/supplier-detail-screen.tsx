@@ -5,14 +5,15 @@ import {
     Callout,
     Cascade,
     DataTable,
-    RowMenu,
     Dialog,
     ErrorState,
+    FailureToast,
     FormGrid,
     FormSection,
     FormSkeleton,
     Icon,
     Inline,
+    RowMenu,
     Select,
     Stack,
     Text,
@@ -70,7 +71,6 @@ import type {
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 import { withReturnTo } from '../../../navigation/return-to.ts';
-import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/suppliers/{supplier}` and `/kitchen/suppliers/new` — the supplier record (SUP1).
  *

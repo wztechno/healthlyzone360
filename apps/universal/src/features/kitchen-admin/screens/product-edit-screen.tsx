@@ -11,6 +11,7 @@ import {
     Callout,
     Cascade,
     Checkbox,
+    ConflictDialog,
     Dialog,
     ErrorState,
     FormGrid,
@@ -20,6 +21,7 @@ import {
     Inline,
     IssueTrayFrame,
     IssueUnanchored,
+    LeaveDialog,
     PageHeader,
     QuantityInput,
     Select,
@@ -2348,66 +2350,15 @@ function ProductEditor({
             </Dialog>
 
             {/* ── the two guards ───────────────────────────────────────────────────────────── */}
-            <Dialog
-                look="card"
-                testID="kitchen-product-editor-screen-unsaved-dialog"
-                open={guard.isPrompting}
-                onClose={guard.cancelDiscard}
-                title={t('kitchen:unsaved.title')}
-                description={t('kitchen:unsaved.body')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-product-editor-screen-unsaved-keep"
-                            variant="quiet"
-                            label={t('kitchen:unsaved.keepEditing')}
-                            onPress={guard.cancelDiscard}
-                        />
-                        <Button
-                            testID="kitchen-product-editor-screen-unsaved-discard"
-                            variant="danger"
-                            label={t('kitchen:unsaved.discard')}
-                            onPress={guard.confirmDiscard}
-                        />
-                    </>
-                }
-            />
+            <LeaveDialog guard={guard} testID="kitchen-product-editor-screen" />
 
-            <Dialog
-                look="card"
-                testID="kitchen-product-editor-screen-conflict-dialog"
+            <ConflictDialog
                 open={concurrency.conflict !== null}
-                onClose={concurrency.keepEditing}
-                dismissOnBackdrop={false}
-                title={t('kitchen:conflict.title')}
-                description={t('kitchen:conflict.body')}
-                actions={
-                    <>
-                        <Button
-                            testID="kitchen-product-editor-screen-conflict-keep"
-                            variant="quiet"
-                            label={t('kitchen:conflict.keepEditing')}
-                            onPress={concurrency.keepEditing}
-                        />
-                        <Button
-                            testID="kitchen-product-editor-screen-conflict-reload"
-                            variant="danger"
-                            label={t('kitchen:conflict.reload')}
-                            onPress={concurrency.reload}
-                        />
-                    </>
-                }
-            >
-                {concurrency.conflict === null ? null : (
-                    <Text
-                        testID="kitchen-product-editor-screen-conflict-detail"
-                        tone="secondary"
-                        variant="caption"
-                    >
-                        {concurrency.conflict.failure.message}
-                    </Text>
-                )}
-            </Dialog>
+                detail={concurrency.conflict?.failure.message}
+                onKeepEditing={concurrency.keepEditing}
+                onReload={concurrency.reload}
+                testID="kitchen-product-editor-screen"
+            />
         </Page>
     );
 

@@ -5,7 +5,17 @@ import type {
     IngredientAdmin,
     IngredientAllergenMapping,
 } from '@healthy360/api-client/contracts';
-import { Button, Callout, Checkbox, Inline, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    Button,
+    Callout,
+    Checkbox,
+    FailureToast,
+    Inline,
+    Stack,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -25,7 +35,6 @@ import { AllergenReferenceSource } from './allergen-reference-source.tsx';
 import { displayName } from './format.ts';
 import { serverFieldErrors } from './server-field-errors.ts';
 
-import { FailureToast } from './failure-toast.tsx';
 type Choice = AllergenChoice;
 
 export interface IngredientAllergenEditorProps {

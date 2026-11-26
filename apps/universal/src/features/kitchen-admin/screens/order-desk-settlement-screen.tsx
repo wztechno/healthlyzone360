@@ -17,6 +17,7 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
+    FailureToast,
     Stack,
     TableSkeleton,
     Text,
@@ -40,7 +41,6 @@ import { formatMoney } from '../../marketplace/format.ts';
 import { DeskTableTitle } from '../order-desk/desk-parts.tsx';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
-import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/order-desk/cash?tab=handins` — cash coming back from the road.
  *

@@ -1,13 +1,13 @@
 import {
     Button,
-    Dialog,
+    ConflictDialog,
     FormIssueBanner,
     Inline,
     IssueUnanchored,
+    LeaveDialog,
     PageHeader,
     Stack,
     Tabs,
-    Text,
     useIssueGroup,
 } from '@healthy360/design-system';
 import type { FormIssueItem, IssueCardItem, TabItem } from '@healthy360/design-system';
@@ -222,60 +222,6 @@ export function RecordFormOpening<Step extends string>({
 }
 
 /**
- * "Leave this page?" — what every editor asks before unsaved work is left behind.
- *
- * An editor that keeps a draft (`guard.canKeep`) offers three ways out: Keep for later, which lists
- * the work in the kept work (`navigation/kept-work.ts`) and its card; Discard; and Stay. Any other
- * asks the two it always did. "Stay" rather than "Keep editing" beside a Keep button, so the two
- * Keeps are never confused.
- */
-export function UnsavedDialog({
-    guard,
-    testID,
-}: {
-    readonly guard: UnsavedGuard;
-    readonly testID: string;
-}) {
-    const { t } = useTranslation();
-    const keepable = guard.canKeep;
-
-    return (
-        <Dialog
-            look="card"
-            testID={`${testID}-unsaved-dialog`}
-            open={guard.isPrompting}
-            onClose={guard.cancelDiscard}
-            title={t(keepable ? 'kitchen:unsaved.keepableTitle' : 'kitchen:unsaved.title')}
-            description={t(keepable ? 'kitchen:unsaved.keepableBody' : 'kitchen:unsaved.body')}
-            actions={
-                <>
-                    <Button
-                        testID={`${testID}-unsaved-keep`}
-                        variant="quiet"
-                        label={t(keepable ? 'kitchen:unsaved.stay' : 'kitchen:unsaved.keepEditing')}
-                        onPress={guard.cancelDiscard}
-                    />
-                    <Button
-                        testID={`${testID}-unsaved-discard`}
-                        variant="danger"
-                        label={t('kitchen:unsaved.discard')}
-                        onPress={guard.confirmDiscard}
-                    />
-                    {keepable ? (
-                        <Button
-                            testID={`${testID}-unsaved-keep-for-later`}
-                            variant="primary"
-                            label={t('kitchen:unsaved.keepForLater')}
-                            onPress={guard.confirmKeep}
-                        />
-                    ) : null}
-                </>
-            }
-        />
-    );
-}
-
-/**
  * The two dialogs every record page guards itself with — leaving with unsaved edits, and saving
  * over somebody else's — drawn under the ids the frames always gave them (`-unsaved-dialog`,
  * `-conflict-dialog` and their buttons), so a page that leaves a frame keeps its suite.
@@ -289,48 +235,17 @@ export function EditorGuardDialogs({
     readonly concurrency?: OptimisticConcurrency | undefined;
     readonly testID: string;
 }) {
-    const { t } = useTranslation();
-
     return (
         <>
-            <UnsavedDialog guard={guard} testID={testID} />
-
+            <LeaveDialog guard={guard} testID={testID} />
             {concurrency === undefined ? null : (
-                <Dialog
-                    look="card"
-                    testID={`${testID}-conflict-dialog`}
+                <ConflictDialog
                     open={concurrency.conflict !== null}
-                    onClose={concurrency.keepEditing}
-                    dismissOnBackdrop={false}
-                    title={t('kitchen:conflict.title')}
-                    description={t('kitchen:conflict.body')}
-                    actions={
-                        <>
-                            <Button
-                                testID={`${testID}-conflict-keep`}
-                                variant="quiet"
-                                label={t('kitchen:conflict.keepEditing')}
-                                onPress={concurrency.keepEditing}
-                            />
-                            <Button
-                                testID={`${testID}-conflict-reload`}
-                                variant="danger"
-                                label={t('kitchen:conflict.reload')}
-                                onPress={concurrency.reload}
-                            />
-                        </>
-                    }
-                >
-                    {concurrency.conflict === null ? null : (
-                        <Text
-                            testID={`${testID}-conflict-detail`}
-                            tone="secondary"
-                            variant="caption"
-                        >
-                            {concurrency.conflict.failure.message}
-                        </Text>
-                    )}
-                </Dialog>
+                    detail={concurrency.conflict?.failure.message}
+                    onKeepEditing={concurrency.keepEditing}
+                    onReload={concurrency.reload}
+                    testID={testID}
+                />
             )}
         </>
     );

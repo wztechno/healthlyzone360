@@ -11,6 +11,7 @@ import {
     Checkbox,
     DatePicker,
     Dialog,
+    LeaveDialog,
     Select,
     Text,
     TextInputField,
@@ -21,7 +22,6 @@ import { View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
 import { useUnsavedGuardFor } from '../../navigation/use-unsaved-guard.ts';
-import { UnsavedChangesDialog } from '../../ui/unsaved-changes-dialog.tsx';
 import {
     useDraftAgreementMutation,
     useSellerPriceListsQuery,
@@ -431,7 +431,7 @@ export function AgreementEditor({
                     />
                 </View>
             </Dialog>
-            <UnsavedChangesDialog guard={guard} testID="platform-b2b-agreement-unsaved" />
+            <LeaveDialog guard={guard} testID="platform-b2b-agreement" />
         </>
     );
 }

@@ -3,6 +3,7 @@ import {
     Button,
     Cascade,
     ErrorState,
+    FailureToast,
     FormSection,
     FormSkeleton,
     PageHeader,
@@ -23,7 +24,6 @@ import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { FailureToast } from '../failure-toast.tsx';
 const PAGE = 'kitchen-storefront';
 
 /**

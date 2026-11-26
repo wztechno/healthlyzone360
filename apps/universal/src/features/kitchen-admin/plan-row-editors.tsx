@@ -7,6 +7,7 @@ import {
     Switch,
     Text,
     TextInputField,
+    UndoBar,
 } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import { useState } from 'react';
@@ -16,7 +17,6 @@ import { useTranslation } from 'react-i18next';
 import { durationKindKey } from './format.ts';
 import { withDurationKind } from './plan-matrix.ts';
 import type { DurationDraft, DurationError, VariantDraft } from './plan-matrix.ts';
-import { UndoBar } from './row-editor-shell.tsx';
 
 /**
  * The plan editor's two repeated-row editors (K1.6): configurations and durations.

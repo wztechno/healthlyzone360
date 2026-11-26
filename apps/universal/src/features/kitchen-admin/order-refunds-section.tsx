@@ -10,6 +10,7 @@ import {
     Badge,
     Button,
     Dialog,
+    FailureToast,
     Inline,
     Stack,
     Tabs,
@@ -33,7 +34,6 @@ import { formatMoney } from '../marketplace/format.ts';
 import { ORDER_APPROVE_REFUND_PERMISSION } from './entity-registry.ts';
 import { kitchenOrderPaymentMethodKey } from './ops-format.ts';
 
-import { FailureToast } from './failure-toast.tsx';
 /**
  * The refund part of the order record, for a manager. A ledger beside the receipts: entries are
  * added, never edited, and a receipt is never touched. One above the kitchen's limit waits here for

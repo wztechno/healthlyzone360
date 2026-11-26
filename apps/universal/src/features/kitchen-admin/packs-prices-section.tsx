@@ -9,7 +9,22 @@ import type {
     RecipeRollupPack,
     SetItemPacksRequest,
 } from '@healthy360/api-client/contracts';
-import { Badge, Card, ChoiceRow, DataTable, FormSection, Icon, IconButton, QuantityInput, Select, Stack, Text, UNDROPPABLE_PRIORITY, useSectionLook } from '@healthy360/design-system';
+import {
+    Badge,
+    Card,
+    ChoiceRow,
+    DataTable,
+    FailureToast,
+    FormSection,
+    Icon,
+    IconButton,
+    QuantityInput,
+    Select,
+    Stack,
+    Text,
+    UNDROPPABLE_PRIORITY,
+    useSectionLook,
+} from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { IngredientId, minorUnitExponent } from '@healthy360/domain-types';
 import type { CurrencyCode, MealId, ProductId } from '@healthy360/domain-types';
@@ -35,7 +50,6 @@ import { useRepositories } from '../../data/repository-provider.tsx';
 import { CostCard } from './cost-card.tsx';
 import type { CostCardRow } from './cost-card.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, PRICE_LIST_MANAGE_PERMISSION } from './entity-registry.ts';
-import { FailureToast } from './failure-toast.tsx';
 import { displayName, formatMoney, parseAmount, parseQuantity, unitShortKey } from './format.ts';
 import { useHostSave } from './host-save.ts';
 import type { HostSave, RegisterHostSave } from './host-save.ts';

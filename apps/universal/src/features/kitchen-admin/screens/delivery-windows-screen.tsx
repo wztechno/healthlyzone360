@@ -1,5 +1,17 @@
 import type { DeliveryWindow } from '@healthy360/api-client/contracts';
-import { Button, Cascade, Dialog, EmptyState, ErrorState, FormSection, FormSkeleton, Icon, Text, useToast } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    FailureToast,
+    FormSection,
+    FormSkeleton,
+    Icon,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -28,7 +40,6 @@ import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.ts
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/delivery-windows` — the kitchen's delivery slots, org-wide.
  *

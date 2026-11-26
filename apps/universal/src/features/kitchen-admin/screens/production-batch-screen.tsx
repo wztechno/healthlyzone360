@@ -11,6 +11,7 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
+    FailureToast,
     RecordSkeleton,
     Stack,
     Text,
@@ -72,7 +73,6 @@ import {
 import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 
-import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/production-desk/{order}` — one batch, and every edge it has left (PROD1).
  *

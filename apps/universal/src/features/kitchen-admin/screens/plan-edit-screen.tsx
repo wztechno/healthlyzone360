@@ -6,6 +6,7 @@ import {
     Callout,
     Cascade,
     Checkbox,
+    ConflictDialog,
     Dialog,
     ErrorState,
     FormGrid,
@@ -16,6 +17,7 @@ import {
     Inline,
     IssueTrayFrame,
     IssueUnanchored,
+    LeaveDialog,
     PageHeader,
     Stack,
     Tabs,
@@ -1973,66 +1975,15 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                 </Dialog>
 
                 {/* ── the two guards ────────────────────────────────────────────────────────── */}
-                <Dialog
-                    look="card"
-                    testID="kitchen-plan-editor-screen-unsaved-dialog"
-                    open={guard.isPrompting}
-                    onClose={guard.cancelDiscard}
-                    title={t('kitchen:unsaved.title')}
-                    description={t('kitchen:unsaved.body')}
-                    actions={
-                        <>
-                            <Button
-                                testID="kitchen-plan-editor-screen-unsaved-keep"
-                                variant="quiet"
-                                label={t('kitchen:unsaved.keepEditing')}
-                                onPress={guard.cancelDiscard}
-                            />
-                            <Button
-                                testID="kitchen-plan-editor-screen-unsaved-discard"
-                                variant="danger"
-                                label={t('kitchen:unsaved.discard')}
-                                onPress={guard.confirmDiscard}
-                            />
-                        </>
-                    }
-                />
+                <LeaveDialog guard={guard} testID="kitchen-plan-editor-screen" />
 
-                <Dialog
-                    look="card"
-                    testID="kitchen-plan-editor-screen-conflict-dialog"
+                <ConflictDialog
                     open={concurrency.conflict !== null}
-                    onClose={concurrency.keepEditing}
-                    dismissOnBackdrop={false}
-                    title={t('kitchen:conflict.title')}
-                    description={t('kitchen:conflict.body')}
-                    actions={
-                        <>
-                            <Button
-                                testID="kitchen-plan-editor-screen-conflict-keep"
-                                variant="quiet"
-                                label={t('kitchen:conflict.keepEditing')}
-                                onPress={concurrency.keepEditing}
-                            />
-                            <Button
-                                testID="kitchen-plan-editor-screen-conflict-reload"
-                                variant="danger"
-                                label={t('kitchen:conflict.reload')}
-                                onPress={concurrency.reload}
-                            />
-                        </>
-                    }
-                >
-                    {concurrency.conflict === null ? null : (
-                        <Text
-                            testID="kitchen-plan-editor-screen-conflict-detail"
-                            tone="secondary"
-                            variant="caption"
-                        >
-                            {concurrency.conflict.failure.message}
-                        </Text>
-                    )}
-                </Dialog>
+                    detail={concurrency.conflict?.failure.message}
+                    onKeepEditing={concurrency.keepEditing}
+                    onReload={concurrency.reload}
+                    testID="kitchen-plan-editor-screen"
+                />
             </Cascade>
         </IssueTrayFrame>
     );

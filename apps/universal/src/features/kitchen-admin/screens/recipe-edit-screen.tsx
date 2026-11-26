@@ -21,6 +21,7 @@ import {
     Cascade,
     CascadeItem,
     Checkbox,
+    ConflictDialog,
     Dialog,
     ErrorState,
     FormGrid,
@@ -30,6 +31,7 @@ import {
     Inline,
     IssueTrayFrame,
     IssueUnanchored,
+    LeaveDialog,
     PageHeader,
     QuantityInput,
     SectionLook,
@@ -146,7 +148,6 @@ import type { StockGapFix } from '../recipe-stock-gap-fix.ts';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { TechnicalSheetPanel } from '../technical-sheet-panel.tsx';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
-import { UnsavedDialog } from '../record-form-opening.tsx';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
 import { InlineChecksButton } from '../inline-checks-button.tsx';
@@ -4374,43 +4375,15 @@ function RecipeEditor({
                     </Dialog>
 
                     {/* ── the two safety dialogs ───────────────────────────────────────────────────── */}
-                    <UnsavedDialog guard={guard} testID="kitchen-recipe-editor-screen" />
+                    <LeaveDialog guard={guard} testID="kitchen-recipe-editor-screen" />
 
-                    <Dialog
-                        look="card"
-                        testID="kitchen-recipe-editor-screen-conflict-dialog"
+                    <ConflictDialog
                         open={concurrency.conflict !== null}
-                        onClose={concurrency.keepEditing}
-                        dismissOnBackdrop={false}
-                        title={t('kitchen:conflict.title')}
-                        description={t('kitchen:conflict.body')}
-                        actions={
-                            <>
-                                <Button
-                                    testID="kitchen-recipe-editor-screen-conflict-keep"
-                                    variant="quiet"
-                                    label={t('kitchen:conflict.keepEditing')}
-                                    onPress={concurrency.keepEditing}
-                                />
-                                <Button
-                                    testID="kitchen-recipe-editor-screen-conflict-reload"
-                                    variant="danger"
-                                    label={t('kitchen:conflict.reload')}
-                                    onPress={concurrency.reload}
-                                />
-                            </>
-                        }
-                    >
-                        {concurrency.conflict === null ? null : (
-                            <Text
-                                testID="kitchen-recipe-editor-screen-conflict-detail"
-                                tone="secondary"
-                                variant="caption"
-                            >
-                                {concurrency.conflict.failure.message}
-                            </Text>
-                        )}
-                    </Dialog>
+                        detail={concurrency.conflict?.failure.message}
+                        onKeepEditing={concurrency.keepEditing}
+                        onReload={concurrency.reload}
+                        testID="kitchen-recipe-editor-screen"
+                    />
                 </Cascade>
             </SectionLook>
         </IssueTrayFrame>

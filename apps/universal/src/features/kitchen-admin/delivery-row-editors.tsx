@@ -1,5 +1,25 @@
 import type { ServiceArea } from '@healthy360/api-client/contracts';
-import { Badge, Button, Callout, Checkbox, cx, DataTable, fieldWidth, Icon, IconButton, Inline, Select, Stack, Tabs, Tag, Text, TextInputField, TimeField, useContentWidth } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Checkbox,
+    cx,
+    DataTable,
+    fieldWidth,
+    Icon,
+    IconButton,
+    Inline,
+    Select,
+    Stack,
+    Tabs,
+    Tag,
+    Text,
+    TextInputField,
+    TimeField,
+    UndoBar,
+    useContentWidth,
+} from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import type { ServiceAreaId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
@@ -24,7 +44,7 @@ import type {
     OperatingIssue,
 } from './delivery-model.ts';
 import { ISO_WEEKDAYS, displayName } from './format.ts';
-import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
+import { RowAnnouncer } from './row-editor-shell.tsx';
 
 /**
  * The three repeated editors of the delivery slice (K1.7).

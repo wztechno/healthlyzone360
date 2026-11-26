@@ -1,10 +1,12 @@
 import {
     Badge,
     Button,
+    Callout,
     Checkbox,
     ChoiceChips,
     ChoiceRow,
     ColumnPicker,
+    ConflictDialog,
     DataTable,
     DatePicker,
     DensityProvider,
@@ -13,6 +15,8 @@ import {
     Icon,
     IconButton,
     initialsOf,
+    Inline,
+    LeaveDialog,
     LensBar,
     PageHeader,
     PeriodScope,
@@ -25,7 +29,9 @@ import {
     Tabs,
     Tag,
     Text,
+    UndoBar,
     useColumnControls,
+    useToast,
 } from '@healthy360/design-system';
 import type {
     ControlledColumn,
@@ -1085,6 +1091,165 @@ function PageHeaderSection() {
     );
 }
 
+function FeedbackSection() {
+    const toast = useToast();
+    const [leaving, setLeaving] = useState<'plain' | 'keepable' | null>(null);
+    const [conflict, setConflict] = useState(false);
+    const [removed, setRemoved] = useState(true);
+    const guard = {
+        isPrompting: leaving !== null,
+        canKeep: leaving === 'keepable',
+        cancelDiscard: () => {
+            setLeaving(null);
+        },
+        confirmDiscard: () => {
+            setLeaving(null);
+        },
+        confirmKeep: () => {
+            setLeaving(null);
+        },
+    };
+    return (
+        <Stack space="lg" testID="components-showcase-feedback">
+            <Stack space="xs">
+                <Text variant="section">Banners, toasts and pop-ups</Text>
+                <Text variant="caption" tone="secondary">
+                    a state that stays = strip · what just happened = toast · a decision = pop-up
+                </Text>
+            </Stack>
+
+            <Sample
+                title="Strip"
+                note="Callout · one line, 40px in the admin · onDismiss only for news"
+            >
+                <Stack space="xs" className="w-full">
+                    <Callout
+                        tone="warning"
+                        title="Kitchen paused"
+                        body="New orders wait until it opens."
+                    />
+                    <Callout
+                        tone="danger"
+                        title="Couldn't load the stock"
+                        actions={
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                label="Retry"
+                                onPress={() => undefined}
+                            />
+                        }
+                    />
+                    <Callout
+                        tone="success"
+                        title="Price list published"
+                        onDismiss={() => undefined}
+                        dismissLabel="Dismiss"
+                    />
+                </Stack>
+            </Sample>
+
+            <Sample title="Toast" note="toast.show · FailureToast says a refused save the same way">
+                <Inline space="sm">
+                    <Button
+                        testID="components-showcase-toast-success"
+                        variant="secondary"
+                        size="sm"
+                        label="Saved"
+                        onPress={() => {
+                            toast.show({ tone: 'success', message: 'Recipe saved' });
+                        }}
+                    />
+                    <Button
+                        testID="components-showcase-toast-danger"
+                        variant="secondary"
+                        size="sm"
+                        label="Didn't save"
+                        onPress={() => {
+                            toast.show({
+                                tone: 'danger',
+                                title: "Couldn't save the recipe",
+                                message: 'Check your connection and try again.',
+                            });
+                        }}
+                    />
+                </Inline>
+            </Sample>
+
+            <Sample
+                title="Undo, where it happened"
+                note="UndoBar · beside the rows a removal came from"
+            >
+                {removed ? (
+                    <UndoBar
+                        testID="components-showcase-undo"
+                        label="Removed Lentil soup"
+                        onUndo={() => {
+                            setRemoved(false);
+                        }}
+                    />
+                ) : (
+                    <Button
+                        size="sm"
+                        variant="quiet"
+                        label="Remove again"
+                        onPress={() => {
+                            setRemoved(true);
+                        }}
+                    />
+                )}
+            </Sample>
+
+            <Sample
+                title="The two guards"
+                note="LeaveDialog (Keep for later on a form that keeps a draft) · ConflictDialog"
+            >
+                <Inline space="sm">
+                    <Button
+                        testID="components-showcase-leave"
+                        variant="secondary"
+                        size="sm"
+                        label="Leave a form"
+                        onPress={() => {
+                            setLeaving('plain');
+                        }}
+                    />
+                    <Button
+                        testID="components-showcase-leave-keepable"
+                        variant="secondary"
+                        size="sm"
+                        label="Leave a draft"
+                        onPress={() => {
+                            setLeaving('keepable');
+                        }}
+                    />
+                    <Button
+                        testID="components-showcase-conflict"
+                        variant="secondary"
+                        size="sm"
+                        label="Save over someone"
+                        onPress={() => {
+                            setConflict(true);
+                        }}
+                    />
+                </Inline>
+                <LeaveDialog guard={guard} testID="components-showcase-guard" />
+                <ConflictDialog
+                    open={conflict}
+                    detail="Saved by Rania at 10:42."
+                    onKeepEditing={() => {
+                        setConflict(false);
+                    }}
+                    onReload={() => {
+                        setConflict(false);
+                    }}
+                    testID="components-showcase-guard"
+                />
+            </Sample>
+        </Stack>
+    );
+}
+
 type Shelf = 'all' | 'published' | 'draft' | 'review';
 
 const SHELF_COUNTS: Readonly<Record<Exclude<Shelf, 'all'>, number>> = {
@@ -1323,6 +1488,7 @@ export function ComponentsShowcaseScreen() {
                     <TablesSection />
                     <PageHeaderSection />
                     <ToolbarSection />
+                    <FeedbackSection />
                 </Stack>
             </View>
         </DensityProvider>

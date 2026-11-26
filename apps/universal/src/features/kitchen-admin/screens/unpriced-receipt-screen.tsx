@@ -8,13 +8,13 @@ import {
     Button,
     Cascade,
     DataTable,
-    Dialog,
     EmptyState,
     ErrorState,
     FigureChips,
     FormSection,
     IssueTrayFrame,
     IssueUnanchored,
+    LeaveDialog,
     PageHeader,
     QuantityInput,
     RecordSkeleton,
@@ -454,30 +454,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                     </View>
                 </View>
 
-                <Dialog
-                    look="card"
-                    testID="kitchen-unpriced-receipt-unsaved-dialog"
-                    open={guard.isPrompting}
-                    onClose={guard.cancelDiscard}
-                    title={t('kitchen:unsaved.title')}
-                    description={t('kitchen:unsaved.body')}
-                    actions={
-                        <>
-                            <Button
-                                testID="kitchen-unpriced-receipt-unsaved-keep"
-                                variant="quiet"
-                                label={t('kitchen:unsaved.keepEditing')}
-                                onPress={guard.cancelDiscard}
-                            />
-                            <Button
-                                testID="kitchen-unpriced-receipt-unsaved-discard"
-                                variant="danger"
-                                label={t('kitchen:unsaved.discard')}
-                                onPress={guard.confirmDiscard}
-                            />
-                        </>
-                    }
-                />
+                <LeaveDialog guard={guard} testID="kitchen-unpriced-receipt" />
             </Cascade>
         </IssueTrayFrame>
     );

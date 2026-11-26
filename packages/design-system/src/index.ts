@@ -486,6 +486,11 @@ export type { DrawerPlacement, DrawerProps } from './overlays/drawer.tsx';
 export { ACTION_TONES, ActionSheet } from './overlays/action-sheet.tsx';
 export type { ActionSheetAction, ActionSheetProps, ActionTone } from './overlays/action-sheet.tsx';
 export { InfoTip } from './overlays/info-tip.tsx';
+export { FailureToast } from './overlays/failure-toast.tsx';
+export { ConflictDialog, LeaveDialog } from './overlays/guard-dialogs.tsx';
+export type { LeaveGuard } from './overlays/guard-dialogs.tsx';
+export { UndoBar } from './status/undo-bar.tsx';
+export type { UndoBarProps } from './status/undo-bar.tsx';
 export type { InfoTipProps } from './overlays/info-tip.tsx';
 export {
     POPOVER_ALIGNS,

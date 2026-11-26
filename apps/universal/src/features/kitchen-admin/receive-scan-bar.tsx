@@ -1,5 +1,15 @@
 import type { ApiFailure, BarcodeScan, StockItem } from '@healthy360/api-client/contracts';
-import { Button, Callout, Dialog, QuantityInput, Select, Stack, TextInputField, useIssueGroup } from '@healthy360/design-system';
+import {
+    Button,
+    Callout,
+    Dialog,
+    FailureToast,
+    QuantityInput,
+    Select,
+    Stack,
+    TextInputField,
+    useIssueGroup,
+} from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { isMeasureUnit } from '@healthy360/nutrition';
 import type { TFunction } from 'i18next';
@@ -17,7 +27,6 @@ import { focusField } from './field-focus.ts';
 import { unitShortKey } from './format.ts';
 import type { ScannedPack } from './receive-delivery-model.ts';
 
-import { FailureToast } from './failure-toast.tsx';
 /**
  * The scan field both receive screens put above their lines (ingredient barcodes, plan §8).
  *

@@ -3,9 +3,10 @@ import {
     Badge,
     Button,
     Cascade,
-    Dialog,
+    ConflictDialog,
     Inline,
     IssueUnanchored,
+    LeaveDialog,
     PageHeader,
     Stack,
     Text,
@@ -328,62 +329,15 @@ export function EditorFrame({
                 </View>
             )}
 
-            <Dialog
-                look="card"
-                testID={`${testID}-unsaved-dialog`}
-                open={guard.isPrompting}
-                onClose={guard.cancelDiscard}
-                title={t('kitchen:unsaved.title')}
-                description={t('kitchen:unsaved.body')}
-                actions={
-                    <>
-                        <Button
-                            testID={`${testID}-unsaved-keep`}
-                            variant="quiet"
-                            label={t('kitchen:unsaved.keepEditing')}
-                            onPress={guard.cancelDiscard}
-                        />
-                        <Button
-                            testID={`${testID}-unsaved-discard`}
-                            variant="danger"
-                            label={t('kitchen:unsaved.discard')}
-                            onPress={guard.confirmDiscard}
-                        />
-                    </>
-                }
-            />
+            <LeaveDialog guard={guard} testID={testID} />
 
-            <Dialog
-                look="card"
-                testID={`${testID}-conflict-dialog`}
+            <ConflictDialog
                 open={concurrency.conflict !== null}
-                onClose={concurrency.keepEditing}
-                dismissOnBackdrop={false}
-                title={t('kitchen:conflict.title')}
-                description={t('kitchen:conflict.body')}
-                actions={
-                    <>
-                        <Button
-                            testID={`${testID}-conflict-keep`}
-                            variant="quiet"
-                            label={t('kitchen:conflict.keepEditing')}
-                            onPress={concurrency.keepEditing}
-                        />
-                        <Button
-                            testID={`${testID}-conflict-reload`}
-                            variant="danger"
-                            label={t('kitchen:conflict.reload')}
-                            onPress={concurrency.reload}
-                        />
-                    </>
-                }
-            >
-                {concurrency.conflict === null ? null : (
-                    <Text testID={`${testID}-conflict-detail`} tone="secondary" variant="caption">
-                        {concurrency.conflict.failure.message}
-                    </Text>
-                )}
-            </Dialog>
+                detail={concurrency.conflict?.failure.message}
+                onKeepEditing={concurrency.keepEditing}
+                onReload={concurrency.reload}
+                testID={testID}
+            />
         </Frame>
     );
 

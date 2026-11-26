@@ -115,6 +115,25 @@
         "twoWeeks": "Next 2 weeks",
         "custom": "Custom"
     },
+    "leave": {
+        "title": "Leave without saving?",
+        "body": "This record has changes that have not been saved. Leaving now discards them.",
+        "keepEditing": "Keep editing",
+        "discard": "Discard my changes",
+        "keepableTitle": "Leave this page?",
+        "keepableBody": "Your changes aren't saved yet.",
+        "stay": "Stay",
+        "keepForLater": "Keep for later"
+    },
+    "conflict": {
+        "title": "Someone else changed this record",
+        "body": "It was saved by somebody else while this was open, so saving now would overwrite their work. Reload to take their version, or keep editing and copy your changes out first.",
+        "keepEditing": "Keep editing",
+        "reload": "Reload and lose my changes"
+    },
+    "undoBar": {
+        "undo": "Undo"
+    },
     "datePicker": {
         "previousMonth": "Previous month",
         "nextMonth": "Next month",

@@ -3404,22 +3404,8 @@
         "laboratoryTested": "Laboratory tested",
         "operatorConfirmed": "Operator confirmed"
     },
-    "conflict": {
-        "title": "Someone else changed this record",
-        "body": "It was saved by somebody else while this was open, so saving now would overwrite their work. Reload to take their version, or keep editing and copy your changes out first.",
-        "reload": "Reload and lose my changes",
-        "keepEditing": "Keep editing"
-    },
     "unsaved": {
-        "title": "Leave without saving?",
-        "body": "This record has changes that have not been saved. Leaving now discards them.",
-        "discard": "Discard my changes",
-        "keepEditing": "Keep editing",
-        "browserPrompt": "This record has unsaved changes.",
-        "keepableTitle": "Leave this page?",
-        "keepableBody": "Your changes aren't saved yet.",
-        "stay": "Stay",
-        "keepForLater": "Keep for later"
+        "browserPrompt": "This record has unsaved changes."
     },
     "classes": {
         "title": "Allergen classes",

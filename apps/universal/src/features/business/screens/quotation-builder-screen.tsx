@@ -10,6 +10,7 @@ import {
     Heading,
     Icon,
     InfoTip,
+    LeaveDialog,
     PageHeader,
     Select,
     Switch,
@@ -38,7 +39,6 @@ import { EntityImage } from '../../../media/entity-image.tsx';
 import { useUnsavedGuardFor } from '../../../navigation/use-unsaved-guard.ts';
 import { useValidationTranslate } from '../../../screens/form-helpers.ts';
 import { useSession } from '../../../session/session-provider.tsx';
-import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
 import { earliestStartDate } from '../../commerce/dates.ts';
 import { focusField } from '../../kitchen-admin/field-focus.ts';
 import { serverFieldErrors } from '../../kitchen-admin/server-field-errors.ts';
@@ -813,7 +813,7 @@ export function QuotationBuilderScreen({
                 {form}
                 {aside}
             </View>
-            <UnsavedChangesDialog guard={guard} testID="quotation-builder-unsaved" />
+            <LeaveDialog guard={guard} testID="quotation-builder" />
         </Cascade>
     );
 }

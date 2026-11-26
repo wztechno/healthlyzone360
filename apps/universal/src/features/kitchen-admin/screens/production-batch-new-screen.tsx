@@ -1,4 +1,24 @@
-import { Badge, Button, Card, Cascade, Dialog, EmptyState, FilterChip, FormGrid, FormSection, IssueTrayFrame, QuantityInput, SegmentedControl, Select, Stack, Text, TextInputField, useContentWidth, useIssueTrayController, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Card,
+    Cascade,
+    EmptyState,
+    FilterChip,
+    FormGrid,
+    FormSection,
+    IssueTrayFrame,
+    LeaveDialog,
+    QuantityInput,
+    SegmentedControl,
+    Select,
+    Stack,
+    Text,
+    TextInputField,
+    useContentWidth,
+    useIssueTrayController,
+    useToast,
+} from '@healthy360/design-system';
 import type { IngredientAdmin, RecipeVersionAdmin } from '@healthy360/api-client/contracts';
 import type {
     GridSpanProps,
@@ -967,29 +987,11 @@ function ProductionBatchNew() {
                     </View>
                 </View>
 
-                <Dialog
-                    look="card"
-                    testID="kitchen-production-batch-new-unsaved-dialog"
-                    open={guard.isPrompting}
-                    onClose={guard.cancelDiscard}
+                <LeaveDialog
+                    guard={guard}
                     title={t('kitchen:ops.production.discardTitle')}
-                    description={t('kitchen:ops.production.discardBody')}
-                    actions={
-                        <>
-                            <Button
-                                testID="kitchen-production-batch-new-unsaved-keep"
-                                variant="quiet"
-                                label={t('kitchen:unsaved.keepEditing')}
-                                onPress={guard.cancelDiscard}
-                            />
-                            <Button
-                                testID="kitchen-production-batch-new-unsaved-discard"
-                                variant="danger"
-                                label={t('kitchen:common.discard')}
-                                onPress={guard.confirmDiscard}
-                            />
-                        </>
-                    }
+                    body={t('kitchen:ops.production.discardBody')}
+                    testID="kitchen-production-batch-new"
                 />
             </Cascade>
         </IssueTrayFrame>

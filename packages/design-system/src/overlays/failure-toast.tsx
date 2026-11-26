@@ -1,4 +1,4 @@
-import { useToast } from '@healthy360/design-system';
+import { useToast } from './toast.tsx';
 import { useEffect } from 'react';
 
 /**
@@ -38,7 +38,6 @@ export function FailureToast({
                 : { title, message: body }),
         });
         // Once per failure said: the toast API and the strings are read when it changes.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [said]);
 
     return null;

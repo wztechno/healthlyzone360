@@ -1,10 +1,21 @@
-import { Button, Callout, DensityProvider, Dialog, Inline, OfflineIndicator, Stack, Text, ToastLookScope, useToast } from '@healthy360/design-system';
+import {
+    Button,
+    Callout,
+    DensityProvider,
+    Dialog,
+    FailureToast,
+    Inline,
+    OfflineIndicator,
+    Stack,
+    Text,
+    ToastLookScope,
+    UndoBar,
+    useToast,
+} from '@healthy360/design-system';
 import type { ToastOptions } from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { FailureToast } from '../features/kitchen-admin/failure-toast.tsx';
-import { UndoBar } from '../features/kitchen-admin/row-editor-shell.tsx';
 import { UnsavedMark } from '../features/kitchen-admin/unsaved-mark.tsx';
 
 /**

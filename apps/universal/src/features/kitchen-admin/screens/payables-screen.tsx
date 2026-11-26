@@ -8,6 +8,7 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
+    FailureToast,
     Stack,
     TableSkeleton,
     Text,
@@ -33,7 +34,6 @@ import {
     INVENTORY_VIEW_COSTS_PERMISSION,
 } from '../entity-registry.ts';
 
-import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/supplier-bills?tab=bills` — what is owed for deliveries.
  *

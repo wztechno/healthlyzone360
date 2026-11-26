@@ -10,12 +10,12 @@ import {
     Cascade,
     Checkbox,
     DatePicker,
-    Dialog,
     FormIssueScope,
     FormSkeleton,
     Icon,
     InfoTip,
     IssueTrayFrame,
+    LeaveDialog,
     Select,
     Stack,
     Tabs,
@@ -1754,29 +1754,11 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                     }}
                 />
 
-                <Dialog
-                    look="card"
-                    testID="kitchen-post-receipt-screen-unsaved-dialog"
-                    open={guard.isPrompting}
-                    onClose={guard.cancelDiscard}
+                <LeaveDialog
+                    guard={guard}
                     title={t('kitchen:ops.procurement.discardTitle')}
-                    description={t('kitchen:ops.procurement.discardBody', { count: lines.length })}
-                    actions={
-                        <>
-                            <Button
-                                testID="kitchen-post-receipt-screen-unsaved-keep"
-                                variant="quiet"
-                                label={t('kitchen:unsaved.keepEditing')}
-                                onPress={guard.cancelDiscard}
-                            />
-                            <Button
-                                testID="kitchen-post-receipt-screen-unsaved-discard"
-                                variant="danger"
-                                label={t('kitchen:common.discard')}
-                                onPress={guard.confirmDiscard}
-                            />
-                        </>
-                    }
+                    body={t('kitchen:ops.procurement.discardBody', { count: lines.length })}
+                    testID="kitchen-post-receipt-screen"
                 />
             </Cascade>
         </IssueTrayFrame>

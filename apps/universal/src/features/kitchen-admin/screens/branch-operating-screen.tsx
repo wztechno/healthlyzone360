@@ -7,6 +7,7 @@ import {
     Dialog,
     EmptyState,
     ErrorState,
+    FailureToast,
     FormSection,
     FormSkeleton,
     Icon,
@@ -62,7 +63,6 @@ import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { useLocalSearchParams } from 'expo-router';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useFinishDetour } from '../finish-detour.ts';
-import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/branch-operating` — when this branch trades, and when it stops taking today's orders.
  *

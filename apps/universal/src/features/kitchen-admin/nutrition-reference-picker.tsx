@@ -3,7 +3,18 @@ import type {
     NutritionReferenceCandidate,
     NutritionReferenceSelection,
 } from '@healthy360/api-client/contracts';
-import { Button, Callout, Checkbox, Inline, ListItem, Stack, Tag, Text, TextInputField } from '@healthy360/design-system';
+import {
+    Button,
+    Callout,
+    Checkbox,
+    FailureToast,
+    Inline,
+    ListItem,
+    Stack,
+    Tag,
+    Text,
+    TextInputField,
+} from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -11,7 +22,6 @@ import { View } from 'react-native';
 import { toFailure } from '../../data/hooks.ts';
 import { useNutritionReferenceSearch } from '../../data/kitchen-admin-hooks.ts';
 
-import { FailureToast } from './failure-toast.tsx';
 /** `saturated_fat` → `saturatedFat`: the provider's ids are snake case, the catalogue's keys are not. */
 export function nutrientKey(id: string): string {
     return `nutrition:nutrients.${id.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase())}`;

@@ -212,7 +212,29 @@ names the page.
 **Removed, never recreate:** `CataloguePageHeader` (and its `titleLook`), `KitchenPageHeader` (and its
 `band` variant and subtitle line), `CatalogueNavToggle` / `catalogue-nav.tsx`, `OpsPanel`, `KpiTile`.
 
+## Banners, toasts and pop-ups
+
+A state that stays is a **strip**; what just happened is a **toast**; a decision is a **pop-up**
+(Toasts / pop-ups / banners canvas, 2026-11-11). Problems a page must fix go in the issue tray.
+
+| Job                                                  | How                                                        |
+| ---------------------------------------------------- | ---------------------------------------------------------- |
+| A state that stays (paused, offline, could not load) | `Callout` — the admin draws it as the 40px strip by itself |
+| What just happened (saved, sent)                     | `toast.show` from `useToast()`                             |
+| A save or send the server refused                    | `FailureToast` where the old red box was                   |
+| A row removed, with its way back                     | `UndoBar` beside the rows                                  |
+| Leaving a form with unsaved edits                    | `LeaveDialog` (`title` / `body` for the form's own words)  |
+| Saving over somebody else's edit                     | `ConflictDialog`                                           |
+| Both, on a record editor                             | the app's `EditorGuardDialogs`, which draws the two above  |
+
+Do not pass `size="regular"` to an admin `Callout`, and never hand-draw a `Dialog` that asks
+"leave without saving?" or "someone else changed this".
+
+**Removed, never recreate:** the kitchen `UnsavedDialog`, the hand-drawn leave and conflict dialogs in
+the editors, and the admin's use of the customer `UnsavedChangesDialog` (it stays for the shop and the
+public B2B application).
+
 ## Canvas designs
 
-A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs, pills, dates, tables, toolbars and page headers as `/showcase-components` shows them. If a design
+A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs, pills, dates, tables, toolbars, page headers, banners and pop-ups as `/showcase-components` shows them. If a design
 needs a part that is not on that page, say so — it is a new design-system part, not a one-off.

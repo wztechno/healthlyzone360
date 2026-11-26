@@ -1,6 +1,19 @@
 import { formatGtin } from '@healthy360/api-client/contracts';
 import type { ApiFailure, BarcodeScan, IngredientBarcode } from '@healthy360/api-client/contracts';
-import { Badge, Button, FormSection, Icon, IconButton, Inline, ListItem, QuantityInput, Stack, Text, TextInputField } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    FailureToast,
+    FormSection,
+    Icon,
+    IconButton,
+    Inline,
+    ListItem,
+    QuantityInput,
+    Stack,
+    Text,
+    TextInputField,
+} from '@healthy360/design-system';
 import type { IngredientId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
 import type { MeasureUnit } from '@healthy360/nutrition';
@@ -19,7 +32,6 @@ import { barcodeFailureText } from './barcode-scan.ts';
 import { CameraScanButton } from './camera-scan-button.tsx';
 import { unitCodeLabel, unitShortKey } from './format.ts';
 
-import { FailureToast } from './failure-toast.tsx';
 /**
  * An ingredient's barcodes (ingredient barcodes, plan §8): producer's codes and the one kitchen code.
  *

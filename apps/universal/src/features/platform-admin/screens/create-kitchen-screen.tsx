@@ -5,6 +5,7 @@ import {
     Cascade,
     cx,
     FormSection,
+    LeaveDialog,
     PageHeader,
     Text,
     TextInputField,
@@ -20,7 +21,6 @@ import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useCreateKitchenMutation } from '../../../data/platform-admin-hooks.ts';
 import { useUnsavedGuardFor } from '../../../navigation/use-unsaved-guard.ts';
-import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
 import { SendChecklist } from '../../business/corporate-parts.tsx';
 import type { SendCheck } from '../../business/corporate-parts.tsx';
 import { BilingualField } from '../../kitchen-admin/bilingual-field.tsx';
@@ -415,7 +415,7 @@ function CreateKitchenForm() {
                 {form}
                 {aside}
             </View>
-            <UnsavedChangesDialog guard={guard} testID="platform-admin-create-unsaved" />
+            <LeaveDialog guard={guard} testID="platform-admin-create" />
         </Cascade>
     );
 }

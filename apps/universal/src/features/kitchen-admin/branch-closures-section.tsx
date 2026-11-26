@@ -4,10 +4,11 @@ import {
     Button,
     DataTable,
     DatePicker,
-    RowMenu,
     Dialog,
     ErrorState,
+    FailureToast,
     FormSection,
+    RowMenu,
     Text,
     TextInputField,
     useToast,
@@ -24,8 +25,6 @@ import {
     useRemoveBranchClosureMutation,
 } from '../../data/kitchen-ops-hooks.ts';
 import { toFailure } from '../../data/hooks.ts';
-
-import { FailureToast } from './failure-toast.tsx';
 
 /**
  * Holidays: dates this branch is shut on top of its week. Saves on its own, as the service timings

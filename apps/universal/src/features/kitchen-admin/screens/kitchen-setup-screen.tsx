@@ -1,5 +1,17 @@
 import type { KitchenSetupStep } from '@healthy360/api-client/contracts';
-import { Button, Cascade, cx, ErrorState, FormSkeleton, Icon, InfoTip, Text, useBreakpoint, useToast } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    cx,
+    ErrorState,
+    FailureToast,
+    FormSkeleton,
+    Icon,
+    InfoTip,
+    Text,
+    useBreakpoint,
+    useToast,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -14,7 +26,6 @@ import { SetupStep } from './wholesale-setup-screen.tsx';
 
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
-import { FailureToast } from '../failure-toast.tsx';
 const PAGE = 'kitchen-setup';
 
 /** Where each step is finished. */
