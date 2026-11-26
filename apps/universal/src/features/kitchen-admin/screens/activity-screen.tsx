@@ -11,8 +11,9 @@ import {
     Stack,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -26,8 +27,6 @@ import { daysBetween, isIsoDate, todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import { PeriodScope } from '../catalogue/period-scope.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { AUDIT_VIEW_PERMISSION } from '../entity-registry.ts';
 import { humaniseCode, unitCodeLabel } from '../format.ts';
 

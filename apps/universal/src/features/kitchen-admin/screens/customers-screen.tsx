@@ -3,14 +3,23 @@ import {
     Badge,
     Callout,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
     DataTable,
     EmptyState,
     ErrorState,
     Select,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { BadgeTone, DataTableColumn, SelectOption } from '@healthy360/design-system';
+import type {
+    BadgeTone,
+    ControlledColumn,
+    DataTableColumn,
+    SelectOption,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -22,13 +31,6 @@ import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useKitchenCustomersQuery } from '../../../data/kitchen-customers-hooks.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { ORDER_VIEW_CUSTOMER_CONTACT_PERMISSION } from '../entity-registry.ts';
 import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
 import {

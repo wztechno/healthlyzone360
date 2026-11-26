@@ -10,6 +10,8 @@ import {
     Button,
     Callout,
     Cascade,
+    ColumnPicker,
+    compareText,
     DATA_TABLE_ROW_ICONS,
     DataTable,
     EmptyState,
@@ -20,10 +22,11 @@ import {
     Stack,
     TableSkeleton,
     Text,
+    useColumnControls,
     useTablePort,
     useToast,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -42,8 +45,6 @@ import {
 import { formatMoney } from '../../marketplace/format.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart, LensTone } from '../catalogue/lens-bar.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { quotationLineColumns } from '../commercial/quotation-line-columns.tsx';
 import {
     B2B_QUOTATION_QUOTE_PERMISSION,
@@ -59,7 +60,6 @@ import {
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { focusField } from '../field-focus.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 import { RecordSummaryAside } from '../record-summary-aside.tsx';

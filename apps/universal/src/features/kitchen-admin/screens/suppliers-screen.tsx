@@ -3,6 +3,9 @@ import {
     Badge,
     Button,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
     DATA_TABLE_ROW_ICONS,
     DataTable,
     EmptyState,
@@ -11,8 +14,15 @@ import {
     Select,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem, SelectOption } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    MenuItem,
+    SelectOption,
+    SortDirection,
+} from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -25,17 +35,10 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useSuppliersQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { supplierRowTestId } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
     useListMemory,
     useRememberedFilter,

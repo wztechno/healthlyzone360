@@ -6,13 +6,14 @@ import {
     Cascade,
     Checkbox,
     ChoiceRow,
+    ColumnPicker,
     DataTable,
     DatePicker,
     DensityProvider,
-    RowMenu,
     Icon,
     IconButton,
     initialsOf,
+    RowMenu,
     Select,
     Tabs,
     Text,
@@ -27,7 +28,7 @@ import {
     CompactRecordPopup,
     CompactSection,
 } from '../features/kitchen-admin/catalogue/compact-record-popup.tsx';
-import { DeskColumnPicker, ListGroupRow } from '../features/kitchen-admin/desk-kit/index.ts';
+import { ListGroupRow } from '../features/kitchen-admin/desk-kit/index.ts';
 import { RecordPopup } from '../features/kitchen-admin/catalogue/record-popup.tsx';
 import { DayStepper } from '../features/kitchen-admin/orders/day-stepper.tsx';
 import { orderColumns } from '../features/kitchen-admin/orders/order-columns.tsx';
@@ -386,7 +387,7 @@ export function OrdersShowcaseScreen() {
                             checked={false}
                             onChange={() => undefined}
                         />
-                        <DeskColumnPicker
+                        <ColumnPicker
                             testID="showcase-orders-columns"
                             options={columnChoices.map((key) => ({
                                 key,

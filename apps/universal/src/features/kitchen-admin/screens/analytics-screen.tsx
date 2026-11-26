@@ -7,14 +7,18 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
     DataTable,
     DatePicker,
     EmptyState,
     ErrorState,
     RecordSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
@@ -26,16 +30,9 @@ import { useKitchenAnalyticsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { RatioBars } from '../analytics/ratio-bars.tsx';
 import { StatMix } from '../analytics/stat-mix.tsx';
 import { TrendBars } from '../analytics/trend-bars.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
 import { ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
 import { RecordTile } from '../catalogue/record-tiles.tsx';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';

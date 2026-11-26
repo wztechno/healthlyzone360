@@ -1,4 +1,4 @@
-import { Icon } from '@healthy360/design-system';
+import { Icon } from '../icons/icon.tsx';
 import type { ReactNode } from 'react';
 import { Pressable, Text as RNText, View } from 'react-native';
 
@@ -14,7 +14,7 @@ export const MENU_MAX_HEIGHT = 360;
  * (`trigger="pill"`). Shared with the mini month's day button, which opens a calendar instead of a
  * list. `value` alone (no `label`) is the day button's "Today · Tue 10 Nov".
  */
-export function DropTrigger({
+export function PillTrigger({
     triggerProps,
     onPress,
     open,

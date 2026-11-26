@@ -3,6 +3,8 @@ import {
     Badge,
     Button,
     Cascade,
+    ColumnPicker,
+    compareText,
     DataTable,
     DatePicker,
     Dialog,
@@ -12,9 +14,10 @@ import {
     TablePager,
     TableSkeleton,
     Text,
+    useColumnControls,
     useToast,
 } from '@healthy360/design-system';
-import type { DataTableColumn } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { can } from '@healthy360/permissions';
 import { useRouter } from 'expo-router';
@@ -60,10 +63,7 @@ import {
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { useListPage } from '../use-list-page.ts';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import { PeriodScope } from '../catalogue/period-scope.tsx';
 import { todayIso } from '../../commerce/dates.ts';

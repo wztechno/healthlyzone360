@@ -2,6 +2,7 @@ import {
     Badge,
     Button,
     Cascade,
+    ColumnPicker,
     DATA_TABLE_ROW_ICONS,
     DataTable,
     DataTableBody,
@@ -14,9 +15,10 @@ import {
     Stack,
     Tabs,
     Text,
+    useColumnControls,
     useToast,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { ColumnControl, DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { RECIPE_KINDS } from '@healthy360/api-client/contracts';
 import type {
     PublishableStatus,
@@ -51,8 +53,6 @@ import {
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { RecipeCardGrid } from '../catalogue/recipe-card-grid.tsx';
-import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
-import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
@@ -84,7 +84,6 @@ import {
     statusShortKey,
     statusTone,
 } from '../format.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { useListMemory, useRememberedFilter } from '../list-memory.ts';
 
 /**

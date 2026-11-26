@@ -4,6 +4,7 @@ import {
     Checkbox,
     ChoiceChips,
     ChoiceRow,
+    ColumnPicker,
     DataTable,
     DatePicker,
     DensityProvider,
@@ -20,8 +21,9 @@ import {
     Tag,
     Text,
     initialsOf,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn, SelectOption } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, SelectOption } from '@healthy360/design-system';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
@@ -866,7 +868,7 @@ function TablesSection() {
         { key: 'a', item: 'Mayonnaise', quantity: '1.5' },
         { key: 'b', item: 'Ketchup', quantity: '' },
     ]);
-    const records: readonly DataTableColumn<StockRow>[] = [
+    const records: readonly ControlledColumn<StockRow, DataTableColumn<StockRow>>[] = [
         { key: 'id', label: 'ID', width: 96, priority: 60, role: 'meta', value: (row) => row.id },
         {
             key: 'name',
@@ -943,6 +945,9 @@ function TablesSection() {
             ),
         },
     ];
+    const controls = useColumnControls(STOCK_ROWS, records, 'components-showcase-table', {
+        picker: { max: 4 },
+    });
     return (
         <Stack space="lg" testID="components-showcase-tables">
             <Stack space="xs">
@@ -954,14 +959,17 @@ function TablesSection() {
 
             <Sample
                 title="A list of records"
-                note="DataTable · RowMenu ⋯ per row (green while open), pages past 18, two-line rows on a phone"
+                note="DataTable · ColumnPicker (▦ 4 of 5) · header sort and filter · RowMenu ⋯"
             >
-                <View className="w-full">
+                <View className="w-full gap-2">
+                    <View className="flex-row justify-end">
+                        <ColumnPicker {...controls.picker} />
+                    </View>
                     <DataTable<StockRow>
                         testID="components-showcase-table"
                         label="Ingredients"
-                        columns={records}
-                        rows={STOCK_ROWS}
+                        columns={controls.columns}
+                        rows={controls.rows}
                         rowKey={(row) => row.id}
                         rowActions={() => [
                             { key: 'view', label: 'View', onSelect: () => undefined },

@@ -3081,8 +3081,6 @@
         "sortAscending": "Sort ascending",
         "sortDescending": "Sort descending",
         "filter": "Filter",
-        "clearFilter": "Clear",
-        "columnMenu": "Sort and filter: {{column}}",
         "statsAsCards": "Cards",
         "statsAsLine": "Line",
         "statsViewLabel": "Change how the counts are shown",
@@ -3090,16 +3088,7 @@
         "title": "Catalogue",
         "columnUpdated": "Updated",
         "close": "Close",
-        "columnSort": "Sort by {{column}}",
-        "columnsButton": "Show columns · {{shown}} of {{max}}",
-        "columnsCount": "{{shown}} of {{max}}",
-        "columnsClear": "Clear all",
-        "columnsHint": "Choose which columns appear in the table. Up to {{max}} at a time.",
-        "columnsLabel": "Choose the columns to show",
-        "columnsHeading": "Show up to {{max}} columns",
-        "columnsReset": "Reset to default",
-        "columnFilter": "Filter by {{column}}",
-        "columnFiltered": "Filtered"
+        "columnsHint": "Choose which columns appear in the table. Up to {{max}} at a time."
     },
     "toolbar": {
         "filters": "Filters",

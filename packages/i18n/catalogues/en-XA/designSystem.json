@@ -260,5 +260,18 @@
     "pagerLabel": "[[Þáĝéš āē]]",
     "actionHeader": "[[Áçţíóñš āēī]]",
     "clearFilters": "[[Çłéáŕ ţĥé ƒíłţéŕš āēīōūāē]]"
+  },
+  "columns": {
+    "clearFilter": "[[Çłéáŕ āē]]",
+    "columnFilter": "[[Ƒíłţéŕ ƀý {{column}} āēīōūāēī]]",
+    "columnFiltered": "[[Ƒíłţéŕéð āēīō]]",
+    "columnMenu": "[[Šóŕţ áñð ƒíłţéŕ: {{column}} āēīōūāēīōūā]]",
+    "columnSort": "[[Šóŕţ ƀý {{column}} āēīōūāēī]]",
+    "columnsButton": "[[Šĥóŵ çółúɱñš · {{shown}} óƒ {{max}} āēīōūāēīōūāēīō]]",
+    "columnsClear": "[[Çłéáŕ áłł āēīō]]",
+    "columnsCount": "[[{{shown}} óƒ {{max}} āēīōūāēī]]",
+    "columnsHeading": "[[Šĥóŵ úþ ţó {{max}} çółúɱñš āēīōūāēīōūā]]",
+    "columnsLabel": "[[Çĥóóšé ţĥé çółúɱñš ţó šĥóŵ āēīōūāēīōūā]]",
+    "columnsReset": "[[Ŕéšéţ ţó ðéƒáúłţ āēīōūāē]]"
   }
 }

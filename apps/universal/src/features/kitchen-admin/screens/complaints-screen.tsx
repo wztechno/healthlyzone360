@@ -4,6 +4,7 @@ import {
     Badge,
     Button,
     Cascade,
+    compareText,
     DATA_TABLE_ROW_ICONS,
     DataTable,
     Dialog,
@@ -15,9 +16,10 @@ import {
     TableSkeleton,
     Text,
     TextInputField,
+    useColumnControls,
     useToast,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { parseMinorAmount } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -37,8 +39,6 @@ import { formatMoney } from '../../marketplace/format.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 import {
     useListMemory,

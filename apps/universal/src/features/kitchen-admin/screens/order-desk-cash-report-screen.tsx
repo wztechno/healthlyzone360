@@ -6,6 +6,9 @@ import type {
 import {
     Callout,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
     DataTable,
     DatePicker,
     EmptyState,
@@ -13,8 +16,9 @@ import {
     Select,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn } from '@healthy360/design-system';
 import type { BranchId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
@@ -27,15 +31,8 @@ import { useOrderDeskCashReportQuery } from '../../../data/order-desk-hooks.ts';
 import { daysBetween, isIsoDate, todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
-import { DeskColumnPicker } from '../desk-kit/index.ts';
 import { shortDay } from '../orders/order-columns.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PeriodScope } from '../catalogue/period-scope.tsx';
@@ -405,9 +402,7 @@ function OrderDeskCashReport() {
                     }
                     clearLabel={t('kitchen:lens.clear')}
                     {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
-                    trailing={
-                        rows.length === 0 ? undefined : <DeskColumnPicker {...controls.picker} />
-                    }
+                    trailing={rows.length === 0 ? undefined : <ColumnPicker {...controls.picker} />}
                 />
 
                 {filters === null ? (

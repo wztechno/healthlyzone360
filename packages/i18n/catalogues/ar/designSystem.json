@@ -292,5 +292,18 @@
         "pagerLabel": "الصفحات",
         "actionHeader": "إجراءات",
         "clearFilters": "مسح عوامل التصفية"
+    },
+    "columns": {
+        "clearFilter": "مسح",
+        "columnFilter": "صفِّ حسب {{column}}",
+        "columnFiltered": "مُصفّى",
+        "columnMenu": "الترتيب والتصفية: {{column}}",
+        "columnSort": "رتّب حسب {{column}}",
+        "columnsButton": "عرض الأعمدة · {{shown}} من {{max}}",
+        "columnsClear": "إلغاء تحديد الكل",
+        "columnsCount": "{{shown}} من {{max}}",
+        "columnsHeading": "اعرض حتى {{max}} أعمدة",
+        "columnsLabel": "اختر الأعمدة المعروضة",
+        "columnsReset": "استعادة الافتراضي"
     }
 }

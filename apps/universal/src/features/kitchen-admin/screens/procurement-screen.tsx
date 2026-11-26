@@ -3,6 +3,10 @@ import {
     Badge,
     Button,
     Cascade,
+    ColumnPicker,
+    compareAmount,
+    compareNumber,
+    compareText,
     DATA_TABLE_ROW_ICONS,
     DataTable,
     DatePicker,
@@ -13,8 +17,9 @@ import {
     Stack,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -31,13 +36,6 @@ import { PeriodScope } from '../catalogue/period-scope.tsx';
 import type { PeriodWindow } from '../catalogue/period-scope.tsx';
 import { todayIso } from '../../commerce/dates.ts';
 import {
-    compareAmount,
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
@@ -48,7 +46,6 @@ import {
     receiptCostStatusTone,
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { AwaitingDeliveries } from '../awaiting-deliveries.tsx';
 import { ReceiptOrderRef, useReceiptOpenOrderActions } from '../receipt-order-ref.tsx';
 import { useViewedRecord } from '../use-viewed-record.ts';

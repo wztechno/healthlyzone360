@@ -2,6 +2,9 @@ import {
     Badge,
     Button,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
     DATA_TABLE_ROW_ICONS,
     DataTable,
     EmptyState,
@@ -9,8 +12,14 @@ import {
     Icon,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem, StatusStep } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    MenuItem,
+    StatusStep,
+} from '@healthy360/design-system';
 import type { Quotation, QuotationState } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -25,17 +34,10 @@ import {
     useQuotationsQuery,
 } from '../../../data/business-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
-import { ColumnPicker } from '../../kitchen-admin/catalogue/column-picker.tsx';
 import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.tsx';
 import { SheetFacts } from '../../kitchen-admin/catalogue/record-sheet.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../../kitchen-admin/catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { AcceptQuotationDialog, DeclineQuotationDialog } from '../accept-quotation-dialog.tsx';
 import { CORPORATE_HOME_HREF, CORPORATE_NEW_QUOTATION_HREF } from '../corporate-chrome.tsx';

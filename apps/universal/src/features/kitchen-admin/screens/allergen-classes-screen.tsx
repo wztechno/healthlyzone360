@@ -2,14 +2,16 @@ import type { AllergenClass } from '@healthy360/api-client/contracts';
 import {
     Button,
     Cascade,
+    ColumnPicker,
     DATA_TABLE_ROW_ICONS,
     DataTable,
     EmptyState,
     ErrorState,
     Inline,
     TableSkeleton,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { ColumnControl, DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -23,8 +25,6 @@ import {
     allergenRowTestId,
     thresholdLabel,
 } from '../catalogue/allergen-columns.tsx';
-import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
-import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
@@ -33,7 +33,6 @@ import type { AllergenListState } from '../catalogue/use-allergen-list.ts';
 import { NO_MARKET, useAllergenList } from '../catalogue/use-allergen-list.ts';
 import { CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { useListMemory, useRememberedOpened } from '../list-memory.ts';
 
 /**

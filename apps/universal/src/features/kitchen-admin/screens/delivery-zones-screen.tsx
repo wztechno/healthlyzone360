@@ -8,6 +8,9 @@ import {
     Badge,
     Button,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
     DATA_TABLE_ROW_ICONS,
     DataTable,
     EmptyState,
@@ -17,8 +20,14 @@ import {
     TablePager,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    MenuItem,
+    SortDirection,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -43,12 +52,6 @@ import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import type { StatusLensSource } from '../catalogue/lens-status.ts';
 import { statusTally, withoutStatuses } from '../catalogue/use-catalogue-filters.ts';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
 import { assignedWindows, summariseWindows } from '../delivery-model.ts';
 import type { WindowCoverage } from '../delivery-model.ts';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -61,7 +64,6 @@ import {
     zoneRowTestId,
 } from '../format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
     useListMemory,
     useRememberedFilter,

@@ -3444,8 +3444,6 @@
         "sortAscending": "ترتيب تصاعدي",
         "sortDescending": "ترتيب تنازلي",
         "filter": "تصفية",
-        "clearFilter": "مسح",
-        "columnMenu": "الترتيب والتصفية: {{column}}",
         "statsAsCards": "بطاقات",
         "statsAsLine": "سطر",
         "statsViewLabel": "تغيير طريقة عرض الأعداد",
@@ -3453,16 +3451,7 @@
         "title": "الكتالوج",
         "columnUpdated": "آخر تحديث",
         "close": "إغلاق",
-        "columnSort": "رتّب حسب {{column}}",
-        "columnsButton": "عرض الأعمدة · {{shown}} من {{max}}",
-        "columnsCount": "{{shown}} من {{max}}",
-        "columnsClear": "إلغاء تحديد الكل",
-        "columnsHint": "اختر الأعمدة التي تظهر في الجدول، حتى {{max}} في المرة الواحدة.",
-        "columnsLabel": "اختر الأعمدة المعروضة",
-        "columnsHeading": "اعرض حتى {{max}} أعمدة",
-        "columnsReset": "استعادة الافتراضي",
-        "columnFilter": "صفِّ حسب {{column}}",
-        "columnFiltered": "مُصفّى"
+        "columnsHint": "اختر الأعمدة التي تظهر في الجدول، حتى {{max}} في المرة الواحدة."
     },
     "toolbar": {
         "filters": "عوامل التصفية",

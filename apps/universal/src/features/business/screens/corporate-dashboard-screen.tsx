@@ -2,6 +2,7 @@ import {
     Badge,
     Button,
     Cascade,
+    compareText,
     cx,
     EmptyState,
     ErrorState,
@@ -31,7 +32,6 @@ import {
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { useSession } from '../../../session/session-provider.tsx';
 import { Panel, StatTile } from '../../kitchen-admin/hub-parts.tsx';
-import { compareText } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { AcceptQuotationDialog, DeclineQuotationDialog } from '../accept-quotation-dialog.tsx';
 import {

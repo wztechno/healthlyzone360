@@ -1,3 +1,4 @@
+import { forgetColumnChoice, rememberColumnChoice } from '@healthy360/design-system';
 import { ApiError, apiFailure } from '@healthy360/api-client';
 import type {
     OrderDeskRequirement,
@@ -8,7 +9,6 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 
 import { kitchenManagerSession, testActiveContext } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
 import { addDays, todayIso } from '../commerce/dates.ts';
 import { OrderDeskRequirementsScreen } from './screens/order-desk-requirements-screen.tsx';
 import { Dimensions } from 'react-native';

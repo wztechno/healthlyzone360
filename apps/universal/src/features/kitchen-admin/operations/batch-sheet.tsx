@@ -5,8 +5,15 @@ import type {
     RecipePackagingLine,
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
-import { Badge, Inline, Text } from '@healthy360/design-system';
-import type { DataTableColumn } from '@healthy360/design-system';
+import {
+    Badge,
+    compareAmount,
+    compareNumber,
+    compareText,
+    Inline,
+    Text,
+} from '@healthy360/design-system';
+import type { ColumnFilter, ControlledColumn, DataTableColumn } from '@healthy360/design-system';
 import type { IngredientId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { MeasureUnit } from '@healthy360/nutrition';
@@ -17,8 +24,6 @@ import { useCan } from '../../../access/gate.tsx';
 import { useIngredientsByIds } from '../../../data/kitchen-admin-hooks.ts';
 import { useStockItemsQuery, useStockLevelsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { displayQuantity, scaleLine, scalePackaging, withWaste } from '../batch-scaling.ts';
-import type { ColumnFilter, ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { compareAmount, compareNumber, compareText } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, unitShortKey } from '../format.ts';
 import { ProductionTable } from '../production-desk/production-table.tsx';

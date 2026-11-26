@@ -3,6 +3,9 @@ import {
     Button,
     Callout,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
     DataTable,
     DatePicker,
     EmptyState,
@@ -11,8 +14,9 @@ import {
     Select,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,12 +29,6 @@ import { useOrderDeskRequirementsQuery } from '../../../data/order-desk-hooks.ts
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { addDays, todayIso } from '../../commerce/dates.ts';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
 import {
     INVENTORY_ORDER_SUPPLIES_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
@@ -43,7 +41,6 @@ import { PageBackPill, useAreaTrailDrawn } from '../../../shell/area-trail.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import { ORDERS_HREF } from '../orders/orders-url.ts';
 import { shortDay } from '../orders/order-columns.tsx';
-import { DeskColumnPicker } from '../desk-kit/index.ts';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 
 /**
@@ -630,7 +627,7 @@ function OrderDeskRequirements() {
                               },
                           }
                         : {})}
-                    trailing={<DeskColumnPicker {...controls.picker} />}
+                    trailing={<ColumnPicker {...controls.picker} />}
                     {...(canOrder && shortCount > 0
                         ? {
                               actions: (

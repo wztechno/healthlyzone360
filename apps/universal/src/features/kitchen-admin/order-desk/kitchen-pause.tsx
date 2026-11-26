@@ -1,4 +1,4 @@
-import { Button, Callout, Menu } from '@healthy360/design-system';
+import { Button, Callout, Menu, PillTrigger } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
@@ -8,7 +8,6 @@ import {
     usePauseKitchenMutation,
     useResumeKitchenMutation,
 } from '../../../data/staff-alerts-hooks.ts';
-import { DropTrigger } from '../desk-kit/index.ts';
 import { ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
 /**
@@ -27,7 +26,7 @@ function usePausedUntil(): string | null {
 }
 
 /**
- * The toolbar's button — the desk's dropdown pill (`DropTrigger`) opening the same rising card menu
+ * The toolbar's button — the desk's dropdown pill (`PillTrigger`) opening the same rising card menu
  * as the calendar's Slot and Type, one row per length. Gone while a pause runs: the banner carries
  * the way out.
  */
@@ -63,7 +62,7 @@ export function KitchenPauseButton() {
                 },
             ]}
             trigger={({ triggerProps, toggle, open }) => (
-                <DropTrigger
+                <PillTrigger
                     triggerProps={triggerProps}
                     onPress={toggle}
                     open={open}

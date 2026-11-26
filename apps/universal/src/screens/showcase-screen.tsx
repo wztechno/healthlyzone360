@@ -21,6 +21,8 @@ import {
     Checkbox,
     Chip,
     Collapse,
+    ColumnHeader,
+    ColumnPicker,
     CommandPalette,
     DataList,
     DataTable,
@@ -105,6 +107,7 @@ import {
     TimeField,
     UNDROPPABLE_PRIORITY,
     useAnimatedNumber,
+    useColumnVisibility,
     useFormSteps,
     useToast,
 } from '@healthy360/design-system';
@@ -148,12 +151,7 @@ import { RowThumbnail } from '../features/kitchen-admin/catalogue/row-thumbnail.
 import { CatalogueStatCards } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
 import { CatalogueToolbar } from '../features/kitchen-admin/catalogue/catalogue-toolbar.tsx';
-import { CatalogueColumnHeader } from '../features/kitchen-admin/catalogue/catalogue-column-header.tsx';
 import { RecipeCardGrid } from '../features/kitchen-admin/catalogue/recipe-card-grid.tsx';
-import {
-    ColumnPicker,
-    useColumnVisibility,
-} from '../features/kitchen-admin/catalogue/column-picker.tsx';
 import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
 import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
 import { RecordSummaryAside } from '../features/kitchen-admin/record-summary-aside.tsx';
@@ -1207,7 +1205,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
      * pressing a value adds the filter mark beside the label.
      */
     const columnMenu = (scope: string) => (
-        <CatalogueColumnHeader
+        <ColumnHeader
             label="Kind"
             sortDirection={kindSort}
             onToggleSort={() => {

@@ -1,3 +1,4 @@
+import { forgetColumnChoice, rememberColumnChoice } from '@healthy360/design-system';
 import { apiFailure, throwFailure } from '@healthy360/api-client/contracts';
 import { PACKAGING_CATEGORY_CODE } from '@healthy360/api-client/contracts';
 import type {
@@ -25,7 +26,6 @@ import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { PackagingEditScreen } from './screens/packaging-edit-screen.tsx';
 import { PackagingScreen } from './screens/packaging-screen.tsx';
-import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
 import { getRecordAction } from '../../testing/record-actions.ts';
 
 afterEach(() => {

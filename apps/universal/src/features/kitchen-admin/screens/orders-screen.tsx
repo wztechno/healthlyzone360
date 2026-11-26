@@ -13,6 +13,7 @@ import {
     TablePager,
     TableSkeleton,
     Tabs,
+    useColumnControls,
 } from '@healthy360/design-system';
 import type { IssueTrayContent } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
@@ -42,7 +43,6 @@ import { useListPage } from '../use-list-page.ts';
 import { CalendarTab, SlotScope, useSlotHours, useSlotName } from '../orders/orders-calendar.tsx';
 import { DayStepper } from '../orders/day-stepper.tsx';
 import { longDay, orderColumnControls, shortDay } from '../orders/order-columns.tsx';
-import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import type { OrderColumnContext } from '../orders/order-columns.tsx';
 import {
     DATES_FILTERS,

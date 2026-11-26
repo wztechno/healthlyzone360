@@ -1,3 +1,4 @@
+import { forgetColumnChoice } from '@healthy360/design-system';
 import type {
     AdminEntityMeta,
     CursorPage,
@@ -15,7 +16,6 @@ import { useEffect, useState } from 'react';
 import { TEST_ORGANISATION_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
-import { forgetColumnChoice } from './catalogue/column-picker.tsx';
 import { IngredientsScreen } from './screens/ingredients-screen.tsx';
 import { RecipesScreen } from './screens/recipes-screen.tsx';
 

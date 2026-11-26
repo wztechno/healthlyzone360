@@ -3,14 +3,16 @@ import {
     Callout,
     Cascade,
     Checkbox,
+    ColumnPicker,
     DATA_TABLE_ROW_ICONS,
     DataTable,
     EmptyState,
     ErrorState,
     Icon,
     TableSkeleton,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
 import type { CatalogueItem, CatalogueItemKind } from '@healthy360/api-client/contracts';
 import { CorporateProgrammeId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -20,11 +22,8 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { toFailure, useCorporateCatalogueQuery } from '../../../data/business-hooks.ts';
-import { ColumnPicker } from '../../kitchen-admin/catalogue/column-picker.tsx';
 import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
-import { useColumnControls } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
 import { catalogueColumns } from '../catalogue-columns.tsx';
 import { CORPORATE_HOME_HREF, CORPORATE_NEW_QUOTATION_HREF } from '../corporate-chrome.tsx';
 import { PickedLinesBar } from '../corporate-parts.tsx';

@@ -2,6 +2,7 @@ import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/
 import {
     Button,
     Cascade,
+    ColumnPicker,
     DATA_TABLE_ROW_ICONS,
     DataTable,
     DataTableBody,
@@ -9,9 +10,10 @@ import {
     Icon,
     Inline,
     Text,
+    useColumnControls,
     useToast,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { ColumnControl, DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -20,8 +22,6 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
-import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
-import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
@@ -40,7 +40,6 @@ import type { PackagingListState, PackagingSortKey } from '../catalogue/use-pack
 import { usePackagingList } from '../catalogue/use-packaging-list.ts';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, humaniseCode, unitShortKey } from '../format.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
 /**
  * `/kitchen/packaging` — bags, boxes, lids, cutlery and labels, and what each costs.

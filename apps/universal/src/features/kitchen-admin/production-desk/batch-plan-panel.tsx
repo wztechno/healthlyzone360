@@ -1,11 +1,16 @@
 import type { ProductionPlan, ProductionPlanLine } from '@healthy360/api-client/contracts';
-import { Callout, Stack, Text, useIssueGroup } from '@healthy360/design-system';
-import type { DataTableColumn } from '@healthy360/design-system';
+import {
+    Callout,
+    compareAmount,
+    compareText,
+    Stack,
+    Text,
+    useIssueGroup,
+} from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { compareAmount, compareText } from '../catalogue/use-column-controls.tsx';
 import { formatMoney, knownCurrency } from '../format.ts';
 import { BATCH_QUANTITY_FORMAT } from '../operations/batch-sheet.tsx';
 import { ledgerQuantity } from '../ops-format.ts';

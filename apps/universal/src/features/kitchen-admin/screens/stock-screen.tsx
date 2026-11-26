@@ -11,6 +11,9 @@ import {
     Button,
     Callout,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
     DATA_TABLE_ROW_ICONS,
     DataTable,
     EmptyState,
@@ -24,10 +27,17 @@ import {
     TableSkeleton,
     Text,
     TextInputField,
+    useColumnControls,
     useTablePort,
     useToast,
 } from '@healthy360/design-system';
-import type { BadgeTone, DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type {
+    BadgeTone,
+    ControlledColumn,
+    DataTableColumn,
+    MenuItem,
+    SortDirection,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { IngredientId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
@@ -53,12 +63,6 @@ import { barcodeFailureText, shelfForIngredient, unlinkedScanMessage } from '../
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart, LensToken } from '../catalogue/lens-bar.tsx';
 import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
-import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
@@ -68,7 +72,6 @@ import { isOutOfStock, stockItemRowTestId } from '../ops-format.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { STOCK_COUNT_IMPORT_GUIDE } from '../catalogue/import-guides.ts';
 import { listPrintJob, useListPrint } from '../catalogue/list-print.ts';

@@ -260,5 +260,18 @@
         "pagerLabel": "Pages",
         "actionHeader": "Actions",
         "clearFilters": "Clear the filters"
+    },
+    "columns": {
+        "clearFilter": "Clear",
+        "columnFilter": "Filter by {{column}}",
+        "columnFiltered": "Filtered",
+        "columnMenu": "Sort and filter: {{column}}",
+        "columnSort": "Sort by {{column}}",
+        "columnsButton": "Show columns · {{shown}} of {{max}}",
+        "columnsClear": "Clear all",
+        "columnsCount": "{{shown}} of {{max}}",
+        "columnsHeading": "Show up to {{max}} columns",
+        "columnsLabel": "Choose the columns to show",
+        "columnsReset": "Reset to default"
     }
 }

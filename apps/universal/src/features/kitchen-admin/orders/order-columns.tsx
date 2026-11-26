@@ -1,17 +1,18 @@
 import type { OrderDeskDeliveryWindow } from '@healthy360/api-client/contracts';
 import { Badge, Button, Text } from '@healthy360/design-system';
-import type { BadgeTone, DataTableColumn } from '@healthy360/design-system';
+import type {
+    BadgeTone,
+    ColumnComparator,
+    ColumnFilter,
+    ControlledColumn,
+    DataTableColumn,
+} from '@healthy360/design-system';
 import type { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { Text as RNText, View } from 'react-native';
 
 import { formatMoney } from '../../marketplace/format.ts';
 import { dateInstant } from '../../planner/format.ts';
-import type {
-    ColumnComparator,
-    ColumnFilter,
-    ControlledColumn,
-} from '../catalogue/use-column-controls.tsx';
 import {
     kitchenOrderPaymentMethodKey,
     kitchenOrderRowTestId,

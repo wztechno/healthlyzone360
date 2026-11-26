@@ -1,12 +1,8 @@
-import { DataTable, FormSection } from '@healthy360/design-system';
-import type { DataTableColumn } from '@healthy360/design-system';
+import { ColumnPicker, DataTable, FormSection, useColumnControls } from '@healthy360/design-system';
+import type { ColumnControls, ControlledColumn, DataTableColumn } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
-
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import type { ColumnControls, ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 
 /**
  * Every table in the production flow, drawn one way.

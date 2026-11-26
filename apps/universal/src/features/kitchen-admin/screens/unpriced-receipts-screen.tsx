@@ -3,14 +3,17 @@ import {
     Badge,
     Button,
     Cascade,
+    ColumnPicker,
+    compareText,
     DATA_TABLE_ROW_ICONS,
     DataTable,
     EmptyState,
     ErrorState,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -24,12 +27,9 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useSuppliersQuery, useUnpricedReceiptsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart, LensTone, LensToken } from '../catalogue/lens-bar.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
     useListMemory,
     useRememberedFilter,

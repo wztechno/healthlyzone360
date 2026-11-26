@@ -1,12 +1,16 @@
-import { Badge, DATA_TABLE_PRIORITY, Text } from '@healthy360/design-system';
-import type { BadgeTone, DataTableColumn } from '@healthy360/design-system';
+import {
+    Badge,
+    compareNumber,
+    compareText,
+    DATA_TABLE_PRIORITY,
+    Text,
+} from '@healthy360/design-system';
+import type { BadgeTone, ControlledColumn, DataTableColumn } from '@healthy360/design-system';
 import type { CatalogueItem, CatalogueItemKind } from '@healthy360/api-client/contracts';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { View } from 'react-native';
 
-import { compareNumber, compareText } from '../kitchen-admin/catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../kitchen-admin/catalogue/use-column-controls.tsx';
 import { EntityImage } from '../../media/entity-image.tsx';
 import { formatMoney, formatPackSize } from '../marketplace/format.ts';
 import { catalogueKindKey, contractPriceTestId } from './format.ts';

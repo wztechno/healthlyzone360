@@ -1,17 +1,18 @@
-import { dataListColumnAlign } from '@healthy360/design-system';
-import type { DataListColumn, MenuItem } from '@healthy360/design-system';
+import { dataListColumnAlign } from '../content/data-list.tsx';
+import type { DataListColumn } from '../content/data-list.tsx';
+import type { MenuItem } from '../overlays/menu.tsx';
 import { useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { CatalogueColumnHeader } from './catalogue-column-header.tsx';
+import { ColumnHeader } from './column-header.tsx';
 import { MAX_VISIBLE_COLUMNS, useColumnVisibility } from './column-picker.tsx';
 import type { ColumnPickerProps } from './column-picker.tsx';
 
 /**
  * Sort-on-press and filter-from-menu headers for any kitchen table, declared on the column.
  *
- * Every Catalogue list used to wire `CatalogueColumnHeader` by hand — a `headerMenu`, a
+ * Every Catalogue list used to wire `ColumnHeader` by hand — a `headerMenu`, a
  * `sortKeyFor`, a `filterItemsFor` and a `clearItem` per screen, the same ~150 lines six times —
  * and a new list either copied them or shipped plain labels. This hook is that wiring once: a column
  * says *how* it sorts or filters, and the hook draws the header and, where it owns the state, applies
@@ -293,7 +294,7 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
                     : [
                           {
                               key: 'clear',
-                              label: t('kitchen:catalogue.clearFilter'),
+                              label: t('designSystem:columns.clearFilter'),
                               testID: `${testID}-clear`,
                               onSelect: () => {
                                   choose(null);
@@ -304,7 +305,7 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
             return {
                 ...base,
                 renderHeader: (): ReactNode => (
-                    <CatalogueColumnHeader
+                    <ColumnHeader
                         label={column.label}
                         align={dataListColumnAlign(column)}
                         sections={items.length === 0 ? [] : [{ items }]}
@@ -322,7 +323,7 @@ export function useColumnControls<Row, Base extends DataListColumn<Row> = DataLi
             return {
                 ...base,
                 renderHeader: (): ReactNode => (
-                    <CatalogueColumnHeader
+                    <ColumnHeader
                         label={column.label}
                         align={dataListColumnAlign(column)}
                         sections={[]}

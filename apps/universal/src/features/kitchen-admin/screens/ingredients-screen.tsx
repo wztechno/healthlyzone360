@@ -1,6 +1,7 @@
 import {
     Button,
     Cascade,
+    ColumnPicker,
     DATA_TABLE_ROW_ICONS,
     DataTable,
     DataTableBody,
@@ -9,9 +10,10 @@ import {
     Inline,
     Select,
     Text,
+    useColumnControls,
     useToast,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { ColumnControl, DataTableColumn, MenuItem } from '@healthy360/design-system';
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -37,11 +39,8 @@ import {
     INGREDIENT_LOCKED_COLUMNS,
     ingredientColumns,
 } from '../catalogue/ingredient-columns.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import type { IngredientListState, IngredientSortKey } from '../catalogue/use-ingredient-list.ts';
 import { useIngredientList } from '../catalogue/use-ingredient-list.ts';
-import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
-import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import {
     INGREDIENT_STATUS_FILTERS,
     displayName,

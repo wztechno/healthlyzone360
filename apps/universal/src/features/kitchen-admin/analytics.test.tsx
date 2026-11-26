@@ -1,3 +1,4 @@
+import { forgetColumnChoice } from '@healthy360/design-system';
 import type {
     KitchenAnalyticsFilter,
     KitchenAnalyticsReport,
@@ -8,7 +9,6 @@ import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import { kitchenManagerSession } from '../../testing/session-fixtures.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { AnalyticsScreen, trendBuckets } from './screens/analytics-screen.tsx';
-import { forgetColumnChoice } from './catalogue/column-picker.tsx';
 
 afterEach(() => {
     forgetColumnChoice('kitchen-analytics-table');

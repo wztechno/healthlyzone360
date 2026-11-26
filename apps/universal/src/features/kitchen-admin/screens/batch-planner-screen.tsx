@@ -9,6 +9,8 @@ import {
     Badge,
     Button,
     Cascade,
+    compareNumber,
+    compareText,
     EmptyState,
     ErrorState,
     Heading,
@@ -23,8 +25,14 @@ import {
     Stack,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn } from '@healthy360/design-system';
+import type {
+    ColumnControls,
+    ColumnFilter,
+    ControlledColumn,
+    DataTableColumn,
+} from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -46,16 +54,6 @@ import { batchFactor, scaleLine, scalePackaging, withWaste } from '../batch-scal
 import type { BatchMode } from '../batch-scaling.ts';
 import { LensFigureCell } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import type {
-    ColumnControls,
-    ColumnFilter,
-    ControlledColumn,
-} from '../catalogue/use-column-controls.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
 import {
     CATALOGUE_VIEW_PERMISSION,
     PRODUCTION_MANAGE_PERMISSION,

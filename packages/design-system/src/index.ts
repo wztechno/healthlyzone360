@@ -349,6 +349,42 @@ export type { TablePagerProps } from './data/table-pager.tsx';
 export { useTablePort } from './data/table-port.ts';
 export type { TablePort } from './data/table-port.ts';
 export { ROW_ACTIONS_WIDTH, RowMenu } from './data/row-menu.tsx';
+export {
+    ColumnPicker,
+    MAX_VISIBLE_COLUMNS,
+    WithColumnPicker,
+    forgetColumnChoice,
+    rememberColumnChoice,
+    useColumnVisibility,
+} from './data/column-picker.tsx';
+export type {
+    ColumnPickerOption,
+    ColumnPickerProps,
+    ColumnVisibility,
+    ColumnVisibilityOptions,
+} from './data/column-picker.tsx';
+export { ColumnHeader } from './data/column-header.tsx';
+export type { ColumnHeaderProps } from './data/column-header.tsx';
+export {
+    compareAmount,
+    compareDisplayed,
+    compareNumber,
+    compareText,
+    leadingNumber,
+    useColumnControls,
+} from './data/use-column-controls.tsx';
+export type {
+    ColumnComparator,
+    ColumnControl,
+    ColumnControls,
+    ColumnControlsOptions,
+    ColumnFilter,
+    ColumnFilterValue,
+    ControlledColumn,
+    ExternalSort,
+    SortDirection,
+} from './data/use-column-controls.tsx';
+export { MENU_MAX_HEIGHT, PillTrigger } from './actions/pill-trigger.tsx';
 
 export { Table } from './data/table.tsx';
 export type {

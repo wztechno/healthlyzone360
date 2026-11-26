@@ -4,6 +4,9 @@ import {
     Badge,
     Button,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
     DATA_TABLE_ROW_ICONS,
     DataTable,
     EmptyState,
@@ -13,8 +16,9 @@ import {
     TablePager,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -37,12 +41,6 @@ import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { StatusLensSource } from '../catalogue/lens-status.ts';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { statusTally, withoutStatuses } from '../catalogue/use-catalogue-filters.ts';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     PLAN_STATUS_FILTERS,
@@ -56,7 +54,6 @@ import {
 } from '../format.ts';
 import type { PlanPriceCoverage } from '../format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
     useListMemory,
     useRememberedFilter,

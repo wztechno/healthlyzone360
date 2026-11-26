@@ -2,6 +2,7 @@ import { apiFailure } from '@healthy360/api-client/contracts';
 import {
     Button,
     Cascade,
+    ColumnPicker,
     DatePicker,
     EmptyState,
     ErrorState,
@@ -24,7 +25,6 @@ import { displayName, statusKey } from '../format.ts';
 import { ReviewTable, useReviewColumns } from '../review/review-table.tsx';
 import { buildReviewQueue, isBlocked, reviewFamilyKey, reviewReasonKey } from '../review-queue.ts';
 import type { ReviewItem, ReviewQueue, ReviewSection } from '../review-queue.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import { PeriodScope } from '../catalogue/period-scope.tsx';
 import type { PeriodWindow } from '../catalogue/period-scope.tsx';

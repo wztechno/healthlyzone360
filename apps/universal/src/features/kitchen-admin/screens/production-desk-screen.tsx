@@ -3,6 +3,8 @@ import {
     Badge,
     Button,
     Cascade,
+    ColumnPicker,
+    compareText,
     DataTable,
     EmptyState,
     ErrorState,
@@ -10,6 +12,7 @@ import {
     Select,
     TableSkeleton,
     Text,
+    useColumnControls,
     useToast,
 } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
@@ -26,13 +29,10 @@ import {
     useStartProductionOrderMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import type { DataTableColumn, MenuItem } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
 
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { PRODUCTION_MANAGE_PERMISSION, PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     nextProductionEdge,

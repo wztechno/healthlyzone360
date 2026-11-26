@@ -1,5 +1,13 @@
-import { DataTable, ROW_ACTIONS_WIDTH, RowMenu, TablePager, Text } from '@healthy360/design-system';
-import type { DataTableColumn } from '@healthy360/design-system';
+import {
+    compareText,
+    DataTable,
+    ROW_ACTIONS_WIDTH,
+    RowMenu,
+    TablePager,
+    Text,
+    useColumnControls,
+} from '@healthy360/design-system';
+import type { ColumnControls, ControlledColumn, DataTableColumn } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { useMemo, useState } from 'react';
@@ -8,8 +16,6 @@ import { View } from 'react-native';
 import { displayName, statusKey } from '../format.ts';
 import { reviewFamilyKey, reviewReasonKey, reviewRowTestId } from '../review-queue.ts';
 import type { ReviewItem } from '../review-queue.ts';
-import type { ColumnControls, ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { ReviewReasonChip } from './review-reason-chip.tsx';
 
 /**

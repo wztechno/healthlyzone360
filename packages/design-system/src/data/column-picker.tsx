@@ -1,9 +1,15 @@
+import { Badge } from '../content/badge.tsx';
+import { Button } from '../actions/button.tsx';
+import { ChoiceRow } from '../forms/choice-row.tsx';
+import { Dialog } from '../overlays/dialog.tsx';
+import { Icon } from '../icons/icon.tsx';
+import { Text } from '../primitives/text.tsx';
+import { useTranslation } from 'react-i18next';
+
+import { PillTrigger } from '../actions/pill-trigger.tsx';
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
-
-import { createKeyValueStore } from '../../../session/storage.ts';
-import { DeskColumnPicker } from '../desk-kit/desk-column-picker.tsx';
 
 /**
  * Which of a table's columns are drawn — chosen by the reader, at most {@link MAX_VISIBLE_COLUMNS}.
@@ -59,7 +65,43 @@ export const MAX_VISIBLE_COLUMNS = 6;
 
 const STORAGE_PREFIX = 'h360.table-columns.';
 
-const store = createKeyValueStore();
+/**
+ * The reader's choice, per device: the browser's own storage where there is one, held in memory as
+ * well so a refused write (a private window, a full quota) still lasts the session.
+ */
+const memory = new Map<string, string>();
+function webStorage(): Storage | null {
+    try {
+        return typeof window === 'undefined' ? null : window.localStorage;
+    } catch {
+        return null;
+    }
+}
+const store = {
+    get: (key: string): string | null => {
+        try {
+            return webStorage()?.getItem(key) ?? memory.get(key) ?? null;
+        } catch {
+            return memory.get(key) ?? null;
+        }
+    },
+    set: (key: string, value: string): void => {
+        memory.set(key, value);
+        try {
+            webStorage()?.setItem(key, value);
+        } catch {
+            /* Non-sensitive: losing it only brings back the defaults. */
+        }
+    },
+    remove: (key: string): void => {
+        memory.delete(key);
+        try {
+            webStorage()?.removeItem(key);
+        } catch {
+            /* Ignored for the same reason. */
+        }
+    },
+};
 
 /** Forgets a table's stored choice. For tests, which share the module's in-memory store. */
 export function forgetColumnChoice(tableId: string): void {
@@ -220,22 +262,122 @@ export interface ColumnPickerProps {
 }
 
 /**
- * The toolbar's Show columns, and the window it opens in the middle of the screen.
+ * The desk's Show columns (Requirements canvas, `Show columns · 6 of 6`; built 2026-11-11).
  *
- * Since 2026-11-11 every table draws the desk kit's form (`DeskColumnPicker`): the "▦ 6 of 6" pill
- * on the toolbar's height and a card window of check rows, two to a row, with Clear all, Reset and
- * Done at its foot. A `Dialog` rather than a menu hanging off the button: choosing columns is
- * setting several switches and then looking at the table, so it stays open through every toggle and
- * closes on Done, a click on the backdrop or Escape.
+ * ```
+ * ( ▦ 6 of 6 ⌄ )     the toolbar's dropdown pill: the canvas's grid glyph with the count beside it
+ *                     in bold; its accessible name is the whole "Show columns · 6 of 6"
+ *
+ *   ┌ Choose the columns to show ─────────────── ✕ ┐
+ *   │ Show up to 6 columns               (3 of 6) │   one line: the cap, and the count as a chip
+ *   │ [✓] Ingredient      [✓] Required             │   check rows, two to a row; a locked
+ *   │ [✓] On hand         [ ] Reserved             │   column stays ticked and cannot be
+ *   │ …                                            │   unticked, a full table greys the rest
+ *   │           ( Clear all ) ( Reset ) (( Done )) │
+ *   └──────────────────────────────────────────────┘
+ * ```
+ *
+ * The props are `ColumnPicker`'s (`useColumnControls().picker`), so a table moves over by changing
+ * the component.
  */
 export function ColumnPicker({
     compact: _compact,
-    ...props
+    options,
+    shown,
+    max,
+    onToggle,
+    onReset,
+    onClear,
+    canClear,
+    testID,
 }: ColumnPickerProps & {
     /** Kept for the callers that still say it: the pill is narrow at every width. */
     readonly compact?: boolean | undefined;
 }) {
-    return <DeskColumnPicker {...props} />;
+    const { t } = useTranslation();
+    const [open, setOpen] = useState(false);
+    const close = () => {
+        setOpen(false);
+    };
+    const count = t('designSystem:columns.columnsCount', { shown, max });
+
+    return (
+        <View testID={testID}>
+            <PillTrigger
+                triggerProps={{ 'aria-haspopup': 'dialog' }}
+                onPress={() => {
+                    setOpen(true);
+                }}
+                open={open}
+                filled={false}
+                icon={<Icon name="layoutGrid" size="sm" />}
+                value={count}
+                accessibilityLabel={t('designSystem:columns.columnsButton', { shown, max })}
+                testID={`${testID}-trigger`}
+            />
+            <Dialog
+                testID={`${testID}-dialog`}
+                look="card"
+                open={open}
+                onClose={close}
+                title={t('designSystem:columns.columnsLabel')}
+                actions={
+                    <>
+                        <Button
+                            testID={`${testID}-clear`}
+                            variant="secondary"
+                            label={t('designSystem:columns.columnsClear')}
+                            disabled={!canClear}
+                            onPress={onClear}
+                        />
+                        <Button
+                            testID={`${testID}-reset`}
+                            variant="secondary"
+                            label={t('designSystem:columns.columnsReset')}
+                            onPress={onReset}
+                        />
+                        <Button
+                            testID={`${testID}-done`}
+                            label={t('common:action.done')}
+                            onPress={close}
+                        />
+                    </>
+                }
+            >
+                {/*
+                 * The cap and the count on one line. They were two stacked captions — "Show up to
+                 * 6 columns", then "Show columns · 3 of 6" — the second repeating the title.
+                 */}
+                <View className="flex-row items-center justify-between gap-3">
+                    <Text variant="body" tone="secondary" testID={`${testID}-cap`}>
+                        {t('designSystem:columns.columnsHeading', { max })}
+                    </Text>
+                    <Badge
+                        testID={`${testID}-count`}
+                        tone={shown >= max ? 'brand' : 'neutral'}
+                        label={count}
+                    />
+                </View>
+                {/* A gap between the rows, so two ticked neighbours read as two choices, not one band. */}
+                <View className="flex-row flex-wrap gap-y-1.5">
+                    {options.map((option) => (
+                        <View key={option.key} className="w-1/2 pe-1.5">
+                            <ChoiceRow
+                                testID={`${testID}-${option.key}`}
+                                mark="check"
+                                label={option.label}
+                                selected={option.shown}
+                                disabled={option.disabled}
+                                onPress={() => {
+                                    onToggle(option.key);
+                                }}
+                            />
+                        </View>
+                    ))}
+                </View>
+            </Dialog>
+        </View>
+    );
 }
 
 /**

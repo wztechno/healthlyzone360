@@ -3,14 +3,17 @@ import {
     Badge,
     Button,
     Cascade,
+    ColumnPicker,
+    compareText,
     DataTable,
     EmptyState,
     ErrorState,
     Select,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { DataTableColumn } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -27,11 +30,8 @@ import {
     useProductionOrdersQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import { localDay } from '../format.ts';
 import { productionBatchTestId, productionStatusKey, productionStatusTone } from '../ops-format.ts';

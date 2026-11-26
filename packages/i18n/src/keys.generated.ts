@@ -2955,6 +2955,17 @@ export interface NamespaceKeys {
   readonly "designSystem":
     | 'breadcrumbs.label'
     | 'chip.remove'
+    | 'columns.clearFilter'
+    | 'columns.columnFilter'
+    | 'columns.columnFiltered'
+    | 'columns.columnMenu'
+    | 'columns.columnSort'
+    | 'columns.columnsButton'
+    | 'columns.columnsClear'
+    | 'columns.columnsCount'
+    | 'columns.columnsHeading'
+    | 'columns.columnsLabel'
+    | 'columns.columnsReset'
     | 'controls.currentDirection'
     | 'controls.currentLocale'
     | 'controls.currentTheme'
@@ -3881,20 +3892,9 @@ export interface NamespaceKeys {
     | 'cash.tab.handins'
     | 'cash.tab.taken'
     | 'catalogue.archive'
-    | 'catalogue.clearFilter'
     | 'catalogue.close'
-    | 'catalogue.columnFilter'
-    | 'catalogue.columnFiltered'
-    | 'catalogue.columnMenu'
-    | 'catalogue.columnSort'
     | 'catalogue.columnUpdated'
-    | 'catalogue.columnsButton'
-    | 'catalogue.columnsClear'
-    | 'catalogue.columnsCount'
-    | 'catalogue.columnsHeading'
     | 'catalogue.columnsHint'
-    | 'catalogue.columnsLabel'
-    | 'catalogue.columnsReset'
     | 'catalogue.edit'
     | 'catalogue.fields'
     | 'catalogue.filter'
@@ -13972,6 +13972,17 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:unsaved.title',
   'designSystem:breadcrumbs.label',
   'designSystem:chip.remove',
+  'designSystem:columns.clearFilter',
+  'designSystem:columns.columnFilter',
+  'designSystem:columns.columnFiltered',
+  'designSystem:columns.columnMenu',
+  'designSystem:columns.columnSort',
+  'designSystem:columns.columnsButton',
+  'designSystem:columns.columnsClear',
+  'designSystem:columns.columnsCount',
+  'designSystem:columns.columnsHeading',
+  'designSystem:columns.columnsLabel',
+  'designSystem:columns.columnsReset',
   'designSystem:controls.currentDirection',
   'designSystem:controls.currentLocale',
   'designSystem:controls.currentTheme',
@@ -14894,20 +14905,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:cash.tab.handins',
   'kitchen:cash.tab.taken',
   'kitchen:catalogue.archive',
-  'kitchen:catalogue.clearFilter',
   'kitchen:catalogue.close',
-  'kitchen:catalogue.columnFilter',
-  'kitchen:catalogue.columnFiltered',
-  'kitchen:catalogue.columnMenu',
-  'kitchen:catalogue.columnSort',
   'kitchen:catalogue.columnUpdated',
-  'kitchen:catalogue.columnsButton',
-  'kitchen:catalogue.columnsClear',
-  'kitchen:catalogue.columnsCount',
-  'kitchen:catalogue.columnsHeading',
   'kitchen:catalogue.columnsHint',
-  'kitchen:catalogue.columnsLabel',
-  'kitchen:catalogue.columnsReset',
   'kitchen:catalogue.edit',
   'kitchen:catalogue.fields',
   'kitchen:catalogue.filter',

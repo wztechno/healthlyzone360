@@ -1,10 +1,14 @@
-import { DATA_LIST_HEAD_TEXT_CLASS, Icon, Menu, cx } from '@healthy360/design-system';
-import type { DataListColumn, MenuSection } from '@healthy360/design-system';
+import { DATA_LIST_HEAD_TEXT_CLASS } from '../content/data-list.tsx';
+import { Icon } from '../icons/icon.tsx';
+import { Menu } from '../overlays/menu.tsx';
+import { cx } from '../internal/class-names.ts';
+import type { DataListColumn } from '../content/data-list.tsx';
+import type { MenuSection } from '../overlays/menu.tsx';
 import { useTranslation } from 'react-i18next';
 import type { ReactNode } from 'react';
 import { Pressable, Text as RNText, View } from 'react-native';
 
-import { MENU_MAX_HEIGHT } from '../desk-kit/drop-trigger.tsx';
+import { MENU_MAX_HEIGHT } from '../actions/pill-trigger.tsx';
 
 /**
  * One column header, with its sort-and-filter menu — §4.3, drawn so the affordance is visible
@@ -58,7 +62,7 @@ import { MENU_MAX_HEIGHT } from '../desk-kit/drop-trigger.tsx';
  * announces the menu. Only `status` on the packaging list is in that position today.
  */
 
-export interface CatalogueColumnHeaderProps {
+export interface ColumnHeaderProps {
     /** The column's translated label, and its alignment — the two fields of the spec this needs. */
     readonly label: string;
     readonly align?: DataListColumn<unknown>['align'];
@@ -101,7 +105,7 @@ const JUSTIFY_CLASS = {
     end: 'justify-end',
 } as const;
 
-export function CatalogueColumnHeader({
+export function ColumnHeader({
     label,
     align,
     sections,
@@ -112,7 +116,7 @@ export function CatalogueColumnHeader({
     onToggleSort,
     menuLook = 'card',
     testID,
-}: CatalogueColumnHeaderProps) {
+}: ColumnHeaderProps) {
     const { t } = useTranslation();
     const active = sortDirection === 'asc' || sortDirection === 'desc';
     const filters = sections.length > 0;
@@ -217,18 +221,18 @@ export function CatalogueColumnHeader({
                             <Icon
                                 name="funnel"
                                 size="sm"
-                                label={t('kitchen:catalogue.columnFiltered')}
+                                label={t('designSystem:columns.columnFiltered')}
                                 className="text-content-primary"
                                 testID={`${testID}-filtered`}
                             />
                         ) : null}
                     </>,
-                    t('kitchen:catalogue.columnFilter', { column: label }),
+                    t('designSystem:columns.columnFilter', { column: label }),
                 )}
                 <Pressable
                     role="button"
                     accessibilityRole="button"
-                    accessibilityLabel={t('kitchen:catalogue.columnSort', { column: label })}
+                    accessibilityLabel={t('designSystem:columns.columnSort', { column: label })}
                     aria-sort={
                         active ? (sortDirection === 'desc' ? 'descending' : 'ascending') : 'none'
                     }
@@ -252,7 +256,7 @@ export function CatalogueColumnHeader({
                 {labelText}
                 {arrow}
             </>,
-            t('kitchen:catalogue.columnMenu', { column: label }),
+            t('designSystem:columns.columnMenu', { column: label }),
         );
     }
 
@@ -260,7 +264,7 @@ export function CatalogueColumnHeader({
         <Pressable
             role="button"
             accessibilityRole="button"
-            accessibilityLabel={t('kitchen:catalogue.columnSort', { column: label })}
+            accessibilityLabel={t('designSystem:columns.columnSort', { column: label })}
             aria-sort={active ? (sortDirection === 'desc' ? 'descending' : 'ascending') : 'none'}
             onPress={onToggleSort}
             testID={`${testID}-trigger`}
