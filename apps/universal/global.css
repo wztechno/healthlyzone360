@@ -110,6 +110,14 @@ html:lang(en-XA) [data-face='body'] * {
     font-family: var(--h360-font-family-latin);
 }
 
+/* The admin (kitchen, corporate, platform) reads one face — Inter — for titles and figures too
+   (the user's pick, 2026-11-26). `data-look="desk"` is set on <html> by `AreaLookScope look="desk"`,
+   so pop-ups drawn outside the page follow. Outranks the display rule above; Arabic keeps its face. */
+html[data-look='desk']:lang(en) *,
+html[data-look='desk']:lang(en-XA) * {
+    font-family: var(--h360-font-family-latin);
+}
+
 html:lang(ar) * {
     font-family: var(--h360-font-family-arabic);
 }

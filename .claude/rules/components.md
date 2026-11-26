@@ -267,18 +267,21 @@ and writes catalogue data, and no other page has it.
 
 ## Text sizes — the admin type scale
 
-Kitchen, corporate and platform admin read one scale (2026-11-26, built on the order pop-up). It lives
-in `textRoles` (`packages/design-tokens/src/typography.ts`); change a size there and every admin page
-follows. The web shop keeps its own sizes.
+Kitchen, corporate and platform admin read one scale and one face (2026-11-26, the user's pick "B,
+size M"): **Inter everywhere**, titles and figures included, at these sizes. They live in `textRoles`
+(`packages/design-tokens/src/typography.ts`); change a number there and every admin page follows.
+The face comes from `AreaLookScope look="desk"`, which marks `<html data-look="desk">` so
+`global.css` sets Inter on the whole admin, pop-ups included. The web shop keeps its own sizes and
+Space Grotesk titles.
 
-| Role                         | Size             | How                                                       |
-| ---------------------------- | ---------------- | --------------------------------------------------------- |
-| Page title, a record's name  | 20 bold, display | `PageHeader`, `Heading level={1}`, `Text variant="title"` |
-| Big figure                   | 20 bold, display | `Text variant="display"`                                  |
-| Card / section title         | 14 semibold      | `Heading level={2}` (3, 4), `Text variant="section"`      |
-| Values, table cells, buttons | 13               | `Text variant="body"` / `"strong"`                        |
-| Chips, tabs                  | 13 semibold      | `Text variant="label"`                                    |
-| Labels, headers, small notes | 11               | `Text variant="caption"` / `"micro"`                      |
+| Role                         | Size        | How                                                       |
+| ---------------------------- | ----------- | --------------------------------------------------------- |
+| Page title, a record's name  | 22 bold     | `PageHeader`, `Heading level={1}`, `Text variant="title"` |
+| Big figure                   | 22 bold     | `Text variant="display"`                                  |
+| Card / section title         | 15 semibold | `Heading level={2}` (3, 4), `Text variant="section"`      |
+| Values, table cells, buttons | 14          | `Text variant="body"` / `"strong"`                        |
+| Chips, tabs                  | 14 semibold | `Text variant="label"`                                    |
+| Labels, headers, small notes | 12          | `Text variant="caption"` / `"micro"`                      |
 
 A class needs a size? Use `text-role-<role>` — never `text-sm`, `text-xl` or `text-[13px]` in an admin
 page or an admin part. Print sheets and the kitchen display screen keep their own sizes.

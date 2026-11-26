@@ -183,8 +183,8 @@ describe('renderTailwindPreset', () => {
 
     it('prefixes the Catalogue ramp so it cannot shadow the numeric scale', () => {
         expect(preset.theme.extend.fontSize['role-micro']).toEqual([
-            '11px',
-            { lineHeight: '14px', letterSpacing: '0px', fontWeight: '600' },
+            '12px',
+            { lineHeight: '16px', letterSpacing: '0px', fontWeight: '600' },
         ]);
         expect(preset.theme.extend.fontSize.xs).toEqual(['12px', '18px']);
     });
@@ -285,8 +285,8 @@ describe('renderTokensCss', () => {
         expect(output).toContain(`${CSS_VARIABLE_PREFIX}-control-height-sm: 28px;`);
         expect(output).toContain(`${CSS_VARIABLE_PREFIX}-row-height-md: 32px;`);
         expect(output).toContain(`${CSS_VARIABLE_PREFIX}-field-width: 280px;`);
-        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-text-micro-size: 11px;`);
-        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-text-micro-line-height-latin: 14px;`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-text-micro-size: 12px;`);
+        expect(output).toContain(`${CSS_VARIABLE_PREFIX}-text-micro-line-height-latin: 16px;`);
         expect(output).toContain(`${CSS_VARIABLE_PREFIX}-text-micro-tracking-arabic: 0px;`);
     });
 

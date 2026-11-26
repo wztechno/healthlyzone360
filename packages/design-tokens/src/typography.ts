@@ -272,8 +272,8 @@ export type LetterSpacingName = keyof typeof letterSpacing;
 export const displayLetterSpacing = '-0.02em';
 
 /**
- * The admin's type scale (kitchen, corporate, platform — 2026-11-26, built on the order pop-up's
- * sizes) — eight roles, named for the job rather than the size.
+ * The admin's type scale (kitchen, corporate, platform — 2026-11-26: the order pop-up's sizes one
+ * step up, the user's pick "M") — eight roles, named for the job rather than the size.
  *
  * **Additive.** {@link fontSizes} is untouched, so every screen outside the admin renders exactly
  * as it did. A role is opted into (`<Text role="body">`), never inherited, which is what keeps the
@@ -322,21 +322,21 @@ export const textRoles: Readonly<Record<TextRoleName, TextRole>> = {
      * on sentence case the same value only pulls words apart. Dropping the capitals without
      * dropping the tracking is the half-change that reads as a bug.
      */
-    micro: { size: 11, lineHeight: 14, weight: '600', letterSpacing: 0, uppercase: false },
+    micro: { size: 12, lineHeight: 16, weight: '600', letterSpacing: 0, uppercase: false },
     /** Helper text, meta, the list summary line. */
-    caption: { size: 11, lineHeight: 16, weight: '400', letterSpacing: 0, uppercase: false },
+    caption: { size: 12, lineHeight: 16, weight: '400', letterSpacing: 0, uppercase: false },
     /** Body copy, table cells, input values. */
-    body: { size: 13, lineHeight: 18, weight: '400', letterSpacing: 0, uppercase: false },
+    body: { size: 14, lineHeight: 20, weight: '400', letterSpacing: 0, uppercase: false },
     /** Chips, tabs, button text. Same size as `body`, more weight. */
-    label: { size: 13, lineHeight: 18, weight: '500', letterSpacing: 0, uppercase: false },
+    label: { size: 14, lineHeight: 20, weight: '500', letterSpacing: 0, uppercase: false },
     /** A list item's or card's title. */
-    strong: { size: 13, lineHeight: 18, weight: '600', letterSpacing: 0, uppercase: false },
+    strong: { size: 14, lineHeight: 20, weight: '600', letterSpacing: 0, uppercase: false },
     /** Card and section titles. Sentence case, for the reason `micro` states. */
-    section: { size: 14, lineHeight: 20, weight: '600', letterSpacing: 0, uppercase: false },
-    /** The page title and a record's name — the order pop-up's 20, in the display face. */
-    title: { size: 20, lineHeight: 26, weight: '700', letterSpacing: -0.3, uppercase: false },
+    section: { size: 15, lineHeight: 22, weight: '600', letterSpacing: 0, uppercase: false },
+    /** The page title and a record's name. */
+    title: { size: 22, lineHeight: 28, weight: '700', letterSpacing: -0.33, uppercase: false },
     /** A big figure — a total, the figures strip. */
-    display: { size: 20, lineHeight: 26, weight: '700', letterSpacing: -0.3, uppercase: false },
+    display: { size: 22, lineHeight: 28, weight: '700', letterSpacing: -0.33, uppercase: false },
 };
 
 /**

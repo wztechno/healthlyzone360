@@ -296,15 +296,15 @@ module.exports = {
           "58px"
         ],
         "role-micro": [
-          "11px",
+          "12px",
           {
-            "lineHeight": "14px",
+            "lineHeight": "16px",
             "letterSpacing": "0px",
             "fontWeight": "600"
           }
         ],
         "role-caption": [
-          "11px",
+          "12px",
           {
             "lineHeight": "16px",
             "letterSpacing": "0px",
@@ -312,30 +312,22 @@ module.exports = {
           }
         ],
         "role-body": [
-          "13px",
+          "14px",
           {
-            "lineHeight": "18px",
+            "lineHeight": "20px",
             "letterSpacing": "0px",
             "fontWeight": "400"
           }
         ],
         "role-label": [
-          "13px",
+          "14px",
           {
-            "lineHeight": "18px",
+            "lineHeight": "20px",
             "letterSpacing": "0px",
             "fontWeight": "500"
           }
         ],
         "role-strong": [
-          "13px",
-          {
-            "lineHeight": "18px",
-            "letterSpacing": "0px",
-            "fontWeight": "600"
-          }
-        ],
-        "role-section": [
           "14px",
           {
             "lineHeight": "20px",
@@ -343,19 +335,27 @@ module.exports = {
             "fontWeight": "600"
           }
         ],
-        "role-title": [
-          "20px",
+        "role-section": [
+          "15px",
           {
-            "lineHeight": "26px",
-            "letterSpacing": "-0.3px",
+            "lineHeight": "22px",
+            "letterSpacing": "0px",
+            "fontWeight": "600"
+          }
+        ],
+        "role-title": [
+          "22px",
+          {
+            "lineHeight": "28px",
+            "letterSpacing": "-0.33px",
             "fontWeight": "700"
           }
         ],
         "role-display": [
-          "20px",
+          "22px",
           {
-            "lineHeight": "26px",
-            "letterSpacing": "-0.3px",
+            "lineHeight": "28px",
+            "letterSpacing": "-0.33px",
             "fontWeight": "700"
           }
         ]
