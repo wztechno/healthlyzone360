@@ -621,7 +621,6 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-supply-orders-view"
-                look="sheet"
                 figureKeys={['lines', 'madeOn', 'branch']}
                 eyebrow={t('kitchen:recordView.eyebrowSupplyOrders')}
                 onBack={() => {

@@ -399,7 +399,6 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-price-lists-view"
-                look="sheet"
                 figureKeys={['currency', 'entries', 'pending']}
                 eyebrow={t('kitchen:recordView.eyebrowPriceLists')}
                 onBack={() => {

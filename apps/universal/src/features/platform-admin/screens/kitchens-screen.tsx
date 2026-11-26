@@ -593,7 +593,6 @@ function KitchenSheet({
 
     return (
         <RecordViewPage
-            look="sheet"
             testID={testID}
             onBack={onClose}
             eyebrow={t('platformAdmin:detail.kind')}

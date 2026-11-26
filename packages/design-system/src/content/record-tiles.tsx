@@ -1,10 +1,11 @@
-import { Icon, Text } from '@healthy360/design-system';
-import type { IconName } from '@healthy360/design-system';
+import { Icon } from '../icons/icon.tsx';
+import { Text } from '../primitives/text.tsx';
+import type { IconName } from '../icons/icon.tsx';
 import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
-import { useRecordSplit } from './record-popup.tsx';
+import { useRecordSplit } from './record-split.ts';
 
 /**
  * The tiles under a {@link RecordCanopy}: one subject each — allergens, prices, nutrition — with
@@ -144,7 +145,7 @@ export function TileFacts({
                             {fact.label}
                         </Text>
                     </View>
-                    {/* eslint-disable-next-line no-restricted-syntax -- the value column of a read-only pair, not a control: it takes the rest of the line. */}
+                    { }
                     <View className="min-w-0 flex-1">
                         {typeof fact.value === 'string' ? (
                             <Text

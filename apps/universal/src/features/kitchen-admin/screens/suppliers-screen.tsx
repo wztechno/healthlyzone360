@@ -355,7 +355,6 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-suppliers-view"
-                look="sheet"
                 figureKeys={['items', 'terms', 'currency']}
                 eyebrow={t('kitchen:recordView.eyebrowSuppliers')}
                 onBack={() => {

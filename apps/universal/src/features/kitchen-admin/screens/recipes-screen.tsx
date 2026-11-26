@@ -358,7 +358,6 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
         viewed === null ? null : (
             <RecordViewPage
                 testID="kitchen-recipes-view"
-                look="sheet"
                 eyebrow={t('kitchen:recordView.eyebrowRecipes')}
                 photo={{
                     assetId: recipePhotoId(viewed),

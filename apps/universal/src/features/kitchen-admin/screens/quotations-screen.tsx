@@ -19,6 +19,7 @@ import {
     FormSection,
     LensBar,
     RecordSkeleton,
+    RecordSummaryAside,
     RecordWindowFieldGrid,
     Stack,
     TableSkeleton,
@@ -68,7 +69,6 @@ import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { focusField } from '../field-focus.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
-import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 
 import { PageBackPill } from '../../../shell/area-trail.tsx';
@@ -329,7 +329,6 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-quotations-view"
-                look="sheet"
                 eyebrow={t('kitchen:recordView.eyebrowQuotations')}
                 onBack={() => {
                     setViewing(null);

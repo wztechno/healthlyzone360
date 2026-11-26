@@ -12,6 +12,7 @@ import {
     FormSkeleton,
     Icon,
     InfoTip,
+    RecordSummaryAside,
     REQUIRED_MARK,
     Text,
     TextInputField,
@@ -55,7 +56,6 @@ import { OperatingWeekRows } from '../delivery-row-editors.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
-import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';

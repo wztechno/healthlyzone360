@@ -12,6 +12,7 @@ import {
     LensBar,
     PeriodScope,
     periodWindows,
+    RecordTile,
     TableSkeleton,
     Text,
     useColumnControls,
@@ -29,7 +30,6 @@ import { useCostReportQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { PairedBars } from '../analytics/paired-bars.tsx';
 import { RatioBars } from '../analytics/ratio-bars.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
-import { RecordTile } from '../catalogue/record-tiles.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
@@ -347,7 +347,6 @@ function CostReport() {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-cost-report-window"
-                look="sheet"
                 figureKeys={['spend', 'cogs', 'revenue', 'margin', 'marginPercent']}
                 eyebrow={t('kitchen:recordView.eyebrowCostReport')}
                 onBack={() => {

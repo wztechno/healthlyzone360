@@ -683,7 +683,6 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
         viewing === null || viewingState === null ? null : (
             <RecordViewPage
                 testID="kitchen-purchases-ledger-view"
-                look="sheet"
                 figureKeys={['quantity', 'unitPrice', 'lineTotal', 'variance']}
                 eyebrow={t('kitchen:recordView.eyebrowLedger')}
                 onBack={() => {

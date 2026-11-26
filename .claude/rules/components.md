@@ -234,7 +234,26 @@ Do not pass `size="regular"` to an admin `Callout`, and never hand-draw a `Dialo
 the editors, and the admin's use of the customer `UnsavedChangesDialog` (it stays for the shop and the
 public B2B application).
 
+## Record pop-ups — one window, one look
+
+A record opened from its list (View) is the white "sheet" in `RecordPopupWindow`, at the order
+pop-up's sizes: a 20px title, 20px figures, 14px values, 12px labels and capital card headings. The
+sizes live in the design system's sheet parts — never set them on a page.
+
+| Job                                                      | How                                                                                   |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| A kitchen, corporate or platform record's View           | the app's `RecordViewPage` (fields, figures, sections, rail)                          |
+| A record drawn by hand (ingredient, supply order, order) | `TrailedRecordWindow` + `RecordSheetHead`, `RecordFigures`, `SheetCard`, `SheetFacts` |
+| The window itself, outside the kitchen shell             | `RecordPopupWindow` (`nav` for ‹ ›, `footer` for the actions)                         |
+| Two columns or one inside a record                       | `SheetColumns` / `useRecordSplit` — never a width of its own                          |
+| An editor's summary box beside the form                  | `RecordSummaryAside`                                                                  |
+| A small figure tile (Analytics, Cost report)             | `RecordTile`                                                                          |
+
+**Removed, never recreate:** the green record canopy (`RecordCanopy`, `look="board"` and the default
+look of `RecordViewPage`), `CompactRecordPopup` (now `RecordPopupWindow`), `RecordDialog`, the old
+`RecordWindow` window (its `RecordWindowFieldGrid` stays), and `/showcase-record-canopy`.
+
 ## Canvas designs
 
-A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs, pills, dates, tables, toolbars, page headers, banners and pop-ups as `/showcase-components` shows them. If a design
+A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs, pills, dates, tables, toolbars, page headers, banners, pop-ups and record pop-ups as `/showcase-components` shows them. If a design
 needs a part that is not on that page, say so — it is a new design-system part, not a one-off.

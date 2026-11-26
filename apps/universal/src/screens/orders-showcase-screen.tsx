@@ -13,6 +13,9 @@ import {
     Icon,
     IconButton,
     initialsOf,
+    RecordPopupField,
+    RecordPopupSection,
+    RecordPopupWindow,
     RowMenu,
     Select,
     Tabs,
@@ -23,11 +26,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import {
-    CompactField,
-    CompactRecordPopup,
-    CompactSection,
-} from '../features/kitchen-admin/catalogue/compact-record-popup.tsx';
 import { ListGroupRow } from '../features/kitchen-admin/orders/list-group-row.tsx';
 import { RecordPopup } from '../features/kitchen-admin/catalogue/record-popup.tsx';
 import { DayStepper } from '../features/kitchen-admin/orders/day-stepper.tsx';
@@ -585,17 +583,17 @@ export function OrdersShowcaseScreen() {
                                 },
                             ]}
                         >
-                            <CompactSection title="Details">
-                                <CompactField label="Category">
+                            <RecordPopupSection title="Details">
+                                <RecordPopupField label="Category">
                                     <Text variant="strong">Grains</Text>
-                                </CompactField>
-                                <CompactField label="Unit">
+                                </RecordPopupField>
+                                <RecordPopupField label="Unit">
                                     <Text variant="strong">kg</Text>
-                                </CompactField>
-                                <CompactField label="Status">
+                                </RecordPopupField>
+                                <RecordPopupField label="Status">
                                     <Badge tone="success" label="Active" />
-                                </CompactField>
-                            </CompactSection>
+                                </RecordPopupField>
+                            </RecordPopupSection>
                         </RecordPopup>
                     )}
 
@@ -667,7 +665,7 @@ export function OrdersShowcaseScreen() {
                         />
                     )}
                     {!open ? null : (
-                        <CompactRecordPopup
+                        <RecordPopupWindow
                             testID="showcase-orders-popup"
                             label="Order ORD-SHOW000002"
                             kind="Delivery order"
@@ -702,28 +700,31 @@ export function OrdersShowcaseScreen() {
                             ]}
                             primary={<Button label="Choose a driver" />}
                             main={
-                                <CompactSection title="Items">
+                                <RecordPopupSection title="Items">
                                     {Array.from({ length: 12 }, (_, index) => (
-                                        <CompactField key={index} label={`× ${String(index + 1)}`}>
+                                        <RecordPopupField
+                                            key={index}
+                                            label={`× ${String(index + 1)}`}
+                                        >
                                             <Text variant="strong">Grilled Salmon Bowl</Text>
-                                        </CompactField>
+                                        </RecordPopupField>
                                     ))}
-                                </CompactSection>
+                                </RecordPopupSection>
                             }
                             side={
-                                <CompactSection title="Payment">
-                                    <CompactField label="Paying by">
+                                <RecordPopupSection title="Payment">
+                                    <RecordPopupField label="Paying by">
                                         <Text variant="strong">Cash on delivery</Text>
-                                    </CompactField>
-                                    <CompactField
+                                    </RecordPopupField>
+                                    <RecordPopupField
                                         label="To collect"
                                         action={<Button variant="quiet" label="Record a payment" />}
                                     >
                                         <Text variant="strong" tone="warning">
                                             $16.00
                                         </Text>
-                                    </CompactField>
-                                </CompactSection>
+                                    </RecordPopupField>
+                                </RecordPopupSection>
                             }
                             footer={
                                 <>

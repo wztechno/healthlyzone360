@@ -3,14 +3,6 @@ import {
     Button,
     Cascade,
     DensityProvider,
-    StatusSteps,
-    Text,
-} from '@healthy360/design-system';
-import { useState } from 'react';
-import { View } from 'react-native';
-
-import { IngredientDetail } from '../features/kitchen-admin/catalogue/ingredient-detail.tsx';
-import {
     RecordFigures,
     RecordSheetHead,
     SheetCard,
@@ -18,9 +10,15 @@ import {
     SheetFacts,
     SheetTagRows,
     SheetText,
-} from '../features/kitchen-admin/catalogue/record-sheet.tsx';
+    StatusSteps,
+    Text,
+} from '@healthy360/design-system';
+import { useState } from 'react';
+import { View } from 'react-native';
+
+import { IngredientDetail } from '../features/kitchen-admin/catalogue/ingredient-detail.tsx';
 import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
-import { BLANK, TAHINI, categoryName } from './record-canopy-showcase-screen.tsx';
+import { BLANK, TAHINI, categoryName } from './showcase-ingredients.ts';
 
 function noop(): void {}
 
@@ -86,7 +84,6 @@ export function RecordSheetShowcaseScreen() {
                     {open !== 'packaging' ? null : (
                         <RecordViewPage
                             testID="record-sheet-showcase-packaging"
-                            look="sheet"
                             eyebrow="Packaging"
                             title="Kraft bowl, 750 ml"
                             kind="Packaging item"
@@ -120,7 +117,6 @@ export function RecordSheetShowcaseScreen() {
                     {open !== 'allergen' ? null : (
                         <RecordViewPage
                             testID="record-sheet-showcase-allergen"
-                            look="sheet"
                             eyebrow="Allergen classes"
                             title="Sesame"
                             kind="Allergen class"

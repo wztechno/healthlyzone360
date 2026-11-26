@@ -1,5 +1,25 @@
 import type { PurchaseOrderLine, StockItem } from '@healthy360/api-client/contracts';
-import { Badge, Button, Callout, Cascade, DataTable, Dialog, EmptyState, ErrorState, FormSection, FormSkeleton, Icon, QuantityInput, Select, Stack, Text, TextInputField, useTablePort, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    DataTable,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    FormSection,
+    FormSkeleton,
+    Icon,
+    QuantityInput,
+    RecordSummaryAside,
+    Select,
+    Stack,
+    Text,
+    TextInputField,
+    useTablePort,
+    useToast,
+} from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { PurchaseOrderId, StockItemId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -38,7 +58,6 @@ import {
     RecordFormOpening,
     focusFirstRefusal,
 } from '../record-form-opening.tsx';
-import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { readQuantity } from '../supply-order-model.ts';

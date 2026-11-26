@@ -1,5 +1,10 @@
-import { ContentWidthProvider, Icon, IconButton, SlideIn, Text, useBreakpoint } from '@healthy360/design-system';
-import type { IconName } from '@healthy360/design-system';
+import { ContentWidthProvider } from '../hooks/use-content-width.tsx';
+import { Icon } from '../icons/icon.tsx';
+import { IconButton } from '../actions/icon-button.tsx';
+import { SlideIn } from '../motion/slide-in.tsx';
+import { Text } from '../primitives/text.tsx';
+import { useBreakpoint } from '../hooks/use-breakpoint.ts';
+import type { IconName } from '../icons/icon.tsx';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
@@ -10,8 +15,6 @@ import {
     useWindowDimensions,
     View,
 } from 'react-native';
-
-import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 
 /**
  * The compact pop-up — one record over its list, with the reading in front of the furniture
@@ -39,7 +42,7 @@ import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
  * (the canvas's `up`), and holds still under reduced motion.
  */
 
-/** As `RecordDialog`'s: the room kept round the window on a laptop and on a phone. */
+/** The room kept round the window on a laptop and on a phone. */
 const GUTTER = 28;
 const PHONE_GUTTER = 12;
 const PHONE_MAX = 640;
@@ -63,7 +66,7 @@ const ROOMY_PADDING = 24;
 /** Below this the two columns stack. */
 const TWO_COLUMNS_MIN = 720;
 
-export interface CompactFact {
+export interface RecordPopupFact {
     readonly key: string;
     readonly icon: IconName;
     readonly text: string;
@@ -71,7 +74,7 @@ export interface CompactFact {
     readonly testID?: string | undefined;
 }
 
-export interface CompactNav {
+export interface RecordPopupNav {
     /** "6 of 11". */
     readonly position: string;
     /** `undefined` on the first — the arrow is drawn, and off. */
@@ -79,7 +82,7 @@ export interface CompactNav {
     readonly onNext?: (() => void) | undefined;
 }
 
-export interface CompactRecordPopupProps {
+export interface RecordPopupWindowProps {
     /** Translated. The window's accessible name and the trail's leaf. */
     readonly label: string;
     /** Translated, upper label over the title — "Delivery order". */
@@ -94,8 +97,8 @@ export interface CompactRecordPopupProps {
     readonly chips?: ReactNode;
     /** The figure the header carries at its end — an order's total. */
     readonly figure?: { readonly label: string; readonly value: string } | undefined;
-    readonly nav?: CompactNav | undefined;
-    readonly facts?: readonly CompactFact[] | undefined;
+    readonly nav?: RecordPopupNav | undefined;
+    readonly facts?: readonly RecordPopupFact[] | undefined;
     /** The record's next step, at the end of the facts line. */
     readonly primary?: ReactNode;
     /** Notes over the columns — an allergy, a refused write. */
@@ -118,7 +121,7 @@ export interface CompactRecordPopupProps {
     readonly roomy?: boolean | undefined;
 }
 
-export function CompactRecordPopup({
+export function RecordPopupWindow({
     label,
     kind,
     title,
@@ -140,11 +143,10 @@ export function CompactRecordPopup({
     reference,
     referenceTestID,
     roomy = false,
-}: CompactRecordPopupProps) {
+}: RecordPopupWindowProps) {
     const { t } = useTranslation();
     const viewport = useWindowDimensions();
     const { atLeast } = useBreakpoint();
-    useKitchenTrailLeaf(label, onClose);
 
     const gutter = viewport.width < PHONE_MAX ? PHONE_GUTTER : GUTTER;
     const width = Math.max(
@@ -171,7 +173,7 @@ export function CompactRecordPopup({
             onRequestClose={onClose}
             {...({ 'aria-label': label } as object)}
         >
-            {/* eslint-disable-next-line no-restricted-syntax -- the modal's ground fills the screen. */}
+            {}
             <View className="flex-1 items-center justify-center" style={{ padding: gutter }}>
                 <Pressable
                     testID={`${testID}-backdrop`}
@@ -200,7 +202,9 @@ export function CompactRecordPopup({
                                         testID={`${testID}-nav`}
                                         className="flex-row items-center gap-0.5 rounded-xl bg-surface-sunken p-[3px]"
                                     >
-                                        <IconButton variant="ghost" className="hover:bg-surface-raised"
+                                        <IconButton
+                                            variant="ghost"
+                                            className="hover:bg-surface-raised"
                                             testID={`${testID}-previous`}
                                             label={t('kitchen:compactPopup.previous')}
                                             icon={<Icon name="chevronBackward" size="md" />}
@@ -217,7 +221,9 @@ export function CompactRecordPopup({
                                         >
                                             {nav.position}
                                         </Text>
-                                        <IconButton variant="ghost" className="hover:bg-surface-raised"
+                                        <IconButton
+                                            variant="ghost"
+                                            className="hover:bg-surface-raised"
                                             testID={`${testID}-next`}
                                             label={t('kitchen:compactPopup.next')}
                                             icon={<Icon name="chevronForward" size="md" />}
@@ -286,7 +292,8 @@ export function CompactRecordPopup({
                                             </Text>
                                         </View>
                                     )}
-                                    <IconButton variant="secondary"
+                                    <IconButton
+                                        variant="secondary"
                                         testID={`${testID}-close`}
                                         label={t('common:action.close')}
                                         icon={<Icon name="close" size="md" />}
@@ -343,7 +350,7 @@ export function CompactRecordPopup({
                         {/* The body: the one part that scrolls, on the thin bar. */}
                         <ScrollView
                             testID={`${testID}-thin-scroll`}
-                            // eslint-disable-next-line no-restricted-syntax -- the body takes the window's height the header and foot leave.
+
                             className="min-h-0 flex-1"
                             contentContainerClassName={
                                 roomy
@@ -393,7 +400,7 @@ export function CompactRecordPopup({
 }
 
 /** A section of the pop-up's body: an upper label and its content. */
-export function CompactSection({
+export function RecordPopupSection({
     title,
     children,
     testID,
@@ -421,7 +428,7 @@ export function CompactSection({
 const FIELD_VALUE = 'min-w-0 flex-1 flex-row flex-wrap items-center gap-x-2 gap-y-1';
 
 /** One labelled fact of a section, on a hairline: label on the start, value and a link after. */
-export function CompactField({
+export function RecordPopupField({
     label,
     children,
     action,
@@ -443,4 +450,22 @@ export function CompactField({
             {action}
         </View>
     );
+}
+
+/** One thing a record pop-up lets its reader do — a pinned button at the window's foot. */
+export interface RecordPopupAction {
+    readonly key: string;
+    /** Translated. */
+    readonly label: string;
+    readonly icon?: IconName | undefined;
+    readonly onSelect: () => void;
+    /** `brand` for the record's primary — listed first. `danger` for a destructive one. */
+    readonly tone?: 'default' | 'brand' | 'danger' | undefined;
+    readonly disabled?: boolean | undefined;
+    /** An action already writing. It cannot be chosen again until it settles. */
+    readonly loading?: boolean | undefined;
+    /** Starts a new group under a hairline — Edit order apart from the order's next steps. */
+    readonly separated?: boolean | undefined;
+    /** Overrides `{testID}-actions-menu-item-{key}`. */
+    readonly testID?: string | undefined;
 }

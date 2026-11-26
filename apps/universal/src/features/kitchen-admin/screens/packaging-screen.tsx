@@ -172,7 +172,6 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-packaging-view"
-                look="sheet"
                 eyebrow={t('kitchen:recordView.eyebrowPackaging')}
                 photo={{
                     assetId: `ingredient-${viewing.slug}`,

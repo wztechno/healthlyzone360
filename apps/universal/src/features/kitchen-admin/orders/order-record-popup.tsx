@@ -1,11 +1,13 @@
 import type { KitchenOrder } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
+import { TrailedRecordWindow } from '../catalogue/record-popup.tsx';
 import {
     Badge,
     Button,
     Callout,
     ErrorState,
     Inline,
+    RecordPopupSection,
     Skeleton,
     StatusSteps,
     Text,
@@ -22,7 +24,6 @@ import { useKitchenOrderQuery } from '../../../data/kitchen-orders-hooks.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
-import { CompactRecordPopup, CompactSection } from '../catalogue/compact-record-popup.tsx';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_MANAGE_PERMISSION,
@@ -67,7 +68,7 @@ import { CardLine, InfoCard, orderStages } from './order-popup-parts.tsx';
 
 /**
  * One order, from any tab — the order desk's pop-up and the order book's, merged into one, on the
- * compact pop-up (`CompactRecordPopup`, the design the user picked on 2026-11-10).
+ * compact pop-up (`RecordPopupWindow`, the design the user picked on 2026-11-10).
  *
  * The header is the order at a glance: its number, status and total, then one line with the day
  * and slot, the customer, the phone, where it goes and the money — and the next step beside them.
@@ -169,7 +170,7 @@ export function OrderRecordPopup({
 
     if (shown === null) {
         return (
-            <CompactRecordPopup
+            <TrailedRecordWindow
                 testID="kitchen-orders-record"
                 label={t('kitchen:orders.record.loading')}
                 kind={t('kitchen:recordView.eyebrowOrders')}
@@ -364,7 +365,7 @@ export function OrderRecordPopup({
     );
 
     return (
-        <CompactRecordPopup
+        <TrailedRecordWindow
             testID="kitchen-orders-record"
             label={t('kitchen:ops.orders.detailTitle', { number })}
             kind={t(
@@ -598,7 +599,7 @@ export function OrderRecordPopup({
                 </>
             }
             main={
-                <CompactSection
+                <RecordPopupSection
                     title={t('kitchen:ops.orders.linesHeading')}
                     testID="kitchen-orders-record-items"
                 >
@@ -619,22 +620,22 @@ export function OrderRecordPopup({
                         total
                         testID="kitchen-orders-record-total"
                     />
-                </CompactSection>
+                </RecordPopupSection>
             }
             side={
                 <>
-                    <CompactSection title={t('kitchen:orders.record.history')}>
+                    <RecordPopupSection title={t('kitchen:orders.record.history')}>
                         <OrderHistory order={shown} formatter={formatter} t={t} />
-                    </CompactSection>
+                    </RecordPopupSection>
 
                     {order === null || !canSupervise ? null : (
                         <>
-                            <CompactSection title={t('kitchen:ops.orders.refunds.heading')}>
+                            <RecordPopupSection title={t('kitchen:ops.orders.refunds.heading')}>
                                 <OrderRefundsSection order={order} />
-                            </CompactSection>
-                            <CompactSection title={t('kitchen:complaints.sectionTitle')}>
+                            </RecordPopupSection>
+                            <RecordPopupSection title={t('kitchen:complaints.sectionTitle')}>
                                 <OrderComplaintAction order={order} />
-                            </CompactSection>
+                            </RecordPopupSection>
                         </>
                     )}
                 </>

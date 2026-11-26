@@ -1,4 +1,4 @@
-import { Button, Cascade, DensityProvider, RecordDialog, Text } from '@healthy360/design-system';
+import { Button, Cascade, DensityProvider, Text } from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
 
@@ -16,7 +16,7 @@ const ROWS = [
 /**
  * `/showcase-record-popup` — the `View as a pop-up` canvas (2026-11-07) on a page of its own: a
  * stand-in list with an order open over it, its actions behind ⋯ — the primary first in brand ink,
- * Edit order apart under a hairline — then the bare `RecordDialog` window with a short body.
+ * Edit order apart under a hairline.
  *
  * Literal copy, like `/showcase`: a development page, never a customer one.
  */
@@ -123,26 +123,6 @@ export function RecordPopupShowcaseScreen() {
                             ]}
                         />
                     )}
-
-                    <RecordDialog
-                        open={open === 'bare'}
-                        onClose={close}
-                        kind="Ingredient"
-                        label="Tahini paste"
-                        actions={[
-                            {
-                                key: 'edit',
-                                label: 'Edit',
-                                icon: 'pen',
-                                tone: 'brand',
-                                onSelect: noop,
-                            },
-                            { key: 'print', label: 'Print label', icon: 'receipt', onSelect: noop },
-                        ]}
-                        testID="record-popup-showcase-bare"
-                    >
-                        <Text>The window holds whatever the record draws.</Text>
-                    </RecordDialog>
                 </Cascade>
             </View>
         </DensityProvider>

@@ -150,7 +150,6 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-allergen-classes-view"
-                look="sheet"
                 eyebrow={t('kitchen:recordView.eyebrowAllergens')}
                 figureKeys={['threshold', 'markets']}
                 kind={t('kitchen:classes.viewKind')}

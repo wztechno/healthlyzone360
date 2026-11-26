@@ -24,12 +24,14 @@ import {
     PageHeader,
     RecordSkeleton,
     Select,
+    SheetCard,
+    SheetFacts,
     Text,
     TextInputField,
     useContentWidth,
     useToast,
 } from '@healthy360/design-system';
-import type { IconName } from '@healthy360/design-system';
+import type { IconName, SheetFact } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -55,8 +57,6 @@ import {
     useSendAgreementMutation,
 } from '../../../data/platform-b2b-hooks.ts';
 import { useTrailLeaf } from '../../../shell/area-trail.tsx';
-import { SheetCard, SheetFacts } from '../../kitchen-admin/catalogue/record-sheet.tsx';
-import type { SheetFact } from '../../kitchen-admin/catalogue/record-sheet.tsx';
 import { AgreementEditor } from '../agreement-editor.tsx';
 import {
     REVIEW_STAGES,

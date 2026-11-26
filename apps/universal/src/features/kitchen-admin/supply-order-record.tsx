@@ -1,11 +1,5 @@
 import type { PurchaseOrder } from '@healthy360/api-client/contracts';
 import type { BadgeTone, StatusStep } from '@healthy360/design-system';
-import { StatusSteps } from '@healthy360/design-system';
-import { useFormatter } from '@healthy360/i18n';
-import type { ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Text as RNText, View } from 'react-native';
-
 import {
     RecordFigures,
     RecordSheetHead,
@@ -13,8 +7,14 @@ import {
     SheetColumns,
     SheetFacts,
     SheetText,
-} from './catalogue/record-sheet.tsx';
-import { TileEmpty } from './catalogue/record-tiles.tsx';
+    StatusSteps,
+    TileEmpty,
+} from '@healthy360/design-system';
+import { useFormatter } from '@healthy360/i18n';
+import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Text as RNText, View } from 'react-native';
+
 import { unitCodeLabel } from './format.ts';
 import { purchaseOrderStatusKey } from './ops-format.ts';
 

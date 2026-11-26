@@ -77,7 +77,7 @@ import {
     Rating,
     RECORD_STATUSES,
     RecordSkeleton,
-    RecordWindow,
+    RecordSummaryAside,
     RecordWindowFieldGrid,
     SearchInput,
     SegmentedControl,
@@ -154,7 +154,6 @@ import { RowThumbnail } from '../features/kitchen-admin/catalogue/row-thumbnail.
 import { RecipeCardGrid } from '../features/kitchen-admin/catalogue/recipe-card-grid.tsx';
 import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
 import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
-import { RecordSummaryAside } from '../features/kitchen-admin/record-summary-aside.tsx';
 import { PackCard } from '../features/kitchen-admin/packs-prices-section.tsx';
 import { ToolbarRow } from '../features/marketplace/toolbar-row.tsx';
 import { AiBand, AiRailCard } from '../ui/ai-surface.tsx';
@@ -1137,7 +1136,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
     const [restricted, setRestricted] = useState(false);
     const [tab, setTab] = useState<string>('description');
     const [segment, setSegment] = useState('all');
-    const [recordOpen, setRecordOpen] = useState(false);
     const [pickerMonth, setPickerMonth] = useState('2026-08');
     const [pickerDate, setPickerDate] = useState('2026-08-01');
     const [pickerTime, setPickerTime] = useState('08:30');
@@ -2893,13 +2891,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     Record window
                 </Text>
                 <Inline space="sm" align="center">
-                    <Button
-                        testID={id('record-window-open')}
-                        size="sm"
-                        variant="secondary"
-                        label="Open the record window"
-                        onPress={() => setRecordOpen(true)}
-                    />
                     <Icon name="eye" size="sm" className="text-content-secondary" />
                     <Icon name="pen" size="sm" className="text-content-secondary" />
                     <Icon name="archive" size="sm" className="text-content-secondary" />
@@ -2907,31 +2898,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     <Icon name="clock" size="sm" className="text-content-secondary" />
                     <Icon name="more" size="sm" className="text-content-secondary" />
                 </Inline>
-                <RecordWindow
-                    testID={id('record-window')}
-                    open={recordOpen}
-                    onClose={() => setRecordOpen(false)}
-                    title="Zaatar blend, house"
-                    kind="Ingredient"
-                    status={{ label: 'Blocked', tone: 'danger' }}
-                    note="Nothing is resolved from this window."
-                    fields={[
-                        { key: 'reference', label: 'Reference', value: 'ING-0412', mono: true },
-                        { key: 'family', label: 'Family', value: 'Ingredients' },
-                        { key: 'updated', label: 'Last changed', value: '2 days ago' },
-                        { key: 'publication', label: 'Publication', value: 'Blocked' },
-                    ]}
-                    chipsLabel="Why it is here"
-                    chipsCaption="A reason clears when the record itself is corrected."
-                    chips={[
-                        { key: 'q', label: 'Quarantined — publication refused' },
-                        { key: 'a', label: '2 allergen mappings are unverified' },
-                    ]}
-                    primaryAction={{
-                        label: 'Open the record',
-                        onPress: () => setRecordOpen(false),
-                    }}
-                />
                 <Text variant="section" tone="secondary">
                     List summary cards
                 </Text>

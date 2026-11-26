@@ -18,6 +18,7 @@ import {
     PeriodScope,
     periodWindows,
     RecordSkeleton,
+    RecordTile,
     Text,
     useColumnControls,
 } from '@healthy360/design-system';
@@ -34,7 +35,6 @@ import { RatioBars } from '../analytics/ratio-bars.tsx';
 import { StatMix } from '../analytics/stat-mix.tsx';
 import { TrendBars } from '../analytics/trend-bars.tsx';
 import { ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
-import { RecordTile } from '../catalogue/record-tiles.tsx';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
 import { addDays, daysBetween, todayIso } from '../../commerce/dates.ts';
 /**

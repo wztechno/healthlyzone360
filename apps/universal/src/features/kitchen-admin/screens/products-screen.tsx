@@ -215,7 +215,6 @@ function ProductsList({
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-products-view"
-                look="sheet"
                 eyebrow={t('kitchen:recordView.eyebrowResale')}
                 photo={{
                     assetId: viewing.imagePlaceholderId,

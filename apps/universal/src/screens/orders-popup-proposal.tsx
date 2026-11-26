@@ -1,8 +1,14 @@
-import { Badge, Button, Icon, StatusSteps, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Icon,
+    RecordPopupWindow,
+    StatusSteps,
+    Text,
+} from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { View } from 'react-native';
 
-import { CompactRecordPopup } from '../features/kitchen-admin/catalogue/compact-record-popup.tsx';
 import { InfoCard } from '../features/kitchen-admin/orders/order-popup-parts.tsx';
 import type { OrderStage } from '../features/kitchen-admin/orders/order-popup-parts.tsx';
 
@@ -55,7 +61,7 @@ export function OrderPopupProposal({
     readonly lines: readonly ProposalLine[];
 }) {
     return (
-        <CompactRecordPopup
+        <RecordPopupWindow
             testID="showcase-orders-popup-b"
             label="Order ORD-SHOW000002"
             kind="Delivery order"

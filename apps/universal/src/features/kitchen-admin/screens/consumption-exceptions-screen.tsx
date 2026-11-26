@@ -625,7 +625,6 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
     const viewPopup =
         viewing === null ? null : (
             <RecordViewPage
-                look="sheet"
                 figureKeys={['raised', 'money']}
                 testID="kitchen-consumption-exceptions-window"
                 onBack={closeRecord}

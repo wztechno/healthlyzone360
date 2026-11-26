@@ -45,7 +45,9 @@ describe('RecordViewPage as a pop-up', () => {
             <ContentWidthProvider value={PANEL_OPEN}>{page}</ContentWidthProvider>,
         );
 
-        expect(screen.getByTestId('record-body').props.className).toContain('flex-row');
+        // Side by side: the main column shares the row with the rail.
+        expect(screen.getByTestId('record-main')).toHaveStyle({ flexBasis: 0 });
+        expect(screen.getByTestId('record-rail')).toBeTruthy();
         expect(screen.getByTestId('record-eyebrow')).toHaveTextContent('Ingredient');
     });
 
@@ -55,7 +57,7 @@ describe('RecordViewPage as a pop-up', () => {
             <ContentWidthProvider value={PANEL_SHUT}>{page}</ContentWidthProvider>,
         );
 
-        expect(screen.getByTestId('record-body').props.className).not.toContain('flex-row');
+        expect(screen.getByTestId('record-main')).not.toHaveStyle({ flexBasis: 0 });
     });
 
     it('pins the primary in the desk footer and draws no button on the canopy', async () => {

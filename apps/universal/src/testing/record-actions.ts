@@ -3,7 +3,7 @@ import { fireEvent, screen } from '@testing-library/react-native';
 type Found = NonNullable<ReturnType<typeof screen.queryByTestId>>;
 
 /**
- * A record pop-up's actions live behind its ⋯ (`RecordDialog`, `-actions`), so a suite that used
+ * A record pop-up's actions live behind its ⋯ (`RecordPopupWindow`, `-actions`), so a suite that used
  * to press a canopy or tile button opens the menu first. Opening is idempotent: an item already
  * listed is returned as it is, and a pop-up with no ⋯ (no actions at all) answers `null`.
  */

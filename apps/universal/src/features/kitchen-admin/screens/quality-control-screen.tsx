@@ -378,7 +378,6 @@ function QualityCheckList({
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-qc-view"
-                look="sheet"
                 figureKeys={['kind', 'holds']}
                 eyebrow={t('kitchen:recordView.eyebrowQualityControl')}
                 onBack={() => {

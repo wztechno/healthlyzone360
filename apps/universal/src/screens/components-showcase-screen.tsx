@@ -21,8 +21,13 @@ import {
     PageHeader,
     PeriodScope,
     QuantityInput,
+    RecordFigures,
+    RecordPopupWindow,
+    RecordSheetHead,
     SEARCH_THRESHOLD,
     Select,
+    SheetCard,
+    SheetFacts,
     Stack,
     StatusSteps,
     Switch,
@@ -1250,6 +1255,117 @@ function FeedbackSection() {
     );
 }
 
+function RecordPopupSection() {
+    const [open, setOpen] = useState(false);
+    const [index, setIndex] = useState(0);
+    const close = () => {
+        setOpen(false);
+    };
+    return (
+        <Stack space="lg" testID="components-showcase-record">
+            <Stack space="xs">
+                <Text variant="section">Record pop-up</Text>
+                <Text variant="caption" tone="secondary">
+                    RecordPopupWindow + the sheet parts · one record over its list · the order
+                    pop-up&apos;s sizes
+                </Text>
+            </Stack>
+
+            <Sample
+                title="A record over its list"
+                note="RecordSheetHead · RecordFigures · SheetCard + SheetFacts · ‹ › between records"
+            >
+                <Button
+                    testID="components-showcase-record-open"
+                    variant="secondary"
+                    size="sm"
+                    label="Open a supplier"
+                    onPress={() => {
+                        setOpen(true);
+                    }}
+                />
+                {open ? (
+                    <RecordPopupWindow
+                        testID="components-showcase-record-window"
+                        label="Barakat Dairy"
+                        kind="Supplier"
+                        reference="SUP-014"
+                        roomy
+                        nav={{
+                            position: `${String(index + 1)} of 3`,
+                            ...(index > 0
+                                ? {
+                                      onPrevious: () => {
+                                          setIndex(index - 1);
+                                      },
+                                  }
+                                : {}),
+                            ...(index < 2
+                                ? {
+                                      onNext: () => {
+                                          setIndex(index + 1);
+                                      },
+                                  }
+                                : {}),
+                        }}
+                        onClose={close}
+                        footer={<Button size="sm" label="Edit" onPress={close} />}
+                        main={
+                            <Stack space="md">
+                                <RecordSheetHead
+                                    testID="components-showcase-record-head"
+                                    title="Barakat Dairy"
+                                    chips={[
+                                        { key: 'status', label: 'Active', tone: 'success' },
+                                        { key: 'kind', label: 'Supplier', tone: 'neutral' },
+                                    ]}
+                                    changed={{
+                                        label: 'Last changed',
+                                        value: '2 days ago',
+                                        note: 'by Sara K.',
+                                    }}
+                                />
+                                <RecordFigures
+                                    testID="components-showcase-record-figures"
+                                    figures={[
+                                        { key: 'items', label: 'Items supplied', value: '14' },
+                                        { key: 'lead', label: 'Lead time', value: '2 days' },
+                                        { key: 'open', label: 'Open orders', value: '3' },
+                                    ]}
+                                />
+                                <SheetCard
+                                    title="Details"
+                                    testID="components-showcase-record-details"
+                                >
+                                    <SheetFacts
+                                        testID="components-showcase-record-facts"
+                                        pairs
+                                        facts={[
+                                            { key: 'code', label: 'Code', value: 'SUP-014' },
+                                            {
+                                                key: 'contact',
+                                                label: 'Main contact',
+                                                value: 'Rania H.',
+                                            },
+                                            { key: 'terms', label: 'Terms', value: '30 days' },
+                                            {
+                                                key: 'phone',
+                                                label: 'Phone',
+                                                value: '—',
+                                                empty: true,
+                                            },
+                                        ]}
+                                    />
+                                </SheetCard>
+                            </Stack>
+                        }
+                    />
+                ) : null}
+            </Sample>
+        </Stack>
+    );
+}
+
 type Shelf = 'all' | 'published' | 'draft' | 'review';
 
 const SHELF_COUNTS: Readonly<Record<Exclude<Shelf, 'all'>, number>> = {
@@ -1489,6 +1605,7 @@ export function ComponentsShowcaseScreen() {
                     <PageHeaderSection />
                     <ToolbarSection />
                     <FeedbackSection />
+                    <RecordPopupSection />
                 </Stack>
             </View>
         </DensityProvider>

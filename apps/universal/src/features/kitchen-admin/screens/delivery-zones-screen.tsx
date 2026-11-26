@@ -403,7 +403,6 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-zones-view"
-                look="sheet"
                 figureKeys={['fee', 'minimum', 'estimated', 'windows']}
                 eyebrow={t('kitchen:recordView.eyebrowZones')}
                 onBack={() => {

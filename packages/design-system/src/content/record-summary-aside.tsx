@@ -1,5 +1,6 @@
-import { FormSection, Text } from '@healthy360/design-system';
-import type { TextTone } from '@healthy360/design-system';
+import { FormSection } from '../forms/form-section.tsx';
+import { Text } from '../primitives/text.tsx';
+import type { TextTone } from '../primitives/text.tsx';
 import type { ReactNode } from 'react';
 import { ScrollView, View, useWindowDimensions } from 'react-native';
 

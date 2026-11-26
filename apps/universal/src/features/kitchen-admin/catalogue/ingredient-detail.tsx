@@ -1,6 +1,20 @@
 import type { IngredientAdmin } from '@healthy360/api-client/contracts';
 import type { ReactNode } from 'react';
-import { Badge, Cascade, InfoTip, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Cascade,
+    InfoTip,
+    RecordFigures,
+    RecordSheetHead,
+    SheetCard,
+    SheetColumns,
+    SheetFacts,
+    SheetTagRows,
+    SheetText,
+    Text,
+    TileEmpty,
+} from '@healthy360/design-system';
+import type { SheetFigure } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
 import { useTranslation } from 'react-i18next';
@@ -12,18 +26,7 @@ import { displayName, statusShortKey, statusTone, unitKey, unitShortKey } from '
 import { allergenLabel } from '../ops-format.ts';
 import { ingredientStockPhotoId } from './ingredient-photo.ts';
 import { primaryMenuAction, RecordPopup } from './record-popup.tsx';
-import {
-    RecordFigures,
-    RecordSheetHead,
-    RecordThumb,
-    SheetCard,
-    SheetColumns,
-    SheetFacts,
-    SheetTagRows,
-    SheetText,
-} from './record-sheet.tsx';
-import type { SheetFigure } from './record-sheet.tsx';
-import { TileEmpty } from './record-tiles.tsx';
+import { RecordThumb } from './record-thumb.tsx';
 import { SegmentBar, SegmentKey } from './segment-bar.tsx';
 
 /**

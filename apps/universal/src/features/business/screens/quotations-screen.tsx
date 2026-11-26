@@ -11,6 +11,7 @@ import {
     ErrorState,
     Icon,
     LensBar,
+    SheetFacts,
     TableSkeleton,
     Text,
     useColumnControls,
@@ -38,7 +39,6 @@ import {
 } from '../../../data/business-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.tsx';
-import { SheetFacts } from '../../kitchen-admin/catalogue/record-sheet.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { AcceptQuotationDialog, DeclineQuotationDialog } from '../accept-quotation-dialog.tsx';
 import { CORPORATE_HOME_HREF, CORPORATE_NEW_QUOTATION_HREF } from '../corporate-chrome.tsx';
@@ -722,7 +722,6 @@ function QuotationSheet({
 
     return (
         <RecordViewPage
-            look="sheet"
             testID={testId}
             onBack={onClose}
             eyebrow={t('business:quotations.viewKind')}

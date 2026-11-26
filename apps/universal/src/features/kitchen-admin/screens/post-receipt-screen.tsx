@@ -16,6 +16,7 @@ import {
     InfoTip,
     IssueTrayFrame,
     LeaveDialog,
+    RecordSummaryAside,
     Select,
     Stack,
     Tabs,
@@ -87,7 +88,6 @@ import type {
 } from '../ops-line-editor.tsx';
 import { readAmount, readQuantity, todayIsoDate } from '../receive-delivery-model.ts';
 import { RecordFormOpening, focusFirstRefusal } from '../record-form-opening.tsx';
-import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { NewSupplierDialog } from '../new-supplier-dialog.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';

@@ -10,18 +10,7 @@
  * Each threshold leaves ~20px over the sum of its columns for a scrollbar the shell cannot see.
  */
 
-/**
- * A record page's two columns, side by side: the main column at ~560 beside a 300px rail and the
- * 16px gap between them. Below it the page is one column, with the record's status card — the one
- * that carries its primary action — first.
- */
-export const RECORD_SPLIT_MIN = 880;
-
-/**
- * The same two columns inside a record pop-up (`RecordDialog`), measured against the window's own
- * inner width — 848 at the design's 880. Main column ~500, the 300 rail, the gap, scrollbar slack.
- */
-export const RECORD_POPUP_SPLIT_MIN = 820;
+export { RECORD_POPUP_SPLIT_MIN, RECORD_SPLIT_MIN } from '@healthy360/design-system';
 
 /** The record rail's floor beside the main column. Narrower and its status lines wrap per word. */
 export const RECORD_RAIL_MIN = 300;

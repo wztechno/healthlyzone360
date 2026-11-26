@@ -1,4 +1,11 @@
-import { Button, Cascade, ChoiceChips, DensityProvider, Text } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    ChoiceChips,
+    DensityProvider,
+    SheetFacts,
+    Text,
+} from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
 
@@ -7,7 +14,6 @@ import {
     PickedLinesBar,
     SendChecklist,
 } from '../features/business/corporate-parts.tsx';
-import { SheetFacts } from '../features/kitchen-admin/catalogue/record-sheet.tsx';
 import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
 import { SentBox } from '../features/business/screens/quotation-builder-screen.tsx';
 
@@ -173,7 +179,6 @@ export function CorporateShowcaseScreen() {
 
             {open ? (
                 <RecordViewPage
-                    look="sheet"
                     testID="corporate-showcase-quotation"
                     onBack={() => {
                         setOpen(false);

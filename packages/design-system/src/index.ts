@@ -477,10 +477,56 @@ export { Dialog } from './overlays/dialog.tsx';
 export type { DialogProps, DialogSize } from './overlays/dialog.tsx';
 export { Notice } from './overlays/notice.tsx';
 export type { NoticeAction, NoticeProps, NoticeTone } from './overlays/notice.tsx';
-export { RECORD_DIALOG_WIDTH, RecordDialog } from './overlays/record-dialog.tsx';
-export type { RecordDialogAction, RecordDialogProps } from './overlays/record-dialog.tsx';
-export { RecordWindow, RecordWindowFieldGrid } from './overlays/record-window.tsx';
-export type { RecordWindowField, RecordWindowProps } from './overlays/record-window.tsx';
+export {
+    InRecordPopup,
+    RECORD_POPUP_SPLIT_MIN,
+    RECORD_SPLIT_MIN,
+    useRecordSplit,
+} from './content/record-split.ts';
+export {
+    RecordFigures,
+    RecordSheetHead,
+    SheetCard,
+    SheetColumns,
+    SheetFacts,
+    SheetTagRows,
+    SheetText,
+} from './content/record-sheet.tsx';
+export type {
+    RecordSheetHeadProps,
+    SheetCardProps,
+    SheetChanged,
+    SheetChip,
+    SheetFact,
+    SheetFigure,
+    SheetTagRow,
+} from './content/record-sheet.tsx';
+export { RecordTile, RecordTileRow, TileEmpty, TileFacts } from './content/record-tiles.tsx';
+export type {
+    RecordTileProps,
+    RecordTileRowProps,
+    RecordTileTone,
+    TileFact,
+} from './content/record-tiles.tsx';
+export { RecordSummaryAside } from './content/record-summary-aside.tsx';
+export type {
+    RecordSummaryAsideProps,
+    RecordSummaryListItem,
+    RecordSummaryRow,
+} from './content/record-summary-aside.tsx';
+export {
+    RecordPopupField,
+    RecordPopupSection,
+    RecordPopupWindow,
+} from './overlays/record-popup-window.tsx';
+export type {
+    RecordPopupAction,
+    RecordPopupFact,
+    RecordPopupNav,
+    RecordPopupWindowProps,
+} from './overlays/record-popup-window.tsx';
+export { RecordWindowFieldGrid } from './overlays/record-window.tsx';
+export type { RecordWindowField } from './overlays/record-window.tsx';
 export { DRAWER_PLACEMENTS, Drawer } from './overlays/drawer.tsx';
 export type { DrawerPlacement, DrawerProps } from './overlays/drawer.tsx';
 export { ACTION_TONES, ActionSheet } from './overlays/action-sheet.tsx';

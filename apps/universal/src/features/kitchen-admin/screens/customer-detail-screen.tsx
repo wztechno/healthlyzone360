@@ -197,7 +197,6 @@ function CustomerView({
     return (
         <RecordViewPage
             testID="kitchen-customer-view"
-            look="sheet"
             figureKeys={['orders', 'lastOrder', 'since']}
             eyebrow={t('kitchen:recordView.eyebrowCustomers')}
             title={customerName(detail, t)}

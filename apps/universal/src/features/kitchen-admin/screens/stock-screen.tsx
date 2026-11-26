@@ -21,6 +21,7 @@ import {
     FormGrid,
     FormSection,
     LensBar,
+    RecordSummaryAside,
     SegmentedControl,
     Select,
     Stack,
@@ -82,7 +83,6 @@ import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { returnCrumbLabel } from '../came-from.ts';
 import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
-import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import {
     useListMemory,
     useRememberedFilter,
@@ -795,7 +795,6 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-stock-view"
-                look="sheet"
                 figureKeys={['quantity', 'unit', 'reorder', 'lastPurchase']}
                 eyebrow={t('kitchen:recordView.eyebrowStock')}
                 photo={{
