@@ -99,13 +99,15 @@ describe('control heights', () => {
         },
     );
 
-    it('SearchInput is a 28px control — the toolbar row height', async () => {
+    // The admin field is 36px (the "B" pick, 2026-11-26); a toolbar's search draws the 34px pill
+    // through its own class, so the bare field follows every other field.
+    it('SearchInput is a 36px field, like every admin field', async () => {
         await renderWithI18n(
             compact(<SearchInput testID="search" value="" onChangeText={() => undefined} />),
         );
 
         expect(resolveControlHeight(screen.getByTestId('search').props.className)).toBe(
-            controlHeight.sm,
+            controlHeight.lg,
         );
     });
 

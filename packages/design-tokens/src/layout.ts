@@ -17,7 +17,7 @@ export const spacing: Readonly<Record<`${SpacingStep}`, number>> = Object.fromEn
     SPACING_STEPS.map((step) => [String(step), step * SPACING_BASE]),
 ) as Record<`${SpacingStep}`, number>;
 
-export const RADIUS_NAMES = ['none', 'xs', 'sm', 'md', 'lg', 'panel', 'xl', '2xl', 'full'] as const;
+export const RADIUS_NAMES = ['none', 'xs', 'sm', 'md', 'field', 'lg', 'panel', 'xl', '2xl', 'full'] as const;
 export type RadiusName = (typeof RADIUS_NAMES)[number];
 
 export const radius: Readonly<Record<RadiusName, number>> = {
@@ -25,6 +25,11 @@ export const radius: Readonly<Record<RadiusName, number>> = {
     xs: 2,
     sm: 4,
     md: 8,
+    /**
+     * An admin field's corner — text boxes, dropdowns, dates (2026-11-26, the user's pick "B, taller
+     * and softer"). Named for the same reason as `panel`: the scale has no slot between 8 and 12.
+     */
+    field: 10,
     lg: 12,
     /**
      * Panels, trays and editor frames — the boxes that *hold* content rather than being content.

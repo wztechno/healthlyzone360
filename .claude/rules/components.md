@@ -255,6 +255,12 @@ look of `RecordViewPage`), `CompactRecordPopup` (now `RecordPopupWindow`), `Reco
 
 ## Form bits
 
+**Every admin field is one frame** (`inputFrameClassName` in `forms/text-input.tsx`): text, search,
+dropdown, date, quantity, stepper, the EN/AR pair, file upload. Since 2026-11-26 (the user's pick "B,
+taller and softer") it is 36px tall (`h-control-lg`), 10px corners (`rounded-field`), a light border
+(`border-stroke-subtle`) that turns green with a soft glow on focus. Change the look there, never on a
+page; `xs` stays the small box inside a table row.
+
 | Job                                                               | Part                                                        |
 | ----------------------------------------------------------------- | ----------------------------------------------------------- |
 | A name, a description — one label, an English and an Arabic box   | `BilingualField` (`multiline`, `layout`, `requiredEnglish`) |

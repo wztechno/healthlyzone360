@@ -346,6 +346,7 @@ export const nativeTokens = {
     "xs": 2,
     "sm": 4,
     "md": 8,
+    "field": 10,
     "lg": 12,
     "panel": 14,
     "xl": 16,

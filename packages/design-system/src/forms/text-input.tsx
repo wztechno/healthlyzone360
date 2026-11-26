@@ -74,11 +74,15 @@ const COMFORTABLE_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
     lg: 'min-h-touch gap-2 rounded-lg px-3',
 };
 
+/**
+ * The admin field (2026-11-26, the user's pick "B, taller and softer"): 36px tall, 10px corners and
+ * 12px of room inside, for the 14px admin text. `xs` stays the small box a table row carries.
+ */
 const COMPACT_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
     xs: 'h-control-xs gap-control-xs rounded px-control-xs',
-    sm: 'h-control-sm gap-control-sm rounded px-control-sm',
-    md: 'h-control-md gap-control-md rounded px-control-md',
-    lg: 'h-control-lg gap-control-lg rounded px-control-lg',
+    sm: 'h-control-lg gap-control-md rounded-field px-3',
+    md: 'h-control-lg gap-control-md rounded-field px-3',
+    lg: 'h-control-lg gap-control-lg rounded-field px-3',
 };
 
 const FRAME_SIZE: Readonly<Record<Density, Readonly<Record<InputSize, string>>>> = {
@@ -104,9 +108,9 @@ const COMFORTABLE_MULTILINE_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
 
 const COMPACT_MULTILINE_FRAME_SIZE: Readonly<Record<InputSize, string>> = {
     xs: 'min-h-control-xs gap-control-xs rounded px-control-xs py-2',
-    sm: 'min-h-control-sm gap-control-sm rounded px-control-sm py-2',
-    md: 'min-h-control-md gap-control-md rounded px-control-md py-2',
-    lg: 'min-h-control-lg gap-control-lg rounded px-control-lg py-2',
+    sm: 'min-h-control-lg gap-control-md rounded-field px-3 py-2',
+    md: 'min-h-control-lg gap-control-md rounded-field px-3 py-2',
+    lg: 'min-h-control-lg gap-control-lg rounded-field px-3 py-2',
 };
 
 const MULTILINE_FRAME_SIZE: Readonly<Record<Density, Readonly<Record<InputSize, string>>>> = {
@@ -154,10 +158,19 @@ export function inputFrameClassName(options: {
             ? 'border-danger-border web:shadow-[0_0_0_2px_rgb(var(--h360-color-danger-subtle))]'
             : options.caution === true
               ? 'border-warning-border web:shadow-[0_0_0_2px_rgb(var(--h360-color-warning-subtle))]'
-              : 'border-stroke',
+              : density === 'compact'
+                ? 'border-stroke-subtle'
+                : 'border-stroke',
         // A visible focus ring is a WCAG 2.4.7 requirement, and on native there is no browser
-        // default to fall back on, so it is drawn explicitly.
-        options.focused ? 'border-stroke-focus border-focus' : null,
+        // default to fall back on, so it is drawn explicitly. The admin field turns green and
+        // glows (the "B" pick); a refused or cautioned field keeps its own tone.
+        options.focused
+            ? density === 'compact'
+                ? options.invalid || options.caution === true
+                    ? 'border-focus'
+                    : 'border-focus border-surface-brand web:shadow-[0_0_0_3px_rgb(var(--h360-color-brand-surface-subtle))]'
+                : 'border-stroke-focus border-focus'
+            : null,
         // Recessed fill and a lighter border — deliberately *not* an opacity.
         //
         // `opacity-60` here dimmed the value along with the frame, which put the text at 3.97:1
