@@ -44,7 +44,6 @@ import {
     useRestoredPageFallback,
 } from '../list-memory.ts';
 
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * `/kitchen/production-desk/batches` — the batches nobody has to move any more (PROD1).
  *
@@ -281,7 +280,8 @@ function ProductionBatches() {
                 width: 140,
                 priority: 85,
                 render: (row) => (
-                    <DeskStatusDot
+                    <Badge
+                        variant="dot"
                         testID={`${productionBatchTestId(String(row.id))}-status`}
                         tone={productionStatusTone(row.status)}
                         label={t(productionStatusKey(row.status))}

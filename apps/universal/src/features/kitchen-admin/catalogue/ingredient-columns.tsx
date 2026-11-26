@@ -1,5 +1,5 @@
 import type { CostAmount, IngredientAdmin } from '@healthy360/api-client/contracts';
-import { DATA_TABLE_PRIORITY, Inline, Text } from '@healthy360/design-system';
+import { Badge, DATA_TABLE_PRIORITY, Inline, Text } from '@healthy360/design-system';
 import type { DataTableColumn } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -13,7 +13,6 @@ import {
     unitShortKey,
 } from '../format.ts';
 import { allergenLabel } from '../ops-format.ts';
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 import { AllergenChip } from './allergen-chip.tsx';
 import { ingredientStockPhotoId } from './ingredient-photo.ts';
 import { RowThumbnail } from './row-thumbnail.tsx';
@@ -374,7 +373,8 @@ export function ingredientColumns({
             value: (row) => t(statusShortKey(row.meta.status)),
             render: (row) => (
                 // A dot and the word, as the board draws it — the look every list's status takes.
-                <DeskStatusDot
+                <Badge
+                    variant="dot"
                     testID={`${ingredientRowTestId(row.id)}-status`}
                     tone={statusTone(row.meta.status)}
                     label={t(statusShortKey(row.meta.status))}

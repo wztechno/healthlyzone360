@@ -369,6 +369,19 @@ function LabelsSection() {
             </Sample>
 
             <Sample
+                title="A list's status column"
+                note={'variant="dot" · a dot and the word, no ground'}
+            >
+                <View className="flex-row flex-wrap gap-4">
+                    <Badge variant="dot" tone="success" label="Published" />
+                    <Badge variant="dot" tone="warning" label="Draft" />
+                    <Badge variant="dot" tone="info" label="Awaiting review" />
+                    <Badge variant="dot" tone="danger" label="Blocked" />
+                    <Badge variant="dot" tone="neutral" label="Archived" />
+                </View>
+            </Sample>
+
+            <Sample
                 title="Sizes and counts"
                 note="sm in a calendar cell · md in a row · lg in a pop-up header"
             >

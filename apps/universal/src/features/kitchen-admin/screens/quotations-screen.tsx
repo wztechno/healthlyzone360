@@ -67,7 +67,6 @@ import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 
 import { PageBackPill } from '../../../shell/area-trail.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The request `?view=` names, read on its own when the loaded page does not hold it. */
 function useQuotationById(id: string | null) {
     const parsed = QuotationId.safeParse(id);
@@ -285,7 +284,8 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                 match: (row, value) => row.status === value,
             },
             render: (row) => (
-                <DeskStatusDot
+                <Badge
+                    variant="dot"
                     testID={`${kitchenQuotationRowTestId(String(row.id))}-status`}
                     tone={kitchenQuotationStatusTone(row.status)}
                     label={t(kitchenQuotationStatusKey(row.status))}

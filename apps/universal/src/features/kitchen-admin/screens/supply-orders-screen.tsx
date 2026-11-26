@@ -72,7 +72,6 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The order `?view=` names, read on its own when the loaded page does not hold it. */
 function useOrderById(id: string | null) {
     const parsed = PurchaseOrderId.safeParse(id);
@@ -453,7 +452,8 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                     },
                 },
                 render: (row) => (
-                    <DeskStatusDot
+                    <Badge
+                        variant="dot"
                         testID={`${purchaseOrderRowTestId(String(row.id))}-status`}
                         tone={purchaseOrderStatusTone(row.status)}
                         label={t(purchaseOrderStatusKey(row.status))}

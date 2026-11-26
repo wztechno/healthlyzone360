@@ -32,7 +32,6 @@ import {
 import { resolveEntityImage } from '../../../media/entity-image.tsx';
 import { allergenLabel } from '../ops-format.ts';
 
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 import { RowThumbnail } from './row-thumbnail.tsx';
 /**
  * The recipe book, as an array — every track the merged page can draw, answering this entity's
@@ -579,7 +578,8 @@ export function recipeColumns({
                 </Text>
             ) : (
                 // A publish state, so the status column's dot and word.
-                <DeskStatusDot
+                <Badge
+                    variant="dot"
                     testID={`${rowID(row)}-on-sale`}
                     tone={statusTone(state)}
                     label={t(statusShortKey(state))}
@@ -600,7 +600,8 @@ export function recipeColumns({
         sortType: 'text',
         value: (row) => t(statusShortKey(row.meta.status)),
         render: (row) => (
-            <DeskStatusDot
+            <Badge
+                variant="dot"
                 testID={`${rowID(row)}-status`}
                 tone={statusTone(row.meta.status)}
                 label={t(statusShortKey(row.meta.status))}

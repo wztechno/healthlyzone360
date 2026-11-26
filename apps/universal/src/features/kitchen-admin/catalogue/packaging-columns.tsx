@@ -1,12 +1,11 @@
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import { DATA_TABLE_PRIORITY, Text } from '@healthy360/design-system';
+import { Badge, DATA_TABLE_PRIORITY, Text } from '@healthy360/design-system';
 import type { BadgeTone, DataTableColumn } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 
 import { displayName, statusShortKey, statusTone, unitShortKey } from '../format.ts';
 
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 import { RowThumbnail } from './row-thumbnail.tsx';
 /**
  * The columns of `/kitchen/packaging`.
@@ -291,7 +290,8 @@ export function packagingColumns({
             sortable: false,
             value: (row) => t(packagingStatusKey(row.meta.status)),
             render: (row) => (
-                <DeskStatusDot
+                <Badge
+                    variant="dot"
                     testID={`${packagingRowTestId(row.id)}-status`}
                     tone={packagingStatusTone(row.meta.status)}
                     label={t(packagingStatusKey(row.meta.status))}

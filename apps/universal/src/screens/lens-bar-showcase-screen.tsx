@@ -1,4 +1,5 @@
 import {
+    Badge,
     Button,
     Cascade,
     DensityProvider,
@@ -13,7 +14,6 @@ import { View } from 'react-native';
 
 import { LensBar, LensFigureCell } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensMixPart } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
-import { DeskStatusDot } from '../features/kitchen-admin/desk-kit/desk-status-dot.tsx';
 
 type Kind = 'all' | 'meal' | 'sauce' | 'preparation';
 
@@ -258,10 +258,10 @@ export function LensBarShowcaseScreen() {
                     {/* 2026-11-15: the parts every list now shares (Phase B). */}
                     <Text variant="title">Status cell — every list</Text>
                     <Inline space="lg" align="center" testID="showcase-status-dots">
-                        <DeskStatusDot tone="success" label="Published" />
-                        <DeskStatusDot tone="warning" label="Draft" />
-                        <DeskStatusDot tone="danger" label="Awaiting review" />
-                        <DeskStatusDot tone="neutral" label="Archived" />
+                        <Badge variant="dot" tone="success" label="Published" />
+                        <Badge variant="dot" tone="warning" label="Draft" />
+                        <Badge variant="dot" tone="danger" label="Awaiting review" />
+                        <Badge variant="dot" tone="neutral" label="Archived" />
                     </Inline>
 
                     {/* 2026-11-15: the batch planner's summary — chips that fill their cell. */}

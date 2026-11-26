@@ -4,6 +4,7 @@ import {
     QUALITY_CHECK_SUBJECT_TYPES,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Button,
     Cascade,
     ColumnPicker,
@@ -54,7 +55,6 @@ import {
 } from '../list-memory.ts';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The subject as a reader names it, for sorting: its label, or the bare id when it has none. */
 function subjectName(row: QualityCheck): string {
     return row.subjectLabel ?? row.subjectId;
@@ -317,7 +317,8 @@ function QualityCheckList({
                 },
             },
             render: (row) => (
-                <DeskStatusDot
+                <Badge
+                    variant="dot"
                     testID={`${qualityCheckRowTestId(String(row.id))}-status`}
                     tone={qualityCheckStatusTone(row.status)}
                     label={t(qualityCheckStatusKey(row.status))}

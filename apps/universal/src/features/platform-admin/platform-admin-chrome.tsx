@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useCan } from '../../access/gate.tsx';
 import { usePlatformB2bApplicationsQuery } from '../../data/platform-b2b-hooks.ts';
 import { useTrailLeafState } from '../../shell/area-trail.tsx';
-import type { DeskCrumb } from '../kitchen-admin/desk-kit/desk-trail.tsx';
+import type { AdminCrumb } from '../../ui/admin-trail.tsx';
 
 /**
  * The platform console's chrome, in the kitchen admin's look (Platform admin canvas, 2026-11-23).
@@ -107,15 +107,15 @@ export function usePlatformAdminNavigation(): readonly NavigationItem[] {
  * `useTrailLeaf`, and the page crumb before it closes it again. The B2B application is a page of
  * its own, so it names its leaf the same way with no way back of its own: the crumb navigates.
  */
-export function usePlatformTrail(navigation: readonly NavigationItem[]): readonly DeskCrumb[] {
+export function usePlatformTrail(navigation: readonly NavigationItem[]): readonly AdminCrumb[] {
     const { t } = useTranslation();
     const router = useRouter();
     const pathname = usePathname();
     const { leaf, back } = useTrailLeafState();
 
-    return useMemo<readonly DeskCrumb[]>(() => {
+    return useMemo<readonly AdminCrumb[]>(() => {
         const route = platformRoute(pathname);
-        const home: DeskCrumb = {
+        const home: AdminCrumb = {
             key: 'home',
             kind: 'home',
             label: t('platformAdmin:nav.kitchens'),
@@ -132,20 +132,20 @@ export function usePlatformTrail(navigation: readonly NavigationItem[]): readonl
             ...(item.count === undefined ? {} : { count: item.count }),
             onSelect: item.onPress,
         }));
-        const module: DeskCrumb = {
+        const module: AdminCrumb = {
             key: 'module',
             kind: 'module',
             label: t('platformAdmin:nav.group'),
             testID: 'platform-crumb-module',
             pages,
         };
-        const current = (key: string, label: string): DeskCrumb => ({
+        const current = (key: string, label: string): AdminCrumb => ({
             key,
             kind: 'current',
             label,
             testID: key === 'leaf' ? 'platform-crumb-leaf' : 'platform-crumb-page',
         });
-        const link = (key: string, label: string, onPress: () => void): DeskCrumb => ({
+        const link = (key: string, label: string, onPress: () => void): AdminCrumb => ({
             key,
             kind: 'page',
             label,

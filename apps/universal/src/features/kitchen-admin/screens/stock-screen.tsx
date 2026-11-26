@@ -88,7 +88,6 @@ import {
 } from '../list-memory.ts';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { RowThumbnail } from '../catalogue/row-thumbnail.tsx';
 /**
@@ -498,7 +497,8 @@ function Stock({ view, ingredient, item, shelf: shelfId, direction, returnTo }: 
                 match: (row, value) => row.state === value,
             },
             render: (row) => (
-                <DeskStatusDot
+                <Badge
+                    variant="dot"
                     testID={`${stockItemRowTestId(String(row.item.id))}-status`}
                     tone={STATE_TONE[row.state]}
                     label={t(STATE_LABEL[row.state])}

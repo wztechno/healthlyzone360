@@ -8,6 +8,7 @@ import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
 import { useInTitleAside } from '../forms/form-section.tsx';
+import { Text } from '../primitives/text.tsx';
 import {
     NUTRITION_ON_CLASS,
     NUTRITION_SURFACE_CLASS,
@@ -17,7 +18,7 @@ import {
 export const BADGE_TONES = ['neutral', 'success', 'warning', 'danger', 'info', 'brand'] as const;
 export type BadgeTone = (typeof BADGE_TONES)[number];
 
-export const BADGE_VARIANTS = ['pill', 'label', 'caps'] as const;
+export const BADGE_VARIANTS = ['pill', 'label', 'caps', 'dot'] as const;
 export type BadgeVariant = (typeof BADGE_VARIANTS)[number];
 
 export const BADGE_SIZES = ['sm', 'md', 'lg'] as const;
@@ -86,6 +87,19 @@ const TONE_DOT_CLASS: Readonly<Record<BadgeTone, string>> = {
     brand: 'bg-content-on-brand-subtle',
 };
 
+/**
+ * `dot`'s mark — a list's status column (`● Published`, the Ingredients board). A touch fuller than
+ * the pill's, because here the dot stands on the page with no ground of its own to hold it.
+ */
+const STATUS_DOT_CLASS: Readonly<Record<BadgeTone, string>> = {
+    success: 'bg-success',
+    brand: 'bg-surface-brand',
+    warning: 'bg-warning-border',
+    danger: 'bg-danger',
+    info: 'bg-info',
+    neutral: 'bg-content-secondary',
+};
+
 const TONE_DOT_INK_CLASS: Readonly<Record<BadgeTone, string>> = {
     neutral: 'text-content-secondary',
     success: 'text-success',
@@ -145,6 +159,8 @@ export interface BadgeProps {
      * - `caps` — the record's state beside a page title: `DRAFT`, `RESTRICTED`. Capitals from the
      *   stylesheet (Arabic has no case), 10px on a 16px tag, and no mark unless one is passed,
      *   because the word is the whole of it and a glyph at that size is noise.
+     * - `dot` — a record's state in a list's status column: a dot and the word, no ground
+     *   (`● Published`). A pill stays for the flags beside a name — Late, Missing Arabic.
      */
     readonly variant?: BadgeVariant | undefined;
     /**
@@ -204,6 +220,26 @@ export function Badge({
                     {nutritionMark(nutrition)}
                 </RNText>
                 <RNText className={cx(labelClass, NUTRITION_ON_CLASS[nutrition])}>{label}</RNText>
+            </View>
+        );
+    }
+
+    if (variant === 'dot') {
+        return (
+            <View
+                testID={testID}
+                accessibilityRole="text"
+                accessibilityLabel={label}
+                className={cx('flex-row items-center gap-1.5', className)}
+            >
+                <View
+                    aria-hidden
+                    testID={testID === undefined ? undefined : `${testID}-mark`}
+                    className={cx('h-2 w-2 shrink-0 rounded-full', STATUS_DOT_CLASS[tone])}
+                />
+                <Text variant="label" numberOfLines={1}>
+                    {label}
+                </Text>
             </View>
         );
     }

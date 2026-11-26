@@ -52,7 +52,6 @@ import {
     useRestoredPageFallback,
 } from '../list-memory.ts';
 
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * `/kitchen/team` — everybody who can sign in to this kitchen (AA1), on the Catalogue list.
  *
@@ -138,7 +137,7 @@ function StatusBadge({ member }: { readonly member: TeamMemberSummary }) {
           ? 'neutral'
           : 'warning';
 
-    return <DeskStatusDot testID={testID} tone={tone} label={statusText(member, t)} />;
+    return <Badge variant="dot" testID={testID} tone={tone} label={statusText(member, t)} />;
 }
 
 function PendingInvitations({ invitations }: { readonly invitations: readonly StaffInvitation[] }) {

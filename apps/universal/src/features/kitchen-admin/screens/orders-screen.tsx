@@ -36,7 +36,7 @@ import {
     SUBSCRIPTION_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { kitchenOrderStatusKey } from '../ops-format.ts';
-import { ListGroupRow } from '../desk-kit/index.ts';
+import { ListGroupRow } from '../orders/list-group-row.tsx';
 import { KitchenPauseBanner, KitchenPauseButton } from '../order-desk/kitchen-pause.tsx';
 import { useWindowName } from '../order-desk/use-window-name.ts';
 import { useListPage } from '../use-list-page.ts';

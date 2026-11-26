@@ -6,7 +6,6 @@ import type { TFunction } from 'i18next';
 
 import { displayName } from '../format.ts';
 
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * The fourteen regulatory allergen classes, as a column spec.
  *
@@ -199,13 +198,15 @@ export function allergenColumns({
                 entry.isActive ? t('kitchen:classes.active') : t('kitchen:classes.inactive'),
             render: (entry) =>
                 entry.isActive ? (
-                    <DeskStatusDot
+                    <Badge
+                        variant="dot"
                         testID={`${allergenRowTestId(String(entry.code))}-active`}
                         tone="brand"
                         label={t('kitchen:classes.active')}
                     />
                 ) : (
-                    <DeskStatusDot
+                    <Badge
+                        variant="dot"
                         testID={`${allergenRowTestId(String(entry.code))}-inactive`}
                         tone="warning"
                         label={t('kitchen:classes.inactive')}

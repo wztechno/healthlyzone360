@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useCorporateProgrammesQuery, useQuotationsQuery } from '../../data/business-hooks.ts';
 import { useTrailLeafState } from '../../shell/area-trail.tsx';
-import type { DeskCrumb } from '../kitchen-admin/desk-kit/desk-trail.tsx';
+import type { AdminCrumb } from '../../ui/admin-trail.tsx';
 
 /**
  * The corporate area's chrome: the rail, the trail and the brand block — the kitchen's desk shell
@@ -125,7 +125,7 @@ export function useCorporateNavigation(): readonly NavigationItem[] {
 }
 
 /**
- * The crumbs for the current corporate route, in the kitchen's pill trail (`DeskTrail`, Phase C):
+ * The crumbs for the current corporate route, in the kitchen's pill trail (`AdminTrail`, Phase C):
  *
  * ```
  *  (⌂) / Purchasing ⌄ / ( Test employee meals )            a page
@@ -137,7 +137,7 @@ export function useCorporateNavigation(): readonly NavigationItem[] {
  * opened in place (a quotation), or by navigating where it is a route of its own (a catalogue line,
  * whose screen hands the trail a callback that returns to its programme).
  */
-export function useCorporateTrail(): readonly DeskCrumb[] {
+export function useCorporateTrail(): readonly AdminCrumb[] {
     const { t } = useTranslation();
     const router = useRouter();
     const pathname = usePathname();
@@ -145,7 +145,7 @@ export function useCorporateTrail(): readonly DeskCrumb[] {
     const programmes = useCorporateProgrammesQuery();
     const { leaf, back } = useTrailLeafState();
 
-    return useMemo<readonly DeskCrumb[]>(() => {
+    return useMemo<readonly AdminCrumb[]>(() => {
         const route = corporateRoute(pathname);
         const overview = t('business:nav.overview');
         if (route.kind === 'home') {
@@ -154,7 +154,7 @@ export function useCorporateTrail(): readonly DeskCrumb[] {
             ];
         }
 
-        const home: DeskCrumb = {
+        const home: AdminCrumb = {
             key: 'home',
             kind: 'home',
             label: overview,
@@ -173,7 +173,7 @@ export function useCorporateTrail(): readonly DeskCrumb[] {
                 ...(item.count === undefined ? {} : { count: item.count }),
                 onSelect: item.onPress,
             }));
-        const module: DeskCrumb = {
+        const module: AdminCrumb = {
             key: 'module',
             kind: 'module',
             label: t('business:nav.group'),
@@ -186,7 +186,7 @@ export function useCorporateTrail(): readonly DeskCrumb[] {
             key: string,
             label: string,
             onPress: (() => void) | null,
-        ): readonly DeskCrumb[] => {
+        ): readonly AdminCrumb[] => {
             const withLeaf = leaf !== null && onPress !== null;
             return [
                 home,

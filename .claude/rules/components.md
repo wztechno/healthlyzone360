@@ -12,7 +12,8 @@ Applies to every new screen, every redesign, and every canvas board. Agreed 2026
 | Something only one page uses                                                                         | that feature's folder                      |
 
 - **Never start a "kit" folder inside a feature** (`features/*/…-kit/`). That is how `desk-kit/` grew a
-  second copy of the design system. Its remaining parts are being moved out family by family.
+  second copy of the design system; every part of it was moved out and the folder deleted on
+  2026-11-26. **Never recreate `desk-kit/`.**
 - An "admin only" part still goes in the design system. Admin vs shop is a **look**, not a second
   component: `AreaLookScope look="desk"` is set once in the `app/kitchen`, `app/corporate` and
   `app/platform-admin` layouts (and on the admin `/showcase-*` routes), and every part reads it
@@ -78,21 +79,22 @@ A special button (Pause kitchen, Staff alerts, Camera scan) is built **from** `B
 
 ## Labels, tick boxes and choices
 
-| Job                                                    | Part                                             |
-| ------------------------------------------------------ | ------------------------------------------------ |
-| A status or count on a record (To confirm, Late, 5)    | `Badge` with a `tone`; `size` sm / md / lg       |
-| An allergen or diet word under a name (shop cards)     | `Tag`                                            |
-| A tick with its words                                  | `Checkbox`                                       |
-| A tick in a table row or header                        | `Checkbox labelHidden` (+ `mixed` for "some")    |
-| One of a set ticked as a card (diets, sales channels)  | `Checkbox shape="card"` (`description` = line 2) |
-| A setting that applies where it stands                 | `Switch`                                         |
-| One of a few short choices (days, slots, 2×)           | `ChoiceChips` (made of `FilterChip`)             |
-| One choice with a detail, in a pop-up (driver, reason) | `ChoiceRow` (`mark` avatar / radio / check)      |
+| Job                                                      | Part                                             |
+| -------------------------------------------------------- | ------------------------------------------------ |
+| A status or count on a record (To confirm, Late, 5)      | `Badge` with a `tone`; `size` sm / md / lg       |
+| A record's state in a list's status column (● Published) | `Badge variant="dot"` with a `tone`              |
+| An allergen or diet word under a name (shop cards)       | `Tag`                                            |
+| A tick with its words                                    | `Checkbox`                                       |
+| A tick in a table row or header                          | `Checkbox labelHidden` (+ `mixed` for "some")    |
+| One of a set ticked as a card (diets, sales channels)    | `Checkbox shape="card"` (`description` = line 2) |
+| A setting that applies where it stands                   | `Switch`                                         |
+| One of a few short choices (days, slots, 2×)             | `ChoiceChips` (made of `FilterChip`)             |
+| One choice with a detail, in a pop-up (driver, reason)   | `ChoiceRow` (`mark` avatar / radio / check)      |
 
 The admin look of each comes from `AreaLookScope`. On `Checkbox` the pressable box is
 `<testID>-control`; the bare `testID` is its wrapper.
 
-**Removed, never recreate:** `DeskChip`, `DeskCheckbox`, `DeskToggleTile`, `DeskChoiceChips`, the
+**Removed, never recreate:** `DeskStatusDot` (now `Badge variant="dot"`), `DeskChip`, `DeskCheckbox`, `DeskToggleTile`, `DeskChoiceChips`, the
 desk-kit `ChoiceRow`, and the kitchen-admin `CountPill` copies.
 
 ## Tabs — `Tabs` in two looks

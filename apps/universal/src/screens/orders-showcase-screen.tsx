@@ -28,7 +28,7 @@ import {
     CompactRecordPopup,
     CompactSection,
 } from '../features/kitchen-admin/catalogue/compact-record-popup.tsx';
-import { ListGroupRow } from '../features/kitchen-admin/desk-kit/index.ts';
+import { ListGroupRow } from '../features/kitchen-admin/orders/list-group-row.tsx';
 import { RecordPopup } from '../features/kitchen-admin/catalogue/record-popup.tsx';
 import { DayStepper } from '../features/kitchen-admin/orders/day-stepper.tsx';
 import { orderColumns } from '../features/kitchen-admin/orders/order-columns.tsx';
@@ -38,8 +38,7 @@ import { OrderPopupProposal } from './orders-popup-proposal.tsx';
 
 /**
  * `/showcase-orders` — the parts the Orders redesign (Option A, 2026-11-10) added, on a page of
- * their own: the desk kit (`kitchen-admin/desk-kit/` — buttons, chips, the dropdown, the mini
- * month, the tabs, the group row), the day stepper, the order table with its slot headings
+ * their own: the group row (`orders/list-group-row.tsx`), the day stepper, the order table with its slot headings
  * (`DataList` / `DataTable` `sectionHeader`), and the compact pop-up with its thin scrollbar.
  *
  * Literal copy, like `/showcase`: a development page, never a customer one.

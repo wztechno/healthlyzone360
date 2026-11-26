@@ -3,7 +3,7 @@ import type { BreadcrumbItem, MenuItem } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
-import { BackPill } from '../../../ui/back-pill.tsx';
+import { BackPill } from './back-pill.tsx';
 
 /**
  * The kitchen's breadcrumb, from the Toasts / pop-ups / banners canvas's Breadcrumb boards
@@ -26,7 +26,7 @@ import { BackPill } from '../../../ui/back-pill.tsx';
  * Slashes, not chevrons. Below `md` there is no room for a trail, so it becomes one back pill naming
  * the step back — the return when there is one, else the crumb above the current one.
  */
-export interface DeskCrumb extends BreadcrumbItem {
+export interface AdminCrumb extends BreadcrumbItem {
     readonly kind: 'home' | 'module' | 'page' | 'return' | 'current';
     /** The module's pages, for its menu — the current one `selected`. Module crumbs only. */
     readonly pages?: readonly MenuItem[] | undefined;
@@ -34,11 +34,11 @@ export interface DeskCrumb extends BreadcrumbItem {
 
 const PILL = 'h-8 flex-row items-center rounded-full';
 
-export function DeskTrail({
+export function AdminTrail({
     crumbs,
     testID,
 }: {
-    readonly crumbs: readonly DeskCrumb[];
+    readonly crumbs: readonly AdminCrumb[];
     readonly testID: string;
 }) {
     const { t, i18n } = useTranslation();
@@ -84,7 +84,7 @@ export function DeskTrail({
     );
 }
 
-function Crumb({ crumb }: { readonly crumb: DeskCrumb }) {
+function Crumb({ crumb }: { readonly crumb: AdminCrumb }) {
     if (crumb.kind === 'home') {
         return (
             <Pressable
@@ -156,7 +156,7 @@ function Crumb({ crumb }: { readonly crumb: DeskCrumb }) {
     );
 }
 
-function ModuleCrumb({ crumb }: { readonly crumb: DeskCrumb }) {
+function ModuleCrumb({ crumb }: { readonly crumb: AdminCrumb }) {
     const { t } = useTranslation();
     const pages = crumb.pages ?? [];
     const menuLabel = t('kitchen:trail.modulePages', { module: crumb.label });

@@ -17,7 +17,6 @@ import {
 } from '../format.ts';
 import { AssessmentBadges } from './allergen-assessment.tsx';
 
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 import { RowThumbnail } from './row-thumbnail.tsx';
 /**
  * Products — and, unchanged, sauces and dressings — as an array.
@@ -341,7 +340,8 @@ export function productColumns({
             sortType: 'text',
             value: (row) => t(statusShortKey(row.meta.status)),
             render: (row) => (
-                <DeskStatusDot
+                <Badge
+                    variant="dot"
                     testID={`${productRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
                     label={t(statusShortKey(row.meta.status))}

@@ -11,8 +11,8 @@ import { guardNavigation } from '../../navigation/use-unsaved-guard.ts';
 import { useAccessState } from '../../session/session-provider.tsx';
 import { TrailLeafProvider, useTrailLeaf, useTrailLeafState } from '../../shell/area-trail.tsx';
 import { returnCrumbLabel } from './came-from.ts';
-import { DeskTrail } from './desk-kit/desk-trail.tsx';
-import type { DeskCrumb } from './desk-kit/desk-trail.tsx';
+import { AdminTrail } from '../../ui/admin-trail.tsx';
+import type { AdminCrumb } from '../../ui/admin-trail.tsx';
 import { ENTITY_FAMILIES } from './entity-registry.ts';
 import type { EntityFamily } from './entity-registry.ts';
 import {
@@ -137,8 +137,8 @@ export const useKitchenTrailLeaf = useTrailLeaf;
 /** Holds the trail's leaf for everything under the kitchen layout — the top bar and the page. */
 export const KitchenTrailProvider = TrailLeafProvider;
 
-/** One crumb of the kitchen trail — the desk kit's (`desk-kit/desk-trail.tsx`). */
-export type KitchenCrumb = DeskCrumb;
+/** One crumb of the kitchen trail — the admin trail's (`ui/admin-trail.tsx`). */
+export type KitchenCrumb = AdminCrumb;
 
 /** The deepest registry family an href sits under — `/kitchen/order-desk/cash` is Cash's. */
 function familyOf(href: string): EntityFamily | undefined {
@@ -317,7 +317,7 @@ export function useKitchenTrail(navigation?: readonly NavigationItem[]): readonl
 
 /** The trail as the top bar draws it. `kitchen-breadcrumbs` is a print-stylesheet contract. */
 export function KitchenTrail({ crumbs }: { readonly crumbs: readonly KitchenCrumb[] }) {
-    return <DeskTrail testID="kitchen-breadcrumbs" crumbs={crumbs} />;
+    return <AdminTrail testID="kitchen-breadcrumbs" crumbs={crumbs} />;
 }
 
 export function KitchenOpsShell({ children }: KitchenOpsShellProps) {
