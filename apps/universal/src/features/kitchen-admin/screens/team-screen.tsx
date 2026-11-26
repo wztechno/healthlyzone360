@@ -1,6 +1,18 @@
 import type { StaffInvitation, TeamMemberSummary } from '@healthy360/api-client/contracts';
 import { isWorkingMember } from '@healthy360/api-client/contracts';
-import { Button, Cascade, Chip, EmptyState, ErrorState, Heading, Icon, Select, Stack, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    EmptyState,
+    ErrorState,
+    Heading,
+    Icon,
+    Select,
+    Stack,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -169,7 +181,11 @@ function PendingInvitations({ invitations }: { readonly invitations: readonly St
             priority: 80,
             value: roleName,
             render: (row) => (
-                <Chip testID={`kitchen-team-invitation-${row.id}-role`} label={roleName(row)} />
+                <Badge
+                    tone="neutral"
+                    testID={`kitchen-team-invitation-${row.id}-role`}
+                    label={roleName(row)}
+                />
             ),
         },
         {
@@ -382,7 +398,8 @@ function TeamList() {
                     >
                         {first === undefined ? null : (
                             <View className="min-w-0 shrink">
-                                <Chip
+                                <Badge
+                                    tone="neutral"
                                     testID={`${testID}-role-${first.code}`}
                                     label={locale.startsWith('ar') ? first.nameAr : first.nameEn}
                                 />

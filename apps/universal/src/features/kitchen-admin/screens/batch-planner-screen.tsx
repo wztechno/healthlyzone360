@@ -5,7 +5,25 @@ import type {
     RecipePackagingLine,
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
-import { Button, Cascade, EmptyState, ErrorState, Heading, Icon, IconButton, InfoTip, Inline, QuantityInput, SearchInput, SegmentedControl, Skeleton, Stack, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    EmptyState,
+    ErrorState,
+    Heading,
+    Icon,
+    IconButton,
+    InfoTip,
+    Inline,
+    QuantityInput,
+    SearchInput,
+    SegmentedControl,
+    Skeleton,
+    Stack,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -38,7 +56,6 @@ import {
     compareText,
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import {
     CATALOGUE_VIEW_PERMISSION,
     PRODUCTION_MANAGE_PERMISSION,
@@ -381,7 +398,8 @@ function BatchPlanner() {
                                 ) : null}
                             </View>
                             <View className="flex-row items-center justify-center gap-1.5">
-                                <IconButton variant="secondary"
+                                <IconButton
+                                    variant="secondary"
                                     testID="kitchen-batch-less"
                                     label={t('kitchen:ops.batch.less')}
                                     icon={<Icon name="minus" size="sm" />}
@@ -412,7 +430,8 @@ function BatchPlanner() {
                                         }
                                     />
                                 </View>
-                                <IconButton variant="secondary"
+                                <IconButton
+                                    variant="secondary"
                                     testID="kitchen-batch-more"
                                     label={t('kitchen:ops.batch.more')}
                                     icon={<Icon name="plus" size="sm" />}
@@ -591,7 +610,7 @@ function RecipeOption({
                     {name}
                 </Text>
                 {row.meta.status === 'published' ? null : (
-                    <DeskChip
+                    <Badge
                         testID={`kitchen-batch-recipe-${String(row.id)}-status`}
                         tone="warning"
                         label={t(statusShortKey(row.meta.status))}
@@ -898,7 +917,7 @@ function useSheetColumns(
                         {nameOf(line.ingredientId)}
                     </Text>
                     {line.isOptional ? (
-                        <DeskChip
+                        <Badge
                             testID={`${rowId(line.ingredientId)}-optional`}
                             tone="neutral"
                             label={t('kitchen:ops.batch.optionalBadge')}

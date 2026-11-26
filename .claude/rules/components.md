@@ -76,7 +76,26 @@ A special button (Pause kitchen, Staff alerts, Camera scan) is built **from** `B
 
 **Removed, never recreate:** `DeskButton`, `DeskIconButton`.
 
+## Labels, tick boxes and choices
+
+| Job                                                    | Part                                             |
+| ------------------------------------------------------ | ------------------------------------------------ |
+| A status or count on a record (To confirm, Late, 5)    | `Badge` with a `tone`; `size` sm / md / lg       |
+| An allergen or diet word under a name (shop cards)     | `Tag`                                            |
+| A tick with its words                                  | `Checkbox`                                       |
+| A tick in a table row or header                        | `Checkbox labelHidden` (+ `mixed` for "some")    |
+| One of a set ticked as a card (diets, sales channels)  | `Checkbox shape="card"` (`description` = line 2) |
+| A setting that applies where it stands                 | `Switch`                                         |
+| One of a few short choices (days, slots, 2×)           | `ChoiceChips` (made of `FilterChip`)             |
+| One choice with a detail, in a pop-up (driver, reason) | `ChoiceRow` (`mark` avatar / radio / check)      |
+
+The admin look of each comes from `AreaLookScope`. On `Checkbox` the pressable box is
+`<testID>-control`; the bare `testID` is its wrapper.
+
+**Removed, never recreate:** `DeskChip`, `DeskCheckbox`, `DeskToggleTile`, `DeskChoiceChips`, the
+desk-kit `ChoiceRow`, and the kitchen-admin `CountPill` copies.
+
 ## Canvas designs
 
-A new board draws dropdowns, fields, buttons and pills as `/showcase-components` shows them. If a design
+A new board draws dropdowns, fields, buttons, labels, tick boxes, choices and pills as `/showcase-components` shows them. If a design
 needs a part that is not on that page, say so — it is a new design-system part, not a one-off.

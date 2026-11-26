@@ -1,4 +1,4 @@
-import { Text } from '@healthy360/design-system';
+import { Badge, Text } from '@healthy360/design-system';
 import type { KitchenOrder, KitchenOrderLine } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
@@ -6,7 +6,6 @@ import { View } from 'react-native';
 
 import { allergenLabel } from './ops-format.ts';
 
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * Which dish is for which sitting of a subscription day, drawn under the order's plan line.
  *
@@ -76,21 +75,21 @@ export function PlanDayMeals({
                         </Text>
                         <Text variant="label">{line?.nameEn ?? '—'}</Text>
                         {meal.source === 'repeated' ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-${key}-repeated`}
                                 tone="info"
                                 label={t('kitchen:ops.orders.planDay.repeated')}
                             />
                         ) : null}
                         {meal.source === 'substituted' ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-${key}-substituted`}
                                 tone="warning"
                                 label={t('kitchen:ops.orders.planDay.substituted')}
                             />
                         ) : null}
                         {(line?.allergens ?? []).map((allergen) => (
-                            <DeskChip
+                            <Badge
                                 key={allergen.allergenCode}
                                 tone={allergen.containment === 'contains' ? 'danger' : 'warning'}
                                 label={allergenLabel(allergen.allergenCode, t)}

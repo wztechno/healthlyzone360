@@ -2,6 +2,7 @@ import { NUTRITION_LEVELS } from '@healthy360/design-tokens';
 import type { NutritionLevel } from '@healthy360/design-tokens';
 import { Text as RNText, View } from 'react-native';
 
+import { useAreaLook } from '../hooks/area-look.tsx';
 import { useDensity } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
@@ -18,6 +19,38 @@ export type BadgeTone = (typeof BADGE_TONES)[number];
 
 export const BADGE_VARIANTS = ['pill', 'label', 'caps'] as const;
 export type BadgeVariant = (typeof BADGE_VARIANTS)[number];
+
+export const BADGE_SIZES = ['sm', 'md', 'lg'] as const;
+export type BadgeSize = (typeof BADGE_SIZES)[number];
+
+/**
+ * The admin's status pill (the Orders canvas's `.ac`, 2026-11-10 — the old `DeskChip`): a full
+ * pill on the tone's subtle ground, the word in its ink, no dot. `success` takes the brand's soft
+ * green so a "Done" reads as the brand's own good news.
+ */
+const DESK_GROUND: Readonly<Record<BadgeTone, string>> = {
+    warning: 'bg-warning-subtle',
+    info: 'bg-info-subtle',
+    success: 'bg-surface-brand-subtle',
+    brand: 'bg-surface-brand-subtle',
+    neutral: 'bg-surface-sunken',
+    danger: 'bg-danger-subtle',
+};
+
+const DESK_INK: Readonly<Record<BadgeTone, string>> = {
+    warning: 'text-warning-on-subtle',
+    info: 'text-info-on-subtle',
+    success: 'text-content-on-brand-subtle',
+    brand: 'text-content-on-brand-subtle',
+    neutral: 'text-content-secondary',
+    danger: 'text-danger-on-subtle',
+};
+
+const DESK_SIZE: Readonly<Record<BadgeSize, { readonly box: string; readonly text: string }>> = {
+    sm: { box: 'h-5 px-1.5', text: 'text-role-caption font-semibold' },
+    md: { box: 'h-[22px] px-2', text: 'text-role-caption font-semibold' },
+    lg: { box: 'h-[30px] px-3', text: 'text-role-strong' },
+};
 
 /** The mark on a `label`: the tone's strong ink, so the glyph carries the tone at 10px. */
 const TONE_MARK_CLASS: Readonly<Record<BadgeTone, string>> = {
@@ -114,6 +147,12 @@ export interface BadgeProps {
      *   because the word is the whole of it and a glyph at that size is noise.
      */
     readonly variant?: BadgeVariant | undefined;
+    /**
+     * The admin pill's height (`AreaLookScope look="desk"`, the old `DeskChip`): `md` 22px in a
+     * table row, `sm` 20px in a calendar cell, `lg` 30px in a pop-up header or a panel title.
+     * Outside the admin the pill has one size and this is ignored.
+     */
+    readonly size?: BadgeSize | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -124,10 +163,12 @@ export function Badge({
     nutrition,
     icon,
     variant = 'pill',
+    size = 'md',
     className,
     testID,
 }: BadgeProps) {
     const density = useDensity();
+    const desk = useAreaLook() === 'desk';
     const inTitle = useInTitleAside();
     const compact = density === 'compact';
     /*
@@ -224,6 +265,37 @@ export function Badge({
                         caps ? 'text-role-micro uppercase tracking-wide' : 'text-role-micro',
                         TONE_TEXT_CLASS[tone],
                     )}
+                >
+                    {label}
+                </RNText>
+            </View>
+        );
+    }
+
+    if (desk) {
+        return (
+            <View
+                testID={testID}
+                accessibilityRole="text"
+                accessibilityLabel={label}
+                className={cx(
+                    'flex-row items-center gap-1 self-start rounded-full',
+                    DESK_GROUND[tone],
+                    DESK_SIZE[size].box,
+                    className,
+                )}
+            >
+                {icon === undefined || icon === null ? null : (
+                    <Icon
+                        testID={testID === undefined ? undefined : `${testID}-icon`}
+                        name={icon}
+                        size="sm"
+                        className={DESK_INK[tone]}
+                    />
+                )}
+                <RNText
+                    numberOfLines={1}
+                    className={cx(DESK_SIZE[size].text, 'tabular-nums', DESK_INK[tone])}
                 >
                     {label}
                 </RNText>

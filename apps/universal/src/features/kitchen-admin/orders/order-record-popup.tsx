@@ -1,6 +1,14 @@
 import type { KitchenOrder } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
-import { Button, Callout, ErrorState, Inline, Skeleton, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    ErrorState,
+    Inline,
+    Skeleton,
+    Text,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useRouter } from 'expo-router';
@@ -29,7 +37,6 @@ import {
     kitchenOrderCancellationReasonKey,
     kitchenOrderPaymentMethodKey,
 } from '../ops-format.ts';
-import { DeskChip } from '../desk-kit/index.ts';
 import { OrderComplaintAction } from '../order-complaint-action.tsx';
 import { OrderRefundsSection } from '../order-refunds-section.tsx';
 import { PlanDayMeals, isPlanDayLine, visibleOrderLines } from '../plan-day-meals.tsx';
@@ -361,20 +368,20 @@ export function OrderRecordPopup({
             nav={nav}
             chips={
                 <>
-                    <DeskChip
+                    <Badge
                         testID="kitchen-orders-record-status"
                         tone={orderStatusTone(shown)}
                         label={orderStatusLabel(shown, t)}
                     />
                     {late ? (
-                        <DeskChip
+                        <Badge
                             testID="kitchen-orders-record-late"
                             tone="danger"
                             label={t('kitchen:orders.late')}
                         />
                     ) : null}
                     {shown.allergy === null ? null : (
-                        <DeskChip
+                        <Badge
                             tone={shown.allergy.severe ? 'danger' : 'warning'}
                             label={t(
                                 shown.allergy.severe
@@ -734,7 +741,7 @@ function OrderLines({
                         {line.allergens.length === 0 ? null : (
                             <Inline space="xs" wrap>
                                 {line.allergens.map((allergen) => (
-                                    <DeskChip
+                                    <Badge
                                         key={allergen.allergenCode}
                                         tone={
                                             allergen.containment === 'contains'

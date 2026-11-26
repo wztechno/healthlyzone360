@@ -27,7 +27,6 @@ import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { RECIPE_VIEW_COSTS_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { unitCodeLabel } from '../format.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/dish-margins` — what each dish earns at today's costs, lowest first.
  *
@@ -205,7 +204,7 @@ function DishMarginsPage() {
             priority: 92,
             render: (row) =>
                 row.withheldReason !== null ? (
-                    <DeskChip
+                    <Badge
                         tone="warning"
                         label={t(`kitchen:ops.dishMargins.withheld.${row.withheldReason}`)}
                     />
@@ -218,7 +217,7 @@ function DishMarginsPage() {
                 ) : report.data?.targetPercent === null ? (
                     <Text tone="secondary">{EM_DASH}</Text>
                 ) : (
-                    <DeskChip tone="success" label={t('kitchen:ops.dishMargins.onTarget')} />
+                    <Badge tone="success" label={t('kitchen:ops.dishMargins.onTarget')} />
                 ),
         },
     ];

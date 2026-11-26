@@ -1,4 +1,20 @@
-import { Button, Cascade, cx, EmptyState, ErrorState, Heading, Icon, Inline, SearchInput, Skeleton, Stack, Text, useContentWidth, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    cx,
+    EmptyState,
+    ErrorState,
+    Heading,
+    Icon,
+    Inline,
+    SearchInput,
+    Skeleton,
+    Stack,
+    Text,
+    useContentWidth,
+    useToast,
+} from '@healthy360/design-system';
 import type { CorporateProgramme, Quotation } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -14,8 +30,7 @@ import {
 } from '../../../data/business-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { useSession } from '../../../session/session-provider.tsx';
-import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
-import { CountPill, Panel, StatTile } from '../../kitchen-admin/hub-parts.tsx';
+import { Panel, StatTile } from '../../kitchen-admin/hub-parts.tsx';
 import { compareText } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { AcceptQuotationDialog, DeclineQuotationDialog } from '../accept-quotation-dialog.tsx';
@@ -164,10 +179,10 @@ export function CorporateDashboardScreen() {
                         testID="corporate-waiting"
                         title={t('business:overview.waitingTitle')}
                         count={
-                            <CountPill
+                            <Badge
                                 testID="corporate-waiting-count"
-                                value={String(awaiting.length)}
-                                tone={awaiting.length > 0 ? 'warning' : 'ok'}
+                                label={String(awaiting.length)}
+                                tone={awaiting.length > 0 ? 'warning' : 'success'}
                             />
                         }
                         link={{
@@ -263,7 +278,7 @@ export function CorporateDashboardScreen() {
                                                 lines: linesText(row),
                                             })}
                                         />
-                                        <DeskChip
+                                        <Badge
                                             tone="info"
                                             label={t('business:overview.awaitingPrice')}
                                         />
@@ -308,7 +323,7 @@ export function CorporateDashboardScreen() {
                                             }),
                                         })}
                                     />
-                                    <DeskChip
+                                    <Badge
                                         tone={quotationTone(row.state)}
                                         label={t(quotationStateKey(row.state))}
                                     />
@@ -449,7 +464,7 @@ function ProgrammeCard({ programme }: { readonly programme: CorporateProgramme }
             testID={`corporate-programme-${id}`}
             title={t('business:overview.programmeTitle')}
             count={
-                <DeskChip
+                <Badge
                     testID={`corporate-programme-${id}-state`}
                     tone={programme.isActive ? 'success' : 'neutral'}
                     label={

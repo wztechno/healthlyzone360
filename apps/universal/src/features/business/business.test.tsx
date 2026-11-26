@@ -827,7 +827,7 @@ describe('corporate catalogue', () => {
         });
         expect(screen.queryByTestId('corporate-catalogue-picked')).toBeNull();
 
-        fireEvent.press(screen.getByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}-pick`));
+        fireEvent.press(screen.getByTestId(`catalogue-item-${STAFF_LUNCH_BOX.id}-pick-control`));
         await waitFor(() => {
             expect(screen.getByTestId('corporate-catalogue-picked-count')).toHaveTextContent(
                 '1 line picked',

@@ -13,7 +13,24 @@ import {
     KITCHEN_ORDER_PAYMENT_METHODS,
     KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS,
 } from '@healthy360/api-client/contracts';
-import { Button, Callout, Dialog, EmptyState, ErrorState, FilterChip, Icon, Inline, Select, Skeleton, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    Button,
+    Callout,
+    ChoiceRow,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    FilterChip,
+    Icon,
+    initialsOf,
+    Inline,
+    Select,
+    Skeleton,
+    Stack,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -35,7 +52,7 @@ import {
     useOrderDeskDriversQuery,
 } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { ChoiceRow, DeskTabs, initialsOf } from '../desk-kit/index.ts';
+import { DeskTabs } from '../desk-kit/index.ts';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_SUPERVISE_PERMISSION,

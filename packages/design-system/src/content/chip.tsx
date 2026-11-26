@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
+import { useAreaLook } from '../hooks/area-look.tsx';
 import { useDensity } from '../hooks/use-density.tsx';
 import { useIsCoarsePointer } from '../hooks/use-pointer.ts';
 import { Icon } from '../icons/icon.tsx';
@@ -226,6 +227,54 @@ export function FilterChip({
 }: FilterChipProps) {
     const coarse = useIsCoarsePointer();
     const density = useDensity();
+    // The admin's choice chip (`.chipset`, the corporate canvas, 2026-11-10): a 32px pill, chosen
+    // with a brand edge on the soft green — what `ChoiceChips` lines up in a row.
+    const desk = useAreaLook() === 'desk';
+
+    if (desk) {
+        return (
+            <Pressable
+                testID={testID}
+                role="button"
+                accessibilityRole="button"
+                accessibilityLabel={label}
+                aria-pressed={selected}
+                accessibilityState={{ selected, disabled }}
+                aria-disabled={disabled}
+                disabled={disabled}
+                focusable={!disabled}
+                onPress={() => {
+                    onChange(!selected);
+                }}
+                className={cx(
+                    'h-8 flex-row items-center justify-center gap-1.5 self-start rounded-full border px-3 web:transition-colors',
+                    selected
+                        ? 'border-surface-brand bg-surface-brand-subtle'
+                        : 'border-stroke-subtle bg-surface-raised',
+                    disabled ? 'opacity-50' : selected ? null : 'hover:bg-surface-sunken',
+                    className,
+                )}
+            >
+                <RNText
+                    numberOfLines={1}
+                    className={cx(
+                        'text-[13px] font-semibold tabular-nums',
+                        selected ? 'text-content-on-brand-subtle' : 'text-content-primary',
+                    )}
+                >
+                    {label}
+                </RNText>
+                {count === undefined ? null : (
+                    <RNText
+                        testID={testID === undefined ? undefined : `${testID}-count`}
+                        className="text-role-caption tabular-nums text-content-secondary"
+                    >
+                        {String(count)}
+                    </RNText>
+                )}
+            </Pressable>
+        );
+    }
 
     return (
         <Pressable

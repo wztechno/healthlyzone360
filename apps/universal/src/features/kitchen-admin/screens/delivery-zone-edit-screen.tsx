@@ -3,7 +3,28 @@ import type {
     DeliveryZoneAdmin,
     LocalisedText,
 } from '@healthy360/api-client/contracts';
-import { Badge, Button, Callout, Cascade, Checkbox, Dialog, ErrorState, FormGrid, FormSection, FormSkeleton, IssueTrayFrame, Select, Skeleton, Stack, TagRow, Text, TextInputField, useFormSteps, useIssueTrayController, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    Checkbox,
+    Dialog,
+    ErrorState,
+    FormGrid,
+    FormSection,
+    FormSkeleton,
+    IssueTrayFrame,
+    Select,
+    Skeleton,
+    Stack,
+    TagRow,
+    Text,
+    TextInputField,
+    useFormSteps,
+    useIssueTrayController,
+    useToast,
+} from '@healthy360/design-system';
 import type { IssueCardItem, IssueTrayContent, TabItem } from '@healthy360/design-system';
 import { CURRENCY_CODES, DeliveryZoneId } from '@healthy360/domain-types';
 import type { CurrencyCode, DeliveryWindowId, ServiceAreaId } from '@healthy360/domain-types';
@@ -54,7 +75,6 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 /**
  * `/kitchen/delivery-zones/{zone}` — one delivery zone: where it reaches, what it charges, and when.
@@ -1329,7 +1349,7 @@ function ZoneWindowAssignment({
                                     }}
                                 />
                                 {window.isActive ? null : (
-                                    <DeskChip
+                                    <Badge
                                         testID={`${testID}-inactive`}
                                         tone="neutral"
                                         label={t('kitchen:zoneWindows.inactiveBadge')}

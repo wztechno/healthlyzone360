@@ -1,5 +1,24 @@
 import type { LocalisedText, SuppliedItem, SupplierDetail } from '@healthy360/api-client/contracts';
-import { Button, Callout, Cascade, DataList, Dialog, ErrorState, FormGrid, FormSection, FormSkeleton, Icon, Inline, Select, Stack, Text, TextInputField, useFormSteps, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    DataList,
+    Dialog,
+    ErrorState,
+    FormGrid,
+    FormSection,
+    FormSkeleton,
+    Icon,
+    Inline,
+    Select,
+    Stack,
+    Text,
+    TextInputField,
+    useFormSteps,
+    useToast,
+} from '@healthy360/design-system';
 import type { DataListColumn, TabItem } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -49,7 +68,6 @@ import type {
 } from '../supplier-contact-editor.tsx';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskRowMenu } from '../desk-kit/desk-row-menu.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { FailureToast } from '../failure-toast.tsx';
@@ -671,7 +689,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                                 {row.stockItem?.nameEn ?? ''}
                             </Text>
                             {row.isPreferred ? (
-                                <DeskChip
+                                <Badge
                                     testID={`${testID}-preferred`}
                                     tone="success"
                                     size="sm"

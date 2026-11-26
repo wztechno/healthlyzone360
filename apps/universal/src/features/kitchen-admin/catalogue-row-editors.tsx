@@ -14,7 +14,6 @@ import {
     TextInputField,
     TimeField,
     UNDROPPABLE_PRIORITY,
-    cx,
 } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { SALES_CHANNELS } from '@healthy360/domain-types';
@@ -554,21 +553,13 @@ export function ChannelAvailabilityEditor({
 
                 return (
                     /*
-                     * A bordered tile, as the Resale board draws it. The fill is the *selected* state — it
-                     * reads at a glance which routes are live — and it is never the only signal: the
-                     * checkbox itself is checked beside it.
+                     * A tick card, as the Resale board draws it — the design system's `Checkbox`
+                     * `shape="card"`, the same tile the plan editor's diets use. The fill is the
+                     * ticked state and never the only signal: the box itself is ticked inside it.
                      */
-                    <View
-                        key={channel}
-                        testID={rowTestId}
-                        className={cx(
-                            'min-h-11 w-[220px] flex-col justify-center rounded-xl border px-3 py-1',
-                            row.isAvailable
-                                ? 'border-stroke bg-surface-brand-subtle'
-                                : 'border-stroke-subtle',
-                        )}
-                    >
+                    <View key={channel} testID={rowTestId}>
                         <Checkbox
+                            shape="card"
                             testID={`${rowTestId}-toggle`}
                             id={`${rowTestId}-toggle`}
                             label={t(channelKey(channel))}
@@ -577,20 +568,15 @@ export function ChannelAvailabilityEditor({
                             onChange={(checked) => {
                                 patch({ isAvailable: checked });
                             }}
+                            /*
+                             * The one channel that is a shopper rather than a business. Named
+                             * because "B2C" is the contract's word and not everybody reading this
+                             * form speaks it; the other seven need no gloss.
+                             */
+                            {...(channel === 'b2c'
+                                ? { description: t('kitchen:channels.consumerTag') }
+                                : {})}
                         />
-
-                        {/*
-                         * The one channel that is a shopper rather than a business. Named because
-                         * "B2C" is the contract's word and not everybody reading this form speaks
-                         * it; the other seven need no gloss. It follows the label rather than
-                         * sitting at the cell's far edge, where it read as a label of its own.
-                         * Under the label, aligned with the words past the box, as the board draws it.
-                         */}
-                        {channel === 'b2c' ? (
-                            <Text variant="caption" tone="secondary" className="ps-7">
-                                {t('kitchen:channels.consumerTag')}
-                            </Text>
-                        ) : null}
                     </View>
                 );
             })}

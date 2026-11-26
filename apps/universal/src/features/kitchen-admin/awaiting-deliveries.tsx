@@ -1,4 +1,4 @@
-import { Button, Icon, Text } from '@healthy360/design-system';
+import { Badge, Button, Icon, Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,6 @@ import { useReceivableOrdersQuery } from '../../data/kitchen-ops-hooks.ts';
 import { withQuery } from '../../navigation/return-to.ts';
 import { useAccessState } from '../../session/session-provider.tsx';
 
-import { CountPill } from './process-parts.tsx';
 /** The list is the way in, not the backlog: the rest are on the receive page's own picker. */
 const SHOWN_ORDERS = 5;
 
@@ -45,7 +44,7 @@ export function AwaitingDeliveries() {
                 >
                     {t('kitchen:ops.procurement.awaitingTitle')}
                 </Text>
-                <CountPill
+                <Badge
                     tone="warning"
                     testID="kitchen-procurement-awaiting-count"
                     label={formatter.formatNumber(rows.length)}

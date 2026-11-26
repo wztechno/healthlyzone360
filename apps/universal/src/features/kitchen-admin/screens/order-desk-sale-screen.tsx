@@ -12,7 +12,25 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { ORDER_DESK_FULFILMENT_TYPES } from '@healthy360/api-client/contracts';
 import { OrderId } from '@healthy360/domain-types';
-import { Button, Callout, Checkbox, Dropdown, EmptyState, ErrorState, FormSection, Icon, IconButton, InfoTip, SearchInput, Select, Skeleton, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Checkbox,
+    Dropdown,
+    EmptyState,
+    ErrorState,
+    FormSection,
+    Icon,
+    IconButton,
+    InfoTip,
+    SearchInput,
+    Select,
+    Skeleton,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { fieldWidth } from '@healthy360/design-tokens';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -61,7 +79,7 @@ import { displayName } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
-import { DeskChip, MiniMonthPicker } from '../desk-kit/index.ts';
+import { MiniMonthPicker } from '../desk-kit/index.ts';
 import { allergenLabel, kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import type { BasketLine } from '../order-desk/basket.ts';
 import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
@@ -1479,7 +1497,7 @@ function ConflictBand({
                     ) : (
                         <View className="flex-row flex-wrap gap-1">
                             {names.map((name) => (
-                                <DeskChip key={name} tone="warning" label={name} />
+                                <Badge key={name} tone="warning" label={name} />
                             ))}
                         </View>
                     )}
@@ -2068,7 +2086,7 @@ function Ticket({
                     >
                         {t('kitchen:desk.sale.ticketTitle')}
                     </Text>
-                    <DeskChip
+                    <Badge
                         testID="kitchen-order-desk-sale-ticket-count"
                         tone="success"
                         label={t('kitchen:desk.sale.itemCount', { count: itemCount })}
@@ -2189,7 +2207,8 @@ function Ticket({
                                                 </Text>
                                             </View>
                                             <View className="flex-row items-center gap-hair">
-                                                <IconButton variant="secondary"
+                                                <IconButton
+                                                    variant="secondary"
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-options`}
                                                     icon={<Icon name="pen" size="sm" />}
                                                     label={t('kitchen:dishOptions.lineAction', {
@@ -2199,7 +2218,8 @@ function Ticket({
                                                         setChoosing(key);
                                                     }}
                                                 />
-                                                <IconButton variant="secondary"
+                                                <IconButton
+                                                    variant="secondary"
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-decrement`}
                                                     icon={<Icon name="minus" size="sm" />}
                                                     label={t(
@@ -2212,7 +2232,8 @@ function Ticket({
                                                         step(quantity - 1);
                                                     }}
                                                 />
-                                                <IconButton variant="secondary"
+                                                <IconButton
+                                                    variant="secondary"
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-increment`}
                                                     icon={<Icon name="plus" size="sm" />}
                                                     label={t(

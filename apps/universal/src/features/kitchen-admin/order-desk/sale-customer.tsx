@@ -1,5 +1,20 @@
 import type { OrderDeskCustomer, ServiceArea } from '@healthy360/api-client/contracts';
-import { Badge, Button, Callout, EmptyState, ErrorState, FormGrid, FormSection, Icon, Inline, SearchInput, Select, Skeleton, Text, TextInputField } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    EmptyState,
+    ErrorState,
+    FormGrid,
+    FormSection,
+    Icon,
+    Inline,
+    SearchInput,
+    Select,
+    Skeleton,
+    Text,
+    TextInputField,
+} from '@healthy360/design-system';
 import { fieldWidth } from '@healthy360/design-tokens';
 import { useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
@@ -30,7 +45,6 @@ import {
     normaliseDeskPhone,
 } from './desk-phone.ts';
 import { useDebouncedValue } from './use-debounced-value.ts';
-import { DeskChip } from '../desk-kit/index.ts';
 
 /**
  * Who the sale is for, and where a delivery goes. The customer card opens the sale, above the menu;
@@ -542,13 +556,10 @@ export function CustomerSection({
                             </Text>
                         </View>
                         {chosen.hasOrdersWithOrg ? (
-                            <DeskChip
-                                tone="success"
-                                label={t('kitchen:desk.sale.customerRegular')}
-                            />
+                            <Badge tone="success" label={t('kitchen:desk.sale.customerRegular')} />
                         ) : null}
                         {chosen.origin === 'self_service' ? (
-                            <DeskChip
+                            <Badge
                                 tone="neutral"
                                 label={t('kitchen:desk.sale.customerRegistered')}
                             />
@@ -679,13 +690,13 @@ export function CustomerSection({
                                                 </Text>
                                             </View>
                                             {row.hasOrdersWithOrg ? (
-                                                <DeskChip
+                                                <Badge
                                                     tone="success"
                                                     label={t('kitchen:desk.sale.customerRegular')}
                                                 />
                                             ) : null}
                                             {row.origin === 'self_service' ? (
-                                                <DeskChip
+                                                <Badge
                                                     tone="neutral"
                                                     label={t(
                                                         'kitchen:desk.sale.customerRegistered',

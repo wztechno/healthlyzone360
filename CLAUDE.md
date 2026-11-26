@@ -259,7 +259,8 @@ a place a palette change does not reach, and ESLint rejects it.
 **Where components live, and which one to use, is `.claude/rules/components.md`** — shared parts go
 in `packages/design-system`, never in a feature folder; check `/showcase-components` before building.
 Every "pick a value" dropdown is `Select` (`trigger="pill"` on a toolbar); every button is `Button`
-or `IconButton`. The admin look comes from `AreaLookScope look="desk"` in the area's layout.
+or `IconButton`; a status label is `Badge`; a tick is `Checkbox`; a choice is `ChoiceChips` or
+`ChoiceRow`. The admin look comes from `AreaLookScope look="desk"` in the area's layout.
 
 The wellness-green handoff's component phase shipped. Use these rather than rebuilding:
 

@@ -1,6 +1,19 @@
 import type { OrderComplaint } from '@healthy360/api-client/contracts';
 import { COMPLAINT_OUTCOMES } from '@healthy360/api-client/contracts';
-import { Button, Cascade, Dialog, EmptyState, ErrorState, Select, Stack, TableSkeleton, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    Select,
+    Stack,
+    TableSkeleton,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { parseMinorAmount } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -37,7 +50,6 @@ import {
 } from '../list-memory.ts';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 /**
@@ -151,7 +163,7 @@ function Complaints({ view }: { readonly view: string | undefined }) {
             priority: 80,
             value: (row) => stateLabel(row),
             render: (row) => (
-                <DeskChip tone={isOpen(row) ? 'warning' : 'neutral'} label={stateLabel(row)} />
+                <Badge tone={isOpen(row) ? 'warning' : 'neutral'} label={stateLabel(row)} />
             ),
         },
     ];

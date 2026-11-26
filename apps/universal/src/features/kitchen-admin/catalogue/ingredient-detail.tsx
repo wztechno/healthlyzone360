@@ -1,6 +1,6 @@
 import type { IngredientAdmin } from '@healthy360/api-client/contracts';
 import type { ReactNode } from 'react';
-import { Cascade, InfoTip, Text } from '@healthy360/design-system';
+import { Badge, Cascade, InfoTip, Text } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +9,6 @@ import type { DimensionValue } from 'react-native';
 
 import { PhotoCredit } from '../../../media/photo-credit.tsx';
 import { displayName, statusShortKey, statusTone, unitKey, unitShortKey } from '../format.ts';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { allergenLabel } from '../ops-format.ts';
 import { ingredientStockPhotoId } from './ingredient-photo.ts';
 import { primaryMenuAction, RecordPopup } from './record-popup.tsx';
@@ -257,7 +256,7 @@ export function IngredientDetail({
     const nutritionBadges = [
         ...(ingredient.nutritionEstimated === true
             ? [
-                  <DeskChip
+                  <Badge
                       key="estimated"
                       testID={`${testID}-nutrition-estimated`}
                       tone="warning"
@@ -268,7 +267,7 @@ export function IngredientDetail({
         ...(ingredient.nutritionDerivedFromVersionId === null
             ? []
             : [
-                  <DeskChip
+                  <Badge
                       key="derived"
                       testID={`${testID}-nutrition-derived`}
                       tone="info"
@@ -344,7 +343,7 @@ export function IngredientDetail({
             : found.map((mapping) => {
                   const code = String(mapping.allergenCode);
                   return (
-                      <DeskChip
+                      <Badge
                           key={code}
                           testID={`${testID}-allergen-${code}-${containment}`}
                           tone={containment === 'contains' ? 'danger' : 'warning'}
@@ -377,7 +376,7 @@ export function IngredientDetail({
                                   label: t('kitchen:recordSheet.contains'),
                                   content:
                                       ingredient.allergens.length === 0 ? (
-                                          <DeskChip
+                                          <Badge
                                               testID={`${testID}-allergens-clear`}
                                               tone="success"
                                               size="lg"
@@ -401,7 +400,7 @@ export function IngredientDetail({
                             ingredient.dietClassifications.length === 0
                                 ? quiet('no-diets')
                                 : ingredient.dietClassifications.map((diet) => (
-                                      <DeskChip
+                                      <Badge
                                           key={diet}
                                           testID={`${testID}-diet-${diet}`}
                                           tone="info"
@@ -692,7 +691,7 @@ export function IngredientDetail({
                                                 ingredient.aliases.length === 0
                                                     ? dash
                                                     : ingredient.aliases.map((alias) => (
-                                                          <DeskChip
+                                                          <Badge
                                                               key={alias}
                                                               tone="neutral"
                                                               size="lg"

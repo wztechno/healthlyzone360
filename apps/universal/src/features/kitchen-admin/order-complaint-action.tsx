@@ -1,6 +1,14 @@
 import { COMPLAINT_CAUSES } from '@healthy360/api-client/contracts';
 import type { ComplaintCause, KitchenOrder } from '@healthy360/api-client/contracts';
-import { Button, Dialog, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    Button,
+    ChoiceRow,
+    Dialog,
+    Stack,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import { parseMinorAmount } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -9,7 +17,6 @@ import { View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
 import { useRecordComplaintMutation } from '../../data/kitchen-orders-hooks.ts';
-import { ChoiceRow } from './desk-kit/index.ts';
 
 /** The order page's way into a complaint: why, and what it has cost so far. */
 export function OrderComplaintAction({ order }: { readonly order: KitchenOrder }) {

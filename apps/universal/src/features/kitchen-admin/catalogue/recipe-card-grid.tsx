@@ -1,5 +1,5 @@
 import type { RecipeAdminSummary } from '@healthy360/api-client/contracts';
-import { Inline, Text } from '@healthy360/design-system';
+import { Badge, Inline, Text } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { KitchenId } from '@healthy360/domain-types';
 import type { TFunction } from 'i18next';
@@ -19,7 +19,6 @@ import {
 } from './recipe-columns.tsx';
 import { RowActionsMenu } from './row-actions-menu.tsx';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * The recipe book as cards — the other half of the Table / Cards switch on the recipes screen.
  *
@@ -117,7 +116,7 @@ export function RecipeCardGrid({
                             }
                             title={name.value}
                             trailing={
-                                <DeskChip
+                                <Badge
                                     testID={`${cardID}-status`}
                                     tone={statusTone(row.meta.status)}
                                     label={t(statusShortKey(row.meta.status))}
@@ -159,14 +158,14 @@ export function RecipeCardGrid({
                             {name.isFallback || row.lineCount === 0 ? (
                                 <Inline space="xs">
                                     {name.isFallback ? (
-                                        <DeskChip
+                                        <Badge
                                             testID={`${cardID}-missing-arabic`}
                                             tone="warning"
                                             label={t('kitchen:list.missingArabic')}
                                         />
                                     ) : null}
                                     {row.lineCount === 0 ? (
-                                        <DeskChip
+                                        <Badge
                                             testID={`${cardID}-not-formulated`}
                                             tone="warning"
                                             label={t('kitchen:recipes.notFormulated')}

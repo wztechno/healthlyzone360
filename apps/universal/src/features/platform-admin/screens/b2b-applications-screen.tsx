@@ -3,6 +3,7 @@ import type {
     PlatformB2bApplicationSummary,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Button,
     Cascade,
     EmptyState,
@@ -29,7 +30,6 @@ import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx'
 import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
-import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import {
     applicationRowTestId,
     applicationStatusKey,
@@ -208,7 +208,7 @@ function ApplicationsQueue() {
             priority: 90,
             value: (row) => statusLabel(row.status),
             render: (row) => (
-                <DeskChip
+                <Badge
                     testID={`${applicationRowTestId(row.id)}-status`}
                     tone={applicationStatusTone(row.status)}
                     label={statusLabel(row.status)}
@@ -226,7 +226,7 @@ function ApplicationsQueue() {
                     ? t('platformAdmin:b2b.unclaimed')
                     : t('platformAdmin:b2b.claimed'),
             render: (row) => (
-                <DeskChip
+                <Badge
                     testID={`${applicationRowTestId(row.id)}-reviewer`}
                     tone={row.reviewedBy === null ? 'warning' : 'neutral'}
                     label={

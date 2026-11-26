@@ -7,6 +7,7 @@ import type {
     TechnicalSheetLineAdmin,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Card,
     Heading,
     Inline,
@@ -24,7 +25,6 @@ import { useIngredientsByIds } from '../../data/kitchen-admin-hooks.ts';
 import { kindsLabel } from './catalogue/recipe-columns.tsx';
 import { displayName, humaniseCode, unitShortKey } from './format.ts';
 
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * The recipe as the kitchen's paper technical sheet lays it out: a Description
  * block (Designation, Kind, Quantity Produced), the Raw Materiel table with
@@ -380,9 +380,9 @@ export function TechnicalSheetPanel({
                         <Stack space="xs" testID={`${testID}-cost`}>
                             <Inline space="sm">
                                 <Heading level={3}>{t('kitchen:recipes.sheetCostSaved')}</Heading>
-                                <DeskChip tone="warning" label={t('kitchen:rollup.confidential')} />
+                                <Badge tone="warning" label={t('kitchen:rollup.confidential')} />
                                 {figures.basisMismatch ? (
-                                    <DeskChip
+                                    <Badge
                                         tone="warning"
                                         testID={`${testID}-cost-mismatch`}
                                         label={t('kitchen:recipes.sheetBasisMismatch')}
@@ -519,7 +519,7 @@ export function TechnicalSheetPanel({
                                     )}
 
                                     {weekly.block.hasCarriedForwardPrices ? (
-                                        <DeskChip
+                                        <Badge
                                             tone="warning"
                                             label={t('kitchen:recipes.sheetWeeklyCarried')}
                                             testID={`${testID}-weekly-carried-forward`}
@@ -527,7 +527,7 @@ export function TechnicalSheetPanel({
                                     ) : null}
 
                                     {weekly.needingPrice > 0 ? (
-                                        <DeskChip
+                                        <Badge
                                             tone="warning"
                                             label={t('kitchen:recipes.sheetWeeklyNeedsPrice', {
                                                 count: weekly.needingPrice,

@@ -1,5 +1,14 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
-import { Button, Cascade, EmptyState, ErrorState, Select, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    EmptyState,
+    ErrorState,
+    Select,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -35,7 +44,6 @@ import {
     useRestoredPageFallback,
 } from '../list-memory.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * `/kitchen/production-desk/batches` — the batches nobody has to move any more (PROD1).
@@ -231,7 +239,7 @@ function ProductionBatches() {
                                 })}
                             </Text>
                             {row.isExpired ? (
-                                <DeskChip
+                                <Badge
                                     testID={`${productionBatchTestId(String(row.id))}-expired`}
                                     tone="danger"
                                     label={t('kitchen:ops.production.expiredBadge')}

@@ -1,4 +1,4 @@
-import { ShellDock, Text, cx } from '@healthy360/design-system';
+import { Badge, ShellDock, Text, cx } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
@@ -35,43 +35,13 @@ export function StepCard({ title, count, actions, children, testID }: StepCardPr
                     {title}
                 </Text>
                 {count === undefined ? null : (
-                    <CountPill testID={`${testID}-count`} label={count} />
+                    <Badge testID={`${testID}-count`} tone="brand" label={count} />
                 )}
                 {actions === undefined ? null : (
                     <View className="ms-auto flex-row flex-wrap items-center gap-2">{actions}</View>
                 )}
             </View>
             {children}
-        </View>
-    );
-}
-
-/** A figure on a pill — brand by default; `warning` for a count that is waiting on someone. */
-export function CountPill({
-    label,
-    tone = 'brand',
-    testID,
-}: {
-    readonly label: string;
-    readonly tone?: 'brand' | 'warning' | undefined;
-    readonly testID?: string;
-}) {
-    return (
-        <View
-            className={cx(
-                'h-5 min-w-[22px] items-center justify-center rounded-full px-[7px]',
-                tone === 'warning' ? 'bg-warning-subtle' : 'bg-surface-brand-subtle',
-            )}
-        >
-            <Text
-                testID={testID}
-                className={cx(
-                    'text-[11px] font-bold tabular-nums',
-                    tone === 'warning' ? 'text-warning-on-subtle' : 'text-content-on-brand-subtle',
-                )}
-            >
-                {label}
-            </Text>
         </View>
     );
 }

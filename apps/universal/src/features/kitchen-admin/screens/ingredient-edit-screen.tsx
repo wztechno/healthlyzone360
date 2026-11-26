@@ -18,7 +18,32 @@ import {
     PACKAGING_CATEGORY_CODE,
     PRODUCT_FAMILY_CATEGORY_CODES,
 } from '@healthy360/api-client/contracts';
-import { Badge, Button, Callout, Cascade, Checkbox, Dialog, ErrorState, FormGrid, FormSection, FormSkeleton, Icon, Inline, IssueTrayFrame, IssueUnanchored, QuantityInput, Select, Stack, Switch, Tag, TagRow, Text, TextInputField, useIssueTrayController, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    Checkbox,
+    Dialog,
+    ErrorState,
+    FormGrid,
+    FormSection,
+    FormSkeleton,
+    Icon,
+    Inline,
+    IssueTrayFrame,
+    IssueUnanchored,
+    QuantityInput,
+    Select,
+    Stack,
+    Switch,
+    Tag,
+    TagRow,
+    Text,
+    TextInputField,
+    useIssueTrayController,
+    useToast,
+} from '@healthy360/design-system';
 import type {
     FormIssueItem,
     IssueCardItem,
@@ -120,7 +145,6 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { UnsavedMark } from '../unsaved-mark.tsx';
 /**
  * `/kitchen/ingredients/{ingredient}` — the record editor, as `Catalogue Forms.dc.html` draws it
@@ -2728,7 +2752,7 @@ function IngredientEditor({
                             </RNText>
                             {/* Wrapped: `Badge` pins itself `self-start`, off the title's middle. */}
                             <View>
-                                <DeskChip
+                                <Badge
                                     testID="kitchen-ingredient-editor-screen-status"
                                     {...(family.food ? {} : { variant: 'caps' as const })}
                                     tone={statusTone(data?.meta.status ?? 'draft')}

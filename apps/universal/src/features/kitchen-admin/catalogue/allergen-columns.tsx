@@ -1,5 +1,5 @@
 import type { AllergenClass } from '@healthy360/api-client/contracts';
-import { Inline, Text } from '@healthy360/design-system';
+import { Badge, Inline, Text } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 
@@ -7,7 +7,6 @@ import { displayName } from '../format.ts';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * The fourteen regulatory allergen classes, as a column spec.
@@ -116,7 +115,7 @@ export function allergenColumns({
                             {displayName(entry.name, locale).value}
                         </Text>
                         {entry.severeByDefault ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-severe`}
                                 tone="danger"
                                 // One word on the row. `classes.severe` is the sentence — "trace
@@ -154,7 +153,7 @@ export function allergenColumns({
                 ) : (
                     <Inline space="xs" wrap testID={`${testID}-markets`}>
                         {entry.markets.map((market) => (
-                            <DeskChip
+                            <Badge
                                 key={market}
                                 testID={`${testID}-market-${market}`}
                                 tone="info"

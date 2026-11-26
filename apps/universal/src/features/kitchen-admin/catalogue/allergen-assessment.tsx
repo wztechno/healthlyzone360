@@ -1,5 +1,5 @@
 import type { MealId, ProductId } from '@healthy360/domain-types';
-import { Button, Callout, useToast } from '@healthy360/design-system';
+import { Badge, Button, Callout, useToast } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
@@ -12,7 +12,6 @@ import {
 import { displayName } from '../format.ts';
 import { CATALOGUE_MANAGE_PERMISSION } from '../entity-registry.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 interface AssessmentBadgesProps {
     /** `false` is off sale. `undefined` is a payload that does not say, so nothing is drawn. */
     readonly allergensAssessed: boolean | undefined;
@@ -31,14 +30,14 @@ export function AssessmentBadges({
     return (
         <>
             {allergensAssessed === false ? (
-                <DeskChip
+                <Badge
                     testID={`${testID}-not-assessed`}
                     tone="danger"
                     label={t('kitchen:allergenAssessment.notAssessed')}
                 />
             ) : null}
             {onSaleWithoutRecipe === true ? (
-                <DeskChip
+                <Badge
                     testID={`${testID}-no-recipe`}
                     tone="warning"
                     label={t('kitchen:allergenAssessment.noRecipe')}

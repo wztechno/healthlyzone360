@@ -1,5 +1,5 @@
 import type { ProductAdmin } from '@healthy360/api-client/contracts';
-import { Inline, Text } from '@healthy360/design-system';
+import { Badge, Inline, Text } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { View } from 'react-native';
@@ -18,7 +18,6 @@ import { AssessmentBadges } from './allergen-assessment.tsx';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * Products — and, unchanged, sauces and dressings — as an array.
@@ -169,7 +168,7 @@ export function productColumns({
                          * publish. The Missing Arabic stat card counts them.
                          */}
                         {name.isFallback ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${productRowTestId(String(row.id))}-missing-arabic`}
                                 tone="warning"
                                 label={t('kitchen:list.missingArabic')}
@@ -305,21 +304,21 @@ export function productColumns({
                 return (
                     <Inline space="xs" align="center">
                         {row.isMarketPriced ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-market-priced`}
                                 tone="warning"
                                 label={t('kitchen:products.marketPricedShort')}
                             />
                         ) : null}
                         {row.isAssorted ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-assorted`}
                                 tone="neutral"
                                 label={t('kitchen:products.assortedShort')}
                             />
                         ) : null}
                         {row.dataQualityFlags.length === 0 ? null : (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-data-quality`}
                                 tone="warning"
                                 label={String(row.dataQualityFlags.length)}

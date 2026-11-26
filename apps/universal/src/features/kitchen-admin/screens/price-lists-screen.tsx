@@ -3,7 +3,18 @@ import type {
     PriceListFigures,
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
-import { Button, Cascade, EmptyState, ErrorState, Icon, Inline, Stack, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    EmptyState,
+    ErrorState,
+    Icon,
+    Inline,
+    Stack,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { PriceListId, SALES_CHANNELS } from '@healthy360/domain-types';
 import type { SalesChannel } from '@healthy360/domain-types';
@@ -61,7 +72,6 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** Until the index has counted: every figure reads as pending. */
 const NO_FIGURES: PriceListFigures = {
@@ -217,14 +227,14 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                             {name.value}
                         </Text>
                         {name.isFallback ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-missing-arabic`}
                                 tone="warning"
                                 label={t('kitchen:list.missingArabic')}
                             />
                         ) : null}
                         {isAgreementPriced(row.channels) ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-agreement`}
                                 tone="warning"
                                 label={t('kitchen:priceLists.agreementBadge')}
@@ -301,7 +311,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                     <Inline space="xs" align="center">
                         <Text testID={`${testID}-entries`}>{entriesText(row, t)}</Text>
                         {summary.inconsistent === 0 ? null : (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-entries-inconsistent`}
                                 tone="danger"
                                 label={t('kitchen:priceLists.inconsistentCount', {

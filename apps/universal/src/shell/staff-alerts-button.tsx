@@ -1,5 +1,5 @@
 import type { StaffAlert, StaffAlertType } from '@healthy360/api-client/contracts';
-import { Button, DensityProvider, Icon, useToast } from '@healthy360/design-system';
+import { Badge, Button, DensityProvider, Icon, useToast } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { usePathname, useRouter } from 'expo-router';
@@ -15,7 +15,6 @@ import {
     useStaffAlertsQuery,
 } from '../data/staff-alerts-hooks.ts';
 import { playAlertTone } from '../features/kds/alert-tone.ts';
-import { DeskChip } from '../features/kitchen-admin/desk-kit/desk-chip.tsx';
 import { ORDER_SUPERVISE_PERMISSION } from '../features/kitchen-admin/entity-registry.ts';
 import { withReturnTo } from '../navigation/return-to.ts';
 import { useCurrentHref } from '../navigation/use-return-to.ts';
@@ -372,7 +371,7 @@ function AlertsBell() {
                                 {t('kitchen:alerts.title')}
                             </RNText>
                             {unreadCount === 0 ? null : (
-                                <DeskChip
+                                <Badge
                                     testID="staff-alerts-new"
                                     tone="danger"
                                     label={t('kitchen:alerts.newCount', { n: unreadCount })}

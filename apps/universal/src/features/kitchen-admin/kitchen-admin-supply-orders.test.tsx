@@ -656,9 +656,9 @@ describe('supply order builder', () => {
         // implicitly, so the write happens here or not at all.
         (repositories.kitchenOps.upsertSupplierLink as jest.Mock).mockClear();
 
-        // `-control` is the checkbox itself; the bare testID is the field wrapper.
+        // `-control` is the checkbox itself; `-remember-box` is the field wrapper.
         await act(async () => {
-            fireEvent.press(screen.getByTestId(`${testID}-remember-control`));
+            fireEvent.press(screen.getByTestId(`${testID}-remember-box-control`));
         });
         await act(async () => {
             fireEvent.press(screen.getByTestId(`${testID}-supplier-select-trigger`));

@@ -1,5 +1,18 @@
 import type { DishOptionDraft, KitchenDishOption } from '@healthy360/api-client/contracts';
-import { Button, DataList, FormSection, Icon, IconButton, Inline, Select, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    DataList,
+    FormSection,
+    Icon,
+    IconButton,
+    Inline,
+    Select,
+    Stack,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -13,7 +26,6 @@ import { toFailure } from '../../data/hooks.ts';
 import { displayName } from './format.ts';
 import { allergenLabel } from './ops-format.ts';
 
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * The free changes a dish offers: something left out, or a sauce or side from a group. Saved on its
  * own, as the whole list, because it is not part of the listing's draft and a rename must not wait
@@ -329,7 +341,7 @@ function ChoiceAllergens({
     return (
         <Inline space="xs" wrap testID={testID}>
             {row.allergens.map(({ code }) => (
-                <DeskChip
+                <Badge
                     key={code}
                     testID={`${testID}-${code}`}
                     tone="danger"

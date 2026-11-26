@@ -1,4 +1,12 @@
-import { Button, Callout, Dialog, Select, Text, TextInputField } from '@healthy360/design-system';
+import {
+    Button,
+    Callout,
+    ChoiceChips,
+    Dialog,
+    Select,
+    Text,
+    TextInputField,
+} from '@healthy360/design-system';
 import type { Kitchen, Quotation } from '@healthy360/api-client/contracts';
 import type { KitchenId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -19,7 +27,6 @@ import { useKitchenQuery } from '../../data/marketplace-hooks.ts';
 import { addDays, earliestStartDate, isoWeekday } from '../commerce/dates.ts';
 import { defaultSlotCode, deliverySlotsForKitchen } from '../commerce/delivery.ts';
 import type { DeliverySlotOption } from '../commerce/delivery.ts';
-import { DeskChoiceChips } from '../kitchen-admin/desk-kit/desk-choice-chips.tsx';
 import { formatMoney } from '../marketplace/format.ts';
 import { contractPriceTestId } from './format.ts';
 
@@ -236,7 +243,7 @@ export function AcceptQuotationDialog({
                     {days.length === 0 ? (
                         <Text tone="secondary">{t('business:accept.noDays')}</Text>
                     ) : (
-                        <DeskChoiceChips
+                        <ChoiceChips
                             testID="quotation-accept-date"
                             label={t('business:accept.date')}
                             items={days.map((date) => ({
@@ -250,7 +257,7 @@ export function AcceptQuotationDialog({
                 </Field>
 
                 <Field label={t('business:accept.window')}>
-                    <DeskChoiceChips
+                    <ChoiceChips
                         testID="quotation-accept-window"
                         label={t('business:accept.window')}
                         items={slots.map((entry) => ({

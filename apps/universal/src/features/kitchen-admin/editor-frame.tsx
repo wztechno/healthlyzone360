@@ -1,5 +1,15 @@
 import type { AdminEntityMeta, AdminRecordMeta } from '@healthy360/api-client/contracts';
-import { Button, Cascade, Dialog, Inline, IssueUnanchored, Stack, Text, useContentWidth } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    Dialog,
+    Inline,
+    IssueUnanchored,
+    Stack,
+    Text,
+    useContentWidth,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,7 +28,6 @@ import type { UnsavedGuard } from './use-unsaved-guard.ts';
 import { UnsavedMark } from './unsaved-mark.tsx';
 import { PageBackPill } from '../../shell/area-trail.tsx';
 
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 /** The editor rail's width beside the form. A style: there is no rail-width token. */
 const EDITOR_RAIL_WIDTH = 330;
 
@@ -196,13 +205,13 @@ export function EditorFrame({
     const metaLine = (
         <Inline space="xs" align="center" wrap testID={`${testID}-meta`}>
             {summary !== undefined ? null : meta === null ? (
-                <DeskChip
+                <Badge
                     testID={`${testID}-status`}
                     tone="neutral"
                     label={t('kitchen:status.draft')}
                 />
             ) : 'status' in meta ? (
-                <DeskChip
+                <Badge
                     testID={`${testID}-status`}
                     tone={statusTone(meta.status)}
                     label={t(statusKey(meta.status))}
@@ -259,7 +268,7 @@ export function EditorFrame({
                             !(titleDrawn && guard.isDirty) ? undefined : (
                                 <Inline space="xs" align="center" wrap>
                                     {titleChip === undefined ? null : (
-                                        <DeskChip
+                                        <Badge
                                             testID={`${testID}-chip`}
                                             tone={titleChip.tone}
                                             label={titleChip.label}

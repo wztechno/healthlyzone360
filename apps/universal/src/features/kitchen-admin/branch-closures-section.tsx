@@ -1,5 +1,16 @@
 import type { BranchClosure } from '@healthy360/api-client/contracts';
-import { Button, DataList, DateField, Dialog, ErrorState, FormSection, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    DataList,
+    DateField,
+    Dialog,
+    ErrorState,
+    FormSection,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
@@ -13,7 +24,6 @@ import {
 } from '../../data/kitchen-ops-hooks.ts';
 import { toFailure } from '../../data/hooks.ts';
 
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 import { DeskRowMenu } from './desk-kit/desk-row-menu.tsx';
 import { FailureToast } from './failure-toast.tsx';
 
@@ -197,7 +207,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
             title={t('kitchen:branchClosures.title')}
             description={t('kitchen:branchClosures.description')}
             aside={
-                <DeskChip
+                <Badge
                     testID="kitchen-branch-closures-scope"
                     tone="neutral"
                     label={t('kitchen:branchHours.scopeBranch')}

@@ -1,5 +1,12 @@
 import type { MonthlyCostReportRow } from '@healthy360/api-client/contracts';
-import { Cascade, EmptyState, ErrorState, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Cascade,
+    EmptyState,
+    ErrorState,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -27,7 +34,6 @@ import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
 import { DeskDateButton } from '../desk-kit/mini-month.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 /**
@@ -182,14 +188,14 @@ function CostReport() {
                         {row.month}
                     </Text>
                     {row.hasDataQualityFlag ? (
-                        <DeskChip
+                        <Badge
                             testID={`kitchen-cost-report-${row.month}-flag`}
                             tone="warning"
                             label={t('kitchen:ops.costReport.flagged')}
                         />
                     ) : null}
                     {row.isMarginWithheld ? (
-                        <DeskChip
+                        <Badge
                             testID={`kitchen-cost-report-${row.month}-withheld`}
                             tone="warning"
                             label={t('kitchen:ops.costReport.marginWithheld')}

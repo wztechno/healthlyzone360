@@ -1,11 +1,9 @@
-import { Button, Dialog, Icon, Text } from '@healthy360/design-system';
+import { Badge, Button, ChoiceRow, Dialog, Icon, Text } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import type { ColumnPickerProps } from '../catalogue/column-picker.tsx';
-import { ChoiceRow } from './choice-row.tsx';
-import { DeskChip } from './desk-chip.tsx';
 import { DropTrigger } from './drop-trigger.tsx';
 
 /**
@@ -95,7 +93,7 @@ export function DeskColumnPicker({
                     <Text variant="body" tone="secondary" testID={`${testID}-cap`}>
                         {t('kitchen:catalogue.columnsHeading', { max })}
                     </Text>
-                    <DeskChip
+                    <Badge
                         testID={`${testID}-count`}
                         tone={shown >= max ? 'brand' : 'neutral'}
                         label={count}

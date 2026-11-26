@@ -6,7 +6,7 @@ import { View } from 'react-native';
  * A list's status cell: a dot and the word, as the Ingredients board draws it (`● Published`).
  *
  * Every admin list's status column uses it, so a record's state reads the same on every page; a
- * pill (`DeskChip`) stays for the flags beside a name — Late, Missing Arabic — not for the status.
+ * pill (`Badge`) stays for the flags beside a name — Late, Missing Arabic — not for the status.
  * The tone is the page's own status-to-tone answer, and the word carries the meaning.
  */
 export function DeskStatusDot({

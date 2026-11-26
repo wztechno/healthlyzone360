@@ -7,6 +7,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { PACKAGING_CATEGORY_CODE } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Button,
     DataList,
     growWeights,
@@ -27,7 +28,6 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, TextInput, View } from 'react-native';
 
 import { useIngredientWholeSetQuery } from '../../data/kitchen-admin-hooks.ts';
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 import { displayName, formatMoney, humaniseCode, parseQuantity, unitShortKey } from './format.ts';
 import { useIngredientQuickAdd } from './ingredient-quick-add.tsx';
 
@@ -598,7 +598,7 @@ export function RecipeLineTable({
                                 </Text>
                             )}
                             {preparation === null ? null : (
-                                <DeskChip
+                                <Badge
                                     testID={`${rowTestId(row)}-preparation`}
                                     tone="neutral"
                                     size="sm"

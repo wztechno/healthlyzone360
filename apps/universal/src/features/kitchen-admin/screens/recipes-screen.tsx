@@ -1,4 +1,17 @@
-import { Button, Cascade, Dialog, Icon, Inline, IssueTrayFrame, Menu, Select, Stack, Text, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    Dialog,
+    Icon,
+    Inline,
+    IssueTrayFrame,
+    Menu,
+    Select,
+    Stack,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { RECIPE_KINDS } from '@healthy360/api-client/contracts';
 import type {
@@ -74,7 +87,6 @@ import {
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { useListMemory, useRememberedFilter } from '../list-memory.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/recipes` — the recipe book: everything this kitchen cooks, on one list.
  *
@@ -1096,7 +1108,7 @@ function frozenLabelSection(
             ) : (
                 <Inline space="xs">
                     {codes.map((code) => (
-                        <DeskChip
+                        <Badge
                             key={String(code)}
                             testID={`kitchen-recipes-view-frozen-allergen-${String(code)}`}
                             tone="danger"
@@ -1121,7 +1133,7 @@ function channelSection(row: RecipeAdminSummary, t: TFunction): RecordViewSectio
                 ) : (
                     <Inline space="xs">
                         {channels.map((channel) => (
-                            <DeskChip
+                            <Badge
                                 key={channel}
                                 testID={`kitchen-recipes-view-channel-${channel}`}
                                 tone="info"

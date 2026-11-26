@@ -1,12 +1,11 @@
 import type { RecipeVersionSummary } from '@healthy360/api-client/contracts';
-import { Button, cx, Dropdown, Icon, InfoTip, Text } from '@healthy360/design-system';
+import { Badge, Button, cx, Dropdown, Icon, InfoTip, Text } from '@healthy360/design-system';
 import type { RecipeVersionId } from '@healthy360/domain-types';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 import { statusKey, statusShortKey, statusTone } from './format.ts';
 
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 type VersionStatus = RecipeVersionSummary['status'];
 
 /** The dot beside a status: amber for work in progress, green for what customers see. */
@@ -108,7 +107,7 @@ export function RecipeVersionMenu({
                             >
                                 <View className="min-w-0 flex-1 flex-col">
                                     <View className="flex-row flex-wrap items-center gap-1.5">
-                                        <DeskChip
+                                        <Badge
                                             testID={`${rowTestId}-status`}
                                             tone={statusTone(version.status)}
                                             label={t(statusKey(version.status))}
@@ -119,7 +118,7 @@ export function RecipeVersionMenu({
                                             })}
                                         </Text>
                                         {version.isCurrent ? (
-                                            <DeskChip
+                                            <Badge
                                                 testID={`${rowTestId}-current`}
                                                 tone="info"
                                                 label={t('kitchen:recipes.currentVersion')}

@@ -4,7 +4,17 @@ import type {
     KitchenCustomerContact,
     KitchenCustomerDetail,
 } from '@healthy360/api-client/contracts';
-import { Button, Callout, ErrorState, Inline, RecordWindowFieldGrid, Stack, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    ErrorState,
+    Inline,
+    RecordWindowFieldGrid,
+    Stack,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import type { BadgeTone, RecordWindowField } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -34,7 +44,6 @@ import {
 } from './customers-screen.tsx';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 /**
  * `/kitchen/customers/{customer}` — one customer in the kitchen's book: their contacts, every saved
@@ -195,7 +204,7 @@ function CustomerView({
             kind={t('kitchen:ops.customers.viewKind')}
             reference={detail.accountNumber}
             titleAside={
-                <DeskChip
+                <Badge
                     tone={customerTypeTone(detail.type)}
                     label={t(customerTypeKey(detail.type))}
                 />
@@ -293,7 +302,7 @@ function CustomerOrders({ customerAccountId }: { readonly customerAccountId: str
                             currency: order.currencyCode,
                         })}
                     </Text>
-                    <DeskChip tone="neutral" label={t(kitchenOrderStatusKey(order.status))} />
+                    <Badge tone="neutral" label={t(kitchenOrderStatusKey(order.status))} />
                     <Button
                         testID={`kitchen-customer-order-${String(order.id)}`}
                         size="sm"
@@ -335,16 +344,10 @@ function ContactList({ contacts }: { readonly contacts: readonly KitchenCustomer
                     </Text>
                     {contact.label === null ? null : <Text tone="secondary">{contact.label}</Text>}
                     {contact.isPrimary ? (
-                        <DeskChip
-                            tone="success"
-                            label={t('kitchen:ops.customers.contactPrimary')}
-                        />
+                        <Badge tone="success" label={t('kitchen:ops.customers.contactPrimary')} />
                     ) : null}
                     {contact.verified ? (
-                        <DeskChip
-                            tone="success"
-                            label={t('kitchen:ops.customers.contactVerified')}
-                        />
+                        <Badge tone="success" label={t('kitchen:ops.customers.contactVerified')} />
                     ) : null}
                 </Inline>
             ))}
@@ -395,7 +398,7 @@ function AddressList({ addresses }: { readonly addresses: readonly KitchenCustom
                                     : t('kitchen:ops.customers.addressDelivery'))}
                         </Text>
                         {address.isDefault ? (
-                            <DeskChip
+                            <Badge
                                 tone="success"
                                 label={t('kitchen:ops.customers.addressDefault')}
                             />

@@ -1,5 +1,16 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
-import { Button, Cascade, EmptyState, ErrorState, Icon, Select, TableSkeleton, Text, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    EmptyState,
+    ErrorState,
+    Icon,
+    Select,
+    TableSkeleton,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useState } from 'react';
@@ -38,7 +49,6 @@ import {
 } from '../production-desk/batch-figures.ts';
 import { trimDecimal, unitCodeLabel } from '../format.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/production-desk` — the batches this kitchen still has to do something about (PROD1).
  *
@@ -244,13 +254,13 @@ function ProductionDesk() {
                 priority: 95,
                 render: (row) => (
                     <View className="flex-row flex-wrap items-center gap-1.5">
-                        <DeskChip
+                        <Badge
                             testID={`${productionBatchTestId(String(row.id))}-status`}
                             tone={productionStatusTone(row.status)}
                             label={t(productionStatusKey(row.status))}
                         />
                         {row.isExpired ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${productionBatchTestId(String(row.id))}-expired`}
                                 tone="danger"
                                 label={t('kitchen:ops.production.expiredBadge')}

@@ -1,5 +1,21 @@
 import type { KitchenServiceSettings } from '@healthy360/api-client/contracts';
-import { Badge, Button, Callout, Cascade, Dialog, EmptyState, ErrorState, FormSection, FormSkeleton, Icon, InfoTip, REQUIRED_MARK, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    FormSection,
+    FormSkeleton,
+    Icon,
+    InfoTip,
+    REQUIRED_MARK,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -43,7 +59,6 @@ import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { useLocalSearchParams } from 'expo-router';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useFinishDetour } from '../finish-detour.ts';
@@ -442,7 +457,7 @@ function BranchOperatingEditor() {
                         title={t('kitchen:branchHours.weekTitle')}
                         description={t('kitchen:branchHours.cutOffHint')}
                         aside={
-                            <DeskChip
+                            <Badge
                                 testID="kitchen-branch-hours-week-scope"
                                 tone="neutral"
                                 label={t('kitchen:branchHours.scopeBranch')}
@@ -871,7 +886,7 @@ function ServiceTimingsSection({
                 title={t('kitchen:serviceTimings.title')}
                 description={t('kitchen:serviceTimings.description')}
                 aside={
-                    <DeskChip
+                    <Badge
                         testID="kitchen-service-timings-scope"
                         tone="success"
                         label={t('kitchen:serviceTimings.scopeKitchen')}

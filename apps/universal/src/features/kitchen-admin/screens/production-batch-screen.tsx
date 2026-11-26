@@ -3,7 +3,19 @@ import type {
     ProductionOrder,
     ProductionPlan,
 } from '@healthy360/api-client/contracts';
-import { Button, Callout, Cascade, Dialog, EmptyState, ErrorState, RecordSkeleton, Stack, Text, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    RecordSkeleton,
+    Stack,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
 import { ProductionOrderId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -60,7 +72,6 @@ import {
 import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/production-desk/{order}` — one batch, and every edge it has left (PROD1).
@@ -357,7 +368,7 @@ function ProductionBatch({ order }: ProductionBatchScreenProps) {
                 noValue={noValue}
                 heading={
                     <>
-                        <DeskChip
+                        <Badge
                             testID="kitchen-production-batch-status"
                             tone={productionStatusTone(batch.status)}
                             label={t(productionStatusKey(batch.status))}

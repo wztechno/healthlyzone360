@@ -1,5 +1,16 @@
 import type { GoodsReceipt, ReceiptCostStatus } from '@healthy360/api-client/contracts';
-import { Button, Cascade, EmptyState, ErrorState, Icon, Inline, Stack, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    EmptyState,
+    ErrorState,
+    Icon,
+    Inline,
+    Stack,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -43,7 +54,6 @@ import { ReceiptOrderRef, useReceiptOpenOrderActions } from '../receipt-order-re
 import { useViewedRecord } from '../use-viewed-record.ts';
 
 import { DeskDateButton } from '../desk-kit/mini-month.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/procurement` — the receipts book, and the direct-purchase path (O2, SUP5).
  *
@@ -309,7 +319,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
             },
             render: (row) => (
                 <View className="min-w-0 flex-row flex-wrap items-center gap-1.5">
-                    <DeskChip
+                    <Badge
                         tone={receiptCostStatusTone(row.costStatus)}
                         testID={`${goodsReceiptRowTestId(String(row.id))}-cost-status`}
                         label={t(receiptCostStatusKey(row.costStatus))}

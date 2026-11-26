@@ -5,7 +5,21 @@ import type {
     OpenDailyClose,
     TillBranch,
 } from '@healthy360/api-client/contracts';
-import { Badge, Button, Callout, Cascade, Dialog, EmptyState, ErrorState, Select, Stack, TableSkeleton, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    Select,
+    Stack,
+    TableSkeleton,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -24,7 +38,6 @@ import { DeskTableTitle } from '../order-desk/desk-parts.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/order-desk/cash?tab=close` — counting the till at the end of a shift.
@@ -266,11 +279,11 @@ function OrderDeskClose() {
             priority: 93,
             render: (row) =>
                 row.varianceMinor === 0 ? (
-                    <DeskChip tone="success" label={t('kitchen:ops.dailyClose.balanced')} />
+                    <Badge tone="success" label={t('kitchen:ops.dailyClose.balanced')} />
                 ) : row.varianceMinor > 0 ? (
-                    <DeskChip tone="neutral" label={t('kitchen:ops.dailyClose.over')} />
+                    <Badge tone="neutral" label={t('kitchen:ops.dailyClose.over')} />
                 ) : row.signedOffAt !== null ? (
-                    <DeskChip tone="neutral" label={t('kitchen:ops.dailyClose.signedOff')} />
+                    <Badge tone="neutral" label={t('kitchen:ops.dailyClose.signedOff')} />
                 ) : canSignOff ? (
                     <Button
                         testID={`kitchen-close-${row.id}-sign-off`}

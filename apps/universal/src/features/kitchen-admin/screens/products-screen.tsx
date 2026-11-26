@@ -1,5 +1,14 @@
 import type { ProductAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import { Button, Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    Dialog,
+    Icon,
+    Inline,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -44,7 +53,6 @@ import {
 } from '../format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/products` — what this kitchen buys in and sells on as goods, rather than cooks. The
  * cooked kinds that were listed here too — sauces, dressings, frozen meals — are recipes in the
@@ -431,10 +439,10 @@ function channelChips(row: ProductAdmin, t: TFunction): ReactNode {
     const channels = availableChannels(row.channelAvailability);
 
     return channels.length === 0 ? (
-        <DeskChip tone="neutral" label={t('kitchen:products.noChannels')} />
+        <Badge tone="neutral" label={t('kitchen:products.noChannels')} />
     ) : (
         channels.map((channel) => (
-            <DeskChip key={channel} tone="info" label={t(channelKey(channel))} />
+            <Badge key={channel} tone="info" label={t(channelKey(channel))} />
         ))
     );
 }

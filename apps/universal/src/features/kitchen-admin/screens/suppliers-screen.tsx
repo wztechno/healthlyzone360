@@ -1,5 +1,15 @@
 import type { Supplier } from '@healthy360/api-client/contracts';
-import { Button, Cascade, EmptyState, ErrorState, Icon, Select, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    EmptyState,
+    ErrorState,
+    Icon,
+    Select,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import type { MenuItem, SelectOption } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -36,7 +46,6 @@ import {
 import { useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/suppliers` — who this kitchen buys from (SUP1), on the Catalogue list (Operations
  * design, `suppliers`).
@@ -230,7 +239,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                                 {displayName(row.name, locale).value}
                             </Text>
                             {row.archivedAt === null ? null : (
-                                <DeskChip
+                                <Badge
                                     testID={`${testID}-archived`}
                                     tone="neutral"
                                     label={t('kitchen:ops.suppliers.archivedBadge')}

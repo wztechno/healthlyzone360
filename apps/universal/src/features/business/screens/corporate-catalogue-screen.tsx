@@ -2,6 +2,7 @@ import {
     Button,
     Callout,
     Cascade,
+    Checkbox,
     EmptyState,
     ErrorState,
     Icon,
@@ -25,7 +26,6 @@ import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import { useColumnControls } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
-import { DeskCheckbox } from '../../kitchen-admin/desk-kit/desk-checkbox.tsx';
 import { catalogueColumns } from '../catalogue-columns.tsx';
 import { CORPORATE_HOME_HREF, CORPORATE_NEW_QUOTATION_HREF } from '../corporate-chrome.tsx';
 import { PickedLinesBar } from '../corporate-parts.tsx';
@@ -130,7 +130,8 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
         sort: false,
         value: () => '',
         renderHeader: () => (
-            <DeskCheckbox
+            <Checkbox
+                labelHidden
                 testID="corporate-catalogue-pick-all"
                 label={t('business:picked.pickAll')}
                 checked={items.length > 0 && shownPicked.length === items.length}
@@ -148,7 +149,8 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
             />
         ),
         render: (item) => (
-            <DeskCheckbox
+            <Checkbox
+                labelHidden
                 testID={`catalogue-item-${item.id}-pick`}
                 label={t('business:picked.pickOne', { name: item.name })}
                 checked={picked.has(item.id)}

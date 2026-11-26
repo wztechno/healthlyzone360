@@ -1,6 +1,23 @@
 import { formatGtin } from '@healthy360/api-client/contracts';
 import type { ReceivableOrder } from '@healthy360/api-client/contracts';
-import { Button, Checkbox, cx, DataList, EmptyState, ErrorState, Icon, IssueTrayFrame, SearchInput, Skeleton, Stack, Text, TextInputField, useIssueTrayController, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Checkbox,
+    cx,
+    DataList,
+    EmptyState,
+    ErrorState,
+    Icon,
+    IssueTrayFrame,
+    SearchInput,
+    Skeleton,
+    Stack,
+    Text,
+    TextInputField,
+    useIssueTrayController,
+    useToast,
+} from '@healthy360/design-system';
 import type { DataListColumn, IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
 import { PurchaseOrderId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -58,7 +75,6 @@ import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskDateField } from '../desk-kit/desk-date-field.tsx';
 import { ReviewBox, StepCard } from '../process-parts.tsx';
 import { ProcessSteps } from '../process-steps.tsx';
@@ -1257,7 +1273,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                 .join(' · ')}
                                         </Text>
                                         <View className="ms-auto">
-                                            <DeskChip
+                                            <Badge
                                                 tone="neutral"
                                                 label={t('kitchen:ops.receiving.orderFixed')}
                                             />
@@ -1584,7 +1600,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                             testID="kitchen-receive-confirm"
                                             title={t('kitchen:ops.receiving.thisDelivery')}
                                             trailing={
-                                                <DeskChip
+                                                <Badge
                                                     tone={outcome.tone}
                                                     testID={outcome.testID}
                                                     label={outcome.label}

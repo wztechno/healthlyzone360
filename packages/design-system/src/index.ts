@@ -195,6 +195,9 @@ export type {
     PickedFile,
 } from './forms/file-upload-field.tsx';
 export { Checkbox } from './forms/checkbox.tsx';
+export { ChoiceChips } from './forms/choice-chips.tsx';
+export type { ChoiceChip } from './forms/choice-chips.tsx';
+export { ChoiceRow, initialsOf } from './forms/choice-row.tsx';
 
 export { Switch } from './forms/switch.tsx';
 export type { SwitchProps } from './forms/switch.tsx';
@@ -267,8 +270,20 @@ export {
 export type { DataListColumn, DataListProps } from './content/data-list.tsx';
 export { RECORD_STATUSES, STATUS_TONE, StatusBadge } from './content/status-badge.tsx';
 export type { RecordStatus, StatusBadgeProps } from './content/status-badge.tsx';
-export { BADGE_TONES, BADGE_VARIANTS, Badge, NUTRITION_LEVELS } from './content/badge.tsx';
-export type { BadgeProps, BadgeTone, BadgeVariant, NutritionLevel } from './content/badge.tsx';
+export {
+    BADGE_SIZES,
+    BADGE_TONES,
+    BADGE_VARIANTS,
+    Badge,
+    NUTRITION_LEVELS,
+} from './content/badge.tsx';
+export type {
+    BadgeProps,
+    BadgeSize,
+    BadgeTone,
+    BadgeVariant,
+    NutritionLevel,
+} from './content/badge.tsx';
 export { CHIP_TONES, Chip, FilterChip } from './content/chip.tsx';
 export type { ChipProps, ChipTone, FilterChipProps } from './content/chip.tsx';
 export { TAG_TONES, Tag, TagRow } from './content/tag.tsx';

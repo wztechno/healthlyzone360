@@ -1,4 +1,5 @@
 import {
+    Badge,
     Button,
     Callout,
     Cascade,
@@ -39,7 +40,6 @@ import { earliestStartDate } from '../../commerce/dates.ts';
 import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
 import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
-import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import { focusField } from '../../kitchen-admin/field-focus.ts';
 import { serverFieldErrors } from '../../kitchen-admin/server-field-errors.ts';
 import type { ServerFieldTarget } from '../../kitchen-admin/server-field-errors.ts';
@@ -246,7 +246,7 @@ export function QuotationBuilderScreen({
                     titleTestID="quotation-builder-title"
                     title={t('business:nav.newQuotation')}
                     titleAside={
-                        <DeskChip
+                        <Badge
                             tone="info"
                             size="lg"
                             label={t('business:quotationStates.submitted')}
@@ -498,7 +498,7 @@ export function QuotationBuilderScreen({
                 testID="quotation-builder-lines-section"
                 title={t('business:quotations.linesTitle')}
                 aside={
-                    <DeskChip
+                    <Badge
                         testID="quotation-builder-count"
                         tone="neutral"
                         label={formatter.formatNumber(chosen.length)}

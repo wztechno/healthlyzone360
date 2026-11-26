@@ -1,6 +1,16 @@
 import { SubscriptionPlanId } from '@healthy360/domain-types';
 import type { PlanAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import { Button, Cascade, EmptyState, ErrorState, Icon, Stack, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    EmptyState,
+    ErrorState,
+    Icon,
+    Stack,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -59,7 +69,6 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The plan `?view=` names, read on its own when the loaded page does not hold it. */
 function usePlanById(id: string | null) {
@@ -211,7 +220,7 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                             </Text>
                         )}
                         {name.isFallback ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-missing-arabic`}
                                 tone="warning"
                                 label={t('kitchen:list.missingArabic')}

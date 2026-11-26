@@ -1,9 +1,11 @@
-import { Icon } from '@healthy360/design-system';
+import { Icon } from '../icons/icon.tsx';
 import type { ReactNode } from 'react';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 /**
- * One choice of several in a desk dialog, as a whole row (Orders canvas, 2026-11-10).
+ * One choice of several in a dialog, as a whole row (Orders canvas, 2026-11-10; moved from the
+ * kitchen admin's desk kit 2026-11-26). For choices with a detail — a driver and their runs, a
+ * cancel reason. A few short choices compared at a glance are `ChoiceChips`.
  *
  * ```
  * mark="avatar"  `.drv`   (HR)  Hadi Rizk                       2 runs today   <- chosen: soft green,

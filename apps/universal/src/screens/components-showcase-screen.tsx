@@ -1,12 +1,20 @@
 import {
+    Badge,
     Button,
+    Checkbox,
+    ChoiceChips,
+    ChoiceRow,
     DensityProvider,
+    FilterChip,
     Icon,
     IconButton,
     SEARCH_THRESHOLD,
     Select,
     Stack,
+    Switch,
+    Tag,
     Text,
+    initialsOf,
 } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
 import { useState } from 'react';
@@ -328,6 +336,242 @@ function ButtonsSection() {
     );
 }
 
+function LabelsSection() {
+    return (
+        <Stack space="lg" testID="components-showcase-labels">
+            <Stack space="xs">
+                <Text variant="section">Labels</Text>
+                <Text variant="caption" tone="secondary">
+                    Badge · a word or a count about a record, never pressed
+                </Text>
+            </Stack>
+
+            <Sample title="Tones" note="warning · info · success · danger · neutral · brand">
+                <Row>
+                    <Badge
+                        testID="components-showcase-badge-warning"
+                        tone="warning"
+                        label="To confirm"
+                    />
+                    <Badge tone="info" label="Confirmed" />
+                    <Badge tone="success" label="Done" />
+                    <Badge tone="danger" label="Late" />
+                    <Badge tone="neutral" label="Manager" />
+                    <Badge tone="brand" label="Regular" />
+                </Row>
+            </Sample>
+
+            <Sample
+                title="Sizes and counts"
+                note="sm in a calendar cell · md in a row · lg in a pop-up header"
+            >
+                <Row>
+                    <Badge tone="warning" size="sm" label="3" />
+                    <Badge tone="warning" label="5" />
+                    <Badge tone="warning" size="lg" label="3 to confirm" />
+                </Row>
+            </Sample>
+
+            <Sample title="Tag" note="an allergen or a diet under a name · never pressed">
+                <Row>
+                    <Tag label="Gluten" />
+                    <Tag label="Vegan" />
+                </Row>
+            </Sample>
+        </Stack>
+    );
+}
+
+function TickBoxesSection() {
+    const [rows, setRows] = useState<readonly boolean[]>([true, false, false]);
+    const [market, setMarket] = useState(true);
+    const [diets, setDiets] = useState<readonly string[]>(['Vegetarian']);
+    const [onSale, setOnSale] = useState(true);
+    const all = rows.every(Boolean);
+    const some = rows.some(Boolean) && !all;
+    const toggleDiet = (diet: string) => {
+        setDiets((current) =>
+            current.includes(diet) ? current.filter((entry) => entry !== diet) : [...current, diet],
+        );
+    };
+    return (
+        <Stack space="lg" testID="components-showcase-tick-boxes">
+            <Stack space="xs">
+                <Text variant="section">Tick boxes</Text>
+                <Text variant="caption" tone="secondary">
+                    Checkbox · plain, in a table (labelHidden), or as a card · Switch for a setting
+                </Text>
+            </Stack>
+
+            <Sample title="Plain" note="a tick and its words">
+                <Row>
+                    <Checkbox
+                        testID="components-showcase-checkbox-plain"
+                        label="Market priced"
+                        checked={market}
+                        onChange={setMarket}
+                    />
+                    <Checkbox
+                        label="Assorted / mixed box"
+                        checked={false}
+                        onChange={() => undefined}
+                    />
+                </Row>
+            </Sample>
+
+            <Sample title="In a table" note="labelHidden · the header box shows some ticked">
+                <Stack space="xs">
+                    <Row>
+                        <Checkbox
+                            testID="components-showcase-checkbox-all"
+                            labelHidden
+                            label="Order every item"
+                            checked={all}
+                            mixed={some}
+                            onChange={(next) => {
+                                setRows(rows.map(() => next));
+                            }}
+                        />
+                        <Text variant="label">Item</Text>
+                    </Row>
+                    {['Aioli Sauce', 'Allspices', 'Almonds'].map((name, index) => (
+                        <Row key={name}>
+                            <Checkbox
+                                labelHidden
+                                label={`Order ${name}`}
+                                checked={rows[index] === true}
+                                onChange={(next) => {
+                                    setRows(rows.map((value, at) => (at === index ? next : value)));
+                                }}
+                            />
+                            <Text>{name}</Text>
+                        </Row>
+                    ))}
+                </Stack>
+            </Sample>
+
+            <Sample
+                title="Cards"
+                note={'shape="card" · diets, sales channels · description is the second line'}
+            >
+                <Row>
+                    {['Vegetarian', 'Vegan', 'High protein'].map((diet) => (
+                        <Checkbox
+                            key={diet}
+                            shape="card"
+                            label={diet}
+                            checked={diets.includes(diet)}
+                            onChange={() => {
+                                toggleDiet(diet);
+                            }}
+                        />
+                    ))}
+                    <Checkbox
+                        testID="components-showcase-checkbox-card"
+                        shape="card"
+                        label="Households"
+                        description="Consumer"
+                        checked
+                        onChange={() => undefined}
+                    />
+                </Row>
+            </Sample>
+
+            <Sample title="Switch" note="a setting that applies where it stands">
+                <Switch label="Available for sale" checked={onSale} onChange={setOnSale} />
+            </Sample>
+        </Stack>
+    );
+}
+
+function ChoicesSection() {
+    const [day, setDay] = useState<string | null>('fri');
+    const [factor, setFactor] = useState('2');
+    const [driver, setDriver] = useState<string | null>('sami');
+    const [reason, setReason] = useState<string | null>('kitchen');
+    const drivers = [
+        { key: 'hala', name: 'Hala Owner', runs: '2 runs today' },
+        { key: 'sami', name: 'Sami Staff', runs: '1 run today' },
+    ];
+    const reasons = [
+        { key: 'customer', label: 'The customer asked to cancel' },
+        { key: 'kitchen', label: 'The kitchen cannot fulfil it' },
+    ];
+    return (
+        <Stack space="lg" testID="components-showcase-choices">
+            <Stack space="xs">
+                <Text variant="section">Choices</Text>
+                <Text variant="caption" tone="secondary">
+                    ChoiceChips for a few short choices · ChoiceRow for choices with a detail
+                </Text>
+            </Stack>
+
+            <Sample title="ChoiceChips" note="one of a few short choices, compared at a glance">
+                <ChoiceChips
+                    testID="components-showcase-choice-chips"
+                    label="Delivery day"
+                    value={day}
+                    onChange={setDay}
+                    items={[
+                        { key: 'wed', label: 'Wed 11' },
+                        { key: 'thu', label: 'Thu 12' },
+                        { key: 'fri', label: 'Fri 13' },
+                        { key: 'sat', label: 'Sat 14', disabled: true },
+                    ]}
+                />
+            </Sample>
+
+            <Sample title="FilterChip" note="the single pill ChoiceChips is made of">
+                <Row>
+                    {['1', '2', '4', '8'].map((value) => (
+                        <FilterChip
+                            key={value}
+                            label={`${value}×`}
+                            selected={factor === value}
+                            onChange={() => {
+                                setFactor(value);
+                            }}
+                        />
+                    ))}
+                </Row>
+            </Sample>
+
+            <Sample
+                title="ChoiceRow"
+                note={'mark="avatar" · "radio" · "check" · picking never acts on its own'}
+            >
+                <View className="w-[360px] flex-col gap-1">
+                    {drivers.map((entry) => (
+                        <ChoiceRow
+                            key={entry.key}
+                            testID={`components-showcase-choice-row-${entry.key}`}
+                            mark="avatar"
+                            initials={initialsOf(entry.name)}
+                            label={entry.name}
+                            meta={entry.runs}
+                            selected={driver === entry.key}
+                            onPress={() => {
+                                setDriver(entry.key);
+                            }}
+                        />
+                    ))}
+                    {reasons.map((entry) => (
+                        <ChoiceRow
+                            key={entry.key}
+                            mark="radio"
+                            label={entry.label}
+                            selected={reason === entry.key}
+                            onPress={() => {
+                                setReason(entry.key);
+                            }}
+                        />
+                    ))}
+                </View>
+            </Sample>
+        </Stack>
+    );
+}
+
 export function ComponentsShowcaseScreen() {
     return (
         <DensityProvider value="compact">
@@ -336,6 +580,9 @@ export function ComponentsShowcaseScreen() {
                     <Text variant="title">Components</Text>
                     <DropdownSection />
                     <ButtonsSection />
+                    <LabelsSection />
+                    <TickBoxesSection />
+                    <ChoicesSection />
                 </Stack>
             </View>
         </DensityProvider>

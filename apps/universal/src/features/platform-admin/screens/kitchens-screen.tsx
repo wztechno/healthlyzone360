@@ -5,6 +5,7 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { isReactivatable, isTradingStatus } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Button,
     Callout,
     Cascade,
@@ -34,7 +35,6 @@ import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-co
 import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.tsx';
-import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import { kitchenRowTestId, ownerRowTestId, tenantStatusKey, tenantStatusTone } from '../format.ts';
 import {
     EndMembershipDialog,
@@ -193,7 +193,7 @@ function KitchensList() {
             priority: 90,
             value: (row) => t(tenantStatusKey(row.status)),
             render: (row) => (
-                <DeskChip
+                <Badge
                     testID={`${kitchenRowTestId(row.id)}-status`}
                     tone={tenantStatusTone(row.status)}
                     label={t(tenantStatusKey(row.status))}
@@ -212,7 +212,7 @@ function KitchensList() {
                     : t('platformAdmin:kitchens.ownerCount', { count: row.ownerCount }),
             render: (row) =>
                 row.ownerCount === 0 ? (
-                    <DeskChip
+                    <Badge
                         testID={`${kitchenRowTestId(row.id)}-no-owner`}
                         tone="warning"
                         label={t('platformAdmin:kitchens.noOwner')}
@@ -538,7 +538,7 @@ function KitchenSheet({
             priority: 80,
             value: (owner) => t(`platformAdmin:owners.status.${owner.status}`, owner.status),
             render: (owner) => (
-                <DeskChip
+                <Badge
                     testID={`${ownerRowTestId(owner.membershipId)}-status`}
                     tone="success"
                     label={t(`platformAdmin:owners.status.${owner.status}`, owner.status)}
@@ -581,7 +581,7 @@ function KitchenSheet({
             priority: 90,
             value: (branch) => t(`platformAdmin:detail.branchStatus.${branch.status}`),
             render: (branch) => (
-                <DeskChip
+                <Badge
                     tone={branch.status === 'active' ? 'success' : 'neutral'}
                     label={t(`platformAdmin:detail.branchStatus.${branch.status}`)}
                 />

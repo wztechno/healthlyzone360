@@ -11,7 +11,23 @@ import {
     B2B_APPLICATION_SECTIONS,
     KYC_REJECTION_REASONS,
 } from '@healthy360/api-client/contracts';
-import { Button, Callout, Cascade, Checkbox, cx, Dialog, ErrorState, Icon, RecordSkeleton, Select, Text, TextInputField, useContentWidth, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    Checkbox,
+    cx,
+    Dialog,
+    ErrorState,
+    Icon,
+    RecordSkeleton,
+    Select,
+    Text,
+    TextInputField,
+    useContentWidth,
+    useToast,
+} from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -41,7 +57,6 @@ import { useTrailLeaf } from '../../../shell/area-trail.tsx';
 import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
 import { SheetCard, SheetFacts } from '../../kitchen-admin/catalogue/record-sheet.tsx';
 import type { SheetFact } from '../../kitchen-admin/catalogue/record-sheet.tsx';
-import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import { AgreementEditor } from '../agreement-editor.tsx';
 import {
     REVIEW_STAGES,
@@ -194,7 +209,7 @@ function ApplicationFile() {
                     titleTestID="platform-b2b-application-title"
                     title={company}
                     titleAside={
-                        <DeskChip
+                        <Badge
                             testID="platform-b2b-application-status"
                             size="lg"
                             tone={applicationStatusTone(record.status)}
@@ -993,7 +1008,7 @@ function AgreementCard({ agreements }: { readonly agreements: readonly B2BAgreem
                     <Text variant="bodyStrong" className="min-w-0 flex-1">
                         {agreement.title}
                     </Text>
-                    <DeskChip
+                    <Badge
                         testID={`platform-b2b-agreement-${String(agreement.version)}-status`}
                         tone={
                             agreement.status === 'active'
@@ -1184,7 +1199,7 @@ function InvitationsCard({
                         >
                             {invitation.email}
                         </Text>
-                        <DeskChip
+                        <Badge
                             tone={
                                 invitation.status === 'accepted'
                                     ? 'success'
@@ -1296,7 +1311,7 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                                 </Text>
                             </View>
                             <View className="flex-row flex-wrap items-center gap-1.5">
-                                <DeskChip
+                                <Badge
                                     testID={`platform-b2b-document-${document.id}-status`}
                                     tone={
                                         document.reviewStatus === 'accepted'
@@ -1310,13 +1325,13 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                                     )}
                                 />
                                 {document.mediaTypeMismatch ? (
-                                    <DeskChip
+                                    <Badge
                                         tone="warning"
                                         label={t('platformAdmin:b2b.documents.mismatch')}
                                     />
                                 ) : null}
                                 {document.hasExpired ? (
-                                    <DeskChip
+                                    <Badge
                                         tone="warning"
                                         label={t('platformAdmin:b2b.documents.expired')}
                                     />
@@ -1401,7 +1416,7 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                                     {t('platformAdmin:b2b.documents.notUploaded')}
                                 </Text>
                             </View>
-                            <DeskChip
+                            <Badge
                                 tone="warning"
                                 label={t('platformAdmin:b2b.documents.missingChip')}
                             />

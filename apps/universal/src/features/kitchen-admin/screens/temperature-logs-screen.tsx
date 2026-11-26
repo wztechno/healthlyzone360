@@ -5,7 +5,21 @@ import type {
     TemperatureUnit,
     TemperatureUnitDraft,
 } from '@healthy360/api-client/contracts';
-import { Button, Dialog, EmptyState, ErrorState, Icon, Select, Stack, TableSkeleton, Tabs, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    Icon,
+    Select,
+    Stack,
+    TableSkeleton,
+    Tabs,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -30,7 +44,6 @@ import {
     ORDER_PREPARE_PERMISSION,
 } from '../entity-registry.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/temperature-logs`: what an inspector asks to see. Fridge and freezer readings twice a
  * day, and the core temperature of each cooked batch, a month at a time, on paper through the list
@@ -137,7 +150,7 @@ function TemperatureLogs() {
                         : 'kitchen:temperature.inRange',
                 ),
             render: (row) => (
-                <DeskChip
+                <Badge
                     tone={row.outOfRange ? 'danger' : 'success'}
                     label={t(
                         row.outOfRange
@@ -255,7 +268,7 @@ function TemperatureLogs() {
             value: (row) =>
                 t(row.active ? 'kitchen:temperature.active' : 'kitchen:temperature.retired'),
             render: (row) => (
-                <DeskChip
+                <Badge
                     tone={row.active ? 'success' : 'neutral'}
                     label={t(
                         row.active ? 'kitchen:temperature.active' : 'kitchen:temperature.retired',

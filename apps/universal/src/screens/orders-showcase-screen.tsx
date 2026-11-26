@@ -1,6 +1,18 @@
 import type { KitchenOrder } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
-import { Button, Cascade, DensityProvider, Icon, IconButton, Select, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    Checkbox,
+    ChoiceRow,
+    DensityProvider,
+    Icon,
+    IconButton,
+    initialsOf,
+    Select,
+    Text,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,7 +24,14 @@ import {
     CompactRecordPopup,
     CompactSection,
 } from '../features/kitchen-admin/catalogue/compact-record-popup.tsx';
-import { ChoiceRow, DeskChip, DeskCheckbox, DeskColumnPicker, DeskDateButton, DeskRowMenu, DeskTabs, DeskToggleTile, ListGroupRow, MiniMonthPicker, initialsOf } from '../features/kitchen-admin/desk-kit/index.ts';
+import {
+    DeskColumnPicker,
+    DeskDateButton,
+    DeskRowMenu,
+    DeskTabs,
+    ListGroupRow,
+    MiniMonthPicker,
+} from '../features/kitchen-admin/desk-kit/index.ts';
 import { RecordPopup } from '../features/kitchen-admin/catalogue/record-popup.tsx';
 import { DayStepper } from '../features/kitchen-admin/orders/day-stepper.tsx';
 import { orderColumns } from '../features/kitchen-admin/orders/order-columns.tsx';
@@ -211,7 +230,8 @@ export function OrdersShowcaseScreen() {
                         <Button variant="quiet" label="Clear filters" />
                         <Button variant="dangerOutline" label="Cancel order" />
                         <Button variant="danger" label="Cancel this order" />
-                        <IconButton variant="secondary"
+                        <IconButton
+                            variant="secondary"
                             label="Previous day"
                             icon={<Icon name="chevronBackward" size="md" />}
                         />
@@ -238,13 +258,13 @@ export function OrdersShowcaseScreen() {
 
                     <Text variant="title">Desk chips</Text>
                     <View className="flex-row flex-wrap items-center gap-1.5">
-                        <DeskChip tone="warning" label="To confirm" />
-                        <DeskChip tone="info" label="Confirmed" />
-                        <DeskChip tone="success" label="Delivered" />
-                        <DeskChip tone="neutral" label="Cancelled" />
-                        <DeskChip tone="danger" label="Late" />
-                        <DeskChip tone="warning" size="sm" label="1 to confirm" />
-                        <DeskChip tone="danger" size="lg" label="2 late" />
+                        <Badge tone="warning" label="To confirm" />
+                        <Badge tone="info" label="Confirmed" />
+                        <Badge tone="success" label="Delivered" />
+                        <Badge tone="neutral" label="Cancelled" />
+                        <Badge tone="danger" label="Late" />
+                        <Badge tone="warning" size="sm" label="1 to confirm" />
+                        <Badge tone="danger" size="lg" label="2 late" />
                     </View>
 
                     <Text variant="title">Dialog choices — rows and radio segments</Text>
@@ -339,30 +359,34 @@ export function OrdersShowcaseScreen() {
                                 },
                             ]}
                         />
-                        <DeskCheckbox
+                        <Checkbox
+                            labelHidden
                             testID="showcase-orders-check-all"
                             label="Order every item"
                             checked={false}
                             mixed
                             onChange={() => undefined}
                         />
-                        <DeskCheckbox
+                        <Checkbox
+                            labelHidden
                             testID="showcase-orders-check"
                             label="Order Tahini"
                             checked={ticked}
                             onChange={setTicked}
                         />
                         {/* `.dtl`: a record's own multi-choice (the plan's diets), ticked as tiles. */}
-                        <DeskToggleTile
+                        <Checkbox
+                            shape="card"
                             testID="showcase-orders-tile"
                             label="High protein"
-                            selected={ticked}
+                            checked={ticked}
                             onChange={setTicked}
                         />
-                        <DeskToggleTile
+                        <Checkbox
+                            shape="card"
                             testID="showcase-orders-tile-off"
                             label="Vegan"
-                            selected={false}
+                            checked={false}
                             onChange={() => undefined}
                         />
                         <DeskColumnPicker
@@ -570,7 +594,7 @@ export function OrdersShowcaseScreen() {
                                     <Text variant="strong">kg</Text>
                                 </CompactField>
                                 <CompactField label="Status">
-                                    <DeskChip tone="success" label="Active" />
+                                    <Badge tone="success" label="Active" />
                                 </CompactField>
                             </CompactSection>
                         </RecordPopup>
@@ -636,8 +660,8 @@ export function OrdersShowcaseScreen() {
                             }}
                             chips={
                                 <>
-                                    <DeskChip tone="info" label="Confirmed" />
-                                    <DeskChip tone="danger" label="Late" />
+                                    <Badge tone="info" label="Confirmed" />
+                                    <Badge tone="danger" label="Late" />
                                 </>
                             }
                             figure={{ label: 'Total', value: '$16.00' }}
@@ -674,9 +698,7 @@ export function OrdersShowcaseScreen() {
                                     </CompactField>
                                     <CompactField
                                         label="To collect"
-                                        action={
-                                            <Button variant="quiet" label="Record a payment" />
-                                        }
+                                        action={<Button variant="quiet" label="Record a payment" />}
                                     >
                                         <Text variant="strong" tone="warning">
                                             $16.00

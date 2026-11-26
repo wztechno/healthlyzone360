@@ -1,5 +1,5 @@
 import type { DishOption, DishPortion } from '@healthy360/api-client/contracts';
-import { Button, Dialog, Text, TextInputField } from '@healthy360/design-system';
+import { Button, ChoiceRow, Dialog, Text, TextInputField } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import type { ReactNode } from 'react';
@@ -9,7 +9,6 @@ import { View } from 'react-native';
 import { useDishChoicesQuery } from '../../../data/order-desk-hooks.ts';
 import { choiceLabel } from '../../../ui/dish-choices.tsx';
 import type { DishChoiceValue } from '../../../ui/dish-choices.tsx';
-import { ChoiceRow } from '../desk-kit/index.ts';
 import { displayName } from '../format.ts';
 import type { BasketLine } from './basket.ts';
 

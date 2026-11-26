@@ -1,5 +1,21 @@
 import type { KitchenOrder } from '@healthy360/api-client/contracts';
-import { Button, Callout, Card, Cascade, cx, EmptyState, Heading, Icon, Inline, Skeleton, Stack, Text, useContentWidth, useMotion } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Card,
+    Cascade,
+    cx,
+    EmptyState,
+    Heading,
+    Icon,
+    Inline,
+    Skeleton,
+    Stack,
+    Text,
+    useContentWidth,
+    useMotion,
+} from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -53,7 +69,7 @@ import { GROUP_LABEL_KEYS } from '../kitchen-nav.ts';
 import { buildReviewQueue } from '../review-queue.ts';
 import { ordersHref } from '../orders/orders-url.ts';
 
-import { COUNT_CLASS, CountPill, Panel, StatTile } from '../hub-parts.tsx';
+import { COUNT_CLASS, Panel, StatTile } from '../hub-parts.tsx';
 import type { Tone } from '../hub-parts.tsx';
 /**
  * `/kitchen` — the overview: what needs someone today, then every module one press away.
@@ -73,7 +89,7 @@ import type { Tone } from '../hub-parts.tsx';
  * Counts stay honest: a total the server could not give is "Count unavailable", never a zero.
  */
 
-// `Tone`, `StatTile`, `Panel` and `CountPill` live in `../hub-parts.tsx`, shared with the corporate overview.
+// `Tone`, `StatTile` and `Panel` live in `../hub-parts.tsx`, shared with the corporate overview.
 
 /** How many module pills a Go to card shows before "+N more". */
 const GO_TO_PILLS = 4;
@@ -829,10 +845,10 @@ export function KitchenHomeScreen() {
                                             grow={wide}
                                             title={t('kitchen:hub.attentionTitle')}
                                             count={
-                                                <CountPill
+                                                <Badge
                                                     testID="kitchen-home-attention-count"
-                                                    value={String(waitingChecks)}
-                                                    tone={waitingChecks > 0 ? 'warning' : 'ok'}
+                                                    label={String(waitingChecks)}
+                                                    tone={waitingChecks > 0 ? 'warning' : 'success'}
                                                 />
                                             }
                                         >
@@ -934,11 +950,13 @@ export function KitchenHomeScreen() {
                                             grow={wide}
                                             count={
                                                 display.isPending ? null : (
-                                                    <CountPill
+                                                    <Badge
                                                         testID="kitchen-home-orders-count"
-                                                        value={String(toConfirm.length)}
+                                                        label={String(toConfirm.length)}
                                                         tone={
-                                                            toConfirm.length > 0 ? 'warning' : 'ok'
+                                                            toConfirm.length > 0
+                                                                ? 'warning'
+                                                                : 'success'
                                                         }
                                                     />
                                                 )

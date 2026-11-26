@@ -23,32 +23,6 @@ export const COUNT_CLASS: Readonly<Record<Tone, { readonly box: string; readonly
     neutral: { box: 'bg-surface-sunken', ink: 'text-content-secondary' },
 };
 
-/** A small count box — amber when it is waiting on someone. */
-export function CountPill({
-    value,
-    tone,
-    testID,
-}: {
-    readonly value: string;
-    readonly tone: Tone;
-    readonly testID?: string | undefined;
-}) {
-    return (
-        <View
-            testID={testID}
-            className={cx(
-                'h-6 items-center justify-center rounded-full px-2',
-                COUNT_CLASS[tone].box,
-            )}
-            style={{ minWidth: 26 }}
-        >
-            <Text variant="label" className={cx('font-bold', COUNT_CLASS[tone].ink)}>
-                {value}
-            </Text>
-        </View>
-    );
-}
-
 /** One figure: a status dot, the label and the number, on one line at one size. */
 export function StatTile({
     testID,

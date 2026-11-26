@@ -6,7 +6,16 @@ import type {
     OrderRefund,
     OrderRefundKind,
 } from '@healthy360/api-client/contracts';
-import { Badge, Button, Dialog, Inline, Stack, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Dialog,
+    Inline,
+    Stack,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -24,7 +33,6 @@ import { DeskTabs } from './desk-kit/index.ts';
 import { ORDER_APPROVE_REFUND_PERMISSION } from './entity-registry.ts';
 import { kitchenOrderPaymentMethodKey } from './ops-format.ts';
 
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 import { FailureToast } from './failure-toast.tsx';
 /**
  * The refund part of the order record, for a manager. A ledger beside the receipts: entries are
@@ -188,9 +196,9 @@ function EntryBadge({ entry }: { readonly entry: OrderRefund }) {
     return entry.status === 'pending_approval' ? (
         <Badge tone="warning" icon="warning" label={label} />
     ) : entry.status === 'rejected' ? (
-        <DeskChip tone="neutral" label={label} />
+        <Badge tone="neutral" label={label} />
     ) : (
-        <DeskChip tone="success" label={label} />
+        <Badge tone="success" label={label} />
     );
 }
 

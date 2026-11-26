@@ -5,7 +5,21 @@ import type {
     KitchenQuotationLine,
     KitchenQuotationStatus,
 } from '@healthy360/api-client/contracts';
-import { Button, Callout, Cascade, EmptyState, ErrorState, FormSection, RecordSkeleton, RecordWindowFieldGrid, Stack, TableSkeleton, Text, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    EmptyState,
+    ErrorState,
+    FormSection,
+    RecordSkeleton,
+    RecordWindowFieldGrid,
+    Stack,
+    TableSkeleton,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -54,7 +68,6 @@ import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 
 import { PageBackPill } from '../../../shell/area-trail.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The request `?view=` names, read on its own when the loaded page does not hold it. */
 function useQuotationById(id: string | null) {
@@ -672,7 +685,7 @@ function QuotationPricing({
                 })}
                 dirty={dirty}
                 badges={
-                    <DeskChip
+                    <Badge
                         testID="kitchen-quotations-detail-status"
                         tone={kitchenQuotationStatusTone(quotation.status)}
                         label={t(kitchenQuotationStatusKey(quotation.status))}

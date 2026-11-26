@@ -9,7 +9,21 @@ import type {
     RecipeRollupPack,
     SetItemPacksRequest,
 } from '@healthy360/api-client/contracts';
-import { Card, DataList, FormSection, Icon, IconButton, QuantityInput, Select, Stack, Text, UNDROPPABLE_PRIORITY, useSectionLook } from '@healthy360/design-system';
+import {
+    Badge,
+    Card,
+    ChoiceRow,
+    DataList,
+    FormSection,
+    Icon,
+    IconButton,
+    QuantityInput,
+    Select,
+    Stack,
+    Text,
+    UNDROPPABLE_PRIORITY,
+    useSectionLook,
+} from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { IngredientId, minorUnitExponent } from '@healthy360/domain-types';
 import type { CurrencyCode, MealId, ProductId } from '@healthy360/domain-types';
@@ -34,8 +48,6 @@ import { queryKeys } from '../../data/query-keys.ts';
 import { useRepositories } from '../../data/repository-provider.tsx';
 import { CostCard } from './cost-card.tsx';
 import type { CostCardRow } from './cost-card.tsx';
-import { ChoiceRow } from './desk-kit/choice-row.tsx';
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, PRICE_LIST_MANAGE_PERMISSION } from './entity-registry.ts';
 import { FailureToast } from './failure-toast.tsx';
 import { displayName, formatMoney, parseAmount, parseQuantity, unitShortKey } from './format.ts';
@@ -1058,7 +1070,7 @@ export function PackCard({
                         {name}
                     </Text>
                     {pack.code === '' ? null : (
-                        <DeskChip testID={`${testID}-code`} tone="neutral" label={pack.code} />
+                        <Badge testID={`${testID}-code`} tone="neutral" label={pack.code} />
                     )}
                     <View className="flex-1" />
                     {perBatch === null ? null : (
@@ -1067,7 +1079,8 @@ export function PackCard({
                         </Text>
                     )}
                     {canManage ? (
-                        <IconButton variant="secondary"
+                        <IconButton
+                            variant="secondary"
                             testID={`${testID}-remove`}
                             label={t('kitchen:packs.remove', { name })}
                             icon={<Icon name="close" size="sm" />}
@@ -1135,7 +1148,7 @@ export function PackCard({
                                     </View>
                                 ) : null
                             ) : (
-                                <DeskChip
+                                <Badge
                                     testID={`${testID}-container`}
                                     tone="brand"
                                     label={nameOf(containerPart.ingredientId)}
@@ -1146,13 +1159,15 @@ export function PackCard({
                                     key={part.ingredientId}
                                     className="flex-row items-center gap-hair"
                                 >
-                                    <DeskChip
+                                    <Badge
                                         testID={`${testID}-part-${part.ingredientId}`}
                                         tone="neutral"
                                         label={nameOf(part.ingredientId)}
                                     />
                                     {canManage ? (
-                                        <IconButton variant="ghost" className="hover:bg-surface-raised"
+                                        <IconButton
+                                            variant="ghost"
+                                            className="hover:bg-surface-raised"
                                             testID={`${testID}-part-${part.ingredientId}-remove`}
                                             label={t('kitchen:packs.removePart', {
                                                 name: nameOf(part.ingredientId),

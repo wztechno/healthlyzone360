@@ -1,4 +1,5 @@
 import {
+    Badge,
     Button,
     Cascade,
     EmptyState,
@@ -37,7 +38,6 @@ import {
     useColumnControls,
 } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
-import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { AcceptQuotationDialog, DeclineQuotationDialog } from '../accept-quotation-dialog.tsx';
 import { CORPORATE_HOME_HREF, CORPORATE_NEW_QUOTATION_HREF } from '../corporate-chrome.tsx';
@@ -201,7 +201,7 @@ export function QuotationsScreen({ initialFilter, initialOpen }: QuotationsScree
                 match: (row, value) => row.state === value,
             },
             render: (row) => (
-                <DeskChip
+                <Badge
                     testID={`quotation-${row.reference}-state`}
                     tone={quotationTone(row.state)}
                     label={t(quotationStateKey(row.state))}

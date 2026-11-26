@@ -1,5 +1,15 @@
 import type { ConsumptionException } from '@healthy360/api-client/contracts';
-import { Button, Cascade, Dialog, EmptyState, ErrorState, TableSkeleton, Text, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    TableSkeleton,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { can } from '@healthy360/permissions';
 import { useRouter } from 'expo-router';
@@ -60,7 +70,6 @@ import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { useListMemory, useRememberedQuery } from '../list-memory.ts';
 
 import { DeskDateButton } from '../desk-kit/mini-month.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/consumption-exceptions` — what a confirmed order could not deduct honestly (INV1.5), as
  * `Workbench.dc.html` draws it (§3.5).
@@ -520,13 +529,13 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
             },
             render: (row) =>
                 row.resolved ? (
-                    <DeskChip
+                    <Badge
                         testID={`kitchen-exception-${row.id}-resolved`}
                         tone="success"
                         label={t('kitchen:ops.exceptions.resolvedBadge')}
                     />
                 ) : (
-                    <DeskChip
+                    <Badge
                         testID={`kitchen-exception-${row.id}-open`}
                         tone="danger"
                         label={t('kitchen:ops.exceptions.unresolvedBadge')}

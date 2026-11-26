@@ -7,7 +7,21 @@ import type {
     DriverCashOwed,
     TillBranch,
 } from '@healthy360/api-client/contracts';
-import { Badge, Button, Callout, Cascade, Checkbox, Dialog, EmptyState, ErrorState, Stack, TableSkeleton, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    Checkbox,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    Stack,
+    TableSkeleton,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -26,7 +40,6 @@ import { DeskTableTitle } from '../order-desk/desk-parts.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/order-desk/cash?tab=handins` — cash coming back from the road.
@@ -279,9 +292,9 @@ function OrderDeskSettlement() {
             priority: 92,
             render: (row) =>
                 row.shortMinor === 0 ? (
-                    <DeskChip tone="success" label={t('kitchen:ops.settlement.settled')} />
+                    <Badge tone="success" label={t('kitchen:ops.settlement.settled')} />
                 ) : row.signedOffAt !== null ? (
-                    <DeskChip tone="neutral" label={t('kitchen:ops.settlement.signedOff')} />
+                    <Badge tone="neutral" label={t('kitchen:ops.settlement.signedOff')} />
                 ) : canSignOff ? (
                     <Button
                         testID={`kitchen-settlement-${row.id}-sign-off`}

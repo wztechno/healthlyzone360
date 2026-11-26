@@ -5,7 +5,19 @@ import type {
     PriceListChannels,
     SalesChannelRecord,
 } from '@healthy360/api-client/contracts';
-import { Button, Cascade, cx, ErrorState, FormSkeleton, Icon, Inline, Stack, Text, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    cx,
+    ErrorState,
+    FormSkeleton,
+    Icon,
+    Inline,
+    Stack,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -36,7 +48,6 @@ import { displayName, statusShortKey, statusTone } from '../format.ts';
 import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { NewPriceListDialog } from '../new-price-list-dialog.tsx';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 const PAGE = 'kitchen-wholesale';
 const ROUTE = '/kitchen/wholesale';
 
@@ -384,12 +395,12 @@ function WholesaleSetup() {
                                           {nameOf(list)}
                                       </Text>
                                   </View>
-                                  <DeskChip
+                                  <Badge
                                       tone={statusTone(list.meta.status)}
                                       label={t(statusShortKey(list.meta.status))}
                                   />
                                   {isAssigned(list) ? (
-                                      <DeskChip
+                                      <Badge
                                           testID={`${rowID}-assigned`}
                                           tone="success"
                                           label={t('kitchen:wholesale.assigned')}
@@ -531,7 +542,7 @@ export function SetupStep({
                 <View className="min-w-0 flex-1 gap-1" style={{ flexBasis: 280 }}>
                     <Inline space="xs">
                         <Text variant="strong">{title}</Text>
-                        <DeskChip
+                        <Badge
                             testID={`${testID}-state`}
                             tone={done ? 'success' : 'warning'}
                             label={done ? t('kitchen:wholesale.done') : t('kitchen:wholesale.todo')}

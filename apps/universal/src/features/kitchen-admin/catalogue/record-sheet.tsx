@@ -1,9 +1,9 @@
 import type { BadgeTone } from '@healthy360/design-system';
+import { Badge } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { Text as RNText, View } from 'react-native';
 
 import { EntityImage } from '../../../media/entity-image.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { useRecordSplit } from './record-popup.tsx';
 
 /**
@@ -120,7 +120,7 @@ export function RecordSheetHead({
                         className="mt-2.5 flex-row flex-wrap items-center gap-1.5"
                     >
                         {chips.map((chip) => (
-                            <DeskChip
+                            <Badge
                                 key={chip.key}
                                 testID={chip.testID}
                                 tone={chip.tone}

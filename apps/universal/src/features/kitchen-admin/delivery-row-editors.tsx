@@ -1,5 +1,23 @@
 import type { ServiceArea } from '@healthy360/api-client/contracts';
-import { Button, Callout, Checkbox, cx, DataList, fieldWidth, Icon, IconButton, Inline, Select, Stack, Tag, Text, TextInputField, TimeField, useContentWidth } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Checkbox,
+    cx,
+    DataList,
+    fieldWidth,
+    Icon,
+    IconButton,
+    Inline,
+    Select,
+    Stack,
+    Tag,
+    Text,
+    TextInputField,
+    TimeField,
+    useContentWidth,
+} from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import type { ServiceAreaId } from '@healthy360/domain-types';
 import { useLocale } from '@healthy360/i18n';
@@ -26,7 +44,6 @@ import type {
 import { ISO_WEEKDAYS, displayName } from './format.ts';
 import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
 
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 import { DeskTabs } from './desk-kit/desk-tabs.tsx';
 /**
  * The three repeated editors of the delivery slice (K1.7).
@@ -664,7 +681,7 @@ export function OperatingWeekRows({
                             {t(weekdayKey(day.weekday))}
                         </Text>
                         {day.isClosed ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${dayID}-closed-badge`}
                                 tone="neutral"
                                 label={t('kitchen:branchHours.closedBadge')}
@@ -775,7 +792,8 @@ export function OperatingWeekRows({
                       // words as the name and tooltip, so the column stays narrow (option A).
                       render: (day) =>
                           day.isClosed ? null : (
-                              <IconButton variant="secondary"
+                              <IconButton
+                                  variant="secondary"
                                   testID={`${testID}-day-${String(day.weekday)}-copy`}
                                   label={t('kitchen:branchHours.copyToOpenDays')}
                                   icon={

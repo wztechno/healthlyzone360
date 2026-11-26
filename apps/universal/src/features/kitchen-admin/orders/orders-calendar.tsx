@@ -1,5 +1,15 @@
 import type { OrderDeskCalendarDay, OrderDeskPlanMeal } from '@healthy360/api-client/contracts';
-import { Button, ErrorState, Icon, IconButton, Select, Skeleton, Text, useBreakpoint } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    ErrorState,
+    Icon,
+    IconButton,
+    Select,
+    Skeleton,
+    Text,
+    useBreakpoint,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
@@ -14,7 +24,7 @@ import {
 import { formatMoney } from '../../marketplace/format.ts';
 import { addDays, dateInstant, mondayOf, weekDates } from '../../planner/format.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
-import { DeskChip, DeskTabs } from '../desk-kit/index.ts';
+import { DeskTabs } from '../desk-kit/index.ts';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { kitchenOrderFulfilmentTypeKey, kitchenOrderRowTestId } from '../ops-format.ts';
 import { windowCodesOfMeal } from '../order-desk-calendar.ts';
@@ -207,7 +217,8 @@ export function CalendarTab({
                 scope={
                     <>
                         <View className="flex-row items-center gap-1">
-                            <IconButton variant="secondary"
+                            <IconButton
+                                variant="secondary"
                                 testID="kitchen-orders-calendar-previous"
                                 label={t(
                                     mode === 'month'
@@ -229,7 +240,8 @@ export function CalendarTab({
                             >
                                 {title}
                             </Text>
-                            <IconButton variant="secondary"
+                            <IconButton
+                                variant="secondary"
                                 testID="kitchen-orders-calendar-next"
                                 label={t(
                                     mode === 'month'
@@ -517,7 +529,7 @@ function MonthGrid({
                                 )}
                                 <View className="mt-auto flex-row flex-wrap gap-[3px]">
                                     {mark === undefined || mark.confirm === 0 ? null : (
-                                        <DeskChip
+                                        <Badge
                                             testID={`kitchen-orders-calendar-day-${day}-confirm`}
                                             tone="warning"
                                             size="sm"
@@ -527,7 +539,7 @@ function MonthGrid({
                                         />
                                     )}
                                     {mark === undefined || mark.late === 0 ? null : (
-                                        <DeskChip
+                                        <Badge
                                             testID={`kitchen-orders-calendar-day-${day}-late`}
                                             tone="danger"
                                             size="sm"
@@ -871,14 +883,14 @@ function DayPanel({
             {confirm + late === 0 ? null : (
                 <View className="flex-row flex-wrap gap-1.5">
                     {confirm === 0 ? null : (
-                        <DeskChip
+                        <Badge
                             tone="warning"
                             size="lg"
                             label={t('kitchen:orders.calendar.toConfirm', { count: confirm })}
                         />
                     )}
                     {late === 0 ? null : (
-                        <DeskChip
+                        <Badge
                             tone="danger"
                             size="lg"
                             label={t('kitchen:orders.calendar.late', { count: late })}
@@ -969,7 +981,7 @@ function DayPanel({
                                                 {`${row.orderNumber} · ${t(kitchenOrderFulfilmentTypeKey(row.fulfilmentType))}`}
                                             </Text>
                                         </View>
-                                        <DeskChip
+                                        <Badge
                                             tone={isLate ? 'danger' : orderStatusTone(row)}
                                             label={
                                                 isLate
@@ -1087,7 +1099,7 @@ function PlanRow({ entry }: { readonly entry: OrderDeskPlanMeal }) {
                           : `${dishes} · ${t('kitchen:orders.panel.planMoreNotChosen', { count: unchosen })}`}
                 </Text>
             </View>
-            <DeskChip
+            <Badge
                 tone={entry.basis === 'scheduled' ? 'info' : 'neutral'}
                 label={t(
                     entry.basis === 'scheduled'

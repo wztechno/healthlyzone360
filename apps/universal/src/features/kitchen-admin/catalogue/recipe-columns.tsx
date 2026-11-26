@@ -26,7 +26,6 @@ import { allergenLabel } from '../ops-format.ts';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * The recipe book, as an array — every track the merged page can draw, answering this entity's
@@ -424,7 +423,7 @@ export function recipeColumns({
                         {title.value}
                     </Text>
                     {title.isFallback ? (
-                        <DeskChip
+                        <Badge
                             testID={`${rowID(row)}-missing-arabic`}
                             tone="warning"
                             label={t('kitchen:list.missingArabic')}
@@ -646,7 +645,7 @@ export function recipeColumns({
             // A packaged seller with no pack has nothing to price against, so it is flagged; a
             // meal or a preparation has no pack by nature and gets the plain dash.
             return (row.soldAs ?? []).some(missingPack) ? (
-                <DeskChip
+                <Badge
                     testID={`${rowID(row)}-packs-none`}
                     tone="warning"
                     label={t('kitchen:products.noPacks')}
@@ -678,14 +677,14 @@ export function recipeColumns({
             return (
                 <Inline space="xs" align="center">
                     {seller.isMarketPriced ? (
-                        <DeskChip
+                        <Badge
                             testID={`${rowID(row)}-market-priced`}
                             tone="warning"
                             label={t('kitchen:products.marketPricedShort')}
                         />
                     ) : null}
                     {seller.isAssorted ? (
-                        <DeskChip
+                        <Badge
                             testID={`${rowID(row)}-assorted`}
                             tone="neutral"
                             label={t('kitchen:products.assortedShort')}

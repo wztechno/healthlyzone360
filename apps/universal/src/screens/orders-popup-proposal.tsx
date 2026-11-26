@@ -1,9 +1,8 @@
-import { Button, Icon, Text } from '@healthy360/design-system';
+import { Badge, Button, Icon, Text } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { View } from 'react-native';
 
 import { CompactRecordPopup } from '../features/kitchen-admin/catalogue/compact-record-popup.tsx';
-import { DeskChip } from '../features/kitchen-admin/desk-kit/index.ts';
 import { InfoCard, StageTrack } from '../features/kitchen-admin/orders/order-popup-parts.tsx';
 import type { OrderStage } from '../features/kitchen-admin/orders/order-popup-parts.tsx';
 
@@ -64,8 +63,8 @@ export function OrderPopupProposal({
             nav={{ position: '2 of 4', onPrevious: () => undefined, onNext: () => undefined }}
             chips={
                 <>
-                    <DeskChip tone="info" label="Confirmed" />
-                    <DeskChip tone="danger" label="Late" />
+                    <Badge tone="info" label="Confirmed" />
+                    <Badge tone="danger" label="Late" />
                 </>
             }
             figure={{ label: 'Total', value: '$16.00' }}

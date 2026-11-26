@@ -1,5 +1,5 @@
 import type { OrderDeskDeliveryWindow } from '@healthy360/api-client/contracts';
-import { Button, Text } from '@healthy360/design-system';
+import { Badge, Button, Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import type { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -13,7 +13,6 @@ import type {
     ColumnFilter,
     ControlledColumn,
 } from '../catalogue/use-column-controls.tsx';
-import { DeskChip } from '../desk-kit/index.ts';
 import {
     kitchenOrderPaymentMethodKey,
     kitchenOrderRowTestId,
@@ -166,7 +165,7 @@ export function orderColumns(context: OrderColumnContext): readonly CatalogueCol
                         {order.orderNumber}
                     </RNText>
                     {order.allergy === null ? null : (
-                        <DeskChip
+                        <Badge
                             testID={`${id(order)}-allergy`}
                             tone={order.allergy.severe ? 'danger' : 'warning'}
                             label={t(
@@ -241,13 +240,13 @@ export function orderColumns(context: OrderColumnContext): readonly CatalogueCol
             value: (order) => orderStatusLabel(order, t),
             render: (order) => (
                 <View className="flex-row items-center gap-1">
-                    <DeskChip
+                    <Badge
                         testID={`${id(order)}-status`}
                         tone={orderStatusTone(order)}
                         label={orderStatusLabel(order, t)}
                     />
                     {isLateOrder(order, now, windows) ? (
-                        <DeskChip
+                        <Badge
                             testID={`${id(order)}-late`}
                             tone="danger"
                             label={t('kitchen:orders.late')}
@@ -267,7 +266,7 @@ export function orderColumns(context: OrderColumnContext): readonly CatalogueCol
                 const cell = driverCell(order, driverName);
                 if (cell.kind === 'needed') {
                     return (
-                        <DeskChip
+                        <Badge
                             testID={`${id(order)}-driver`}
                             tone="warning"
                             label={t('kitchen:orders.driver.needed')}

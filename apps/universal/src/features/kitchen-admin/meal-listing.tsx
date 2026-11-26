@@ -5,7 +5,30 @@ import type {
     MeasurementUnitOption,
     ProductionMode,
 } from '@healthy360/api-client/contracts';
-import { Button, Callout, Dialog, ErrorState, FilterChip, FormGrid, FormSection, FormSkeleton, Icon, InfoTip, Inline, IssueTrayFrame, IssueUnanchored, Select, Stack, Switch, Text, TextInputField, useIssueGroup, useIssueTrayController, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Dialog,
+    ErrorState,
+    FilterChip,
+    FormGrid,
+    FormSection,
+    FormSkeleton,
+    Icon,
+    InfoTip,
+    Inline,
+    IssueTrayFrame,
+    IssueUnanchored,
+    Select,
+    Stack,
+    Switch,
+    Text,
+    TextInputField,
+    useIssueGroup,
+    useIssueTrayController,
+    useToast,
+} from '@healthy360/design-system';
 import type { IssueCardItem, IssuePassedItem, SelectOption } from '@healthy360/design-system';
 import { MEAL_TYPES } from '@healthy360/domain-types';
 import type { DietClassification, MealId, MealType } from '@healthy360/domain-types';
@@ -72,7 +95,6 @@ import { useNudgeOnRefusal } from './tray-nudge.ts';
 import { useOptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from './use-unsaved-guard.ts';
 
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * A meal's listing — the Selling tab of its page, and the one form in this workspace whose save a
  * shopper can see.
@@ -1105,7 +1127,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                     }
                                 />
                             )}
-                            <DeskChip
+                            <Badge
                                 testID="kitchen-meal-allergens-source"
                                 tone="neutral"
                                 label={t('kitchen:meals.allergensFromRecipe')}
@@ -1128,7 +1150,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         ) : (
                             <Inline space="xs" wrap>
                                 {data.allergens.map((code) => (
-                                    <DeskChip
+                                    <Badge
                                         key={code}
                                         testID={`kitchen-meal-allergen-${String(code)}`}
                                         tone="danger"
@@ -1603,7 +1625,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         ) : (
                             <Inline space="xs" wrap>
                                 {data.allergens.map((code) => (
-                                    <DeskChip
+                                    <Badge
                                         key={code}
                                         testID={`kitchen-meal-publish-allergen-${String(code)}`}
                                         tone="danger"

@@ -1,11 +1,10 @@
 import type { SupplierContact, SupplierContactInput } from '@healthy360/api-client/contracts';
-import { DataList, Stack, Text, TextInputField } from '@healthy360/design-system';
+import { Badge, DataList, Stack, Text, TextInputField } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import type { SupplierContactId } from '@healthy360/domain-types';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 import { DeskRowMenu } from './desk-kit/desk-row-menu.tsx';
 import { supplierContactRowTestId } from './ops-format.ts';
 /**
@@ -266,7 +265,7 @@ export function SupplierContactRows({
                         // one line tall.
                         trailing={
                             field === 'name' && draft.isPrimary ? (
-                                <DeskChip
+                                <Badge
                                     testID={`${supplierContactRowTestId(draft.key)}-primary-badge`}
                                     tone="success"
                                     size="sm"

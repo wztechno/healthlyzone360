@@ -63,7 +63,6 @@ import {
 import { useViewedRecord } from '../use-viewed-record.ts';
 
 import { DeskDateButton } from '../desk-kit/mini-month.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/purchases-ledger` — the browsable record behind the monthly spend figure (INV1.1), and
  * since SUP6 the weekly and monthly check over the same rows (§3.7, §7).
@@ -567,7 +566,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                 },
             },
             render: (row) => (
-                <DeskChip
+                <Badge
                     testID={`kitchen-ledger-${row.id}-state`}
                     tone={LINE_STATE_TONES[ledgerLineState(row)]}
                     label={t(LINE_STATE_KEYS[ledgerLineState(row)])}
@@ -1385,7 +1384,7 @@ function PeriodStatusCell({ period }: { readonly period: SpendSummaryPeriod }) {
 
     if (period.isComplete) {
         return (
-            <DeskChip
+            <Badge
                 testID={`${testID}-state`}
                 tone="success"
                 label={t('kitchen:ops.ledger.completeBadge')}
@@ -1407,14 +1406,14 @@ function PeriodStatusCell({ period }: { readonly period: SpendSummaryPeriod }) {
     return (
         <Inline space="xs" align="center" wrap={false} testID={`${testID}-state`}>
             {unpriced > 0 ? (
-                <DeskChip
+                <Badge
                     testID={`${testID}-unpriced`}
                     tone="warning"
                     label={t('kitchen:ops.ledger.unpricedBadge', { count: unpriced })}
                 />
             ) : null}
             {pendingFx > 0 ? (
-                <DeskChip
+                <Badge
                     testID={`${testID}-pending-fx`}
                     tone="info"
                     label={t('kitchen:ops.ledger.pendingFxBadge', { count: pendingFx })}

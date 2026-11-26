@@ -5,7 +5,27 @@ import type {
     SupplierOption,
 } from '@healthy360/api-client/contracts';
 import type { StockItemId, SupplierId } from '@healthy360/domain-types';
-import { Button, Callout, Cascade, DataList, Dialog, EmptyState, ErrorState, FormSection, Icon, InfoTip, QuantityInput, Select, Skeleton, Stack, TableSkeleton, Text, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    Checkbox,
+    DataList,
+    Dialog,
+    EmptyState,
+    ErrorState,
+    FormSection,
+    Icon,
+    InfoTip,
+    QuantityInput,
+    Select,
+    Skeleton,
+    Stack,
+    TableSkeleton,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -34,7 +54,6 @@ import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.ts
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 import { PageBackPill, useAreaTrailDrawn } from '../../../shell/area-trail.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
-import { DeskCheckbox, DeskChip } from '../desk-kit/index.ts';
 import { supplyOrderGroupTestId, supplyOrderRowTestId } from '../ops-format.ts';
 import {
     buildGroups,
@@ -475,14 +494,14 @@ function SupplyOrderBuilder() {
                                     {row.itemNameEn}
                                 </Text>
                                 {row.isOutOfStock ? (
-                                    <DeskChip
+                                    <Badge
                                         size="sm"
                                         testID={`${testID}-out`}
                                         tone="danger"
                                         label={t('kitchen:ops.supplyOrders.outBadge')}
                                     />
                                 ) : row.isLow ? (
-                                    <DeskChip
+                                    <Badge
                                         size="sm"
                                         testID={`${testID}-low`}
                                         tone="warning"
@@ -626,7 +645,8 @@ function SupplyOrderBuilder() {
             priority: 99,
             grow: false,
             renderHeader: () => (
-                <DeskCheckbox
+                <Checkbox
+                    labelHidden
                     testID={`${testID}-order-all`}
                     label={t('kitchen:ops.supplyOrders.orderAll')}
                     checked={list.length > 0 && ticked.length === list.length}
@@ -640,7 +660,8 @@ function SupplyOrderBuilder() {
                 const key = String(row.stockItemId);
                 const ordering = effective[key]?.ordering ?? true;
                 return (
-                    <DeskCheckbox
+                    <Checkbox
+                        labelHidden
                         testID={`${supplyOrderRowTestId(key)}-toggle`}
                         label={t('kitchen:ops.supplyOrders.orderItem', { item: row.itemNameEn })}
                         checked={ordering}
@@ -702,14 +723,14 @@ function SupplyOrderBuilder() {
                          * supplier, or there are candidates and nobody has chosen between them.
                          */}
                         {current === undefined ? (
-                            <DeskChip
+                            <Badge
                                 size="sm"
                                 testID={`${testID}-choose-supplier`}
                                 tone="warning"
                                 label={t('kitchen:ops.supplyOrders.chooseSupplier')}
                             />
                         ) : current.isPreferred ? (
-                            <DeskChip
+                            <Badge
                                 size="sm"
                                 testID={`${testID}-preferred`}
                                 tone="info"
@@ -780,8 +801,9 @@ function SupplyOrderBuilder() {
                             />
                         </View>
                         <View testID={`${testID}-remember`} className="flex-row items-center">
-                            <DeskCheckbox
-                                testID={`${testID}-remember-control`}
+                            <Checkbox
+                                labelHidden
+                                testID={`${testID}-remember-box`}
                                 label={t('kitchen:ops.supplyOrders.rememberLink')}
                                 checked={remember[key] ?? true}
                                 onChange={(checked) => {
@@ -1373,7 +1395,7 @@ function SupplyTicket({
                                 >
                                     {group.name}
                                 </Text>
-                                <DeskChip tone="success" label={group.value} />
+                                <Badge tone="success" label={group.value} />
                             </View>
                         ))}
                     </View>

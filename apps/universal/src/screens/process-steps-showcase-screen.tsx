@@ -1,9 +1,8 @@
-import { Button, Stack, Text } from '@healthy360/design-system';
+import { Badge, Button, Stack, Text } from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { DeskChip } from '../features/kitchen-admin/desk-kit/desk-chip.tsx';
-import { CountPill, ReviewBox, StepCard } from '../features/kitchen-admin/process-parts.tsx';
+import { ReviewBox, StepCard } from '../features/kitchen-admin/process-parts.tsx';
 import { ProcessSteps } from '../features/kitchen-admin/process-steps.tsx';
 
 type Step = 'order' | 'delivery' | 'lines' | 'check';
@@ -54,9 +53,7 @@ export function ProcessStepsShowcaseScreen() {
                     testID="showcase-step-card"
                     title="What arrived"
                     count="4 to post, 1 left out"
-                    actions={
-                        <Button size="sm" variant="secondary" label="Add invoice charges" />
-                    }
+                    actions={<Button size="sm" variant="secondary" label="Add invoice charges" />}
                 >
                     <Text tone="secondary">The step's fields sit here.</Text>
                 </StepCard>
@@ -67,14 +64,14 @@ export function ProcessStepsShowcaseScreen() {
                         <ReviewBox
                             testID="showcase-review"
                             title="This delivery"
-                            trailing={<DeskChip tone="warning" label="Over-receipt" />}
+                            trailing={<Badge tone="warning" label="Over-receipt" />}
                         >
                             <Text tone="secondary">Stock rises immediately for 4 lines.</Text>
                         </ReviewBox>
                     </View>
                     <View className="min-w-[260px] flex-1">
                         <ReviewBox testID="showcase-fixes" title="To fix">
-                            <CountPill label="2" />
+                            <Badge tone="brand" label="2" />
                         </ReviewBox>
                     </View>
                 </View>

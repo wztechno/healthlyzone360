@@ -1,4 +1,4 @@
-import { Text } from '@healthy360/design-system';
+import { Badge, Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import type { CatalogueItem, CatalogueItemKind } from '@healthy360/api-client/contracts';
 import type { Formatter } from '@healthy360/i18n';
@@ -10,7 +10,6 @@ import { CATALOGUE_PRIORITY } from '../kitchen-admin/catalogue/catalogue-column-
 import { compareNumber, compareText } from '../kitchen-admin/catalogue/use-column-controls.tsx';
 import type { ControlledColumn } from '../kitchen-admin/catalogue/use-column-controls.tsx';
 import { EntityImage } from '../../media/entity-image.tsx';
-import { DeskChip } from '../kitchen-admin/desk-kit/desk-chip.tsx';
 import { formatMoney, formatPackSize } from '../marketplace/format.ts';
 import { catalogueKindKey, contractPriceTestId } from './format.ts';
 
@@ -103,7 +102,7 @@ export function catalogueColumns(
                     direction,
                 ),
             render: (item) => (
-                <DeskChip
+                <Badge
                     testID={`catalogue-item-${item.id}-kind`}
                     tone={KIND_TONE[item.kind]}
                     label={t(catalogueKindKey(item.kind))}

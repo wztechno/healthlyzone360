@@ -1,5 +1,13 @@
 import type { ReceiptCostStatus, UnpricedReceipt } from '@healthy360/api-client/contracts';
-import { Button, Cascade, EmptyState, ErrorState, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    EmptyState,
+    ErrorState,
+    TableSkeleton,
+    Text,
+} from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -30,7 +38,6 @@ import {
     useRememberedQuery,
 } from '../list-memory.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/supplier-bills?tab=unpriced` — the work queue (SUP5, §3.6, §7).
  *
@@ -221,7 +228,7 @@ function UnpricedReceipts() {
                             })}
                         </Text>
                         {row.valuationPendingCount > 0 ? (
-                            <DeskChip
+                            <Badge
                                 tone="warning"
                                 testID={`kitchen-unpriced-${String(row.id)}-pending-fx`}
                                 label={t('kitchen:ops.unpricedReceipts.pendingFxBadge', {
@@ -241,7 +248,7 @@ function UnpricedReceipts() {
                 sort: false,
                 value: (row) => t(receiptCostStatusKey(row.costStatus)),
                 render: (row) => (
-                    <DeskChip
+                    <Badge
                         tone={receiptCostStatusTone(row.costStatus)}
                         testID={`kitchen-unpriced-${String(row.id)}-status`}
                         label={t(receiptCostStatusKey(row.costStatus))}

@@ -1,6 +1,29 @@
 import { isValidationFailure } from '@healthy360/api-client/contracts';
 import type { LocalisedText, PlanAdmin } from '@healthy360/api-client/contracts';
-import { Badge, Button, Callout, Cascade, Dialog, ErrorState, FormGrid, FormSection, FormSkeleton, Icon, InfoTip, Inline, IssueTrayFrame, IssueUnanchored, Stack, Tabs, Text, TextInputField, useFormSteps, useIssueTrayController, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    Checkbox,
+    Dialog,
+    ErrorState,
+    FormGrid,
+    FormSection,
+    FormSkeleton,
+    Icon,
+    InfoTip,
+    Inline,
+    IssueTrayFrame,
+    IssueUnanchored,
+    Stack,
+    Tabs,
+    Text,
+    TextInputField,
+    useFormSteps,
+    useIssueTrayController,
+    useToast,
+} from '@healthy360/design-system';
 import type { GridSpanProps, IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
 import { DIET_CLASSIFICATIONS, SubscriptionPlanId } from '@healthy360/domain-types';
 import type { DietClassification } from '@healthy360/domain-types';
@@ -65,8 +88,6 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
-import { DeskToggleTile } from '../desk-kit/desk-toggle-tile.tsx';
 import { UnsavedMark } from '../unsaved-mark.tsx';
 /**
  * `/kitchen/plans/{plan}` — the commercial definition of a subscription plan.
@@ -1487,11 +1508,12 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                         >
                             <View testID="kitchen-plan-diets" className="flex-row flex-wrap gap-2">
                                 {DIET_CLASSIFICATIONS.map((diet) => (
-                                    <DeskToggleTile
+                                    <Checkbox
+                                        shape="card"
                                         key={diet}
                                         testID={`kitchen-plan-diet-${diet}`}
                                         label={t(dietClassificationKey(diet))}
-                                        selected={details.dietClassifications.includes(diet)}
+                                        checked={details.dietClassifications.includes(diet)}
                                         disabled={!canManage}
                                         onChange={(selected) => {
                                             markDirty(() => {
@@ -1532,7 +1554,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                         role="status"
                                         className="flex-row items-center gap-1"
                                     >
-                                        <DeskChip
+                                        <Badge
                                             tone="warning"
                                             label={t('kitchen:plans.matrixUnsold', {
                                                 count: unsoldCells,
@@ -1729,7 +1751,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                     </Text>
                                 ) : (
                                     <Inline space="xs" wrap testID="kitchen-plan-prices-summary">
-                                        <DeskChip
+                                        <Badge
                                             testID="kitchen-plan-prices-confirmed"
                                             tone={coverage.confirmed === 0 ? 'warning' : 'success'}
                                             {...(coverage.confirmed === 0
@@ -1739,7 +1761,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                                 count: coverage.confirmed,
                                             })}
                                         />
-                                        <DeskChip
+                                        <Badge
                                             testID="kitchen-plan-prices-placeholder"
                                             tone={
                                                 coverage.placeholder === 0 ? 'neutral' : 'warning'
@@ -1748,7 +1770,7 @@ function PlanEditor({ plan, returnTo }: PlanEditScreenProps) {
                                                 count: coverage.placeholder,
                                             })}
                                         />
-                                        <DeskChip
+                                        <Badge
                                             testID="kitchen-plan-prices-unpriced"
                                             tone="neutral"
                                             label={t('kitchen:plans.unpricedCount', {

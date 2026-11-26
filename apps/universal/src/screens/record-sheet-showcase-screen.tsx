@@ -1,4 +1,4 @@
-import { Button, Cascade, DensityProvider, Text } from '@healthy360/design-system';
+import { Badge, Button, Cascade, DensityProvider, Text } from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
 
@@ -14,7 +14,6 @@ import {
     SheetText,
 } from '../features/kitchen-admin/catalogue/record-sheet.tsx';
 import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
-import { DeskChip } from '../features/kitchen-admin/desk-kit/desk-chip.tsx';
 import { BLANK, TAHINI, categoryName } from './record-canopy-showcase-screen.tsx';
 
 function noop(): void {}
@@ -234,7 +233,7 @@ export function RecordSheetShowcaseScreen() {
                                                     key: 'contains',
                                                     label: 'Contains',
                                                     content: (
-                                                        <DeskChip
+                                                        <Badge
                                                             tone="danger"
                                                             size="lg"
                                                             label="Sesame"
@@ -245,7 +244,7 @@ export function RecordSheetShowcaseScreen() {
                                                     key: 'may',
                                                     label: 'May contain',
                                                     content: (
-                                                        <DeskChip
+                                                        <Badge
                                                             tone="warning"
                                                             size="lg"
                                                             label="Peanuts"
