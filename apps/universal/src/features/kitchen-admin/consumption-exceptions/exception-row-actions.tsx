@@ -1,8 +1,7 @@
 import type { ConsumptionException } from '@healthy360/api-client/contracts';
 import type { MenuItem } from '@healthy360/design-system';
-import { RowActionsMenu } from '@healthy360/design-system';
+import { RowMenu } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
-
 
 /**
  * The gap's fix (`Fix in recipe`, `Add stock`, `Set unit price` …) and `Accept gap` on one open
@@ -69,7 +68,7 @@ export function ExceptionRowActions({ row, fix, onResolve, pendingId }: Exceptio
     ];
 
     return (
-        <RowActionsMenu
+        <RowMenu
             actions={actions}
             label={t('kitchen:list.rowActions')}
             testID={`kitchen-exception-${row.id}-actions`}

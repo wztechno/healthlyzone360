@@ -1,5 +1,17 @@
 import type { BranchClosure } from '@healthy360/api-client/contracts';
-import { Badge, Button, DataTable, DatePicker, DeskRowMenu, Dialog, ErrorState, FormSection, Text, TextInputField, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    DataTable,
+    DatePicker,
+    RowMenu,
+    Dialog,
+    ErrorState,
+    FormSection,
+    Text,
+    TextInputField,
+    useToast,
+} from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
@@ -163,7 +175,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                       sortable: false,
                       filterable: false,
                       render: (closure) => (
-                          <DeskRowMenu
+                          <RowMenu
                               testID={`kitchen-branch-closures-row-${closure.id}-menu`}
                               label={t('kitchen:branchClosures.rowMenu', {
                                   dates: rangeOf(closure),

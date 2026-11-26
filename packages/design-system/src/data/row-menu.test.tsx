@@ -1,4 +1,4 @@
-import { RowActionsMenu } from './row-actions-menu.tsx';
+import { RowMenu } from './row-menu.tsx';
 import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 describe('a table row’s actions', () => {
@@ -15,7 +15,7 @@ describe('a table row’s actions', () => {
 
     it('keeps them behind three dots until the dots are pressed', async () => {
         const onView = jest.fn();
-        await render(<RowActionsMenu actions={actions(onView)} label="Row actions" testID="row" />);
+        await render(<RowMenu actions={actions(onView)} label="Row actions" testID="row" />);
 
         expect(screen.queryByTestId('row-view')).toBeNull();
 
@@ -31,7 +31,7 @@ describe('a table row’s actions', () => {
     });
 
     it('draws nothing for a row with nothing to do', async () => {
-        await render(<RowActionsMenu actions={[]} label="Row actions" testID="row" />);
+        await render(<RowMenu actions={[]} label="Row actions" testID="row" />);
 
         expect(screen.queryByTestId('row-trigger')).toBeNull();
     });

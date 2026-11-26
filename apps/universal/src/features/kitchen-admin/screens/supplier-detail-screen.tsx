@@ -1,5 +1,25 @@
 import type { LocalisedText, SuppliedItem, SupplierDetail } from '@healthy360/api-client/contracts';
-import { Badge, Button, Callout, Cascade, DataTable, DeskRowMenu, Dialog, ErrorState, FormGrid, FormSection, FormSkeleton, Icon, Inline, Select, Stack, Text, TextInputField, useFormSteps, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Callout,
+    Cascade,
+    DataTable,
+    RowMenu,
+    Dialog,
+    ErrorState,
+    FormGrid,
+    FormSection,
+    FormSkeleton,
+    Icon,
+    Inline,
+    Select,
+    Stack,
+    Text,
+    TextInputField,
+    useFormSteps,
+    useToast,
+} from '@healthy360/design-system';
 import type { DataListColumn, TabItem } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -722,7 +742,7 @@ function SupplierDetailEditor({ supplier, returnTo }: SupplierDetailScreenProps)
                       render: (row: SuppliedItem) => {
                           const testID = suppliedItemRowTestId(String(row.stockItem?.id ?? ''));
                           return (
-                              <DeskRowMenu
+                              <RowMenu
                                   testID={`${testID}-menu`}
                                   label={t('kitchen:list.rowActions')}
                                   actions={[

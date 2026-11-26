@@ -15,8 +15,7 @@ import { DATA_TABLE_PRIORITY, columnFloor, columnForRole } from './data-table-co
 import type { DataTableColumn } from './data-table-columns.ts';
 import { useTablePort } from './table-port.ts';
 import { TABLE_PAGE_SIZE, TablePager } from './table-pager.tsx';
-import { ROW_ACTIONS_WIDTH, RowActionsMenu } from './row-actions-menu.tsx';
-import { DeskRowMenu } from './desk-row-menu.tsx';
+import { ROW_ACTIONS_WIDTH, RowMenu } from './row-menu.tsx';
 
 /**
  * The list's panel — the same surface as the toolbar above it and every other admin panel, so the
@@ -101,8 +100,6 @@ export interface DataTableProps<Row> {
     readonly rowActions?: ((row: Row) => readonly MenuItem[]) | undefined;
     /** Accessible name for the overflow trigger. Defaults to "Actions". */
     readonly rowActionsLabel?: string | undefined;
-    /** `desk`: the desk kit's `⋯` and dropdown card (`DeskRowMenu`) — the desk pages' look. */
-    readonly rowActionsLook?: 'list' | 'desk' | undefined;
     readonly emptyState?: ReactNode | undefined;
     /**
      * Rows cascade in as they mount — `DataList`'s `rowEntrance`. On by default: every admin list
@@ -256,7 +253,6 @@ function CatalogueTable<Row>({
     onRowPress,
     rowActions,
     rowActionsLabel,
-    rowActionsLook = 'desk',
     emptyState,
     rowEntrance = true,
     highlightedId,
@@ -344,7 +340,6 @@ function CatalogueTable<Row>({
                       t('designSystem:dataTable.actionHeader'),
                       rowKey,
                       testID,
-                      rowActionsLook,
                   ),
               ];
 
@@ -497,7 +492,6 @@ function withTableThumbnail<Row>(
         return {
             ...column,
             render: (row: Row) => (
-                 
                 <Inline space="xs" align="center" wrap={false} className="min-w-0 flex-1">
                     {thumbnail(row, {
                         size: 'table',
@@ -505,7 +499,7 @@ function withTableThumbnail<Row>(
                         label: cellText(column, row),
                         testID: `${testID}-row-${rowKey(row)}-image`,
                     })}
-                    { }
+                    {}
                     <View className="min-w-0 flex-1">{titleCell(row)}</View>
                 </Inline>
             ),
@@ -571,7 +565,6 @@ function actionColumn<Row>(
     header: string,
     rowKey: (row: Row) => string,
     testID: string,
-    look: 'list' | 'desk' = 'list',
 ): DataTableColumn<Row> {
     return {
         key: 'actions',
@@ -591,11 +584,7 @@ function actionColumn<Row>(
                 testID: action.testID ?? `${testID}-row-${rowKey(row)}-action-${action.key}`,
             }));
             const menuTestID = `${testID}-row-${rowKey(row)}-actions`;
-            return look === 'desk' ? (
-                <DeskRowMenu actions={actions} label={label} testID={menuTestID} />
-            ) : (
-                <RowActionsMenu actions={actions} label={label} testID={menuTestID} />
-            );
+            return <RowMenu actions={actions} label={label} testID={menuTestID} />;
         },
     };
 }

@@ -331,7 +331,6 @@ function ApplicationsQueue() {
                         density="sm"
                         onRowPress={openApplication}
                         rowActionsLabel={t('platformAdmin:kitchens.rowActions')}
-                        rowActionsLook="desk"
                         rowActions={(row): readonly MenuItem[] => [
                             {
                                 key: 'open',

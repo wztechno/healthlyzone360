@@ -334,7 +334,6 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
                             router.push(catalogueLineHref(programme, item.id) as never);
                         }}
                         rowActionsLabel={t('business:catalogue.rowActions')}
-                        rowActionsLook="desk"
                         rowActions={(item): readonly MenuItem[] => [
                             {
                                 key: 'open',

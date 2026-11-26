@@ -45,8 +45,8 @@ decides by itself:
   `noResultsAction` (add what was typed);
 - a field whose options are all a few letters (kg / L / Pc) draws narrow.
 
-Not dropdowns, and not `Select`: row actions (`⋯`) are a `Menu` (`RowActionsMenu` / `DeskRowMenu`
-for now); Show columns is `DeskColumnPicker`.
+Not dropdowns, and not `Select`: a row's actions (`⋯`) are `RowMenu` (see Tables); Show columns is
+`DeskColumnPicker`.
 
 **Removed, never recreate:** `DeskSelect`, `DeskPicker`, `LensScope`. `SlotScope` and `PeriodScope`
 are presets that draw `Select` inside — fine to use, not a pattern to copy.
@@ -155,6 +155,7 @@ Every admin table is `DataTable` from `@healthy360/design-system`. It draws the 
 | A form's own lines (recipe lines, an order's items)     | `<DataTable lines … />` — every row, every width, no pager           |
 | A line with a problem, or added since the list was read | `lines` + `rowTone` (`danger` / `new`) and `rowNote` under it        |
 | A row's picture                                         | the title column's `thumbnail(row, shape)` draws it (`RowThumbnail`) |
+| A row's actions (`⋯`)                                   | `rowActions` on `DataTable`; a hand-drawn row uses `RowMenu` itself  |
 
 The column spec is `DataTableColumn` (`role`: title / status / metric / meta / actions, which is
 what a row becomes on a phone). Columns are dropped by `priority` when the page is narrow, never
@@ -164,6 +165,9 @@ Not tables: a printed sheet (technical sheet, print sheets) and the web shop's `
 
 **Removed, never recreate:** `CatalogueList`, `CatalogueListItem`, `CatalogueListBody`,
 `CataloguePager`, `catalogue-column-spec.ts`, and the price list's hand-drawn `role="table"` grid.
+
+The row menu is `RowMenu` alone — a `⋯` that turns soft green while open (`IconButton pressed`).
+**Removed, never recreate:** `RowActionsMenu`, `DeskRowMenu`, and `DataTable`'s `rowActionsLook`.
 
 ## Canvas designs
 

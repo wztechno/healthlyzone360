@@ -1,5 +1,5 @@
 import type { RecipeAdminSummary } from '@healthy360/api-client/contracts';
-import { Badge, Inline, RowActionsMenu, Text } from '@healthy360/design-system';
+import { Badge, Inline, RowMenu, Text } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { KitchenId } from '@healthy360/domain-types';
 import type { TFunction } from 'i18next';
@@ -146,7 +146,7 @@ export function RecipeCardGrid({
                                             number: row.currentVersionNumber,
                                         })}
                                     </Text>
-                                    <RowActionsMenu
+                                    <RowMenu
                                         actions={rowActions(row)}
                                         label={rowActionsLabel}
                                         testID={`${cardID}-actions`}

@@ -1,8 +1,6 @@
 import { cx } from '../internal/class-names.ts';
-import { Icon } from '../icons/icon.tsx';
-import { IconButton } from '../actions/icon-button.tsx';
 import { ListItem } from '../content/list-item.tsx';
-import { Menu } from '../overlays/menu.tsx';
+import { RowMenu } from './row-menu.tsx';
 import { Text } from '../primitives/text.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import type { MenuItem } from '../overlays/menu.tsx';
@@ -97,24 +95,10 @@ export function DataTableItem({
 }: DataTableItemProps) {
     const overflow =
         actions === undefined || actions.length === 0 ? null : (
-            <Menu
+            <RowMenu
+                actions={actions}
                 label={actionsLabel}
-                align="end"
-                // The admin's one menu look: the card, as every scope and row menu draws it.
-                look="card"
-                sections={[{ items: actions }]}
-                trigger={({ triggerProps, toggle }) => (
-                    <IconButton
-                        {...triggerProps}
-                        label={actionsLabel}
-                        variant="ghost"
-                        size="sm"
-                        icon={<Icon name="more" size="sm" />}
-                        onPress={toggle}
-                        testID={testID === undefined ? undefined : `${testID}-actions-trigger`}
-                    />
-                )}
-                testID={testID === undefined ? undefined : `${testID}-actions`}
+                testID={`${testID ?? 'data-table-item'}-actions`}
             />
         );
 
@@ -179,7 +163,7 @@ export function DataTableItem({
                 highlighted ? 'bg-surface-brand-subtle' : null,
             )}
         >
-            { }
+            {}
             <View className="min-w-0 flex-1">{item}</View>
             {overflow}
         </View>

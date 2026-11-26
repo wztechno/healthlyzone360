@@ -47,6 +47,11 @@ export interface IconButtonProps extends Omit<
     readonly size?: ButtonSize | undefined;
     /** A full circle rather than the ladder's rounded square — the top bar's round controls. */
     readonly round?: boolean | undefined;
+    /**
+     * Holds the brand-tinted ground while what it opened is open — a row's `⋯` while its menu is
+     * showing, so the reader can see which row the menu belongs to.
+     */
+    readonly pressed?: boolean | undefined;
     readonly disabled?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
@@ -82,6 +87,7 @@ export function IconButton({
     tone = 'default',
     size = 'md',
     round = false,
+    pressed = false,
     disabled = false,
     className,
     onPress,
@@ -159,7 +165,9 @@ export function IconButton({
                 'relative items-center justify-center',
                 deskOutlined
                     ? 'h-desk-toolbar aspect-square rounded-full border border-stroke-subtle bg-surface-raised hover:bg-surface-brand-subtle web:transition-colors'
-                    : CONTAINER_VARIANT[variant],
+                    : pressed
+                      ? 'border border-transparent bg-surface-brand-subtle web:transition-colors'
+                      : CONTAINER_VARIANT[variant],
                 deskOutlined
                     ? null
                     : round
@@ -172,7 +180,14 @@ export function IconButton({
                 className,
             )}
         >
-            <View className={cx(LABEL_VARIANT[variant], TONE_CLASS[tone])}>{icon}</View>
+            <View
+                className={cx(
+                    pressed ? 'text-content-on-brand-subtle' : LABEL_VARIANT[variant],
+                    TONE_CLASS[tone],
+                )}
+            >
+                {icon}
+            </View>
             {showLabel ? (
                 <View
                     testID={testID === undefined ? undefined : `${testID}-hover-label`}

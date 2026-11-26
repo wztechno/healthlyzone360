@@ -1,6 +1,13 @@
 import { PLAN_DURATION_KINDS } from '@healthy360/api-client/contracts';
 import type { PlanDurationKind } from '@healthy360/api-client/contracts';
-import { DataTable, DeskRowMenu, Select, Switch, Text, TextInputField } from '@healthy360/design-system';
+import {
+    DataTable,
+    RowMenu,
+    Select,
+    Switch,
+    Text,
+    TextInputField,
+} from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
@@ -247,7 +254,7 @@ export function PlanVariantRows({
                       grow: false,
                       align: 'end',
                       render: (row: VariantDraft) => (
-                          <DeskRowMenu
+                          <RowMenu
                               testID={`${rowId(row)}-menu`}
                               label={t('kitchen:list.rowActions')}
                               actions={[
@@ -583,7 +590,7 @@ export function PlanDurationRows({
                       grow: false,
                       align: 'end',
                       render: (row: DurationDraft) => (
-                          <DeskRowMenu
+                          <RowMenu
                               testID={`${testID}-row-${row.key}-menu`}
                               label={t('kitchen:list.rowActions')}
                               actions={[

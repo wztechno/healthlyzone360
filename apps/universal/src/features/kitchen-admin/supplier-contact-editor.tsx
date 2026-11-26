@@ -1,5 +1,5 @@
 import type { SupplierContact, SupplierContactInput } from '@healthy360/api-client/contracts';
-import { Badge, DataTable, DeskRowMenu, Stack, Text, TextInputField } from '@healthy360/design-system';
+import { Badge, DataTable, RowMenu, Stack, Text, TextInputField } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import type { SupplierContactId } from '@healthy360/domain-types';
 import { useTranslation } from 'react-i18next';
@@ -303,7 +303,7 @@ export function SupplierContactRows({
                       render: (draft: SupplierContactDraft) => {
                           const id = supplierContactRowTestId(draft.key);
                           return (
-                              <DeskRowMenu
+                              <RowMenu
                                   testID={`${id}-menu`}
                                   label={t('kitchen:list.rowActions')}
                                   actions={[

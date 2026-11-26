@@ -348,8 +348,7 @@ export { TABLE_PAGE_SIZE, TablePager } from './data/table-pager.tsx';
 export type { TablePagerProps } from './data/table-pager.tsx';
 export { useTablePort } from './data/table-port.ts';
 export type { TablePort } from './data/table-port.ts';
-export { ROW_ACTIONS_WIDTH, RowActionsMenu } from './data/row-actions-menu.tsx';
-export { DeskRowMenu } from './data/desk-row-menu.tsx';
+export { ROW_ACTIONS_WIDTH, RowMenu } from './data/row-menu.tsx';
 
 export { Table } from './data/table.tsx';
 export type {

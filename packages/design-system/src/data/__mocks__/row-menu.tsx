@@ -2,10 +2,13 @@ import type { MenuItem } from '../../overlays/menu.tsx';
 import { Pressable, Text, View } from 'react-native';
 
 /**
- * The desk `⋯` drawn flat, for screen tests: see `jest.setup.js`. The trigger is kept (inert), so a
+ * The row's `⋯` drawn flat, for screen tests: see `jest.setup.js`. The trigger is kept (inert), so a
  * suite that presses it before an action still finds both.
  */
-export function DeskRowMenu({
+/** The action track's width, as the real part has it. */
+export const ROW_ACTIONS_WIDTH = 72;
+
+export function RowMenu({
     actions,
     label,
     testID,
@@ -17,7 +20,12 @@ export function DeskRowMenu({
     if (actions.length === 0) return null;
     return (
         <View>
-            <Pressable testID={`${testID}-trigger`} accessibilityLabel={label} />
+            {/* Inert, but it takes its own press: the real `⋯` never lets one reach the row. */}
+            <Pressable
+                testID={`${testID}-trigger`}
+                accessibilityLabel={label}
+                onPress={() => undefined}
+            />
             {actions.map((action) => (
                 <Pressable
                     key={action.key}

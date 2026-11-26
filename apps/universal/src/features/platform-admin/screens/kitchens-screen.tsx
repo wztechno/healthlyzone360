@@ -355,7 +355,6 @@ function KitchensList() {
                             open(row.slug);
                         }}
                         rowActionsLabel={t('platformAdmin:kitchens.rowActions')}
-                        rowActionsLook="desk"
                         rowActions={(row): readonly MenuItem[] => [
                             {
                                 key: 'view',
@@ -702,7 +701,6 @@ function KitchenSheet({
                             rowEntrance={false}
                             joined
                             rowActionsLabel={t('platformAdmin:kitchens.rowActions')}
-                            rowActionsLook="desk"
                             rowActions={(owner): readonly MenuItem[] => [
                                 {
                                     key: 'revoke',

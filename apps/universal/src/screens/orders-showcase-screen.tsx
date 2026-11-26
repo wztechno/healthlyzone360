@@ -9,7 +9,7 @@ import {
     DataTable,
     DatePicker,
     DensityProvider,
-    DeskRowMenu,
+    RowMenu,
     Icon,
     IconButton,
     initialsOf,
@@ -337,7 +337,7 @@ export function OrdersShowcaseScreen() {
 
                     <Text variant="title">Row menu, tick boxes and Show columns</Text>
                     <View className="z-20 flex-row flex-wrap items-center gap-4">
-                        <DeskRowMenu
+                        <RowMenu
                             testID="showcase-orders-row-menu"
                             label="Row actions"
                             actions={[

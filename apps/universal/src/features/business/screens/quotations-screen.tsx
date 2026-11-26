@@ -499,7 +499,6 @@ export function QuotationsScreen({ initialFilter, initialOpen }: QuotationsScree
                             setViewingRef(row.reference);
                         }}
                         rowActionsLabel={t('business:catalogue.rowActions')}
-                        rowActionsLook="desk"
                         rowActions={(row): readonly MenuItem[] => [
                             {
                                 key: 'view',

@@ -65,8 +65,6 @@ afterEach(() => {
 /**
  * A table row's actions, drawn flat rather than behind their `⋯`, so a screen's test can press the
  * action it is about without opening a menu first. The menu itself is exercised for real in
- * `row-actions-menu.test.tsx`.
+ * the design system's `row-menu.test.tsx`.
  */
-jest.mock('../../packages/design-system/src/data/row-actions-menu.tsx');
-// The desk kit's `⋯` (every `DataTable` since 2026-11-11), drawn flat the same way.
-jest.mock('../../packages/design-system/src/data/desk-row-menu.tsx');
+jest.mock('../../packages/design-system/src/data/row-menu.tsx');

@@ -447,7 +447,6 @@ function OrderDeskCashReport() {
                         rows={[]}
                         rowKey={rowTestId}
                         rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActionsLook="desk"
                         joined
                         frameEmpty
                         emptyState={
@@ -469,7 +468,6 @@ function OrderDeskCashReport() {
                             rows={controls.rows}
                             rowKey={rowTestId}
                             rowActionsLabel={t('kitchen:list.rowActions')}
-                            rowActionsLook="desk"
                             joined
                         />
 

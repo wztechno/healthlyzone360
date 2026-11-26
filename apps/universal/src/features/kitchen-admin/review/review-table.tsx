@@ -1,10 +1,4 @@
-import {
-    DataTable,
-    ROW_ACTIONS_WIDTH,
-    RowActionsMenu,
-    TablePager,
-    Text,
-} from '@healthy360/design-system';
+import { DataTable, ROW_ACTIONS_WIDTH, RowMenu, TablePager, Text } from '@healthy360/design-system';
 import type { DataTableColumn } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
@@ -213,7 +207,7 @@ export function useReviewColumns({
             render: (item) => {
                 const id = reviewRowTestId(item.familyKey, item.id);
                 return (
-                    <RowActionsMenu
+                    <RowMenu
                         label={t('kitchen:list.rowActions')}
                         testID={`${id}-actions`}
                         actions={[

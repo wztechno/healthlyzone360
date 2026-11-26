@@ -708,7 +708,6 @@ function OrderDeskRequirements() {
                                 rowKey={(row) => row.stockItemId}
                                 rowActions={rowActions}
                                 rowActionsLabel={t('kitchen:list.rowActions')}
-                                rowActionsLook="desk"
                                 joined
                             />
                         )}

@@ -954,7 +954,7 @@ function TablesSection() {
 
             <Sample
                 title="A list of records"
-                note="DataTable · ⋯ per row, pages past 18, two-line rows on a phone"
+                note="DataTable · RowMenu ⋯ per row (green while open), pages past 18, two-line rows on a phone"
             >
                 <View className="w-full">
                     <DataTable<StockRow>
