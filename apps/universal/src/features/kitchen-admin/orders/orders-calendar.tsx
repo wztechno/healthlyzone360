@@ -7,6 +7,7 @@ import {
     IconButton,
     Select,
     Skeleton,
+    Tabs,
     Text,
     useBreakpoint,
 } from '@healthy360/design-system';
@@ -24,7 +25,6 @@ import {
 import { formatMoney } from '../../marketplace/format.ts';
 import { addDays, dateInstant, mondayOf, weekDates } from '../../planner/format.ts';
 import { LensBar } from '../catalogue/lens-bar.tsx';
-import { DeskTabs } from '../desk-kit/index.ts';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { kitchenOrderFulfilmentTypeKey, kitchenOrderRowTestId } from '../ops-format.ts';
 import { windowCodesOfMeal } from '../order-desk-calendar.ts';
@@ -256,9 +256,9 @@ export function CalendarTab({
                                 }}
                             />
                         </View>
-                        <DeskTabs<CalendarMode>
+                        <Tabs<CalendarMode>
+                            variant="segmented"
                             testID="kitchen-orders-calendar-mode"
-                            size="sm"
                             label={t('kitchen:orders.calendar.modeLabel')}
                             value={mode}
                             onChange={(next) => {

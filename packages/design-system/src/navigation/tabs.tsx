@@ -66,6 +66,18 @@ export interface TabsProps<T extends string = string> {
     readonly variant?: TabsVariant | undefined;
     /** Stretch the tabs to fill the row — the usual choice for a two- or three-way segmented set. */
     readonly block?: boolean | undefined;
+    /**
+     * A value picked rather than a view shown — a payment method, a refund kind, a day's Open /
+     * Closed (the old `DeskTabs radio`). Announced as a radio group, and the chosen segment is the
+     * brand's soft green with a brand edge instead of the raised white of a tab. On `segmented`
+     * the segments grow to two lines so a longer choice is never cut.
+     */
+    readonly radio?: boolean | undefined;
+    /**
+     * Draws each item's `icon` alone — the list / cards switch beside a search. The label stays as
+     * the accessible name, and the pointer's hover names it.
+     */
+    readonly labelHidden?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -184,6 +196,8 @@ export function Tabs<T extends string = string>({
     onChange,
     variant = 'underline',
     block = false,
+    radio = false,
+    labelHidden = false,
     className,
     testID,
 }: TabsProps<T>) {
@@ -233,12 +247,19 @@ export function Tabs<T extends string = string>({
     return (
         <View
             testID={testID}
-            role="tablist"
-            accessibilityRole="tablist"
+            role={radio ? 'radiogroup' : 'tablist'}
+            accessibilityRole={radio ? 'radiogroup' : 'tablist'}
             aria-label={label}
             accessibilityLabel={label}
-            aria-orientation="horizontal"
-            className={cx(LIST_VARIANT[density][variant], className)}
+            {...(radio ? {} : { 'aria-orientation': 'horizontal' as const })}
+            className={cx(
+                // A value picked is one row, never two: Open / Closed in a narrow cell squeezes its
+                // segments rather than stacking them.
+                radio
+                    ? LIST_VARIANT[density][variant].replace('flex-wrap', 'flex-nowrap')
+                    : LIST_VARIANT[density][variant],
+                className,
+            )}
         >
             {items.map((item, index) => {
                 const selected = item.value === value;
@@ -253,13 +274,15 @@ export function Tabs<T extends string = string>({
                     <Pressable
                         key={item.value}
                         testID={item.testID}
-                        role="tab"
-                        accessibilityRole="tab"
+                        role={radio ? 'radio' : 'tab'}
+                        accessibilityRole={radio ? 'radio' : 'tab'}
                         accessibilityLabel={
                             issues === null ? item.label : `${item.label}, ${issues.label}`
                         }
-                        aria-selected={selected}
-                        accessibilityState={{ selected, disabled }}
+                        {...(radio ? { 'aria-checked': selected } : { 'aria-selected': selected })}
+                        accessibilityState={
+                            radio ? { checked: selected, disabled } : { selected, disabled }
+                        }
                         aria-disabled={disabled}
                         disabled={disabled}
                         // Roving tab stop: the list is one stop, arrows move within it.
@@ -269,11 +292,16 @@ export function Tabs<T extends string = string>({
                             onChange(item.value);
                         }}
                         className={cx(
-                            TAB_VARIANT[density][variant],
+                            radio && variant === 'segmented' && density === 'compact'
+                                ? 'min-h-9 flex-row items-center justify-center gap-control-sm rounded-[9px] px-2 py-1'
+                                : TAB_VARIANT[density][variant],
+                            labelHidden ? '!px-2' : null,
                             selected
-                                ? density === 'compact' && variant === 'segmented'
-                                    ? 'border border-transparent bg-surface-raised shadow-elevation-1'
-                                    : TAB_SELECTED[variant]
+                                ? radio
+                                    ? 'border border-brand-500 bg-surface-brand-subtle'
+                                    : density === 'compact' && variant === 'segmented'
+                                      ? 'border border-transparent bg-surface-raised shadow-elevation-1'
+                                      : TAB_SELECTED[variant]
                                 : TAB_UNSELECTED[variant],
                             block || steps ? 'flex-1' : null,
                             disabled ? 'opacity-50' : null,
@@ -311,37 +339,40 @@ export function Tabs<T extends string = string>({
                                 size="sm"
                                 className={
                                     selected
-                                        ? variant === 'segmented'
+                                        ? radio || variant === 'segmented'
                                             ? 'text-content-on-brand-subtle'
                                             : 'text-content-primary'
                                         : 'text-content-secondary'
                                 }
                             />
                         )}
-                        <RNText
-                            numberOfLines={1}
-                            className={cx(
-                                pills
-                                    ? 'shrink text-center'
-                                    : steps
-                                      ? 'min-w-0 flex-1 text-start'
-                                      : 'text-center',
-                                pills
-                                    ? 'text-sm font-semibold'
-                                    : density === 'compact'
-                                      ? variant === 'segmented' || variant === 'strip'
-                                          ? 'text-[13px] font-semibold'
-                                          : 'text-role-label'
-                                      : 'text-sm',
-                                selected
-                                    ? variant === 'segmented' || pills
-                                        ? 'font-semibold text-content-on-brand-subtle'
-                                        : 'font-semibold text-content-primary'
-                                    : 'text-content-secondary',
-                            )}
-                        >
-                            {item.label}
-                        </RNText>
+                        {labelHidden ? null : (
+                            <RNText
+                                numberOfLines={radio && variant === 'segmented' ? 2 : 1}
+                                className={cx(
+                                    pills
+                                        ? 'shrink text-center'
+                                        : steps
+                                          ? 'min-w-0 flex-1 text-start'
+                                          : 'text-center',
+                                    pills
+                                        ? 'text-sm font-semibold'
+                                        : density === 'compact'
+                                          ? variant === 'segmented' || variant === 'strip'
+                                              ? 'text-[13px] font-semibold'
+                                              : 'text-role-label'
+                                          : 'text-sm',
+                                    radio && variant === 'segmented' ? 'leading-4' : null,
+                                    selected
+                                        ? radio || pills || variant === 'segmented'
+                                            ? 'font-semibold text-content-on-brand-subtle'
+                                            : 'font-semibold text-content-primary'
+                                        : 'text-content-secondary',
+                                )}
+                            >
+                                {item.label}
+                            </RNText>
+                        )}
                         {item.count === undefined ||
                         (variant === 'strip' && item.count === 0) ? null : variant === 'strip' ? (
                             <View className="h-5 min-w-5 items-center justify-center rounded-full bg-warning-subtle px-1.5">

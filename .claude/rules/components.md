@@ -95,7 +95,23 @@ The admin look of each comes from `AreaLookScope`. On `Checkbox` the pressable b
 **Removed, never recreate:** `DeskChip`, `DeskCheckbox`, `DeskToggleTile`, `DeskChoiceChips`, the
 desk-kit `ChoiceRow`, and the kitchen-admin `CountPill` copies.
 
+## Tabs — `Tabs` in two looks
+
+The admin uses `Tabs` from `@healthy360/design-system` in **two looks only**:
+
+| Job                                                          | How                                        |
+| ------------------------------------------------------------ | ------------------------------------------ |
+| A page's views (Orders: Today / Calendar / All orders, Cash) | `variant="strip"` — counts in amber        |
+| A mode inside a toolbar or form (Month / Week, Read as)      | `variant="segmented"` (`SegmentedControl`) |
+| A value picked (payment method, Open / Closed)               | `segmented` + `radio` (+ `block`)          |
+| Icons only (list / cards)                                    | `segmented` + `radio` + `labelHidden`      |
+
+`steps` and `pills` are the editors' numbered sections (recipe, plan, record forms) and wait for the
+step-bars family; `underline` is the web shop's. Do not use them on a new admin page.
+
+**Removed, never recreate:** `DeskTabs`, `LensViewSwitch`.
+
 ## Canvas designs
 
-A new board draws dropdowns, fields, buttons, labels, tick boxes, choices and pills as `/showcase-components` shows them. If a design
+A new board draws dropdowns, fields, buttons, labels, tick boxes, choices, tabs and pills as `/showcase-components` shows them. If a design
 needs a part that is not on that page, say so — it is a new design-system part, not a one-off.

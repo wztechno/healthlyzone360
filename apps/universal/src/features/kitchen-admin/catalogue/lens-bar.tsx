@@ -560,69 +560,6 @@ function SplitLens({
 /** The split query row carries more controls before the search, so it gives way sooner. */
 const SPLIT_SEARCH_MIN_WIDTH = 150;
 
-export interface LensViewOption<T extends string> {
-    readonly value: T;
-    /** Translated — the option's accessible name, since only its glyph is drawn. */
-    readonly label: string;
-    readonly icon: IconName;
-    readonly testID?: string | undefined;
-}
-
-/**
- * Table · Cards as two glyphs — the layout switch for a narrow Lens bar, where the labelled
- * segmented control would push the query row onto a second line.
- */
-export function LensViewSwitch<T extends string>({
-    label,
-    value,
-    onChange,
-    options,
-    testID,
-}: {
-    readonly label: string;
-    readonly value: T;
-    readonly onChange: (value: T) => void;
-    readonly options: readonly LensViewOption<T>[];
-    readonly testID: string;
-}) {
-    return (
-        <View
-            testID={testID}
-            role="radiogroup"
-            aria-label={label}
-            className="h-control-sm flex-row items-center gap-0.5 rounded border border-stroke-subtle bg-surface-base p-0.5"
-        >
-            {options.map((option) => {
-                const on = option.value === value;
-                return (
-                    <Pressable
-                        key={option.value}
-                        testID={option.testID}
-                        role="radio"
-                        accessibilityRole="radio"
-                        accessibilityLabel={option.label}
-                        accessibilityState={{ checked: on }}
-                        onPress={() => {
-                            onChange(option.value);
-                        }}
-                        className={`h-6 w-7 items-center justify-center rounded-sm ${
-                            on ? 'bg-surface-brand-subtle' : 'hover:bg-surface-sunken'
-                        }`}
-                    >
-                        <Icon
-                            name={option.icon}
-                            size="sm"
-                            className={
-                                on ? 'text-content-on-brand-subtle' : 'text-content-secondary'
-                            }
-                        />
-                    </Pressable>
-                );
-            })}
-        </View>
-    );
-}
-
 /** The narrowest the search gives way to: an order number and a short name. */
 const SEARCH_MIN_WIDTH = 200;
 

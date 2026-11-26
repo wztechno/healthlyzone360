@@ -536,3 +536,51 @@ describe('Pagination', () => {
         assertSubtreeIsLogical(screen.getByTestId('pager'));
     });
 });
+
+describe('Tabs — a value picked (radio) and icons only', () => {
+    const methods: readonly TabItem[] = [
+        { value: 'cash', label: 'Cash on delivery', testID: 'm-cash' },
+        { value: 'card', label: 'Card at the door', testID: 'm-card' },
+    ];
+
+    it('announces a radio group whose chosen item is checked, not selected', async () => {
+        const onChange = jest.fn();
+        await renderWithI18n(
+            <Tabs
+                testID="m"
+                label="Payment method"
+                variant="segmented"
+                radio
+                items={methods}
+                value="cash"
+                onChange={onChange}
+            />,
+        );
+        expect(screen.getByTestId('m').props.accessibilityRole).toBe('radiogroup');
+        expect(screen.getByTestId('m-cash').props.accessibilityRole).toBe('radio');
+        expect(screen.getByTestId('m-cash').props.accessibilityState).toMatchObject({
+            checked: true,
+        });
+        expect(String(screen.getByTestId('m-cash').props.className)).toContain(
+            'bg-surface-brand-subtle',
+        );
+        fireEvent.press(screen.getByTestId('m-card'));
+        expect(onChange).toHaveBeenCalledWith('card');
+    });
+
+    it('draws only the glyph and keeps the label as the name', async () => {
+        await renderWithI18n(
+            <Tabs
+                label="Layout"
+                variant="segmented"
+                radio
+                labelHidden
+                items={[{ value: 'table', label: 'Table', icon: 'list', testID: 'l-table' }]}
+                value="table"
+                onChange={jest.fn()}
+            />,
+        );
+        expect(screen.queryByText('Table')).toBeNull();
+        expect(screen.getByTestId('l-table').props.accessibilityLabel).toBe('Table');
+    });
+});

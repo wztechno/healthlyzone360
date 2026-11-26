@@ -11,6 +11,7 @@ import {
     IconButton,
     initialsOf,
     Select,
+    Tabs,
     Text,
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
@@ -28,7 +29,6 @@ import {
     DeskColumnPicker,
     DeskDateButton,
     DeskRowMenu,
-    DeskTabs,
     ListGroupRow,
     MiniMonthPicker,
 } from '../features/kitchen-admin/desk-kit/index.ts';
@@ -193,7 +193,8 @@ export function OrdersShowcaseScreen() {
             <View className="mx-auto w-full max-w-[1280px] p-6">
                 <Cascade space="lg" testID="orders-showcase">
                     <Text variant="title">Desk tabs — a page's views, and a toolbar's switch</Text>
-                    <DeskTabs
+                    <Tabs
+                        variant="strip"
                         testID="showcase-orders-tabs"
                         label="Orders views"
                         value={tab}
@@ -205,9 +206,9 @@ export function OrdersShowcaseScreen() {
                         ]}
                     />
 
-                    <DeskTabs
+                    <Tabs
+                        variant="segmented"
                         testID="showcase-orders-mode"
-                        size="sm"
                         label="Calendar view"
                         value={mode}
                         onChange={setMode}
@@ -269,9 +270,9 @@ export function OrdersShowcaseScreen() {
 
                     <Text variant="title">Dialog choices — rows and radio segments</Text>
                     <View className="w-full max-w-[432px] flex-col gap-3">
-                        <DeskTabs<'cash' | 'counter' | 'wish'>
+                        <Tabs<'cash' | 'counter' | 'wish'>
+                            variant="segmented"
                             testID="showcase-orders-method"
-                            size="sm"
                             radio
                             block
                             label="How did the money arrive?"

@@ -1,5 +1,16 @@
 import { OrderId } from '@healthy360/domain-types';
-import { Button, Cascade, EmptyState, ErrorState, Icon, IssueTrayFrame, IssueUnanchored, Select, TableSkeleton } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    EmptyState,
+    ErrorState,
+    Icon,
+    IssueTrayFrame,
+    IssueUnanchored,
+    Select,
+    TableSkeleton,
+    Tabs,
+} from '@healthy360/design-system';
 import type { IssueTrayContent } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -23,7 +34,7 @@ import {
     SUBSCRIPTION_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { kitchenOrderStatusKey } from '../ops-format.ts';
-import { DeskTabs, ListGroupRow } from '../desk-kit/index.ts';
+import { ListGroupRow } from '../desk-kit/index.ts';
 import { KitchenPauseBanner, KitchenPauseButton } from '../order-desk/kitchen-pause.tsx';
 import { useWindowName } from '../order-desk/use-window-name.ts';
 import { useListPage } from '../use-list-page.ts';
@@ -325,7 +336,8 @@ function OrdersPage() {
             <Cascade space="md" testID="kitchen-orders-screen">
                 {/* The three tabs stand centred; the page's actions sit at the end of the chips. */}
                 <View className="z-20 flex-row flex-wrap items-center justify-center gap-3">
-                    <DeskTabs<OrdersTab>
+                    <Tabs<OrdersTab>
+                        variant="strip"
                         testID="kitchen-orders-tabs"
                         label={t('kitchen:orders.tab.label')}
                         value={tab}

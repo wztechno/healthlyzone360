@@ -12,6 +12,7 @@ import {
     Inline,
     Select,
     Stack,
+    Tabs,
     Tag,
     Text,
     TextInputField,
@@ -44,7 +45,6 @@ import type {
 import { ISO_WEEKDAYS, displayName } from './format.ts';
 import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
 
-import { DeskTabs } from './desk-kit/desk-tabs.tsx';
 /**
  * The three repeated editors of the delivery slice (K1.7).
  *
@@ -709,7 +709,8 @@ export function OperatingWeekRows({
                 return (
                     <View className="z-auto min-w-0 flex-1">
                         {canManage ? (
-                            <DeskTabs<Trading>
+                            <Tabs<Trading>
+                                variant="strip"
                                 testID={`${dayID}-trading`}
                                 radio
                                 label={t('kitchen:branchHours.tradingLabel', {

@@ -12,6 +12,7 @@ import {
     Dialog,
     Inline,
     Stack,
+    Tabs,
     Text,
     TextInputField,
     useToast,
@@ -29,7 +30,6 @@ import {
     useRecordOrderRefundMutation,
 } from '../../data/kitchen-orders-hooks.ts';
 import { formatMoney } from '../marketplace/format.ts';
-import { DeskTabs } from './desk-kit/index.ts';
 import { ORDER_APPROVE_REFUND_PERMISSION } from './entity-registry.ts';
 import { kitchenOrderPaymentMethodKey } from './ops-format.ts';
 
@@ -276,9 +276,9 @@ function RefundDialog({
             }
         >
             <Stack space="sm">
-                <DeskTabs<OrderRefundKind>
+                <Tabs<OrderRefundKind>
+                    variant="segmented"
                     testID="kitchen-orders-refund-kinds"
-                    size="sm"
                     radio
                     block
                     label={t('kitchen:ops.orders.refunds.dialogTitle', {
@@ -299,9 +299,9 @@ function RefundDialog({
                     <Text variant="label" tone="secondary" className="!font-semibold">
                         {t('kitchen:ops.orders.refunds.methodLabel')}
                     </Text>
-                    <DeskTabs<KitchenOrderPaymentMethod>
+                    <Tabs<KitchenOrderPaymentMethod>
+                        variant="segmented"
                         testID="kitchen-orders-refund-method"
-                        size="sm"
                         radio
                         block
                         label={t('kitchen:ops.orders.refunds.methodLabel')}

@@ -5,7 +5,6 @@
  * | Canvas            | Part               | Replaces                    |
  * | ----------------- | ------------------ | --------------------------- |
  * | `.drop.has` `.mm` | `MiniMonthPicker`  | `DatePickerButton` (or `DeskDateButton`, its props) |
- * | `.otabs` `.seg3`  | `DeskTabs`         | `Tabs variant="segmented"`  |
  * | `.gh2`            | `ListGroupRow`     | a hand-made section heading |
  * | `.dots.more`      | `DeskRowMenu`      | `RowActionsMenu` (or `rowActionsLook="desk"`) |
  * | Show columns      | `DeskColumnPicker` | `ColumnPicker`              |
@@ -13,15 +12,13 @@
  *
  * All of them are on `/showcase-orders`. Dropdowns, buttons, labels, tick boxes and choices are
  * not here: they are the design system's `Select`, `Button` / `IconButton`, `Badge`, `Checkbox`,
- * `ChoiceRow` and `ChoiceChips`, all on `/showcase-components`.
+ * `ChoiceRow`, `ChoiceChips` and `Tabs`, all on `/showcase-components`.
  */
 export { DeskColumnPicker } from './desk-column-picker.tsx';
 export { DeskRowMenu } from './desk-row-menu.tsx';
 export { DropTrigger } from './drop-trigger.tsx';
-export { DeskTabs } from './desk-tabs.tsx';
 export { DeskTrail } from './desk-trail.tsx';
 export type { DeskCrumb } from './desk-trail.tsx';
-export type { DeskTabItem } from './desk-tabs.tsx';
 export { ListGroupRow } from './list-group-row.tsx';
 export { DeskDateButton, MiniMonthPicker } from './mini-month.tsx';
 export { DeskDateField } from './desk-date-field.tsx';

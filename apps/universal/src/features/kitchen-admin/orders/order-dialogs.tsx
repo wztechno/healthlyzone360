@@ -27,6 +27,7 @@ import {
     Select,
     Skeleton,
     Stack,
+    Tabs,
     Text,
     TextInputField,
     useToast,
@@ -52,7 +53,6 @@ import {
     useOrderDeskDriversQuery,
 } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { DeskTabs } from '../desk-kit/index.ts';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_SUPERVISE_PERMISSION,
@@ -557,9 +557,9 @@ export function RecordPaymentDialog({
                 <Text variant="label" tone="secondary" className="!font-semibold">
                     {t('kitchen:desk.recordPayment.methodLabel')}
                 </Text>
-                <DeskTabs<KitchenOrderPaymentMethod>
+                <Tabs<KitchenOrderPaymentMethod>
+                    variant="segmented"
                     testID="kitchen-orders-payment-method"
-                    size="sm"
                     radio
                     block
                     label={t('kitchen:desk.recordPayment.methodLabel')}

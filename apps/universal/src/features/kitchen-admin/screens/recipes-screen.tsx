@@ -9,6 +9,7 @@ import {
     Menu,
     Select,
     Stack,
+    Tabs,
     Text,
     useToast,
 } from '@healthy360/design-system';
@@ -52,7 +53,7 @@ import { RecipeCardGrid } from '../catalogue/recipe-card-grid.tsx';
 import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
 import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { LensBar, LensViewSwitch } from '../catalogue/lens-bar.tsx';
+import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
@@ -491,12 +492,15 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                             ];
                             return (
                                 <Inline space="xs" align="center">
-                                    <LensViewSwitch<RecipeLayout>
+                                    <Tabs<RecipeLayout>
+                                        variant="segmented"
+                                        radio
+                                        labelHidden
                                         testID="kitchen-recipes-layout"
                                         label={t('kitchen:list.layoutLabel')}
                                         value={layout}
                                         onChange={setLayout}
-                                        options={layoutOptions}
+                                        items={layoutOptions}
                                     />
                                     {/* Columns are a table's question; a card draws every field it has. */}
                                     {layout === 'table' ? (

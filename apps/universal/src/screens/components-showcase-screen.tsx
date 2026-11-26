@@ -12,6 +12,7 @@ import {
     Select,
     Stack,
     Switch,
+    Tabs,
     Tag,
     Text,
     initialsOf,
@@ -572,6 +573,92 @@ function ChoicesSection() {
     );
 }
 
+function TabsSection() {
+    const [view, setView] = useState('today');
+    const [mode, setMode] = useState('month');
+    const [method, setMethod] = useState('cash');
+    const [layout, setLayout] = useState('table');
+    return (
+        <Stack space="lg" testID="components-showcase-tabs">
+            <Stack space="xs">
+                <Text variant="section">Tabs</Text>
+                <Text variant="caption" tone="secondary">
+                    Tabs · the admin uses two looks: strip for a page&apos;s views, segmented for a
+                    toggle
+                </Text>
+            </Stack>
+
+            <Sample title="Page tabs" note={'variant="strip" · counts in amber, hidden at 0'}>
+                <Tabs
+                    testID="components-showcase-tabs-strip"
+                    label="Orders view"
+                    variant="strip"
+                    items={[
+                        { value: 'today', label: 'Today', count: 13 },
+                        { value: 'calendar', label: 'Calendar' },
+                        { value: 'all', label: 'All orders' },
+                    ]}
+                    value={view}
+                    onChange={setView}
+                />
+            </Sample>
+
+            <Sample title="Toggle" note={'variant="segmented" · a mode inside a toolbar or form'}>
+                <Tabs
+                    testID="components-showcase-tabs-segmented"
+                    label="Calendar view"
+                    variant="segmented"
+                    items={[
+                        { value: 'month', label: 'Month' },
+                        { value: 'week', label: 'Week' },
+                        { value: 'day', label: 'Today' },
+                    ]}
+                    value={mode}
+                    onChange={setMode}
+                />
+            </Sample>
+
+            <Sample
+                title="A value picked"
+                note={'segmented + radio · payment method, Open / Closed'}
+            >
+                <View className="w-[360px]">
+                    <Tabs
+                        testID="components-showcase-tabs-radio"
+                        label="Payment method"
+                        variant="segmented"
+                        radio
+                        block
+                        items={[
+                            { value: 'cash', label: 'Cash on delivery' },
+                            { value: 'card', label: 'Card at the door' },
+                            { value: 'wish', label: 'Wish transfer' },
+                        ]}
+                        value={method}
+                        onChange={setMethod}
+                    />
+                </View>
+            </Sample>
+
+            <Sample title="Icons only" note={'segmented + radio + labelHidden · list / cards'}>
+                <Tabs
+                    testID="components-showcase-tabs-icons"
+                    label="Layout"
+                    variant="segmented"
+                    radio
+                    labelHidden
+                    items={[
+                        { value: 'table', label: 'Table', icon: 'list' },
+                        { value: 'cards', label: 'Cards', icon: 'layoutGrid' },
+                    ]}
+                    value={layout}
+                    onChange={setLayout}
+                />
+            </Sample>
+        </Stack>
+    );
+}
+
 export function ComponentsShowcaseScreen() {
     return (
         <DensityProvider value="compact">
@@ -583,6 +670,7 @@ export function ComponentsShowcaseScreen() {
                     <LabelsSection />
                     <TickBoxesSection />
                     <ChoicesSection />
+                    <TabsSection />
                 </Stack>
             </View>
         </DensityProvider>
