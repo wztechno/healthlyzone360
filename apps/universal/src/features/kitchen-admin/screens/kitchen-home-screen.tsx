@@ -159,8 +159,11 @@ function AttentionRow({
                     <Text className="font-display text-role-section font-bold tabular-nums">
                         {check.count === null ? '—' : String(check.count)}
                     </Text>
-                    <View className="h-8 justify-center rounded-full border border-stroke-subtle px-3">
-                        <Text variant="label">{check.actionLabel}</Text>
+                    {/* One width for every action ("Fix", "Review", "Plan"), so the pills match. */}
+                    <View className="h-8 w-20 items-center justify-center rounded-full border border-stroke-subtle px-3">
+                        <Text variant="label" numberOfLines={1}>
+                            {check.actionLabel}
+                        </Text>
                     </View>
                 </>
             )}
@@ -749,8 +752,9 @@ export function KitchenHomeScreen() {
     const wide = contentWidth >= 900;
     // Two rows rather than two columns, so each card lines up with the one beside it.
     const panelRow = wide ? 'flex-row items-stretch gap-3' : 'gap-3';
-    const panelStart = wide ? 'min-w-0 flex-[1.3]' : '';
-    const panelEnd = wide ? 'min-w-0 flex-1' : '';
+    // The four panels are one size (2026-11-27): two equal halves to a row, each row one height.
+    const panelStart = wide ? 'min-w-0 flex-1 basis-0' : '';
+    const panelEnd = wide ? 'min-w-0 flex-1 basis-0' : '';
     const goToGrid =
         contentWidth >= 1000 ? 'grid-cols-5' : contentWidth >= 640 ? 'grid-cols-3' : 'grid-cols-1';
     const todayDate = formatter.formatDate(new Date(), { dateStyle: 'full' });
