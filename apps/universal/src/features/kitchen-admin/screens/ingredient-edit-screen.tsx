@@ -2855,7 +2855,6 @@ function IngredientEditor({
                                     testID="kitchen-ingredient-image"
                                     uri={photo}
                                     fallback={stockPhoto}
-                                    size={120}
                                     disabled={!editable}
                                     onChange={(next) => {
                                         // Clearing takes the stock picture off as well as an upload;
