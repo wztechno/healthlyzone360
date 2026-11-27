@@ -3289,6 +3289,45 @@ function RecipeEditor({
                                                 markDirty('details');
                                             }}
                                         />
+                                        {classification === undefined ? null : (
+                                            <TextInputField
+                                                span={2}
+                                                testID="kitchen-recipe-category"
+                                                id="kitchen-recipe-category"
+                                                label={t('kitchen:fields.category')}
+                                                size="sm"
+                                                value={classification.categoryLabel}
+                                                disabled
+                                                onChangeText={() => undefined}
+                                            />
+                                        )}
+                                        {/*
+                                         * Beside the category. A frozen meal passes no options, so it
+                                         * draws none; a dressing's one option is drawn chosen and fixed.
+                                         */}
+                                        {classification === undefined ||
+                                        classification.options.length === 0 ? null : (
+                                            <Select
+                                                span={2}
+                                                testID="kitchen-recipe-subcategory"
+                                                id="kitchen-recipe-subcategory"
+                                                label={classification.subcategoryLabel}
+                                                placeholder={classification.subcategoryPlaceholder}
+                                                disabled={!editable || fixedSubcategory !== null}
+                                                options={classification.options}
+                                                value={
+                                                    recipeCategory === '' ? null : recipeCategory
+                                                }
+                                                {...server.flag('recipe_category')}
+                                                onChange={(next) => {
+                                                    setDetails({
+                                                        ...details,
+                                                        recipeCategory: next,
+                                                    });
+                                                    markDirty('details');
+                                                }}
+                                            />
+                                        )}
                                         {/*
                                          * Whenever something sells it: the description is its catalogue
                                          * item's — what the admin and the web shop show — written with it
@@ -3338,45 +3377,6 @@ function RecipeEditor({
                                                     }
                                                     setListingDescription(next);
                                                     setAllSaved(false);
-                                                }}
-                                            />
-                                        )}
-                                        {classification === undefined ? null : (
-                                            <TextInputField
-                                                span={2}
-                                                testID="kitchen-recipe-category"
-                                                id="kitchen-recipe-category"
-                                                label={t('kitchen:fields.category')}
-                                                size="sm"
-                                                value={classification.categoryLabel}
-                                                disabled
-                                                onChangeText={() => undefined}
-                                            />
-                                        )}
-                                        {/*
-                                         * Beside the category. A frozen meal passes no options, so it
-                                         * draws none; a dressing's one option is drawn chosen and fixed.
-                                         */}
-                                        {classification === undefined ||
-                                        classification.options.length === 0 ? null : (
-                                            <Select
-                                                span={2}
-                                                testID="kitchen-recipe-subcategory"
-                                                id="kitchen-recipe-subcategory"
-                                                label={classification.subcategoryLabel}
-                                                placeholder={classification.subcategoryPlaceholder}
-                                                disabled={!editable || fixedSubcategory !== null}
-                                                options={classification.options}
-                                                value={
-                                                    recipeCategory === '' ? null : recipeCategory
-                                                }
-                                                {...server.flag('recipe_category')}
-                                                onChange={(next) => {
-                                                    setDetails({
-                                                        ...details,
-                                                        recipeCategory: next,
-                                                    });
-                                                    markDirty('details');
                                                 }}
                                             />
                                         )}
