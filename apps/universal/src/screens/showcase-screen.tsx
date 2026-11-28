@@ -3,43 +3,44 @@ import {
     Accordion,
     ActionSheet,
     AppShell,
-    RailAccount,
     Avatar,
     Badge,
     BADGE_TONES,
+    BilingualField,
     Breadcrumbs,
     Button,
     BUTTON_SIZES,
     BUTTON_VARIANTS,
     CalendarGrid,
-    CardGridSkeleton,
     Callout,
     CALLOUT_TONES,
     Card,
-    Cascade,
-    CommandPalette,
-    CARD_TONES,
     CARD_PADDINGS,
+    CARD_TONES,
+    CardGridSkeleton,
+    Cascade,
     Checkbox,
     Chip,
     Collapse,
+    ColumnHeader,
+    ColumnPicker,
+    CommandPalette,
     DataList,
+    DataTable,
+    DataTableBody,
+    DataTableItem,
     DateField,
-    DatePickerButton,
-    DerivedChipPanel,
-    ListSummaryCards,
-    PickerField,
-    TimeField,
-    RecordSkeleton,
-    RecordWindow,
-    RecordWindowFieldGrid,
+    DatePicker,
     DensityProvider,
+    DerivedChipPanel,
     Dialog,
     Drawer,
+    DRAWN_ICON_FALLBACKS,
     Dropdown,
     EmptyState,
     ErrorState,
     FadeIn,
+    FigureChips,
     FileUploadField,
     FilterChip,
     FormField,
@@ -50,64 +51,76 @@ import {
     FormSkeleton,
     Heading,
     Icon,
-    DRAWN_ICON_FALLBACKS,
     ICON_GLYPHS,
     IconButton,
     ImagePlaceholder,
+    InfoTip,
     Inline,
     INPUT_SIZES,
     ListItem,
+    ListSummaryCards,
     Menu,
     MeterBar,
     NumberStepper,
     NUTRITION_LEVELS,
     OfflineIndicator,
     OtpInput,
+    PageHeader,
     PageTransition,
     Pagination,
     PasswordInput,
-    InfoTip,
+    PickerField,
     Popover,
     ProgressRing,
     QuantityInput,
+    RailAccount,
     RangeFilter,
     Rating,
     RECORD_STATUSES,
+    RecordSkeleton,
+    RecordSummaryAside,
+    RecordWindowFieldGrid,
+    SearchInput,
     SegmentedControl,
     Select,
-    SearchInput,
     Separator,
     Skeleton,
-    StatTilesSkeleton,
-    TableSkeleton,
     SlideIn,
     SliderField,
     Spinner,
     Stack,
+    StatTilesSkeleton,
     StatusBadge,
-    StepProgress,
     Stepper,
+    StepProgress,
     Switch,
     Table,
+    TablePager,
+    TableSkeleton,
     Tabs,
     TABS_VARIANTS,
-    TAG_TONES,
     Tag,
+    TAG_TONES,
     TagRow,
     Text,
     TEXT_ALIGNMENTS,
     TEXT_TONES,
     TEXT_VARIANTS,
     TextInputField,
+    TimeField,
     UNDROPPABLE_PRIORITY,
     useAnimatedNumber,
+    useColumnVisibility,
     useFormSteps,
     useToast,
 } from '@healthy360/design-system';
 import type {
     CommandPaletteItem,
     DataListColumn,
+    DataTableBodyState,
+    DataTableColumn,
     IconName,
+    LensFigure,
     RangeValue,
     RecordStatus,
     TableColumn,
@@ -134,33 +147,14 @@ import type {
     ReceiptFeedMotion,
     ReceiptPrinterStage,
 } from '../features/commerce/receipt-printer.tsx';
-import { BilingualField } from '../features/kitchen-admin/bilingual-field.tsx';
 import { DerivedPanel } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../features/kitchen-admin/catalogue/derived-panel.tsx';
-import { CatalogueList } from '../features/kitchen-admin/catalogue/catalogue-list.tsx';
-import { CatalogueListItem } from '../features/kitchen-admin/catalogue/catalogue-list-item.tsx';
-import type { CatalogueColumn } from '../features/kitchen-admin/catalogue/catalogue-column-spec.ts';
-import { CatalogueListBody } from '../features/kitchen-admin/catalogue/catalogue-list-body.tsx';
 import { RecordPhoto } from '../features/kitchen-admin/catalogue/record-photo.tsx';
 import { RowThumbnail } from '../features/kitchen-admin/catalogue/row-thumbnail.tsx';
-import type { CatalogueListBodyState } from '../features/kitchen-admin/catalogue/catalogue-list-body.tsx';
-import { CataloguePager } from '../features/kitchen-admin/catalogue/catalogue-pager.tsx';
-import { CatalogueStatCards } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../features/kitchen-admin/catalogue/catalogue-stat-cards.tsx';
-import { CatalogueToolbar } from '../features/kitchen-admin/catalogue/catalogue-toolbar.tsx';
-import { CatalogueColumnHeader } from '../features/kitchen-admin/catalogue/catalogue-column-header.tsx';
 import { RecipeCardGrid } from '../features/kitchen-admin/catalogue/recipe-card-grid.tsx';
-import {
-    ColumnPicker,
-    useColumnVisibility,
-} from '../features/kitchen-admin/catalogue/column-picker.tsx';
 import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
 import { GateRailCard } from '../features/kitchen-admin/gate-rail-card.tsx';
-import { RecordSummaryAside } from '../features/kitchen-admin/record-summary-aside.tsx';
-import { KitchenPageHeader } from '../features/kitchen-admin/kitchen-page-header.tsx';
-import { KpiTile } from '../features/kitchen-admin/kpi-tile.tsx';
 import { PackCard } from '../features/kitchen-admin/packs-prices-section.tsx';
-import { ListToolbar } from '../features/kitchen-admin/list-toolbar.tsx';
 import { ToolbarRow } from '../features/marketplace/toolbar-row.tsx';
 import { AiBand, AiRailCard } from '../ui/ai-surface.tsx';
 import { BrowseCard } from '../ui/browse-card.tsx';
@@ -305,49 +299,12 @@ const SHOWCASE_NUTRIENTS: readonly DerivedFigure[] = [
     { key: 'protein', label: 'Protein', value: '1.1', unit: 'g / 100 g' },
 ];
 
-/** The four figures a Catalogue list opens with, in all four tones. Two are filters. */
-const SHOWCASE_STAT_CARDS: readonly CatalogueStatCard[] = [
-    {
-        key: 'shown',
-        label: 'Shown',
-        value: '18',
-        unit: 'of 306',
-        caption: 'Filtered — clear',
-        mark: 'list',
-        tone: 'brand',
-        onPress: () => undefined,
-        accessibilityLabel: 'Clear every filter',
-    },
-    {
-        key: 'draft',
-        label: 'Draft',
-        value: '2',
-        unit: 'records',
-        caption: 'not published yet',
-        mark: 'fileDraft',
-        tone: 'warning',
-        onPress: () => undefined,
-        accessibilityLabel: 'Show only draft records',
-    },
-    {
-        key: 'missing',
-        label: 'Missing Arabic',
-        value: '3',
-        unit: 'records',
-        caption: 'blocked from publishing',
-        mark: 'languages',
-        tone: 'danger',
-    },
-    {
-        key: 'uncosted',
-        label: 'Uncosted',
-        value: '0',
-        unit: 'records',
-        caption: 'no unit price on file',
-        mark: 'coins',
-    },
+/** The figures a Catalogue list opens with. */
+const SHOWCASE_FIGURES: readonly LensFigure[] = [
+    { key: 'all', label: 'All ingredients', value: 306, active: true, onPress: () => undefined },
+    { key: 'draft', label: 'Draft', value: 2, tone: 'warning', onPress: () => undefined },
+    { key: 'review', label: 'Awaiting review', value: 3, tone: 'danger', alarm: true },
 ];
-
 /** How long the arrival story holds its pending frame — long enough to look at, not to wait on. */
 const ARRIVAL_HOLD_MS = 900;
 
@@ -400,10 +357,10 @@ const CATALOGUE_KINDS = ['paste', 'spice', 'dairy'] as const;
 
 /**
  * The smallest spec that shows a row photograph: a title column naming it through `thumbnail`,
- * which `CatalogueList` draws at 20px in the title cell. The three ingredients are real records
+ * which `DataTable` draws at 20px in the title cell. The three ingredients are real records
  * with bundled photographs, so the block shows the shipped files rather than a pattern.
  */
-const CATALOGUE_PHOTO_COLUMNS: readonly CatalogueColumn<CatalogueRow>[] = [
+const CATALOGUE_PHOTO_COLUMNS: readonly DataTableColumn<CatalogueRow>[] = [
     {
         key: 'designation',
         label: 'Item',
@@ -568,7 +525,7 @@ function SwitchStory({ prefix }: { readonly prefix: string }) {
     );
 }
 
-const LIST_BODY_BASE: CatalogueListBodyState = {
+const LIST_BODY_BASE: DataTableBodyState = {
     isPending: false,
     isFetching: false,
     failure: null,
@@ -1028,10 +985,11 @@ function ArrivalStory({
             </Inline>
             {/* Keyed by the round, so Replay is a fresh page: the bands rise in again. */}
             <Cascade key={round} space="xs" testID={`${prefix}-arrival-page`}>
-                <CatalogueStatCards
+                <FigureChips
                     testID={`${prefix}-arrival-stats`}
-                    cards={SHOWCASE_STAT_CARDS}
-                    pending={pending}
+                    figures={SHOWCASE_FIGURES.map((figure) =>
+                        pending ? { ...figure, value: null } : figure,
+                    )}
                 />
                 {pending ? (
                     <TableSkeleton
@@ -1178,9 +1136,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
     const [restricted, setRestricted] = useState(false);
     const [tab, setTab] = useState<string>('description');
     const [segment, setSegment] = useState('all');
-    const [toolbarSearch, setToolbarSearch] = useState('');
-    const [toolbarStatus, setToolbarStatus] = useState('all');
-    const [recordOpen, setRecordOpen] = useState(false);
     const [pickerMonth, setPickerMonth] = useState('2026-08');
     const [pickerDate, setPickerDate] = useState('2026-08-01');
     const [pickerTime, setPickerTime] = useState('08:30');
@@ -1207,7 +1162,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
      * pressing a value adds the filter mark beside the label.
      */
     const columnMenu = (scope: string) => (
-        <CatalogueColumnHeader
+        <ColumnHeader
             label="Kind"
             sortDirection={kindSort}
             onToggleSort={() => {
@@ -2602,25 +2557,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                 />
             </Stack>
 
-            {/*
-             * Catalogue stat cards: the four figures a list page opens with, in all four tones.
-             * Two are filters and take the hover tint; two are read-only.
-             */}
-            <Stack space="xs">
-                <Text variant="section" tone="secondary">
-                    Catalogue stat cards
-                </Text>
-                <CatalogueStatCards testID={id('stat-cards')} cards={SHOWCASE_STAT_CARDS} />
-                <Text variant="caption" tone="secondary">
-                    pending
-                </Text>
-                <CatalogueStatCards
-                    testID={id('stat-cards-pending')}
-                    cards={SHOWCASE_STAT_CARDS}
-                    pending
-                />
-            </Stack>
-
             <ArrivalStory prefix={prefix} columns={catalogueColumns('list-arrival')} />
 
             <RecipeCardsStory prefix={prefix} />
@@ -2628,87 +2564,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
             <ColumnPickerStory prefix={prefix} />
 
             <CommandPaletteStory prefix={prefix} />
-
-            {/*
-             * The Catalogue's toolbar, drawn on a full-width ground so its centring is visible.
-             * The row holds a 240px search and the status set and nothing else, and it is centred
-             * because the stat-card row above it is — a left-hung control row under a centred band
-             * reads as the start of a column that never arrives.
-             */}
-            <Stack space="xs">
-                <Text variant="section" tone="secondary">
-                    Catalogue toolbar
-                </Text>
-                <CatalogueToolbar
-                    testID={id('toolbar')}
-                    search={toolbarSearch}
-                    onSearchChange={setToolbarSearch}
-                    searchLabel="Search the catalogue"
-                    searchPlaceholder="Search ingredients"
-                    statusLabel="Status"
-                    statusSegments={[
-                        { value: 'all', label: 'All' },
-                        { value: 'live', label: 'Live' },
-                        { value: 'draft', label: 'Draft' },
-                        { value: 'review', label: 'Review' },
-                    ]}
-                    status={toolbarStatus}
-                    onStatusChange={setToolbarStatus}
-                />
-            </Stack>
-
-            {/*
-             * The same toolbar on a laptop's page, with a filter of the entity's own and the row's
-             * actions. Narrowed to 640px so the break is visible: the search and the filters wrap
-             * inside their zone, and New keeps the end of the first line — it is never the control
-             * left on a line of its own. `onScan` adds the camera button beside the search
-             * (ingredient barcodes).
-             */}
-            <Stack space="xs">
-                <Text variant="section" tone="secondary">
-                    Catalogue toolbar — filters and actions, 640px
-                </Text>
-                <View style={{ maxWidth: 640 }}>
-                    <CatalogueToolbar
-                        testID={id('toolbar-narrow')}
-                        search={toolbarSearch}
-                        onSearchChange={setToolbarSearch}
-                        onScan={(scan) => {
-                            setToolbarSearch(scan.data);
-                        }}
-                        searchLabel="Search the catalogue"
-                        searchPlaceholder="Search ingredients"
-                        statusLabel="Status"
-                        statusSegments={[
-                            { value: 'all', label: 'All' },
-                            { value: 'live', label: 'Live' },
-                            { value: 'draft', label: 'Draft' },
-                            { value: 'review', label: 'Review' },
-                        ]}
-                        status={toolbarStatus}
-                        onStatusChange={setToolbarStatus}
-                        filters={
-                            <SegmentedControl
-                                testID={id('toolbar-narrow-layout')}
-                                label="Layout"
-                                value="table"
-                                onChange={() => undefined}
-                                items={[
-                                    { value: 'table', label: 'Table' },
-                                    { value: 'cards', label: 'Cards' },
-                                ]}
-                            />
-                        }
-                    >
-                        <Button
-                            testID={id('toolbar-narrow-create')}
-                            label="New"
-                            iconStart={<Icon name="plus" size="sm" />}
-                            onPress={() => undefined}
-                        />
-                    </CatalogueToolbar>
-                </View>
-            </Stack>
 
             {/*
              * What every list draws under that toolbar: loading, a filter that matched nothing (with
@@ -2732,7 +2587,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         ['paged', { rows: [1], shown: 18, total: 306, page: 7, totalPages: 17 }],
                     ] as const
                 ).map(([state, over]) => (
-                    <CatalogueListBody
+                    <DataTableBody
                         key={state}
                         testID={id(`list-body-${state}`)}
                         list={{ ...LIST_BODY_BASE, ...over }}
@@ -2744,7 +2599,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                         create={{ label: 'New ingredient', onPress: () => undefined }}
                     >
                         <Text tone="secondary">The table goes here.</Text>
-                    </CatalogueListBody>
+                    </DataTableBody>
                 ))}
             </Stack>
 
@@ -3036,13 +2891,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     Record window
                 </Text>
                 <Inline space="sm" align="center">
-                    <Button
-                        testID={id('record-window-open')}
-                        size="sm"
-                        variant="secondary"
-                        label="Open the record window"
-                        onPress={() => setRecordOpen(true)}
-                    />
                     <Icon name="eye" size="sm" className="text-content-secondary" />
                     <Icon name="pen" size="sm" className="text-content-secondary" />
                     <Icon name="archive" size="sm" className="text-content-secondary" />
@@ -3050,31 +2898,6 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     <Icon name="clock" size="sm" className="text-content-secondary" />
                     <Icon name="more" size="sm" className="text-content-secondary" />
                 </Inline>
-                <RecordWindow
-                    testID={id('record-window')}
-                    open={recordOpen}
-                    onClose={() => setRecordOpen(false)}
-                    title="Zaatar blend, house"
-                    kind="Ingredient"
-                    status={{ label: 'Blocked', tone: 'danger' }}
-                    note="Nothing is resolved from this window."
-                    fields={[
-                        { key: 'reference', label: 'Reference', value: 'ING-0412', mono: true },
-                        { key: 'family', label: 'Family', value: 'Ingredients' },
-                        { key: 'updated', label: 'Last changed', value: '2 days ago' },
-                        { key: 'publication', label: 'Publication', value: 'Blocked' },
-                    ]}
-                    chipsLabel="Why it is here"
-                    chipsCaption="A reason clears when the record itself is corrected."
-                    chips={[
-                        { key: 'q', label: 'Quarantined — publication refused' },
-                        { key: 'a', label: '2 allergen mappings are unverified' },
-                    ]}
-                    primaryAction={{
-                        label: 'Open the record',
-                        onPress: () => setRecordOpen(false),
-                    }}
-                />
                 <Text variant="section" tone="secondary">
                     List summary cards
                 </Text>
@@ -3193,7 +3016,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     label="Pages"
                 />
                 {/* The list footer: the range in the pager's own box, its figures picked out. */}
-                <CataloguePager
+                <TablePager
                     testID={id('catalogue-pager')}
                     page={1}
                     totalPages={2}
@@ -3232,7 +3055,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     framed
                 </Text>
                 {/*
-                 * The Catalogue's frame, as `CatalogueList` draws it: the header takes the top
+                 * The Catalogue's frame, as `DataTable` draws it: the header takes the top
                  * corners and the last row the bottom ones; no row draws a rule of its own.
                  */}
                 <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card">
@@ -3340,16 +3163,16 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
 
             {/*
              * Row photographs. The spec names each row's picture once (`thumbnail`) and
-             * `CatalogueList` draws it: 20px inside the wide table's title cell, 32px on the
+             * `DataTable` draws it: 20px inside the wide table's title cell, 32px on the
              * narrow row's leading edge beside the status badge. Both shapes are drawn here,
-             * because the showcase is wide enough that `CatalogueList` alone would only ever
+             * because the showcase is wide enough that `DataTable` alone would only ever
              * show the first.
              */}
             <Stack space="xs">
                 <Text variant="section" tone="secondary">
                     Catalogue row photographs
                 </Text>
-                <CatalogueList
+                <DataTable
                     testID={id('catalogue-photos')}
                     label="Ingredients, with photographs"
                     columns={CATALOGUE_PHOTO_COLUMNS}
@@ -3358,7 +3181,7 @@ function CataloguePassStories({ prefix }: { readonly prefix: string }) {
                     rowActionsLabel="Row actions"
                 />
                 <View className="flex-col rounded-panel border border-brand-100 bg-surface-raised">
-                    <CatalogueListItem
+                    <DataTableItem
                         testID={id('catalogue-photos-narrow')}
                         title="Zaatar blend"
                         media={
@@ -3562,8 +3385,6 @@ export function ShowcaseScreen() {
     const [startDate, setStartDate] = useState<string | null>('2026-08-03');
     const [boundDate, setBoundDate] = useState('');
     const [replays, setReplays] = useState(0);
-    const [kitchenQuery, setKitchenQuery] = useState('');
-    const [kitchenStatuses, setKitchenStatuses] = useState<readonly PublishableStatus[]>(['draft']);
 
     const options = [1, 2, 3].map((index) => ({
         value: `option-${index}`,
@@ -4332,7 +4153,8 @@ export function ShowcaseScreen() {
                             onChange={setStartDate}
                         />
                     </DensityProvider>
-                    <DatePickerButton
+                    <DatePicker
+                        trigger="pill"
                         testID="showcase-date-picker"
                         label={t('designSystem:showcase.dateLabel')}
                         value={startDate ?? '2026-08-03'}
@@ -4341,7 +4163,8 @@ export function ShowcaseScreen() {
                         onChange={setStartDate}
                     />
                     {/* An optional bound: labelled like a field, empty until picked, clearable. */}
-                    <DatePickerButton
+                    <DatePicker
+                        trigger="pill"
                         testID="showcase-date-picker-optional"
                         label="From"
                         labelVisible
@@ -4352,12 +4175,12 @@ export function ShowcaseScreen() {
                             setBoundDate('');
                         }}
                     />
-                    {/* Near the foot of a card: the month opens upward, clear of the frame. */}
-                    <DatePickerButton
+                    {/* Labelled like a field, above the pill. */}
+                    <DatePicker
+                        trigger="pill"
                         testID="showcase-date-picker-above"
                         label={t('designSystem:showcase.dateLabel')}
                         labelVisible
-                        side="above"
                         value={startDate ?? '2026-08-03'}
                         onChange={setStartDate}
                     />
@@ -5260,11 +5083,11 @@ export function ShowcaseScreen() {
                 {/* English literals, like `hero` and `ai` above: the section demonstrates one
                     feature-level composition rather than a translated design-system primitive. */}
                 <Section id="kitchen" title="Kitchen templates">
-                    <KitchenPageHeader
+                    <PageHeader
                         testID="showcase-kitchen-header"
                         title="Stock"
-                        subtitle="What is on hand, what the minimum is, and how tomorrow reads."
-                        statusChip={<Badge tone="danger" label="1 item short" />}
+                        info="What is on hand, what the minimum is, and how tomorrow reads."
+                        titleAside={<Badge tone="danger" label="1 item short" />}
                         actions={
                             <Button
                                 testID="showcase-kitchen-header-action"
@@ -5273,34 +5096,6 @@ export function ShowcaseScreen() {
                             />
                         }
                     />
-                    <KitchenPageHeader
-                        testID="showcase-kitchen-header-band"
-                        variant="band"
-                        title="Grilled Halloumi & Rocket Plate"
-                        subtitle="Creating and editing share this form — leaving with unsaved changes asks first."
-                        statusChip={<Badge tone="warning" label="Draft" />}
-                    />
-                    <View className="flex-row flex-wrap gap-3">
-                        <KpiTile
-                            testID="showcase-kitchen-kpi"
-                            label="Spend"
-                            value="$18,240"
-                            size="lg"
-                            hint="what arrived this month"
-                        />
-                        <KpiTile
-                            testID="showcase-kitchen-kpi-pending"
-                            label="Cost of goods"
-                            value={null}
-                            pending
-                        />
-                        <KpiTile
-                            testID="showcase-kitchen-kpi-null"
-                            label="Margin"
-                            value={null}
-                            nullCaption="The count could not be read."
-                        />
-                    </View>
                     {/* Packs & prices — one pack, costed, priced on both places, Counter ticked. */}
                     <PackCard
                         testID="showcase-kitchen-pack-card"
@@ -5339,15 +5134,6 @@ export function ShowcaseScreen() {
                         serverError={() => undefined}
                         onChange={() => undefined}
                         onRemove={() => undefined}
-                    />
-                    <ListToolbar
-                        testID="showcase-kitchen-toolbar"
-                        query={kitchenQuery}
-                        onQueryChange={setKitchenQuery}
-                        statuses={kitchenStatuses}
-                        onStatusesChange={setKitchenStatuses}
-                        statusOptions={['draft', 'review_required', 'published', 'retired']}
-                        resultSummary="Showing 8 of 24"
                     />
                     <View className="max-w-[360px]">
                         <GateRailCard

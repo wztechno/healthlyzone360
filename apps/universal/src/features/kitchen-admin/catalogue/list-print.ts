@@ -1,11 +1,9 @@
 import type { TransferResource } from '@healthy360/api-client/contracts';
-import type { DataListColumn } from '@healthy360/design-system';
+import type { DataListColumn, SortDirection } from '@healthy360/design-system';
+import { compareDisplayed } from '@healthy360/design-system';
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useCallback, useMemo } from 'react';
-
-import type { SortDirection } from './use-column-controls.tsx';
-import { compareDisplayed } from './use-column-controls.tsx';
 
 /**
  * A list, frozen as text, on its way to `/kitchen/{resource}/print` (Export → PDF — table).

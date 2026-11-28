@@ -11,7 +11,8 @@ import { FadeIn } from '../motion/fade-in.tsx';
 import { REQUIRED_MARK } from './form-field.tsx';
 import { TextInputField, inputFrameClassName } from './text-input.tsx';
 import { InfoTip } from '../overlays/info-tip.tsx';
-import { optionMatches, sectionRuns } from './select-shared.ts';
+import { useAreaLook } from '../hooks/area-look.tsx';
+import { optionMatches, optionText, resolveSearchable, sectionRuns } from './select-shared.ts';
 import type { SelectOption, SelectProps } from './select-shared.ts';
 
 export type { SelectOption, SelectProps } from './select-shared.ts';
@@ -54,7 +55,9 @@ export function Select<T extends string = string>({
     warning,
     required = false,
     disabled = false,
-    searchable = false,
+    searchable: searchableSetting,
+    look: lookProp,
+    trigger: triggerKind = 'field',
     loading = false,
     noResultsAction,
     size: sizeProp,
@@ -74,6 +77,16 @@ export function Select<T extends string = string>({
     const warningId = caution === undefined ? undefined : `${base}-warning`;
     const statusId = `${base}-search-status`;
 
+    // The phone always opens its sheet, so a `pill` here is drawn as the field it stands for; what
+    // it changes is only the filter's default, which follows the admin's card look.
+    const areaLook = useAreaLook() === 'desk' ? 'card' : 'field';
+    const look = lookProp ?? areaLook;
+    const searchable = resolveSearchable(
+        searchableSetting,
+        triggerKind === 'pill' ? 'card' : look,
+        options.length,
+        noResultsAction !== undefined,
+    );
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const selected = options.find((option) => option.value === value) ?? null;
@@ -340,11 +353,14 @@ export function Select<T extends string = string>({
         return (
             <Pressable
                 key={option.value}
-                testID={testID === undefined ? undefined : `${testID}-option-${option.value}`}
+                testID={
+                    option.testID ??
+                    (testID === undefined ? undefined : `${testID}-option-${option.value}`)
+                }
                 role="radio"
                 accessibilityRole="radio"
-                accessibilityLabel={option.label}
-                aria-label={option.label}
+                accessibilityLabel={optionText(option)}
+                aria-label={optionText(option)}
                 aria-checked={isSelected}
                 accessibilityState={{
                     checked: isSelected,
@@ -372,7 +388,7 @@ export function Select<T extends string = string>({
                     numberOfLines={1}
                     className="min-w-0 flex-1 text-base text-content-primary text-start"
                 >
-                    {option.label}
+                    {optionText(option)}
                 </RNText>
                 {option.description === undefined ? null : (
                     <RNText

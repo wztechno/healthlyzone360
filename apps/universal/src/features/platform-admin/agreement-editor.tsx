@@ -6,10 +6,12 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { B2B_PAYMENT_TERMS } from '@healthy360/api-client/contracts';
 import {
+    Button,
     Callout,
     Checkbox,
-    DatePickerButton,
+    DatePicker,
     Dialog,
+    LeaveDialog,
     Select,
     Text,
     TextInputField,
@@ -20,13 +22,11 @@ import { View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
 import { useUnsavedGuardFor } from '../../navigation/use-unsaved-guard.ts';
-import { UnsavedChangesDialog } from '../../ui/unsaved-changes-dialog.tsx';
 import {
     useDraftAgreementMutation,
     useSellerPriceListsQuery,
     useUpdateAgreementMutation,
 } from '../../data/platform-b2b-hooks.ts';
-import { DeskButton } from '../kitchen-admin/desk-kit/desk-button.tsx';
 
 /**
  * The reviewer's agreement form, as a window in the centre of the page over the application it is
@@ -212,13 +212,13 @@ export function AgreementEditor({
                 }
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="platform-b2b-agreement-cancel"
                             variant="quiet"
                             label={t('platformAdmin:b2b.cancel')}
                             onPress={close}
                         />
-                        <DeskButton
+                        <Button
                             testID="platform-b2b-agreement-save"
                             label={t('platformAdmin:b2b.editor.save')}
                             disabled={form.title.trim() === '' || invalid}
@@ -372,7 +372,8 @@ export function AgreementEditor({
 
                     <View className="z-auto flex-row flex-wrap gap-x-3 gap-y-3.5">
                         <View className="z-auto min-w-[200px] flex-1 flex-col gap-1">
-                            <DatePickerButton
+                            <DatePicker
+                                trigger="pill"
                                 testID="platform-b2b-agreement-starts-on"
                                 label={t('platformAdmin:b2b.editor.startsOn')}
                                 labelVisible
@@ -388,7 +389,8 @@ export function AgreementEditor({
                             <FieldError message={fieldError('starts_on')} />
                         </View>
                         <View className="z-auto min-w-[200px] flex-1 flex-col gap-1">
-                            <DatePickerButton
+                            <DatePicker
+                                trigger="pill"
                                 testID="platform-b2b-agreement-ends-on"
                                 label={t('platformAdmin:b2b.editor.endsOn')}
                                 labelVisible
@@ -429,7 +431,7 @@ export function AgreementEditor({
                     />
                 </View>
             </Dialog>
-            <UnsavedChangesDialog guard={guard} testID="platform-b2b-agreement-unsaved" />
+            <LeaveDialog guard={guard} testID="platform-b2b-agreement" />
         </>
     );
 }

@@ -1,8 +1,8 @@
+import type { LensFigure, LensMixPart, LensToken } from '@healthy360/design-system';
 import type { PublishableStatus } from '@healthy360/api-client/contracts';
 import type { TFunction } from 'i18next';
 
 import { statusKey } from '../format.ts';
-import type { LensFigure, LensMixPart, LensToken } from './lens-bar.tsx';
 
 /**
  * The status half of a catalogue page's Lens bar — the All · Published · Draft · Awaiting review

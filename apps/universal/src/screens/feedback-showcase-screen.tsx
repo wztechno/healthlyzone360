@@ -1,22 +1,21 @@
 import {
+    Button,
     Callout,
     DensityProvider,
     Dialog,
+    FailureToast,
     Inline,
     OfflineIndicator,
     Stack,
     Text,
     ToastLookScope,
+    UndoBar,
+    UnsavedMark,
     useToast,
 } from '@healthy360/design-system';
 import type { ToastOptions } from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
-
-import { DeskButton } from '../features/kitchen-admin/desk-kit/desk-button.tsx';
-import { FailureToast } from '../features/kitchen-admin/failure-toast.tsx';
-import { UndoBar } from '../features/kitchen-admin/row-editor-shell.tsx';
-import { UnsavedMark } from '../features/kitchen-admin/unsaved-mark.tsx';
 
 /**
  * `/showcase-feedback` — the kitchen's toasts, pop-ups and notice strips, from the Toasts / pop-ups /
@@ -91,7 +90,7 @@ function Parts() {
                     <Text variant="label">Toast — bottom centre</Text>
                     <Inline space="sm" wrap>
                         {TOASTS.map((sample) => (
-                            <DeskButton
+                            <Button
                                 key={sample.label}
                                 variant="secondary"
                                 label={sample.label}
@@ -106,7 +105,7 @@ function Parts() {
                 <Stack space="sm">
                     <Text variant="label">Pop-up — the question, one line, the verb</Text>
                     <Inline space="sm">
-                        <DeskButton
+                        <Button
                             testID="feedback-showcase-confirm"
                             variant="secondary"
                             label="Archive Basmati rice"
@@ -128,13 +127,13 @@ function Parts() {
                         tone="warning"
                         title="5 items have no price."
                         body="They won’t show in the shop."
-                        actions={<DeskButton size="sm" variant="secondary" label="Show them" />}
+                        actions={<Button size="sm" variant="secondary" label="Show them" />}
                     />
                     <Callout
                         tone="danger"
                         role="alert"
                         title="Couldn’t load the orders."
-                        actions={<DeskButton size="sm" variant="secondary" label="Try again" />}
+                        actions={<Button size="sm" variant="secondary" label="Try again" />}
                     />
                     {dismissed ? null : (
                         <Callout
@@ -163,7 +162,7 @@ function Parts() {
                             <Text variant="title">Basmati rice</Text>
                             {changes > 0 ? <UnsavedMark testID="feedback-showcase-dirty" /> : null}
                         </Inline>
-                        <DeskButton
+                        <Button
                             testID="feedback-showcase-save"
                             label="Save"
                             onPress={() => {
@@ -173,7 +172,7 @@ function Parts() {
                         />
                     </Inline>
                     <Inline space="sm" wrap>
-                        <DeskButton
+                        <Button
                             testID="feedback-showcase-edit"
                             variant="secondary"
                             label="Change a field"
@@ -181,7 +180,7 @@ function Parts() {
                                 setChanges((count) => count + 1);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="feedback-showcase-refuse"
                             variant="secondary"
                             label="A save the server refuses"
@@ -221,14 +220,14 @@ function Parts() {
                 description="3 recipes use it. They keep working until you swap it out."
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             variant="secondary"
                             label="Back"
                             onPress={() => {
                                 setConfirming(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             variant="danger"
                             label="Archive"
                             onPress={() => {

@@ -6,9 +6,12 @@ import type {
 } from '@healthy360/api-client/contracts';
 import type { StockItemId, SupplierId } from '@healthy360/domain-types';
 import {
+    Badge,
+    Button,
     Callout,
     Cascade,
-    DataList,
+    Checkbox,
+    DataTable,
     Dialog,
     EmptyState,
     ErrorState,
@@ -21,6 +24,7 @@ import {
     Stack,
     TableSkeleton,
     Text,
+    useTablePort,
     useToast,
 } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
@@ -44,14 +48,12 @@ import {
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { displayName, unitCodeLabel } from '../format.ts';
-import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { NewSupplierDialog } from '../new-supplier-dialog.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
 import { PageBackPill, useAreaTrailDrawn } from '../../../shell/area-trail.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
-import { DeskButton, DeskCheckbox, DeskChip, DeskPicker } from '../desk-kit/index.ts';
 import { supplyOrderGroupTestId, supplyOrderRowTestId } from '../ops-format.ts';
 import {
     buildGroups,
@@ -236,7 +238,7 @@ function SupplyOrderBuilder() {
      * Read from the node rather than `onLayout`, which on the web delivered one early width and
      * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
      */
-    const port = useCataloguePort();
+    const port = useTablePort();
     const bodyWidth = port.width;
 
     const proposal = useOrderProposalQuery(branchId, requestedIds);
@@ -492,14 +494,14 @@ function SupplyOrderBuilder() {
                                     {row.itemNameEn}
                                 </Text>
                                 {row.isOutOfStock ? (
-                                    <DeskChip
+                                    <Badge
                                         size="sm"
                                         testID={`${testID}-out`}
                                         tone="danger"
                                         label={t('kitchen:ops.supplyOrders.outBadge')}
                                     />
                                 ) : row.isLow ? (
-                                    <DeskChip
+                                    <Badge
                                         size="sm"
                                         testID={`${testID}-low`}
                                         tone="warning"
@@ -643,7 +645,8 @@ function SupplyOrderBuilder() {
             priority: 99,
             grow: false,
             renderHeader: () => (
-                <DeskCheckbox
+                <Checkbox
+                    labelHidden
                     testID={`${testID}-order-all`}
                     label={t('kitchen:ops.supplyOrders.orderAll')}
                     checked={list.length > 0 && ticked.length === list.length}
@@ -657,7 +660,8 @@ function SupplyOrderBuilder() {
                 const key = String(row.stockItemId);
                 const ordering = effective[key]?.ordering ?? true;
                 return (
-                    <DeskCheckbox
+                    <Checkbox
+                        labelHidden
                         testID={`${supplyOrderRowTestId(key)}-toggle`}
                         label={t('kitchen:ops.supplyOrders.orderItem', { item: row.itemNameEn })}
                         checked={ordering}
@@ -719,14 +723,14 @@ function SupplyOrderBuilder() {
                          * supplier, or there are candidates and nobody has chosen between them.
                          */}
                         {current === undefined ? (
-                            <DeskChip
+                            <Badge
                                 size="sm"
                                 testID={`${testID}-choose-supplier`}
                                 tone="warning"
                                 label={t('kitchen:ops.supplyOrders.chooseSupplier')}
                             />
                         ) : current.isPreferred ? (
-                            <DeskChip
+                            <Badge
                                 size="sm"
                                 testID={`${testID}-preferred`}
                                 tone="info"
@@ -797,8 +801,9 @@ function SupplyOrderBuilder() {
                             />
                         </View>
                         <View testID={`${testID}-remember`} className="flex-row items-center">
-                            <DeskCheckbox
-                                testID={`${testID}-remember-control`}
+                            <Checkbox
+                                labelHidden
+                                testID={`${testID}-remember-box`}
                                 label={t('kitchen:ops.supplyOrders.rememberLink')}
                                 checked={remember[key] ?? true}
                                 onChange={(checked) => {
@@ -900,7 +905,7 @@ function SupplyOrderBuilder() {
                                       })
                             }
                             actions={
-                                <DeskButton
+                                <Button
                                     testID="kitchen-supply-order-refresh"
                                     variant="quiet"
                                     label={t('kitchen:ops.supplyOrders.refresh')}
@@ -972,7 +977,8 @@ function SupplyOrderBuilder() {
                                                 )}
                                             />
                                         ) : (
-                                            <DataList<OrderProposalItem>
+                                            <DataTable<OrderProposalItem>
+                                                lines
                                                 testID="kitchen-supply-order-rows"
                                                 label={t('kitchen:ops.supplyOrders.builderCaption')}
                                                 columns={assignedColumns}
@@ -993,7 +999,9 @@ function SupplyOrderBuilder() {
                                             testID="kitchen-supply-order-add"
                                             className="z-tooltip self-start"
                                         >
-                                            <DeskPicker
+                                            <Select
+                                                trigger="pill"
+                                                value={null}
                                                 testID="kitchen-supply-order-add-select"
                                                 label={t('kitchen:ops.supplyOrders.addTitle')}
                                                 options={addOptions}
@@ -1018,7 +1026,7 @@ function SupplyOrderBuilder() {
                                         testID="kitchen-supply-order-unlinked"
                                         title={t('kitchen:ops.supplyOrders.unlinkedTitle')}
                                         actions={
-                                            <DeskButton
+                                            <Button
                                                 testID="kitchen-supply-order-add-supplier"
                                                 variant="quiet"
                                                 label={t('kitchen:ops.supplyOrders.addSupplier')}
@@ -1035,7 +1043,8 @@ function SupplyOrderBuilder() {
                                             />
                                         }
                                     >
-                                        <DataList<OrderProposalItem>
+                                        <DataTable<OrderProposalItem>
+                                            lines
                                             testID="kitchen-supply-order-unlinked-rows"
                                             label={t('kitchen:ops.supplyOrders.unlinkedCaption')}
                                             columns={unlinkedColumns}
@@ -1119,7 +1128,7 @@ function SupplyOrderBuilder() {
                                 )
                             }
                             action={
-                                <DeskButton
+                                <Button
                                     testID="kitchen-supply-order-builder-create"
                                     size="lg"
                                     block
@@ -1156,7 +1165,7 @@ function SupplyOrderBuilder() {
                 testID="kitchen-supply-order-create-confirm"
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-order-create-cancel"
                             variant="secondary"
                             label={t('kitchen:ops.supplyOrders.createCancel')}
@@ -1164,7 +1173,7 @@ function SupplyOrderBuilder() {
                                 setConfirmingCreate(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-order-create-confirm-action"
                             label={t('kitchen:ops.supplyOrders.createConfirm', {
                                 count: plan.groups.length,
@@ -1229,7 +1238,7 @@ function SupplyOrderBuilder() {
                 testID="kitchen-supply-order-refresh-confirm"
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-order-refresh-cancel"
                             variant="secondary"
                             label={t('kitchen:ops.supplyOrders.refreshCancel')}
@@ -1237,7 +1246,7 @@ function SupplyOrderBuilder() {
                                 setConfirmingRefresh(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-order-refresh-confirm-action"
                             label={t('kitchen:ops.supplyOrders.refreshConfirm')}
                             onPress={refresh}
@@ -1311,14 +1320,14 @@ function SupplyTicket({
                 <Text
                     variant="micro"
                     tone="secondary"
-                    className="!text-xs font-bold uppercase tracking-widest"
+                    className="!text-role-caption font-bold uppercase tracking-widest"
                 >
                     {t('kitchen:ops.supplyOrders.readyTitle')}
                 </Text>
                 <View className="mt-0.5 flex-row items-baseline gap-2">
                     <Text
                         variant="section"
-                        className="font-display !text-[22px] !font-bold !leading-7 tabular-nums"
+                        className="font-display !text-role-title !font-bold !leading-7 tabular-nums"
                         testID={`${testID}-total`}
                     >
                         {drafts}
@@ -1348,7 +1357,7 @@ function SupplyTicket({
                         ) : (
                             <Text
                                 variant="title"
-                                className="mt-0.5 font-display !text-xl !font-bold tabular-nums"
+                                className="mt-0.5 font-display !text-role-title !font-bold tabular-nums"
                                 testID={`${testID}-${figure.key}`}
                             >
                                 {figure.value}
@@ -1360,7 +1369,7 @@ function SupplyTicket({
 
             <View className="flex-col gap-0.5">
                 <View className="min-h-8 flex-row items-center px-1">
-                    <Text variant="strong" className="!text-sm !font-bold">
+                    <Text variant="strong" className="!text-role-body !font-bold">
                         {t('kitchen:ops.supplyOrders.summaryBySupplier')}
                     </Text>
                 </View>
@@ -1384,11 +1393,11 @@ function SupplyTicket({
                                 <Text
                                     variant="strong"
                                     numberOfLines={1}
-                                    className="min-w-0 flex-1 !text-sm"
+                                    className="min-w-0 flex-1 !text-role-body"
                                 >
                                     {group.name}
                                 </Text>
-                                <DeskChip tone="success" label={group.value} />
+                                <Badge tone="success" label={group.value} />
                             </View>
                         ))}
                     </View>

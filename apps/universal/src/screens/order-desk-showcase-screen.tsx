@@ -1,24 +1,24 @@
 import {
     Button,
     Cascade,
+    DataTable,
     DensityProvider,
     FilterChip,
     Icon,
     Inline,
+    LensBar,
     SegmentedControl,
+    Select,
+    Tabs,
     Text,
 } from '@healthy360/design-system';
+import type { DataTableColumn, LensFigure } from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { CatalogueList } from '../features/kitchen-admin/catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../features/kitchen-admin/catalogue/catalogue-column-spec.ts';
-import { LensBar, LensScope } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
-import type { LensFigure } from '../features/kitchen-admin/catalogue/lens-bar.tsx';
 import { DeskTableTitle } from '../features/kitchen-admin/order-desk/desk-parts.tsx';
 import {
     KindTiles,
-    SaleSteps,
     SectionRail,
     TicketLabel,
     TileStepper,
@@ -66,7 +66,7 @@ const ROWS: readonly SampleRow[] = [
     },
 ];
 
-const COLUMNS: readonly CatalogueColumn<SampleRow>[] = [
+const COLUMNS: readonly DataTableColumn<SampleRow>[] = [
     { key: 'id', label: 'Order', width: 140, priority: 90, value: (row) => row.id, mono: true },
     {
         key: 'customer',
@@ -133,7 +133,8 @@ export function OrderDeskShowcaseScreen() {
                 ]}
             />
             <FilterChip size="sm" label="Placed" selected={placed} onChange={setPlaced} />
-            <LensScope<Kind>
+            <Select<Kind>
+                trigger="pill"
                 testID="showcase-desk-kind"
                 label="Kind"
                 value={kind}
@@ -163,7 +164,6 @@ export function OrderDeskShowcaseScreen() {
                     <View>
                         <LensBar
                             testID="showcase-desk-lens"
-                            layout="split"
                             joined
                             label="Order desk summary and filters"
                             figures={figures}
@@ -189,7 +189,7 @@ export function OrderDeskShowcaseScreen() {
                                   }
                                 : {})}
                         />
-                        <CatalogueList<SampleRow>
+                        <DataTable<SampleRow>
                             testID="showcase-desk-list"
                             label="Open orders"
                             columns={COLUMNS}
@@ -204,7 +204,6 @@ export function OrderDeskShowcaseScreen() {
                     <Text variant="title">Split, nothing under it — loading figures</Text>
                     <LensBar
                         testID="showcase-desk-lens-loading"
-                        layout="split"
                         label="Order desk summary and filters"
                         figures={figures.map((figure) => ({ ...figure, value: null }))}
                         actions={actions}
@@ -250,15 +249,26 @@ function NewOrderParts() {
         <>
             <Text variant="title">New order — step marker</Text>
             <View className="flex-row flex-wrap items-center gap-3">
-                <SaleSteps
+                <Tabs
+                    variant="pills"
+                    readOnly
                     testID="showcase-sale-steps"
                     label="Steps"
-                    current={step}
-                    steps={[
-                        { key: 'customer', label: 'Customer' },
-                        { key: 'meals', label: 'Meals' },
-                        { key: 'checkout', label: 'Checkout' },
+                    value={(['customer', 'meals', 'checkout'] as const)[step] ?? 'customer'}
+                    items={[
+                        {
+                            value: 'customer',
+                            testID: 'showcase-sale-steps-customer',
+                            label: 'Customer',
+                        },
+                        { value: 'meals', testID: 'showcase-sale-steps-meals', label: 'Meals' },
+                        {
+                            value: 'checkout',
+                            testID: 'showcase-sale-steps-checkout',
+                            label: 'Checkout',
+                        },
                     ]}
+                    onChange={() => undefined}
                 />
                 <Button
                     variant="secondary"

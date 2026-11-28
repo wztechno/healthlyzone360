@@ -1,5 +1,5 @@
 import type { LocalisedText, RecipeKind } from '@healthy360/api-client/contracts';
-import { Callout, useIssueGroup } from '@healthy360/design-system';
+import { Button, Callout, useIssueGroup } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
@@ -8,7 +8,6 @@ import { useTranslation } from 'react-i18next';
 import { useAdminMealPageQuery, useProductPageQuery } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /** The kinds a recipe can sell as — the ones an item without a formulation can be missing one for. */
 type SellerKind = Exclude<RecipeKind, 'preparation'>;
 
@@ -152,7 +151,7 @@ export function UnformulatedItems({
             tone="warning"
             title={title}
             actions={rows.slice(0, UNFORMULATED_SHOWN).map((row) => (
-                <DeskButton
+                <Button
                     key={row.id}
                     testID={`${testID}-${row.id}`}
                     variant="secondary"

@@ -1,14 +1,22 @@
 import { OrderId } from '@healthy360/domain-types';
 import {
+    Button,
     Cascade,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
     IssueTrayFrame,
     IssueUnanchored,
+    LensBar,
+    Select,
+    TABLE_PAGE_SIZE,
+    TablePager,
     TableSkeleton,
+    Tabs,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { IssueTrayContent } from '@healthy360/design-system';
+import type { IssueTrayContent, LensFigure, LensToken } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -20,10 +28,6 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { useOrderDeskDriversQuery } from '../../../data/order-desk-hooks.ts';
 import { safeReturnTo, withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CATALOGUE_PAGE_SIZE, CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_MANAGE_PERMISSION,
@@ -31,14 +35,13 @@ import {
     SUBSCRIPTION_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { kitchenOrderStatusKey } from '../ops-format.ts';
-import { DeskButton, DeskSelect, DeskTabs, ListGroupRow } from '../desk-kit/index.ts';
+import { ListGroupRow } from '../orders/list-group-row.tsx';
 import { KitchenPauseBanner, KitchenPauseButton } from '../order-desk/kitchen-pause.tsx';
 import { useWindowName } from '../order-desk/use-window-name.ts';
 import { useListPage } from '../use-list-page.ts';
 import { CalendarTab, SlotScope, useSlotHours, useSlotName } from '../orders/orders-calendar.tsx';
 import { DayStepper } from '../orders/day-stepper.tsx';
 import { longDay, orderColumnControls, shortDay } from '../orders/order-columns.tsx';
-import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import type { OrderColumnContext } from '../orders/order-columns.tsx';
 import {
     DATES_FILTERS,
@@ -301,7 +304,7 @@ function OrdersPage() {
         <View className="z-auto flex-row items-center gap-2">
             <KitchenPauseButton />
             {canSell ? (
-                <DeskButton
+                <Button
                     testID="kitchen-orders-new"
                     variant="primary"
                     label={t('kitchen:orders.newOrder')}
@@ -333,7 +336,8 @@ function OrdersPage() {
             <Cascade space="md" testID="kitchen-orders-screen">
                 {/* The three tabs stand centred; the page's actions sit at the end of the chips. */}
                 <View className="z-20 flex-row flex-wrap items-center justify-center gap-3">
-                    <DeskTabs<OrdersTab>
+                    <Tabs<OrdersTab>
+                        variant="strip"
                         testID="kitchen-orders-tabs"
                         label={t('kitchen:orders.tab.label')}
                         value={tab}
@@ -435,7 +439,8 @@ function KindScope({
 }) {
     const { t } = useTranslation();
     return (
-        <DeskSelect<KindFilter>
+        <Select<KindFilter>
+            trigger="pill"
             testID={testID}
             label={t('kitchen:orders.filter.kind')}
             value={value}
@@ -534,7 +539,7 @@ function OrdersTable({
     }
     return (
         <View className="flex-col gap-3">
-            <CatalogueList<BookRow>
+            <DataTable<BookRow>
                 testID={testID}
                 joined
                 frameEmpty
@@ -637,7 +642,6 @@ function TodayTab({
         <View className="z-10">
             <LensBar
                 testID="kitchen-orders-today-toolbar"
-                layout="split"
                 compactSearch
                 joined={!dayRead.pending && dayRead.failure === null}
                 label={t('kitchen:orders.tab.today')}
@@ -739,7 +743,7 @@ function TodayTab({
                         }
                         actions={
                             filtered ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-orders-today-clear"
                                     variant="secondary"
                                     label={t('kitchen:orders.clearFilters')}
@@ -748,7 +752,7 @@ function TodayTab({
                                     }}
                                 />
                             ) : canSell && day >= today ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-orders-today-new"
                                     variant="secondary"
                                     label={t('kitchen:orders.newForDay')}
@@ -809,7 +813,7 @@ function AllOrdersTab({
             query: query.q,
             today,
             page,
-            perPage: CATALOGUE_PAGE_SIZE,
+            perPage: TABLE_PAGE_SIZE,
         },
         quick === null,
     );
@@ -869,7 +873,6 @@ function AllOrdersTab({
         <View className="z-10">
             <LensBar
                 testID="kitchen-orders-all-toolbar"
-                layout="split"
                 compactSearch
                 joined={!read.pending && read.failure === null}
                 label={t('kitchen:orders.tab.all')}
@@ -877,7 +880,8 @@ function AllOrdersTab({
                 actions={actions}
                 scope={
                     <>
-                        <DeskSelect<DatesFilter>
+                        <Select<DatesFilter>
+                            trigger="pill"
                             testID="kitchen-orders-all-dates"
                             label={t('kitchen:orders.filter.dates')}
                             value={query.dates}
@@ -890,7 +894,8 @@ function AllOrdersTab({
                                 testID: `kitchen-orders-all-dates-${dates}`,
                             }))}
                         />
-                        <DeskSelect<StatusFilter>
+                        <Select<StatusFilter>
+                            trigger="pill"
                             testID="kitchen-orders-all-status"
                             label={t('kitchen:orders.filter.status')}
                             value={query.status}
@@ -954,7 +959,7 @@ function AllOrdersTab({
                 onOpenOrder={onOpenOrder}
                 paged={
                     quick === null && book.totalPages > 1 ? (
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-orders-all-pagination"
                             page={page}
                             totalPages={book.totalPages}
@@ -975,7 +980,7 @@ function AllOrdersTab({
                         )}
                         actions={
                             filtered ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-orders-all-clear"
                                     variant="secondary"
                                     label={t('kitchen:orders.clearFilters')}

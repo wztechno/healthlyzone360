@@ -1,3 +1,4 @@
+import { forgetColumnChoice, rememberColumnChoice } from '@healthy360/design-system';
 import {
     PACKAGING_CATEGORY_CODE,
     RECIPE_KINDS,
@@ -62,7 +63,6 @@ import { page } from '../../testing/stub-repositories.ts';
 import { withDeskWidth } from '../../testing/desk-width.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { withReturnTo } from '../../navigation/return-to.ts';
-import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
 import { recipePhotoId } from './catalogue/recipe-columns.tsx';
 import {
     costPerServing,

@@ -12,21 +12,26 @@ import {
     KYC_REJECTION_REASONS,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Callout,
     Cascade,
     Checkbox,
+    cx,
     Dialog,
     ErrorState,
     Icon,
+    PageHeader,
     RecordSkeleton,
     Select,
+    SheetCard,
+    SheetFacts,
     Text,
     TextInputField,
-    cx,
     useContentWidth,
     useToast,
 } from '@healthy360/design-system';
-import type { IconName } from '@healthy360/design-system';
+import type { IconName, SheetFact } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
@@ -52,11 +57,6 @@ import {
     useSendAgreementMutation,
 } from '../../../data/platform-b2b-hooks.ts';
 import { useTrailLeaf } from '../../../shell/area-trail.tsx';
-import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
-import { SheetCard, SheetFacts } from '../../kitchen-admin/catalogue/record-sheet.tsx';
-import type { SheetFact } from '../../kitchen-admin/catalogue/record-sheet.tsx';
-import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
-import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import { AgreementEditor } from '../agreement-editor.tsx';
 import {
     REVIEW_STAGES,
@@ -203,13 +203,12 @@ function ApplicationFile() {
     return (
         <Cascade space="md" testID="platform-b2b-application-screen">
             <View className="flex-col gap-1">
-                <CataloguePageHeader
-                    titleLook="board"
+                <PageHeader
                     testID="platform-b2b-application-header"
                     titleTestID="platform-b2b-application-title"
                     title={company}
                     titleAside={
-                        <DeskChip
+                        <Badge
                             testID="platform-b2b-application-status"
                             size="lg"
                             tone={applicationStatusTone(record.status)}
@@ -283,7 +282,7 @@ function ApplicationFile() {
                     actions={
                         <View className="flex-row flex-wrap gap-2">
                             {record.duplicateApplications.map((duplicate) => (
-                                <DeskButton
+                                <Button
                                     key={duplicate.id}
                                     testID={`platform-b2b-duplicate-${duplicate.id}`}
                                     size="sm"
@@ -524,7 +523,7 @@ function StageLine({
                             ) : (
                                 <RNText
                                     className={cx(
-                                        'text-[11px] font-bold tabular-nums',
+                                        'text-role-caption font-bold tabular-nums',
                                         now ? 'text-content-on-brand' : 'text-content-secondary',
                                     )}
                                 >
@@ -534,7 +533,7 @@ function StageLine({
                         </View>
                         <RNText
                             className={cx(
-                                'text-[13px] font-semibold',
+                                'text-role-body font-semibold',
                                 done
                                     ? 'text-content-on-brand-subtle'
                                     : now
@@ -571,7 +570,7 @@ function FailureCallout({
             {...(conflict ? { body: t('platformAdmin:b2b.detail.conflictBody') } : {})}
             actions={
                 conflict ? (
-                    <DeskButton
+                    <Button
                         testID="platform-b2b-application-reload"
                         size="sm"
                         variant="secondary"
@@ -634,7 +633,7 @@ function NextStepBand({
     const tone = BAND[bandTone(step)];
 
     const decline = canDecide ? (
-        <DeskButton
+        <Button
             testID="platform-b2b-decline"
             size="sm"
             variant="dangerOutline"
@@ -649,7 +648,7 @@ function NextStepBand({
     switch (step.kind) {
         case 'claim':
             actions = canReview ? (
-                <DeskButton
+                <Button
                     testID="platform-b2b-claim"
                     size="sm"
                     label={t('platformAdmin:b2b.actions.claim')}
@@ -664,7 +663,7 @@ function NextStepBand({
                 <>
                     {decline}
                     {canReview ? (
-                        <DeskButton
+                        <Button
                             testID="platform-b2b-request-information"
                             size="sm"
                             variant="secondary"
@@ -675,7 +674,7 @@ function NextStepBand({
                         />
                     ) : null}
                     {canDecide ? (
-                        <DeskButton
+                        <Button
                             testID="platform-b2b-approve"
                             size="sm"
                             label={t('platformAdmin:b2b.actions.approve')}
@@ -693,7 +692,7 @@ function NextStepBand({
             break;
         case 'draft_agreement':
             actions = canDecide ? (
-                <DeskButton
+                <Button
                     testID="platform-b2b-draft-agreement"
                     size="sm"
                     label={t('platformAdmin:b2b.actions.draftAgreement')}
@@ -707,7 +706,7 @@ function NextStepBand({
         case 'send_agreement':
             actions = canDecide ? (
                 <>
-                    <DeskButton
+                    <Button
                         testID="platform-b2b-edit-agreement"
                         size="sm"
                         variant="secondary"
@@ -716,7 +715,7 @@ function NextStepBand({
                             onEditAgreement(step.agreement);
                         }}
                     />
-                    <DeskButton
+                    <Button
                         testID="platform-b2b-send-agreement"
                         size="sm"
                         label={t('platformAdmin:b2b.agreement.send')}
@@ -730,7 +729,7 @@ function NextStepBand({
             break;
         case 'waiting_signature':
             actions = canDecide ? (
-                <DeskButton
+                <Button
                     testID="platform-b2b-revise-agreement"
                     size="sm"
                     variant="secondary"
@@ -743,7 +742,7 @@ function NextStepBand({
             break;
         case 'provision':
             actions = canProvision ? (
-                <DeskButton
+                <Button
                     testID="platform-b2b-provision"
                     size="sm"
                     label={t('platformAdmin:b2b.provision.confirm')}
@@ -924,7 +923,7 @@ function ApplicationCard({ application }: { readonly application: PlatformB2bApp
 
 function GroupLabel({ label }: { readonly label: string }) {
     return (
-        <RNText className="mb-1 text-[11px] font-bold uppercase tracking-[0.08em] text-content-secondary text-start">
+        <RNText className="mb-1 text-role-caption font-bold uppercase tracking-[0.08em] text-content-secondary text-start">
             {label}
         </RNText>
     );
@@ -1008,7 +1007,7 @@ function AgreementCard({ agreements }: { readonly agreements: readonly B2BAgreem
                     <Text variant="bodyStrong" className="min-w-0 flex-1">
                         {agreement.title}
                     </Text>
-                    <DeskChip
+                    <Badge
                         testID={`platform-b2b-agreement-${String(agreement.version)}-status`}
                         tone={
                             agreement.status === 'active'
@@ -1199,7 +1198,7 @@ function InvitationsCard({
                         >
                             {invitation.email}
                         </Text>
-                        <DeskChip
+                        <Badge
                             tone={
                                 invitation.status === 'accepted'
                                     ? 'success'
@@ -1211,7 +1210,7 @@ function InvitationsCard({
                         />
                         {canResend &&
                         (invitation.status === 'live' || invitation.status === 'expired') ? (
-                            <DeskButton
+                            <Button
                                 testID={`platform-b2b-invitation-${invitation.id}-resend`}
                                 size="sm"
                                 variant="quiet"
@@ -1311,7 +1310,7 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                                 </Text>
                             </View>
                             <View className="flex-row flex-wrap items-center gap-1.5">
-                                <DeskChip
+                                <Badge
                                     testID={`platform-b2b-document-${document.id}-status`}
                                     tone={
                                         document.reviewStatus === 'accepted'
@@ -1325,13 +1324,13 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                                     )}
                                 />
                                 {document.mediaTypeMismatch ? (
-                                    <DeskChip
+                                    <Badge
                                         tone="warning"
                                         label={t('platformAdmin:b2b.documents.mismatch')}
                                     />
                                 ) : null}
                                 {document.hasExpired ? (
-                                    <DeskChip
+                                    <Badge
                                         tone="warning"
                                         label={t('platformAdmin:b2b.documents.expired')}
                                     />
@@ -1339,7 +1338,7 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                             </View>
                             <View className="flex-row items-center gap-1">
                                 {canView ? (
-                                    <DeskButton
+                                    <Button
                                         testID={`platform-b2b-document-${document.id}-view`}
                                         size="sm"
                                         variant="quiet"
@@ -1365,7 +1364,7 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                                 ) : null}
                                 {canReview && document.reviewStatus === 'pending' ? (
                                     <>
-                                        <DeskButton
+                                        <Button
                                             testID={`platform-b2b-document-${document.id}-reject`}
                                             size="sm"
                                             variant="quiet"
@@ -1376,7 +1375,7 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                                                 setNote('');
                                             }}
                                         />
-                                        <DeskButton
+                                        <Button
                                             testID={`platform-b2b-document-${document.id}-accept`}
                                             size="sm"
                                             variant="secondary"
@@ -1416,7 +1415,7 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                                     {t('platformAdmin:b2b.documents.notUploaded')}
                                 </Text>
                             </View>
-                            <DeskChip
+                            <Badge
                                 tone="warning"
                                 label={t('platformAdmin:b2b.documents.missingChip')}
                             />
@@ -1436,7 +1435,7 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                 description={t('platformAdmin:b2b.documents.rejectBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="platform-b2b-reject-cancel"
                             variant="quiet"
                             label={t('platformAdmin:b2b.cancel')}
@@ -1444,7 +1443,7 @@ function DocumentsCard({ application }: { readonly application: PlatformB2bAppli
                                 setRejecting(null);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="platform-b2b-reject-confirm"
                             variant="danger"
                             label={t('platformAdmin:b2b.documents.reject')}
@@ -1521,13 +1520,13 @@ function RequestInformationDialog({
             description={t('platformAdmin:b2b.request.body')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="platform-b2b-request-cancel"
                         variant="quiet"
                         label={t('platformAdmin:b2b.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="platform-b2b-request-confirm"
                         label={t('platformAdmin:b2b.request.confirm')}
                         disabled={message.trim() === ''}
@@ -1614,13 +1613,13 @@ function ApproveDialog({
             description={t('platformAdmin:b2b.approve.body')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="platform-b2b-approve-cancel"
                         variant="quiet"
                         label={t('platformAdmin:b2b.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="platform-b2b-approve-confirm"
                         label={t('platformAdmin:b2b.actions.approve')}
                         loading={approve.isPending}
@@ -1707,13 +1706,13 @@ function DeclineDialog({
             description={t('platformAdmin:b2b.decline.body')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="platform-b2b-decline-cancel"
                         variant="quiet"
                         label={t('platformAdmin:b2b.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="platform-b2b-decline-confirm"
                         variant="danger"
                         label={t('platformAdmin:b2b.actions.decline')}
@@ -1799,13 +1798,13 @@ function ConfirmDialog({
             description={body}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID={`${testID}-cancel`}
                         variant="quiet"
                         label={t('platformAdmin:b2b.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID={`${testID}-confirm`}
                         label={confirmLabel}
                         loading={loading}

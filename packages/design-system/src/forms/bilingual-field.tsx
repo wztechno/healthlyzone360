@@ -1,0 +1,410 @@
+import type { LocalisedText } from '@healthy360/api-client/contracts';
+import { Badge } from '../content/badge.tsx';
+import { Button } from '../actions/button.tsx';
+import { cx } from '../internal/class-names.ts';
+import { FormField } from './form-field.tsx';
+import { Inline, Stack } from '../primitives/stack.tsx';
+import { inputControlClass, inputFrameClassName } from './text-input.tsx';
+import { Text } from '../primitives/text.tsx';
+import { useDensity } from '../hooks/use-density.tsx';
+import type { FieldControlProps } from './form-field.tsx';
+import type { GridSpanProps } from '../primitives/grid-shared.ts';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { TextInput, View } from 'react-native';
+
+/**
+ * The two halves of a bilingual entity name, each written in its own direction.
+ *
+ * ## Why the direction is per field rather than per interface
+ *
+ * An admin record carries both languages because the person editing it is responsible for both
+ * (plan §4.18). That means an English-reading kitchen manager types Arabic into this form and an
+ * Arabic-reading one types English — so binding the fields to the *interface* direction would put a
+ * right-to-left caret in the English field for half the staff and a left-to-right one in the Arabic
+ * field for the other half. Each input therefore pins `writingDirection` to the language it holds,
+ * in both interface directions, and the surrounding labels and layout keep following the interface.
+ *
+ * ## Why it composes `FormField` instead of using `TextInputField`
+ *
+ * `TextInputField` deliberately omits `style` from its props, so there is no way to hand it a
+ * `writingDirection`. Rather than widen a shared component for one screen, this composes the two
+ * pieces the design system exports for exactly this purpose — `FormField` for the label, hint,
+ * error and the `aria-describedby` chain, and `inputFrameClassName` for the frame and focus ring —
+ * which is the same composition `Select` uses internally. No new design-system component, and the
+ * field is indistinguishable from every other one on the page.
+ *
+ * ## A missing Arabic side marks, and blocks nothing
+ *
+ * Saving a draft with no Arabic is legitimate and common: the name arrives from an import in one
+ * language and somebody translates it later. What is *not* legitimate is publishing it, and the
+ * readiness evaluator refuses that (plan §4.7). So the marker here is a badge and a hint, never a
+ * validation error — an editor that refused to save half a translation would simply lose the half
+ * it had.
+ */
+
+export type BilingualDirection = 'ltr' | 'rtl';
+
+interface HalfProps {
+    readonly testID: string;
+    readonly label: string;
+    /** Omitted by the `row` layout, which draws the two labels and nothing else. */
+    readonly hint?: string | undefined;
+    readonly value: string;
+    readonly onChangeText: (value: string) => void;
+    readonly direction: BilingualDirection;
+    readonly placeholder?: string | undefined;
+    readonly error?: string | undefined;
+    readonly required?: boolean | undefined;
+    readonly disabled?: boolean | undefined;
+    /** Renders a paragraph field instead of a single line. See the note on `BilingualFieldProps`. */
+    readonly multiline?: boolean | undefined;
+    readonly labelHidden?: boolean | undefined;
+    readonly onBlur?: (() => void) | undefined;
+}
+
+function BilingualHalf({
+    testID,
+    label,
+    hint,
+    value,
+    onChangeText,
+    direction,
+    placeholder,
+    error,
+    required = false,
+    disabled = false,
+    multiline = false,
+    labelHidden = false,
+    onBlur,
+}: HalfProps) {
+    const [focused, setFocused] = useState(false);
+    /*
+     * The frame and the value follow the density ladder, exactly as `TextInputField` does.
+     *
+     * Omitting them was the bug behind "the designation fields are a different size": with no
+     * density stated, `inputFrameClassName` falls back to the *customer* ladder and its 44px touch
+     * floor, so under `DensityProvider value="compact"` these two boxes came out 44px tall in a row
+     * of 28px ones — the only pair on the form that did. The size is not this component's to choose;
+     * it is the surface's, and the surface already said.
+     */
+    const density = useDensity();
+
+    return (
+        <FormField
+            testID={testID}
+            id={testID}
+            label={label}
+            labelHidden={labelHidden}
+            {...(hint === undefined ? {} : { hint })}
+            required={required}
+            disabled={disabled}
+            {...(error === undefined ? {} : { error })}
+        >
+            {(control: FieldControlProps) => (
+                <View
+                    className={inputFrameClassName({
+                        invalid: error !== undefined,
+                        focused,
+                        disabled,
+                        density,
+                        size: density === 'compact' ? 'sm' : 'md',
+                        multiline,
+                    })}
+                >
+                    <TextInput
+                        {...control}
+                        testID={`${testID}-input`}
+                        value={value}
+                        onChangeText={onChangeText}
+                        editable={!disabled}
+                        {...(placeholder === undefined ? {} : { placeholder })}
+                        {...(multiline ? { multiline: true, numberOfLines: 3 } : {})}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        className={cx(inputControlClass(density), 'text-content-primary')}
+                        // `textAlign: 'auto'` keeps the text on the side the *writing direction*
+                        // says, and `writingDirection` is what fixes that direction to the field's
+                        // own language rather than the interface's. `textAlignVertical` only
+                        // matters once the box is taller than one line, and without it Android
+                        // centres a paragraph inside its own frame.
+                        style={{
+                            textAlign: 'auto',
+                            writingDirection: direction,
+                            ...(multiline ? { textAlignVertical: 'top' as const } : {}),
+                        }}
+                        onFocus={() => {
+                            setFocused(true);
+                        }}
+                        onBlur={() => {
+                            setFocused(false);
+                            onBlur?.();
+                        }}
+                    />
+                </View>
+            )}
+        </FormField>
+    );
+}
+
+export interface BilingualFieldProps extends GridSpanProps {
+    /** Name of the thing being written, e.g. "Name". Both labels are built from it. */
+    readonly fieldLabel: string;
+    readonly value: LocalisedText;
+    readonly onChange: (value: LocalisedText) => void;
+    /** Marks the English half required. The Arabic half never is — see the note above. */
+    readonly requiredEnglish?: boolean | undefined;
+    readonly englishError?: string | undefined;
+    /**
+     * Marks the Arabic half required too — for the records whose endpoint refuses a missing one
+     * outright (a role: `name_ar` is `required`), where a draft without it cannot be saved at all.
+     * Nothing publishes a role, so there is no later gate for the marker to defer to.
+     */
+    readonly requiredArabic?: boolean | undefined;
+    readonly arabicError?: string | undefined;
+    /**
+     * Renders both halves as paragraph fields.
+     *
+     * A recipe step is a sentence or three, not a name, and typing one into a single-line box means
+     * scrolling a caret sideways through it. It is a variant rather than a second component because
+     * everything else about the field — the per-language writing direction, the missing-translation
+     * marker, the copy-across control — is identical, and a fork would eventually get one of those
+     * wrong on one of the two.
+     */
+    readonly multiline?: boolean | undefined;
+    /** Locks both halves — used for platform-library rows a kitchen may read but not rename. */
+    readonly disabled?: boolean | undefined;
+    /**
+     * `row` is the Catalogue presentation: two 280px fields side by side, and nothing else.
+     *
+     * The layout is the smaller half of it. `stacked` also carries a per-language hint under each
+     * label, a `No Arabic yet` badge, a copy-across button and a footnote about publication — four
+     * pieces of scaffolding for someone filling in a bilingual record for the first time. The
+     * Catalogue draws none of them, and on a desk surface used forty times a day they are four
+     * lines of furniture around two inputs whose labels already say `(EN)` and `(AR)`.
+     *
+     * What is *lost* with them is the missing-translation marker, and that is a real cost rather
+     * than a tidy-up: an Arabic name is required to publish and this was where a reader found out
+     * it was absent. The readiness evaluator still refuses the publication (plan §4.7), so nothing
+     * ships half-translated — the warning simply arrives later, at the gate rather than in the
+     * field. `stacked` stays the default so every other editor keeps the marker.
+     *
+     * It wraps rather than overflowing below `md`, where one 280px column cannot hold two.
+     *
+     * `fill` is `row` with the two halves sharing the container instead of sitting at 280px, and
+     * with the English half labelled by the bare field name — the meal editor's handoff draws its
+     * identity pair edge to edge across the panel. It is the one place the no-stretch rule
+     * (`grid-shared.ts`) is deliberately not applied: a name and its translation are prose, and a
+     * pair of 280px boxes under a 900px panel reads as a form that failed to load rather than as a
+     * restrained one. Nothing else on the page stretches, and no other editor opts in.
+     */
+    readonly layout?: 'stacked' | 'row' | 'fill' | undefined;
+    /**
+     * `fill` only: both halves keep their accessible names and draw no label — for a pair that sits
+     * under a table's column header (the delivery window table).
+     */
+    readonly labelHidden?: boolean | undefined;
+    /**
+     * An example for each half — `Morning` in the English box, `الصباح` in the Arabic one. Each
+     * language gets its own, written in that language: a placeholder is read in the box it sits in,
+     * and an English example in the right-to-left box would show the reader the wrong script.
+     */
+    readonly placeholder?: { readonly en?: string; readonly ar?: string } | undefined;
+    /** Called when the English half loses focus — the ingredient form's assistant runs from it. */
+    readonly onEnglishBlur?: (() => void) | undefined;
+    readonly testID: string;
+}
+
+export function BilingualField({
+    fieldLabel,
+    value,
+    onChange,
+    requiredEnglish = false,
+    englishError,
+    requiredArabic = false,
+    arabicError,
+    multiline = false,
+    disabled = false,
+    layout = 'stacked',
+    labelHidden = false,
+    placeholder,
+    onEnglishBlur,
+    testID,
+}: BilingualFieldProps) {
+    const { t } = useTranslation();
+    const hintFor = (language: 'en' | 'ar'): { readonly placeholder?: string } => {
+        const text = placeholder?.[language];
+        return text === undefined ? {} : { placeholder: text };
+    };
+    // The English copied across is not a translation, and publication treats it the same way.
+    const arabicMissing = value.ar.trim() === '' || value.ar.trim() === value.en.trim();
+    const row = layout === 'row';
+
+    if (layout === 'fill') {
+        return (
+            <View
+                testID={testID}
+                className={
+                    labelHidden
+                        ? 'z-auto flex-row gap-tight'
+                        : 'z-auto flex-col gap-base md:flex-row'
+                }
+            >
+                <View className="z-auto min-w-0 flex-1">
+                    <BilingualHalf
+                        testID={`${testID}-en`}
+                        label={fieldLabel}
+                        labelHidden={labelHidden}
+                        value={value.en}
+                        onChangeText={(next) => {
+                            onChange({ ...value, en: next });
+                        }}
+                        direction="ltr"
+                        onBlur={onEnglishBlur}
+                        {...hintFor('en')}
+                        required={requiredEnglish}
+                        multiline={multiline}
+                        disabled={disabled}
+                        {...(englishError === undefined ? {} : { error: englishError })}
+                    />
+                </View>
+                <View className="z-auto min-w-0 flex-1">
+                    <BilingualHalf
+                        testID={`${testID}-ar`}
+                        label={t('designSystem:bilingual.arabicLabel', { field: fieldLabel })}
+                        labelHidden={labelHidden}
+                        value={value.ar}
+                        onChangeText={(next) => {
+                            onChange({ ...value, ar: next });
+                        }}
+                        direction="rtl"
+                        {...hintFor('ar')}
+                        required={requiredArabic}
+                        multiline={multiline}
+                        disabled={disabled}
+                        {...(arabicError === undefined ? {} : { error: arabicError })}
+                    />
+                </View>
+            </View>
+        );
+    }
+
+    if (row) {
+        return (
+            /*
+             * A wrapping flex row of two fixed fields, not a nested `FormGrid`.
+             *
+             * The grid was the first attempt and it does not compose: an inner grid resolves its own
+             * column count from the viewport while the outer one resolves the span, so the pair
+             * rendered stacked inside a two-track cell — one field wide, one column empty. Two
+             * `w-field` boxes in a `flex-wrap` row are the same 280px tracks with the same 16px gap
+             * and no second opinion about how many fit.
+             */
+            <View testID={testID} className="flex-row flex-wrap gap-base">
+                <View className="w-field">
+                    <BilingualHalf
+                        testID={`${testID}-en`}
+                        label={t('designSystem:bilingual.englishShort', { field: fieldLabel })}
+                        value={value.en}
+                        onChangeText={(next) => {
+                            onChange({ ...value, en: next });
+                        }}
+                        direction="ltr"
+                        onBlur={onEnglishBlur}
+                        {...hintFor('en')}
+                        required={requiredEnglish}
+                        multiline={multiline}
+                        disabled={disabled}
+                        {...(englishError === undefined ? {} : { error: englishError })}
+                    />
+                </View>
+                <View className="w-field">
+                    <BilingualHalf
+                        testID={`${testID}-ar`}
+                        label={t('designSystem:bilingual.arabicShort', { field: fieldLabel })}
+                        value={value.ar}
+                        onChangeText={(next) => {
+                            onChange({ ...value, ar: next });
+                        }}
+                        direction="rtl"
+                        {...hintFor('ar')}
+                        required={requiredArabic}
+                        multiline={multiline}
+                        disabled={disabled}
+                        {...(arabicError === undefined ? {} : { error: arabicError })}
+                    />
+                </View>
+            </View>
+        );
+    }
+
+    const halves = (
+        <>
+            <BilingualHalf
+                testID={`${testID}-en`}
+                label={t('designSystem:bilingual.englishLabel', { field: fieldLabel })}
+                value={value.en}
+                onChangeText={(next) => {
+                    onChange({ ...value, en: next });
+                }}
+                direction="ltr"
+                onBlur={onEnglishBlur}
+                {...hintFor('en')}
+                required={requiredEnglish}
+                multiline={multiline}
+                disabled={disabled}
+                {...(englishError === undefined ? {} : { error: englishError })}
+            />
+
+            <BilingualHalf
+                testID={`${testID}-ar`}
+                label={t('designSystem:bilingual.arabicLabel', { field: fieldLabel })}
+                value={value.ar}
+                onChangeText={(next) => {
+                    onChange({ ...value, ar: next });
+                }}
+                direction="rtl"
+                {...hintFor('ar')}
+                required={requiredArabic}
+                multiline={multiline}
+                disabled={disabled}
+                {...(arabicError === undefined ? {} : { error: arabicError })}
+            />
+        </>
+    );
+
+    return (
+        <Stack space="sm" testID={testID}>
+            {halves}
+
+            <Inline space="sm" align="center" wrap>
+                {arabicMissing ? (
+                    <Badge
+                        testID={`${testID}-missing-arabic`}
+                        tone="warning"
+                        icon="warning"
+                        label={t('designSystem:bilingual.missingArabic')}
+                    />
+                ) : null}
+                {disabled ? null : (
+                    <Button
+                        testID={`${testID}-copy-english`}
+                        size="sm"
+                        variant="ghost"
+                        label={t('designSystem:bilingual.copyFromEnglish')}
+                        disabled={value.en.trim() === ''}
+                        onPress={() => {
+                            onChange({ ...value, ar: value.en });
+                        }}
+                    />
+                )}
+            </Inline>
+
+            {arabicMissing ? (
+                <Text testID={`${testID}-missing-arabic-hint`} variant="caption" tone="secondary">
+                    {t('designSystem:bilingual.missingArabicHint')}
+                </Text>
+            ) : null}
+        </Stack>
+    );
+}

@@ -1,8 +1,8 @@
-import { DensityProvider, SectionLook, ToastLookScope } from '@healthy360/design-system';
+import { AreaLookScope, DensityProvider, SectionLook } from '@healthy360/design-system';
 import { Slot } from 'expo-router';
 import { View } from 'react-native';
 
-import { DeskTrail } from '../../src/features/kitchen-admin/desk-kit/desk-trail.tsx';
+import { AdminTrail } from '../../src/ui/admin-trail.tsx';
 import {
     usePlatformAdminNavigation,
     usePlatformTrail,
@@ -29,9 +29,9 @@ import { TrailLeafProvider } from '../../src/shell/area-trail.tsx';
 export default function PlatformAdminLayout() {
     return (
         <TrailLeafProvider>
-            <ToastLookScope look="desk">
+            <AreaLookScope look="desk">
                 <PlatformAreaShell />
-            </ToastLookScope>
+            </AreaLookScope>
         </TrailLeafProvider>
     );
 }
@@ -46,7 +46,7 @@ function PlatformAreaShell() {
             testID="platform-admin-shell"
             navigation={navigation}
             sidebarWidth={DESK_SIDEBAR_WIDTH}
-            topbarTitle={<DeskTrail testID="platform-admin-breadcrumbs" crumbs={crumbs} />}
+            topbarTitle={<AdminTrail testID="platform-admin-breadcrumbs" crumbs={crumbs} />}
         >
             <DensityProvider value="compact">
                 {/* Cards, chips and pickers draw as the kitchen's do (`KitchenOpsShell`). */}

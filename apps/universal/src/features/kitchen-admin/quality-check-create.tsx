@@ -744,7 +744,7 @@ const DATE_TRACK = 'w-24';
 const CHECK_TRACK = 'w-36';
 
 /**
- * The subjects as a one-of list in `CatalogueList`'s frame: the header band, then a row per subject
+ * The subjects as a one-of list in `DataTable`'s frame: the header band, then a row per subject
  * that is itself the radio — the reference and what it is, who it came from or what it made, its
  * date, and the check it already carries.
  */

@@ -1,13 +1,29 @@
 import {
+    Badge,
     Button,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
+    SheetFacts,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensTone,
+    MenuItem,
+    StatusStep,
+} from '@healthy360/design-system';
 import type { Quotation, QuotationState } from '@healthy360/api-client/contracts';
 import { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -22,23 +38,7 @@ import {
     useQuotationsQuery,
 } from '../../../data/business-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../../kitchen-admin/catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
-import { ColumnPicker } from '../../kitchen-admin/catalogue/column-picker.tsx';
-import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
-import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.tsx';
-import { SheetFacts } from '../../kitchen-admin/catalogue/record-sheet.tsx';
-import type { SheetStep } from '../../kitchen-admin/catalogue/record-sheet.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../../kitchen-admin/catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
-import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
-import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { AcceptQuotationDialog, DeclineQuotationDialog } from '../accept-quotation-dialog.tsx';
 import { CORPORATE_HOME_HREF, CORPORATE_NEW_QUOTATION_HREF } from '../corporate-chrome.tsx';
@@ -164,7 +164,7 @@ export function QuotationsScreen({ initialFilter, initialOpen }: QuotationsScree
     const scheduleText = (row: Quotation): string =>
         row.recurring ? t('business:quotations.recurring') : t('business:quotations.oneOff');
 
-    const columns: readonly ControlledColumn<Quotation, CatalogueColumn<Quotation>>[] = [
+    const columns: readonly ControlledColumn<Quotation, DataTableColumn<Quotation>>[] = [
         {
             key: 'reference',
             role: 'title',
@@ -202,7 +202,7 @@ export function QuotationsScreen({ initialFilter, initialOpen }: QuotationsScree
                 match: (row, value) => row.state === value,
             },
             render: (row) => (
-                <DeskChip
+                <Badge
                     testID={`quotation-${row.reference}-state`}
                     tone={quotationTone(row.state)}
                     label={t(quotationStateKey(row.state))}
@@ -379,7 +379,6 @@ export function QuotationsScreen({ initialFilter, initialOpen }: QuotationsScree
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="quotations-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={figures}
@@ -399,7 +398,7 @@ export function QuotationsScreen({ initialFilter, initialOpen }: QuotationsScree
                               }),
                           })}
                     actions={
-                        <DeskButton
+                        <Button
                             testID="quotations-new"
                             size="sm"
                             label={t('business:nav.newQuotation')}
@@ -490,7 +489,7 @@ export function QuotationsScreen({ initialFilter, initialOpen }: QuotationsScree
                         }
                     />
                 ) : (
-                    <CatalogueList<Quotation>
+                    <DataTable<Quotation>
                         testID="quotations-list"
                         joined
                         label={t('business:quotations.caption')}
@@ -502,12 +501,11 @@ export function QuotationsScreen({ initialFilter, initialOpen }: QuotationsScree
                             setViewingRef(row.reference);
                         }}
                         rowActionsLabel={t('business:catalogue.rowActions')}
-                        rowActionsLook="desk"
                         rowActions={(row): readonly MenuItem[] => [
                             {
                                 key: 'view',
                                 label: t('business:quotations.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `quotation-${row.reference}-view`,
                                 onSelect: () => {
                                     setViewingRef(row.reference);
@@ -567,15 +565,15 @@ export function quotationSteps(
     quotation: Quotation,
     t: TFunction,
     date: (value: string) => string,
-): readonly SheetStep[] {
+): readonly StatusStep[] {
     const at = (value: string | null) => (value === null ? null : date(value));
-    const asked: SheetStep = {
+    const asked: StatusStep = {
         key: 'asked',
         label: t('business:sheet.stepAsked'),
         at: at(quotation.requestedAt),
         state: 'done',
     };
-    const priced: SheetStep = {
+    const priced: StatusStep = {
         key: 'priced',
         label: t('business:sheet.stepPriced'),
         at: at(quotation.quotedAt),
@@ -724,7 +722,6 @@ function QuotationSheet({
 
     return (
         <RecordViewPage
-            look="sheet"
             testID={testId}
             onBack={onClose}
             eyebrow={t('business:quotations.viewKind')}
@@ -871,7 +868,7 @@ function QuotationLines({ quotation }: { readonly quotation: Quotation }) {
     const testId = `quotation-${quotation.reference}`;
     const priced = quotation.lines.some((line) => line.quotedUnitPrice !== null);
 
-    const columns: readonly CatalogueColumn<Quotation['lines'][number]>[] = [
+    const columns: readonly DataTableColumn<Quotation['lines'][number]>[] = [
         {
             key: 'name',
             role: 'title',
@@ -945,7 +942,7 @@ function QuotationLines({ quotation }: { readonly quotation: Quotation }) {
 
     return (
         <View className="overflow-hidden rounded-[14px] border border-stroke-subtle">
-            <CatalogueList
+            <DataTable
                 testID={`${testId}-line-table`}
                 label={t('business:quotations.linesTitle')}
                 columns={columns}
@@ -971,7 +968,7 @@ function QuotationLines({ quotation }: { readonly quotation: Quotation }) {
                     </Text>
                 ) : (
                     <Text
-                        className="font-display text-xl font-bold tabular-nums text-content-on-brand-subtle"
+                        className="font-display text-role-title font-bold tabular-nums text-content-on-brand-subtle"
                         testID={contractPriceTestId(`quoted-total-${quotation.reference}-view`)}
                     >
                         {formatMoney(formatter, quotation.requestedTotal)}

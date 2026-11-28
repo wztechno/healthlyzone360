@@ -2,8 +2,8 @@ import type { ChannelAvailability, LocalisedText } from '@healthy360/api-client/
 import {
     Checkbox,
     DATA_LIST_HEAD_TEXT_CLASS,
-    DataList,
-    DateField,
+    DataTable,
+    DatePicker,
     Icon,
     IconButton,
     InfoTip,
@@ -13,8 +13,8 @@ import {
     Text,
     TextInputField,
     TimeField,
+    UndoBar,
     UNDROPPABLE_PRIORITY,
-    cx,
 } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { SALES_CHANNELS } from '@healthy360/domain-types';
@@ -36,7 +36,6 @@ import {
     unitDimensionKey,
     unitKey,
 } from './format.ts';
-import { UndoBar } from './row-editor-shell.tsx';
 
 /**
  * The three repeated-row editors K1.4 adds: pack variants, channel availability, availability days.
@@ -383,7 +382,8 @@ export function PackVariantEditor({
                 </View>
             ) : (
                 <>
-                    <DataList<PackDraft>
+                    <DataTable<PackDraft>
+                        lines
                         testID={testID}
                         label={t('kitchen:products.sectionPacks')}
                         columns={columns}
@@ -554,21 +554,13 @@ export function ChannelAvailabilityEditor({
 
                 return (
                     /*
-                     * A bordered tile, as the Resale board draws it. The fill is the *selected* state — it
-                     * reads at a glance which routes are live — and it is never the only signal: the
-                     * checkbox itself is checked beside it.
+                     * A tick card, as the Resale board draws it — the design system's `Checkbox`
+                     * `shape="card"`, the same tile the plan editor's diets use. The fill is the
+                     * ticked state and never the only signal: the box itself is ticked inside it.
                      */
-                    <View
-                        key={channel}
-                        testID={rowTestId}
-                        className={cx(
-                            'min-h-11 w-[220px] flex-col justify-center rounded-xl border px-3 py-1',
-                            row.isAvailable
-                                ? 'border-stroke bg-surface-brand-subtle'
-                                : 'border-stroke-subtle',
-                        )}
-                    >
+                    <View key={channel} testID={rowTestId}>
                         <Checkbox
+                            shape="card"
                             testID={`${rowTestId}-toggle`}
                             id={`${rowTestId}-toggle`}
                             label={t(channelKey(channel))}
@@ -577,20 +569,15 @@ export function ChannelAvailabilityEditor({
                             onChange={(checked) => {
                                 patch({ isAvailable: checked });
                             }}
+                            /*
+                             * The one channel that is a shopper rather than a business. Named
+                             * because "B2C" is the contract's word and not everybody reading this
+                             * form speaks it; the other seven need no gloss.
+                             */
+                            {...(channel === 'b2c'
+                                ? { description: t('kitchen:channels.consumerTag') }
+                                : {})}
                         />
-
-                        {/*
-                         * The one channel that is a shopper rather than a business. Named because
-                         * "B2C" is the contract's word and not everybody reading this form speaks
-                         * it; the other seven need no gloss. It follows the label rather than
-                         * sitting at the cell's far edge, where it read as a label of its own.
-                         * Under the label, aligned with the words past the box, as the board draws it.
-                         */}
-                        {channel === 'b2c' ? (
-                            <Text variant="caption" tone="secondary" className="ps-7">
-                                {t('kitchen:channels.consumerTag')}
-                            </Text>
-                        ) : null}
                     </View>
                 );
             })}
@@ -726,7 +713,7 @@ export function MealAvailabilityEditor({
                 const error = errors.get(row.key) ?? fieldError?.(row, 'date');
                 return (
                     <View className="z-auto w-full py-tight">
-                        <DateField
+                        <DatePicker
                             testID={`${rowId(row)}-date`}
                             id={`${rowId(row)}-date`}
                             label={t('kitchen:availability.dateLabel')}
@@ -879,7 +866,8 @@ export function MealAvailabilityEditor({
         <Stack space="sm" {...(rows.length === 0 ? { testID } : {})}>
             {rows.length === 0 ? null : (
                 <>
-                    <DataList<AvailabilityDraft>
+                    <DataTable<AvailabilityDraft>
+                        lines
                         testID={testID}
                         label={t('kitchen:availability.sectionServiceDays')}
                         columns={columns}

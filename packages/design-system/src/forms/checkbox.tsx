@@ -2,6 +2,7 @@ import { useId } from 'react';
 import type { ReactNode } from 'react';
 import { Pressable, Text as RNText, View } from 'react-native';
 
+import { useAreaLook } from '../hooks/area-look.tsx';
 import { useDensity } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
@@ -33,6 +34,14 @@ export interface CheckboxProps {
     readonly testID?: string | undefined;
     /** Replaces the plain-text label — for consents that embed a link. */
     readonly labelSlot?: ReactNode | undefined;
+    /**
+     * `card` draws the whole choice as a bordered tile, its fill the ticked state — one of a set the
+     * reader ticks any number of: a plan's diet classifications, a product's sales channels (the
+     * old `DeskToggleTile`). 44px tall and 184px wide, so a row of them lines up as a grid however
+     * many wrap; `description` becomes the tile's second line. `plain` (the default) is the box and
+     * its words.
+     */
+    readonly shape?: 'plain' | 'card' | undefined;
 }
 
 /**
@@ -60,8 +69,13 @@ export function Checkbox({
     className,
     testID,
     labelSlot,
+    shape = 'plain',
 }: CheckboxProps) {
     const density = useDensity();
+    // The admin's tick (the old `DeskCheckbox`): a 20px box with a firm edge on the raised ground,
+    // and in a table cell a 32px target that lights under the pointer.
+    const desk = useAreaLook() === 'desk';
+    const card = shape === 'card';
     const generated = useId();
     const base = id ?? `checkbox-${generated.replace(/:/g, '')}`;
     const descriptionId = description === undefined ? undefined : `${base}-description`;
@@ -89,12 +103,32 @@ export function Checkbox({
                     if (!disabled) onChange(!checked);
                 }}
                 className={cx(
-                    'flex-row items-start',
-                    labelHidden
-                        ? null
-                        : density === 'compact'
-                          ? 'gap-control-sm py-hair'
-                          : 'min-h-touch gap-3 py-1',
+                    card
+                        ? cx(
+                              'min-h-11 w-[184px] flex-row items-center gap-2.5 rounded-xl border px-3 py-1 web:transition-colors',
+                              filled
+                                  ? 'border-surface-brand bg-surface-brand-subtle'
+                                  : 'border-stroke bg-surface-raised',
+                              disabled || filled
+                                  ? null
+                                  : 'hover:border-surface-brand hover:bg-surface-sunken',
+                          )
+                        : desk && labelHidden
+                          ? 'h-8 w-8 items-center justify-center rounded-lg'
+                          : desk
+                            ? cx(
+                                  'flex-row gap-2 py-hair',
+                                  description === undefined ? 'items-center' : 'items-start',
+                              )
+                            : cx(
+                                  'flex-row items-start',
+                                  labelHidden
+                                      ? null
+                                      : density === 'compact'
+                                        ? 'gap-control-sm py-hair'
+                                        : 'min-h-touch gap-3 py-1',
+                              ),
+                    desk && labelHidden && !disabled ? 'hover:bg-surface-sunken' : null,
                     disabled ? 'opacity-50' : null,
                 )}
             >
@@ -111,12 +145,28 @@ export function Checkbox({
                  */}
                 <View
                     testID={testID === undefined ? undefined : `${testID}-box`}
-                    className={cx(
-                        density === 'compact' ? 'mt-px h-4 w-4' : 'mt-0.5 size-5',
-                        'shrink-0 items-center justify-center rounded-sm border',
-                        filled ? 'bg-surface-brand border-transparent' : 'bg-surface-base',
-                        error === undefined ? 'border-stroke-strong' : 'border-danger-border',
-                    )}
+                    className={
+                        desk || card
+                            ? cx(
+                                  'h-5 w-5 shrink-0 items-center justify-center rounded-md border-[1.5px]',
+                                  description !== undefined && !card ? 'mt-px' : null,
+                                  filled
+                                      ? 'border-surface-brand bg-surface-brand'
+                                      : error === undefined
+                                        ? 'border-stroke bg-surface-raised'
+                                        : 'border-danger-border bg-surface-raised',
+                              )
+                            : cx(
+                                  density === 'compact' ? 'mt-px h-4 w-4' : 'mt-0.5 size-5',
+                                  'shrink-0 items-center justify-center rounded-sm border',
+                                  filled
+                                      ? 'bg-surface-brand border-transparent'
+                                      : 'bg-surface-base',
+                                  error === undefined
+                                      ? 'border-stroke-strong'
+                                      : 'border-danger-border',
+                              )
+                    }
                 >
                     {filled ? (
                         <Icon
@@ -128,14 +178,27 @@ export function Checkbox({
                 </View>
 
                 {labelHidden && description === undefined ? null : (
-                    <View className="flex-1 flex-col gap-0.5">
+                    <View className={card ? 'min-w-0 flex-1 flex-col' : 'flex-1 flex-col gap-0.5'}>
                         {labelHidden
                             ? null
                             : (labelSlot ?? (
                                   <RNText
+                                      numberOfLines={card ? 1 : undefined}
                                       className={cx(
-                                          'text-content-primary text-start',
-                                          density === 'compact' ? 'text-role-body' : 'text-sm',
+                                          'text-start',
+                                          card
+                                              ? cx(
+                                                    'text-sm font-semibold',
+                                                    filled
+                                                        ? 'text-content-on-brand-subtle'
+                                                        : 'text-content-primary',
+                                                )
+                                              : cx(
+                                                    'text-content-primary',
+                                                    density === 'compact'
+                                                        ? 'text-role-body'
+                                                        : 'text-sm',
+                                                ),
                                       )}
                                   >
                                       {label}

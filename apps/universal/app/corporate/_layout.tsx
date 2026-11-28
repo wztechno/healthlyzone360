@@ -1,4 +1,4 @@
-import { DensityProvider, SectionLook, ToastLookScope } from '@healthy360/design-system';
+import { AreaLookScope, DensityProvider, SectionLook } from '@healthy360/design-system';
 import { Slot } from 'expo-router';
 import { View } from 'react-native';
 
@@ -6,7 +6,7 @@ import {
     useCorporateNavigation,
     useCorporateTrail,
 } from '../../src/features/business/corporate-chrome.tsx';
-import { DeskTrail } from '../../src/features/kitchen-admin/desk-kit/desk-trail.tsx';
+import { AdminTrail } from '../../src/ui/admin-trail.tsx';
 import { AreaRailTop, DESK_SIDEBAR_WIDTH } from '../../src/shell/area-brand-block.tsx';
 import { AreaShell } from '../../src/shell/area-shell.tsx';
 import { TrailLeafProvider } from '../../src/shell/area-trail.tsx';
@@ -14,7 +14,7 @@ import { TrailLeafProvider } from '../../src/shell/area-trail.tsx';
 /**
  * The `corporate` area. `AreaShell` applies `<Gate area="corporate">` and this area's chrome — the
  * kitchen's desk shell with the corporate destinations: Overview, one catalogue per programme and
- * the quotations on the rail, and the kitchen's pill trail (`DeskTrail`), ع, the theme and
+ * the quotations on the rail, and the kitchen's pill trail (`AdminTrail`), ع, the theme and
  * Workspaces in the top bar. Toasts take the desk look, as they do in the kitchen.
  *
  * A corporate buyer works at a desk with a mouse, as a kitchen does, so every page renders on the
@@ -24,9 +24,9 @@ import { TrailLeafProvider } from '../../src/shell/area-trail.tsx';
 export default function CorporateLayout() {
     return (
         <TrailLeafProvider>
-            <ToastLookScope look="desk">
+            <AreaLookScope look="desk">
                 <CorporateAreaShell />
-            </ToastLookScope>
+            </AreaLookScope>
         </TrailLeafProvider>
     );
 }
@@ -42,7 +42,7 @@ function CorporateAreaShell() {
             navigation={navigation}
             sidebarWidth={DESK_SIDEBAR_WIDTH}
             sidebarStartCollapsed={<AreaRailTop testID="corporate-rail-top" />}
-            topbarTitle={<DeskTrail testID="corporate-breadcrumbs" crumbs={crumbs} />}
+            topbarTitle={<AdminTrail testID="corporate-breadcrumbs" crumbs={crumbs} />}
         >
             <DensityProvider value="compact">
                 {/* Cards, chips and pickers draw as the kitchen's do (`KitchenOpsShell`). */}

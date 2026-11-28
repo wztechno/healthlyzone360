@@ -3,6 +3,7 @@ import type { PressableProps } from 'react-native';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
+import { useAreaLook } from '../hooks/area-look.tsx';
 import { useDensity } from '../hooks/use-density.tsx';
 import type { Density } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
@@ -46,6 +47,11 @@ export interface IconButtonProps extends Omit<
     readonly size?: ButtonSize | undefined;
     /** A full circle rather than the ladder's rounded square — the top bar's round controls. */
     readonly round?: boolean | undefined;
+    /**
+     * Holds the brand-tinted ground while what it opened is open — a row's `⋯` while its menu is
+     * showing, so the reader can see which row the menu belongs to.
+     */
+    readonly pressed?: boolean | undefined;
     readonly disabled?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
@@ -81,6 +87,7 @@ export function IconButton({
     tone = 'default',
     size = 'md',
     round = false,
+    pressed = false,
     disabled = false,
     className,
     onPress,
@@ -90,6 +97,10 @@ export function IconButton({
     ...rest
 }: IconButtonProps) {
     const density = useDensity();
+    // The desk's `.ib.sm` (the old `DeskIconButton`): under the admin's look an outlined icon button
+    // is a 34px round bordered glyph — the day stepper's ‹ ›, a pop-up's ✕. A `round` one keeps the
+    // top bar's own size, and a `ghost` one stays the flat glyph a table row carries.
+    const deskOutlined = useAreaLook() === 'desk' && variant === 'secondary' && !round;
 
     /*
      * The label, drawn while the pointer rests on the glyph.
@@ -152,18 +163,31 @@ export function IconButton({
             }}
             className={cx(
                 'relative items-center justify-center',
-                CONTAINER_VARIANT[variant],
-                round
-                    ? ICON_BUTTON_SIZE[density][size].replace(
-                          /rounded(-[a-z0-9]+)?/,
-                          'rounded-full',
-                      )
-                    : ICON_BUTTON_SIZE[density][size],
+                deskOutlined
+                    ? 'h-desk-toolbar aspect-square rounded-full border border-stroke-subtle bg-surface-raised hover:bg-surface-brand-subtle web:transition-colors'
+                    : pressed
+                      ? 'border border-transparent bg-surface-brand-subtle web:transition-colors'
+                      : CONTAINER_VARIANT[variant],
+                deskOutlined
+                    ? null
+                    : round
+                      ? ICON_BUTTON_SIZE[density][size].replace(
+                            /rounded(-[a-z0-9]+)?/,
+                            'rounded-full',
+                        )
+                      : ICON_BUTTON_SIZE[density][size],
                 disabled ? 'opacity-50' : null,
                 className,
             )}
         >
-            <View className={cx(LABEL_VARIANT[variant], TONE_CLASS[tone])}>{icon}</View>
+            <View
+                className={cx(
+                    pressed ? 'text-content-on-brand-subtle' : LABEL_VARIANT[variant],
+                    TONE_CLASS[tone],
+                )}
+            >
+                {icon}
+            </View>
             {showLabel ? (
                 <View
                     testID={testID === undefined ? undefined : `${testID}-hover-label`}

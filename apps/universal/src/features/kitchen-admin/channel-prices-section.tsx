@@ -6,15 +6,7 @@ import type {
     SetItemChannelPricesRequest,
     TradeChannel,
 } from '@healthy360/api-client/contracts';
-import {
-    FormSection,
-    QuantityInput,
-    Select,
-    Stack,
-    Text,
-    parseQuantity,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, FormSection, parseQuantity, QuantityInput, Select, Stack, Text, useToast } from '@healthy360/design-system';
 import type { SelectOption } from '@healthy360/design-system';
 import { minorUnitExponent } from '@healthy360/domain-types';
 import type { CurrencyCode, MealId, ProductId } from '@healthy360/domain-types';
@@ -37,7 +29,6 @@ import {
 } from './entity-registry.ts';
 import { adminUnitsWith, parseAmount, unitShortKey } from './format.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * B2B and B2C — the weight each channel sells and its price, side by side, the way the v6 sheet
  * states them (B2B Weight, B2B Price, B2C Weight, B2C Price).
@@ -365,7 +356,7 @@ function ChannelPricesEditor({
             {...(look === 'panel' ? {} : { description: t('kitchen:channelPrices.hint') })}
             actions={
                 canManage ? (
-                    <DeskButton
+                    <Button
                         testID={`${testID}-save`}
                         size="sm"
                         variant="primary"

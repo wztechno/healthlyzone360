@@ -1,15 +1,25 @@
 import { SubscriptionPlanId } from '@healthy360/domain-types';
 import type { PlanAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     Stack,
+    TablePager,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -28,20 +38,9 @@ import {
     usePriceListsQuery,
     useAdminPlanQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { StatusLensSource } from '../catalogue/lens-status.ts';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { statusTally, withoutStatuses } from '../catalogue/use-catalogue-filters.ts';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     PLAN_STATUS_FILTERS,
@@ -55,7 +54,6 @@ import {
 } from '../format.ts';
 import type { PlanPriceCoverage } from '../format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
     useListMemory,
     useRememberedFilter,
@@ -67,9 +65,6 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The plan `?view=` names, read on its own when the loaded page does not hold it. */
 function usePlanById(id: string | null) {
     const parsed = SubscriptionPlanId.safeParse(id);
@@ -192,7 +187,7 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
         );
     };
 
-    const columns: readonly ControlledColumn<PlanAdmin, CatalogueColumn<PlanAdmin>>[] = [
+    const columns: readonly ControlledColumn<PlanAdmin, DataTableColumn<PlanAdmin>>[] = [
         {
             key: 'name',
             role: 'title',
@@ -220,7 +215,7 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                             </Text>
                         )}
                         {name.isFallback ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-missing-arabic`}
                                 tone="warning"
                                 label={t('kitchen:list.missingArabic')}
@@ -337,7 +332,8 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                 },
             },
             render: (row) => (
-                <DeskStatusDot
+                <Badge
+                    variant="dot"
                     testID={`${planRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
                     label={t(statusShortKey(row.meta.status))}
@@ -390,7 +386,6 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-plans-view"
-                look="sheet"
                 figureKeys={['variants', 'combinations', 'durations']}
                 eyebrow={t('kitchen:recordView.eyebrowPlans')}
                 onBack={() => {
@@ -449,7 +444,6 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-plans-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={statusLensFigures(lens, t, {
@@ -481,7 +475,7 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-plans-toolbar-create"
                                 label={t('kitchen:plans.create')}
                                 iconStart={<Icon name="plus" size="sm" />}
@@ -520,7 +514,7 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<PlanAdmin>
+                        <DataTable<PlanAdmin>
                             testID="kitchen-plans-table"
                             joined
                             label={t('kitchen:plans.caption')}
@@ -538,7 +532,7 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                                 {
                                     key: 'view',
                                     label: t('kitchen:list.view'),
-                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    icon: DATA_TABLE_ROW_ICONS.view,
                                     testID: `${planRowTestId(String(row.id))}-view`,
                                     onSelect: () => {
                                         rememberOpened(String(row.id));
@@ -548,7 +542,7 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                                 {
                                     key: 'edit',
                                     label: t('kitchen:catalogue.edit'),
-                                    icon: CATALOGUE_ROW_ICONS.edit,
+                                    icon: DATA_TABLE_ROW_ICONS.edit,
                                     testID: `${planRowTestId(String(row.id))}-open`,
                                     onSelect: () => {
                                         openEditor(row);
@@ -556,7 +550,7 @@ function PlansList({ view }: { readonly view?: string | undefined }) {
                                 },
                             ]}
                         />
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-plans-pagination"
                             page={page}
                             totalPages={totalPages}

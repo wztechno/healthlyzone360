@@ -1,3 +1,4 @@
+import { missingLast } from '@healthy360/design-system';
 import { ProductId } from '@healthy360/domain-types';
 import type { ApiFailure, ProductAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import { useLocale } from '@healthy360/i18n';
@@ -17,7 +18,6 @@ import {
 } from '../../../data/kitchen-admin-hooks.ts';
 import type { ProductCategory } from '../../../data/kitchen-admin-hooks.ts';
 import { displayName } from '../format.ts';
-import { missingLast } from './catalogue-column-spec.ts';
 import { inStatuses, statusTally, withoutStatuses } from './use-catalogue-filters.ts';
 import { useDestructiveRow } from './use-destructive-row.ts';
 import {

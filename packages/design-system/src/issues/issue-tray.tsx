@@ -502,13 +502,13 @@ function BlockedNotice({
                             size="sm"
                             className={cx('mt-0.5', TONE_MARK[card.tone])}
                         />
-                        <RNText className="min-w-0 flex-1 text-base text-content-primary text-start">
+                        <RNText className="min-w-0 flex-1 text-role-body text-content-primary text-start">
                             {card.label}
                         </RNText>
                     </View>
                 ))}
                 {more <= 0 ? null : (
-                    <RNText className="text-sm text-content-secondary text-start">
+                    <RNText className="text-role-body text-content-secondary text-start">
                         {t('designSystem:issueTray.andMore', { count: more })}
                     </RNText>
                 )}
@@ -596,7 +596,7 @@ function IssueTrayPanel({
                     <RNText
                         accessibilityRole="header"
                         aria-level={2}
-                        className="min-w-0 flex-1 text-base font-semibold text-content-primary text-start"
+                        className="min-w-0 flex-1 text-role-section font-semibold text-content-primary text-start"
                     >
                         {tray.title}
                     </RNText>
@@ -608,7 +608,7 @@ function IssueTrayPanel({
                         testID={`${testID}-progress`}
                         accessibilityLiveRegion="polite"
                         aria-live="polite"
-                        className="text-xs tabular-nums text-content-secondary"
+                        className="text-role-caption tabular-nums text-content-secondary"
                     >
                         {t('designSystem:issueTray.progress', { done, total })}
                     </RNText>
@@ -633,7 +633,7 @@ function IssueTrayPanel({
                     className="flex-row items-center gap-2 rounded bg-surface-sunken px-3 py-2"
                 >
                     <Icon name="chevronBackward" size="sm" className="text-content-secondary" />
-                    <RNText className="min-w-0 flex-1 text-sm text-content-primary text-start">
+                    <RNText className="min-w-0 flex-1 text-role-body text-content-primary text-start">
                         {tray.context.label}
                     </RNText>
                 </View>
@@ -641,7 +641,7 @@ function IssueTrayPanel({
 
             {groups.map((group) => (
                 <View key={group.key} testID={group.testID} className="flex-col gap-2">
-                    <RNText className="text-xs font-semibold text-content-secondary text-start">
+                    <RNText className="text-role-caption font-semibold text-content-secondary text-start">
                         {group.title}
                     </RNText>
                     {group.items.map((item) => (
@@ -667,7 +667,7 @@ function IssueTrayPanel({
 
             {checking.length === 0 ? null : (
                 <View testID={`${testID}-checking`} className="flex-col gap-1">
-                    <RNText className="text-xs font-semibold text-content-secondary text-start">
+                    <RNText className="text-role-caption font-semibold text-content-secondary text-start">
                         {t('designSystem:issueTray.checking')}
                     </RNText>
                     {checking.map((check) => (
@@ -677,7 +677,7 @@ function IssueTrayPanel({
                             className="flex-row items-center gap-2 py-0.5"
                         >
                             <Icon name="clock" size="sm" className="text-content-secondary" />
-                            <RNText className="min-w-0 flex-1 text-sm text-content-secondary text-start">
+                            <RNText className="min-w-0 flex-1 text-role-body text-content-secondary text-start">
                                 {check.label}
                             </RNText>
                         </View>
@@ -688,11 +688,13 @@ function IssueTrayPanel({
             {!clear ? null : (
                 <View testID={`${testID}-clear`} className="flex-col items-center gap-1 py-3">
                     <Icon name="circleCheck" size="lg" className="text-success" />
-                    <RNText className="text-base font-semibold text-content-primary">
+                    <RNText className="text-role-section font-semibold text-content-primary">
                         {t('designSystem:issueTray.allSet')}
                     </RNText>
                     {tray.doneLabel === undefined ? null : (
-                        <RNText className="text-sm text-content-secondary">{tray.doneLabel}</RNText>
+                        <RNText className="text-role-body text-content-secondary">
+                            {tray.doneLabel}
+                        </RNText>
                     )}
                     {tray.doneAction === undefined ? null : (
                         <Button
@@ -713,7 +715,7 @@ function IssueTrayPanel({
 
             {passed.length === 0 ? null : (
                 <View testID={`${testID}-passed`} className="flex-col gap-1">
-                    <RNText className="text-xs font-semibold text-content-secondary text-start">
+                    <RNText className="text-role-caption font-semibold text-content-secondary text-start">
                         {t('designSystem:issueTray.passed')}
                     </RNText>
                     {passed.map((check) => (
@@ -729,11 +731,11 @@ function IssueTrayPanel({
                         >
                             <Icon name="check" size="sm" className="mt-0.5 text-success" />
                             <View className="min-w-0 flex-1 flex-col">
-                                <RNText className="text-sm text-content-primary text-start">
+                                <RNText className="text-role-body text-content-primary text-start">
                                     {check.label}
                                 </RNText>
                                 {check.note === undefined ? null : (
-                                    <RNText className="text-xs text-content-secondary text-start">
+                                    <RNText className="text-role-caption text-content-secondary text-start">
                                         {check.note}
                                     </RNText>
                                 )}
@@ -752,14 +754,14 @@ function IssueTrayPanel({
                     }
                     className="flex-col gap-1 border-t border-stroke-subtle pt-3"
                 >
-                    <RNText className="text-xs font-semibold text-content-secondary text-start">
+                    <RNText className="text-role-caption font-semibold text-content-secondary text-start">
                         {notes.title}
                     </RNText>
                     {notes.lines.map((line) => (
                         <RNText
                             key={line.key}
                             testID={line.testID}
-                            className="text-sm text-content-primary text-start"
+                            className="text-role-body text-content-primary text-start"
                         >
                             {line.text}
                         </RNText>
@@ -811,7 +813,7 @@ function IssueCard({
                 <RNText
                     testID={testID === undefined ? undefined : `${testID}-label`}
                     className={cx(
-                        'text-sm font-medium text-start',
+                        'text-role-body font-medium text-start',
                         resolved ? 'text-success-on-subtle' : 'text-content-primary',
                     )}
                 >
@@ -820,7 +822,7 @@ function IssueCard({
                 {item.detail === undefined ? null : (
                     <RNText
                         className={cx(
-                            'text-xs text-start',
+                            'text-role-caption text-start',
                             resolved ? 'text-success-on-subtle' : 'text-content-secondary',
                         )}
                     >

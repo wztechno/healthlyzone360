@@ -1,5 +1,20 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
-import { Cascade, EmptyState, ErrorState, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    ColumnPicker,
+    compareText,
+    DataTable,
+    EmptyState,
+    ErrorState,
+    LensBar,
+    Select,
+    TableSkeleton,
+    Text,
+    useColumnControls,
+} from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, LensFigure } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -16,13 +31,6 @@ import {
     useProductionOrdersQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import { localDay } from '../format.ts';
 import { productionBatchTestId, productionStatusKey, productionStatusTone } from '../ops-format.ts';
@@ -35,9 +43,6 @@ import {
     useRestoredPageFallback,
 } from '../list-memory.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * `/kitchen/production-desk/batches` — the batches nobody has to move any more (PROD1).
  *
@@ -153,7 +158,7 @@ function ProductionBatches() {
         row.reference ?? t('kitchen:ops.production.unreferenced');
     const makesLabel = (row: ProductionOrder) => row.productionItemNameEn ?? noValue;
 
-    const columns: readonly ControlledColumn<ProductionOrder, CatalogueColumn<ProductionOrder>>[] =
+    const columns: readonly ControlledColumn<ProductionOrder, DataTableColumn<ProductionOrder>>[] =
         [
             {
                 key: 'reference',
@@ -232,7 +237,7 @@ function ProductionBatches() {
                                 })}
                             </Text>
                             {row.isExpired ? (
-                                <DeskChip
+                                <Badge
                                     testID={`${productionBatchTestId(String(row.id))}-expired`}
                                     tone="danger"
                                     label={t('kitchen:ops.production.expiredBadge')}
@@ -274,7 +279,8 @@ function ProductionBatches() {
                 width: 140,
                 priority: 85,
                 render: (row) => (
-                    <DeskStatusDot
+                    <Badge
+                        variant="dot"
                         testID={`${productionBatchTestId(String(row.id))}-status`}
                         tone={productionStatusTone(row.status)}
                         label={t(productionStatusKey(row.status))}
@@ -310,7 +316,6 @@ function ProductionBatches() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-production-batches-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     // A failed read counts nothing: its figures are dashes, as past the first page.
@@ -319,7 +324,8 @@ function ProductionBatches() {
                         t,
                     )}
                     scope={
-                        <LensScope<SettledStatus>
+                        <Select<SettledStatus>
+                            trigger="pill"
                             testID="kitchen-production-batches-toolbar-status"
                             label={t('kitchen:ops.production.filterStatus')}
                             value={status}
@@ -366,7 +372,7 @@ function ProductionBatches() {
                         retrying={batches.isFetching}
                     />
                 ) : rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-production-batches-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -387,7 +393,7 @@ function ProductionBatches() {
                     />
                 ) : (
                     <View className="flex-col gap-2.5">
-                        <CatalogueList<ProductionOrder>
+                        <DataTable<ProductionOrder>
                             testID="kitchen-production-batches-table"
                             joined
                             label={t('kitchen:ops.production.registerTitle')}
@@ -403,7 +409,7 @@ function ProductionBatches() {
                         />
                         <View className="flex-row flex-wrap items-center justify-center gap-snug">
                             {page > 1 ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-production-batches-previous"
                                     variant="secondary"
                                     size="sm"
@@ -414,7 +420,7 @@ function ProductionBatches() {
                                 />
                             ) : null}
                             {hasMore ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-production-batches-next"
                                     variant="secondary"
                                     size="sm"

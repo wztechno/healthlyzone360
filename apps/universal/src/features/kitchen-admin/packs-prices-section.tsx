@@ -10,11 +10,16 @@ import type {
     SetItemPacksRequest,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Card,
-    DataList,
+    ChoiceRow,
+    DataTable,
+    FailureToast,
     FormSection,
     Icon,
+    IconButton,
     QuantityInput,
+    Select,
     Stack,
     Text,
     UNDROPPABLE_PRIORITY,
@@ -44,12 +49,7 @@ import { queryKeys } from '../../data/query-keys.ts';
 import { useRepositories } from '../../data/repository-provider.tsx';
 import { CostCard } from './cost-card.tsx';
 import type { CostCardRow } from './cost-card.tsx';
-import { ChoiceRow } from './desk-kit/choice-row.tsx';
-import { DeskPicker } from './desk-kit/desk-picker.tsx';
-import { DeskChip } from './desk-kit/desk-chip.tsx';
-import { DeskIconButton } from './desk-kit/desk-button.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, PRICE_LIST_MANAGE_PERMISSION } from './entity-registry.ts';
-import { FailureToast } from './failure-toast.tsx';
 import { displayName, formatMoney, parseAmount, parseQuantity, unitShortKey } from './format.ts';
 import { useHostSave } from './host-save.ts';
 import type { HostSave, RegisterHostSave } from './host-save.ts';
@@ -889,7 +889,9 @@ export function PacksPricesSection({
                 actions={
                     canManage ? (
                         <View className="z-auto w-64 min-w-0 shrink">
-                            <DeskPicker
+                            <Select
+                                trigger="pill"
+                                value={null}
                                 testID={packsTargets.add}
                                 label={t('kitchen:packs.addPackLabel')}
                                 placeholder={t('kitchen:packs.addPack')}
@@ -910,7 +912,7 @@ export function PacksPricesSection({
                             variant="label"
                             className={
                                 board
-                                    ? 'rounded-xl bg-surface-sunken px-3 py-2.5 !text-[13px] !font-semibold'
+                                    ? 'rounded-xl bg-surface-sunken px-3 py-2.5 !text-role-body !font-semibold'
                                     : undefined
                             }
                         >
@@ -1063,12 +1065,12 @@ export function PackCard({
                     <Text
                         testID={`${testID}-name`}
                         variant="bodyStrong"
-                        className={board ? '!text-[15px] !font-bold' : undefined}
+                        className={board ? '!text-role-section !font-bold' : undefined}
                     >
                         {name}
                     </Text>
                     {pack.code === '' ? null : (
-                        <DeskChip testID={`${testID}-code`} tone="neutral" label={pack.code} />
+                        <Badge testID={`${testID}-code`} tone="neutral" label={pack.code} />
                     )}
                     <View className="flex-1" />
                     {perBatch === null ? null : (
@@ -1077,7 +1079,8 @@ export function PackCard({
                         </Text>
                     )}
                     {canManage ? (
-                        <DeskIconButton
+                        <IconButton
+                            variant="secondary"
                             testID={`${testID}-remove`}
                             label={t('kitchen:packs.remove', { name })}
                             icon={<Icon name="close" size="sm" />}
@@ -1122,7 +1125,9 @@ export function PackCard({
                             {containerPart === undefined ? (
                                 canManage ? (
                                     <View className="z-auto w-56 max-w-full">
-                                        <DeskPicker
+                                        <Select
+                                            trigger="pill"
+                                            value={null}
                                             testID={`${testID}-choose-container`}
                                             label={t('kitchen:packs.chooseContainer')}
                                             placeholder={t('kitchen:packs.chooseContainer')}
@@ -1143,7 +1148,7 @@ export function PackCard({
                                     </View>
                                 ) : null
                             ) : (
-                                <DeskChip
+                                <Badge
                                     testID={`${testID}-container`}
                                     tone="brand"
                                     label={nameOf(containerPart.ingredientId)}
@@ -1154,14 +1159,15 @@ export function PackCard({
                                     key={part.ingredientId}
                                     className="flex-row items-center gap-hair"
                                 >
-                                    <DeskChip
+                                    <Badge
                                         testID={`${testID}-part-${part.ingredientId}`}
                                         tone="neutral"
                                         label={nameOf(part.ingredientId)}
                                     />
                                     {canManage ? (
-                                        <DeskIconButton
-                                            flat
+                                        <IconButton
+                                            variant="ghost"
+                                            className="hover:bg-surface-raised"
                                             testID={`${testID}-part-${part.ingredientId}-remove`}
                                             label={t('kitchen:packs.removePart', {
                                                 name: nameOf(part.ingredientId),
@@ -1182,7 +1188,9 @@ export function PackCard({
                             ))}
                             {canManage ? (
                                 <View className="z-auto w-40 max-w-full">
-                                    <DeskPicker
+                                    <Select
+                                        trigger="pill"
+                                        value={null}
                                         testID={`${testID}-add-part`}
                                         label={t('kitchen:packs.addPartLabel')}
                                         placeholder={t('kitchen:packs.addPart')}
@@ -1463,7 +1471,8 @@ export function PackCostTable({
         );
     }
     return (
-        <DataList<PackSummary>
+        <DataTable<PackSummary>
+            lines
             testID={testID}
             label={t('kitchen:packs.costingTitle')}
             columns={columns}
@@ -1527,10 +1536,10 @@ function PlaceTile({
                 ) : null}
             </View>
             <View className="min-w-0 shrink">
-                <RNText numberOfLines={1} className="text-sm font-bold text-content-primary">
+                <RNText numberOfLines={1} className="text-role-body font-bold text-content-primary">
                     {label}
                 </RNText>
-                <RNText numberOfLines={1} className="text-xs text-content-secondary">
+                <RNText numberOfLines={1} className="text-role-caption text-content-secondary">
                     {meta}
                 </RNText>
             </View>

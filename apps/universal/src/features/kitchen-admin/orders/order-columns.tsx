@@ -1,19 +1,18 @@
 import type { OrderDeskDeliveryWindow } from '@healthy360/api-client/contracts';
-import { Text } from '@healthy360/design-system';
-import type { BadgeTone } from '@healthy360/design-system';
+import { Badge, Button, Text } from '@healthy360/design-system';
+import type {
+    BadgeTone,
+    ColumnComparator,
+    ColumnFilter,
+    ControlledColumn,
+    DataTableColumn,
+} from '@healthy360/design-system';
 import type { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { Text as RNText, View } from 'react-native';
 
 import { formatMoney } from '../../marketplace/format.ts';
 import { dateInstant } from '../../planner/format.ts';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import type {
-    ColumnComparator,
-    ColumnFilter,
-    ControlledColumn,
-} from '../catalogue/use-column-controls.tsx';
-import { DeskButton, DeskChip } from '../desk-kit/index.ts';
 import {
     kitchenOrderPaymentMethodKey,
     kitchenOrderRowTestId,
@@ -142,11 +141,11 @@ export function whenLines(
     return { main: `${relative} · ${slot}`, sub };
 }
 
-export function orderColumns(context: OrderColumnContext): readonly CatalogueColumn<BookRow>[] {
+export function orderColumns(context: OrderColumnContext): readonly DataTableColumn<BookRow>[] {
     const { t, formatter, now, windows, driverName, onStep, pendingId } = context;
     const id = (order: BookRow) => kitchenOrderRowTestId(String(order.id));
 
-    const columns: CatalogueColumn<BookRow>[] = [
+    const columns: DataTableColumn<BookRow>[] = [
         {
             key: 'number',
             role: 'title',
@@ -160,13 +159,13 @@ export function orderColumns(context: OrderColumnContext): readonly CatalogueCol
                 <View className="flex-col items-start gap-hair">
                     <RNText
                         numberOfLines={1}
-                        className="text-xs font-semibold tabular-nums text-content-secondary"
+                        className="text-role-caption font-semibold tabular-nums text-content-secondary"
                         testID={`${id(order)}-number`}
                     >
                         {order.orderNumber}
                     </RNText>
                     {order.allergy === null ? null : (
-                        <DeskChip
+                        <Badge
                             testID={`${id(order)}-allergy`}
                             tone={order.allergy.severe ? 'danger' : 'warning'}
                             label={t(
@@ -241,13 +240,13 @@ export function orderColumns(context: OrderColumnContext): readonly CatalogueCol
             value: (order) => orderStatusLabel(order, t),
             render: (order) => (
                 <View className="flex-row items-center gap-1">
-                    <DeskChip
+                    <Badge
                         testID={`${id(order)}-status`}
                         tone={orderStatusTone(order)}
                         label={orderStatusLabel(order, t)}
                     />
                     {isLateOrder(order, now, windows) ? (
-                        <DeskChip
+                        <Badge
                             testID={`${id(order)}-late`}
                             tone="danger"
                             label={t('kitchen:orders.late')}
@@ -267,7 +266,7 @@ export function orderColumns(context: OrderColumnContext): readonly CatalogueCol
                 const cell = driverCell(order, driverName);
                 if (cell.kind === 'needed') {
                     return (
-                        <DeskChip
+                        <Badge
                             testID={`${id(order)}-driver`}
                             tone="warning"
                             label={t('kitchen:orders.driver.needed')}
@@ -361,7 +360,7 @@ export function orderColumns(context: OrderColumnContext): readonly CatalogueCol
                 }
                 const pending = pendingId === String(order.id);
                 return (
-                    <DeskButton
+                    <Button
                         testID={`${id(order)}-next`}
                         variant="next"
                         label={t(NEXT_STEP_KEYS[step])}
@@ -490,7 +489,7 @@ function byNumber(read: (order: BookRow) => number | null): ColumnComparator<Boo
  */
 export function orderColumnControls(
     context: OrderColumnContext,
-): readonly ControlledColumn<BookRow, CatalogueColumn<BookRow>>[] {
+): readonly ControlledColumn<BookRow, DataTableColumn<BookRow>>[] {
     const { t, formatter, now, windows, driverName } = context;
     const status = byLabel((order) => orderStatusLabel(order, t));
     const filters: Readonly<Record<string, ColumnFilter<BookRow>>> = {

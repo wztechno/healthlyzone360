@@ -1,0 +1,197 @@
+import { FormSection } from '../forms/form-section.tsx';
+import { Text } from '../primitives/text.tsx';
+import type { TextTone } from '../primitives/text.tsx';
+import type { ReactNode } from 'react';
+import { ScrollView, View, useWindowDimensions } from 'react-native';
+
+/**
+ * What the sticky aside spends on everything but its item list — the top bar and padding above it,
+ * the title, the facts and total, the list's heading and a note. Generous on purpose: short, and the
+ * note slips under the fold again; long, and the list only scrolls a little sooner.
+ */
+const ASIDE_CHROME_HEIGHT = 380;
+
+/** The list's floor, about five lines, however short the window. */
+const LIST_MIN_HEIGHT = 140;
+
+/** One fact in the aside's head: a label at the start, its value at the end. */
+export interface RecordSummaryRow {
+    readonly key: string;
+    readonly label: string;
+    readonly value: string;
+}
+
+/** One line of what the record will do — an item and its effect. */
+export interface RecordSummaryListItem {
+    readonly key: string;
+    readonly name: string;
+    readonly value: string;
+    /** `success` for what rises, `secondary` for a plain count. */
+    readonly tone?: TextTone | undefined;
+    readonly testID?: string | undefined;
+}
+
+export interface RecordSummaryAsideProps {
+    /** `panel` is the flat card a page's board draws. */
+    readonly variant?: 'card' | 'panel' | undefined;
+    /**
+     * The aside's root. The card is `${testID}-card`, each head row `${testID}-${row.key}` and the
+     * total `${testID}-total`; the list carries its own ids because it is the part tests read.
+     */
+    readonly testID: string;
+    readonly title: string;
+    /** A fixed column beside the form, or `null` to run the full width under it. */
+    readonly width: number | null;
+    readonly rows: readonly RecordSummaryRow[];
+    /** The record's bottom line, or `null` when there is none to show this reader. */
+    readonly total: { readonly label: string; readonly value: string } | null;
+    readonly list: {
+        readonly title: string;
+        readonly empty: string;
+        readonly items: readonly RecordSummaryListItem[];
+        readonly testID: string;
+        readonly emptyTestID: string;
+    };
+    /** A callout under the list — what still needs saying before the commit. */
+    readonly note?: ReactNode;
+}
+
+/**
+ * The record form's aside: the record in a few facts and what committing it will do.
+ *
+ * Drawn first for Post receipt and shared with the supply-order builder and the supply order page,
+ * which ask the same thing of their reader — *this is what you are about to create, this is its
+ * effect*. The commit itself is not here: it sits in the page's opening, and a second copy at the
+ * aside's foot was one button drawn twice.
+ *
+ * ```
+ * ┌ THIS RECEIPT ────────────┐
+ * │ Kind      Market purchase │
+ * │ Supplier  Beqaa Fresh     │
+ * │ Total        318.30 USD   │
+ * │ ───────────────────────── │
+ * │ Stock at Beirut rises by  │
+ * │ Chicken breast   +24 kg   │
+ * │ ⚠ 1 line has no price…    │
+ * └───────────────────────────┘
+ * ```
+ *
+ * One card rather than three, its parts divided by hairlines, because it is read top to bottom as
+ * one statement. Sticky on the web, so the summary stays beside a long form; the offset resolves
+ * against the shell's scroll port, which pins it just under the top bar.
+ */
+export function RecordSummaryAside({
+    testID,
+    title,
+    width,
+    rows,
+    total,
+    list,
+    note,
+    variant = 'card',
+}: RecordSummaryAsideProps) {
+    /*
+     * Sticky, and a sticky box taller than the screen never shows its own bottom — the note, often
+     * the warning the reader most needs. Beside the form (a `width`), the item list scrolls inside
+     * the card instead, capped at what the window leaves after the card's head and foot: a 720p
+     * laptop has ~600px of it. Under the form nothing is sticky, so nothing is capped.
+     */
+    const { height: windowHeight } = useWindowDimensions();
+    const listMaxHeight =
+        width === null ? undefined : Math.max(LIST_MIN_HEIGHT, windowHeight - ASIDE_CHROME_HEIGHT);
+
+    return (
+        <View
+            testID={testID}
+            role="complementary"
+            aria-label={title}
+            style={width === null ? undefined : { width }}
+            // Under the form (no width) it runs the full width, as the prop says.
+            className={
+                width === null ? 'z-auto self-stretch' : 'z-auto self-start web:sticky web:top-0'
+            }
+        >
+            <FormSection first variant={variant} testID={`${testID}-card`} title={title}>
+                <View className="flex-col gap-base">
+                    <View className="flex-col gap-snug">
+                        {rows.map((row) => (
+                            <View
+                                key={row.key}
+                                testID={`${testID}-${row.key}`}
+                                className="flex-row items-baseline justify-between gap-tight"
+                            >
+                                <Text variant="caption" tone="secondary" numberOfLines={1}>
+                                    {row.label}
+                                </Text>
+                                <Text
+                                    variant="caption"
+                                    align="end"
+                                    numberOfLines={1}
+                                    className="min-w-0 shrink font-medium tabular-nums"
+                                >
+                                    {row.value}
+                                </Text>
+                            </View>
+                        ))}
+                        {total === null ? null : (
+                            <View className="mt-hair flex-row items-baseline justify-between gap-tight border-t border-stroke-subtle pt-tight">
+                                <Text variant="label">{total.label}</Text>
+                                <Text
+                                    testID={`${testID}-total`}
+                                    variant="title"
+                                    className="tabular-nums"
+                                >
+                                    {total.value}
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+
+                    <View className="flex-col gap-snug border-t border-stroke-subtle pt-base">
+                        <Text variant="strong">{list.title}</Text>
+                        {list.items.length === 0 ? (
+                            <Text variant="caption" tone="secondary" testID={list.emptyTestID}>
+                                {list.empty}
+                            </Text>
+                        ) : (
+                            <ScrollView
+                                testID={list.testID}
+                                style={
+                                    listMaxHeight === undefined
+                                        ? undefined
+                                        : { maxHeight: listMaxHeight }
+                                }
+                                contentContainerClassName="flex-col gap-hair"
+                            >
+                                {list.items.map((item) => (
+                                    <View
+                                        key={item.key}
+                                        testID={item.testID}
+                                        className="flex-row items-baseline justify-between gap-tight"
+                                    >
+                                        <Text
+                                            variant="caption"
+                                            numberOfLines={1}
+                                            className="min-w-0 shrink"
+                                        >
+                                            {item.name}
+                                        </Text>
+                                        <Text
+                                            variant="caption"
+                                            tone={item.tone ?? 'secondary'}
+                                            className="font-semibold tabular-nums"
+                                        >
+                                            {item.value}
+                                        </Text>
+                                    </View>
+                                ))}
+                            </ScrollView>
+                        )}
+                    </View>
+
+                    {note}
+                </View>
+            </FormSection>
+        </View>
+    );
+}

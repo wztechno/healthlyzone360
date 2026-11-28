@@ -5,7 +5,6 @@ import type {
     AllergenReferenceSelection,
 } from '@healthy360/api-client/contracts';
 import { NutritionReferencePicker } from '../nutrition-reference-picker.tsx';
-import { InlineChecksButton } from '../inline-checks-button.tsx';
 import type {
     AllergenClass,
     CostAmount,
@@ -20,18 +19,22 @@ import {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    BilingualField,
+    Button,
     Callout,
     Cascade,
     Checkbox,
-    Dialog,
+    ConflictDialog,
     ErrorState,
     FormGrid,
     FormSection,
     FormSkeleton,
     Icon,
     Inline,
+    InlineChecksButton,
     IssueTrayFrame,
     IssueUnanchored,
+    LeaveDialog,
     QuantityInput,
     Select,
     Stack,
@@ -40,6 +43,7 @@ import {
     TagRow,
     Text,
     TextInputField,
+    UnsavedMark,
     useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
@@ -95,7 +99,6 @@ import { forgetKeptWork, keepWork } from '../../../navigation/kept-work.ts';
 import { pathnameOf, withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { createSessionDraftStore } from '../../../navigation/session-draft.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
-import { BilingualField } from '../bilingual-field.tsx';
 import { returnCrumbLabel } from '../came-from.ts';
 import { DerivedPanel } from '../catalogue/derived-panel.tsx';
 import type { DerivedFigure } from '../catalogue/derived-panel.tsx';
@@ -137,16 +140,13 @@ import { IngredientAllergenEditor } from '../ingredient-allergen-editor.tsx';
 import { IngredientBarcodesSection } from '../ingredient-barcodes-section.tsx';
 import { STOCK_GAPS_PATH } from '../consumption-exceptions/stock-gap-fix.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
-import { focusFirstRefusal, UnsavedDialog } from '../record-form-opening.tsx';
+import { focusFirstRefusal } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { BackPill } from '../../../ui/back-pill.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
-import { UnsavedMark } from '../unsaved-mark.tsx';
 /**
  * `/kitchen/ingredients/{ingredient}` — the record editor, as `Catalogue Forms.dc.html` draws it
  * (`isIngredient` and `isPackaging`).
@@ -2747,13 +2747,13 @@ function IngredientEditor({
                                 testID="kitchen-ingredient-editor-screen-title"
                                 accessibilityRole="header"
                                 aria-level={1}
-                                className="font-display text-3xl font-bold text-content-primary text-start"
+                                className="font-display text-role-title font-bold text-content-primary text-start"
                             >
                                 {title}
                             </RNText>
                             {/* Wrapped: `Badge` pins itself `self-start`, off the title's middle. */}
                             <View>
-                                <DeskChip
+                                <Badge
                                     testID="kitchen-ingredient-editor-screen-status"
                                     {...(family.food ? {} : { variant: 'caps' as const })}
                                     tone={statusTone(data?.meta.status ?? 'draft')}
@@ -2805,7 +2805,7 @@ function IngredientEditor({
                     </View>
                     <Inline space="xs" align="center">
                         <InlineChecksButton testID="kitchen-ingredient-checks" />
-                        <DeskButton
+                        <Button
                             testID="kitchen-ingredient-editor-screen-back"
                             variant="secondary"
                             {...(family.food ? {} : { size: 'sm' as const })}
@@ -2820,7 +2820,7 @@ function IngredientEditor({
                          * Hidden rather than always disabled on a record this caller cannot write.
                          */}
                         {platformNotice ? null : (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-ingredient-editor-screen-save"
                                 label={t('kitchen:editor.save')}
                                 iconStart={<Icon name="check" size="sm" />}
@@ -2855,7 +2855,6 @@ function IngredientEditor({
                                     testID="kitchen-ingredient-image"
                                     uri={photo}
                                     fallback={stockPhoto}
-                                    size={120}
                                     disabled={!editable}
                                     onChange={(next) => {
                                         // Clearing takes the stock picture off as well as an upload;
@@ -3643,43 +3642,15 @@ function IngredientEditor({
                     )}
                 </View>
 
-                <UnsavedDialog guard={guard} testID="kitchen-ingredient-editor-screen" />
+                <LeaveDialog guard={guard} testID="kitchen-ingredient-editor-screen" />
 
-                <Dialog
-                    look="card"
-                    testID="kitchen-ingredient-editor-screen-conflict-dialog"
+                <ConflictDialog
                     open={concurrency.conflict !== null}
-                    onClose={concurrency.keepEditing}
-                    dismissOnBackdrop={false}
-                    title={t('kitchen:conflict.title')}
-                    description={t('kitchen:conflict.body')}
-                    actions={
-                        <>
-                            <DeskButton
-                                testID="kitchen-ingredient-editor-screen-conflict-keep"
-                                variant="quiet"
-                                label={t('kitchen:conflict.keepEditing')}
-                                onPress={concurrency.keepEditing}
-                            />
-                            <DeskButton
-                                testID="kitchen-ingredient-editor-screen-conflict-reload"
-                                variant="danger"
-                                label={t('kitchen:conflict.reload')}
-                                onPress={concurrency.reload}
-                            />
-                        </>
-                    }
-                >
-                    {concurrency.conflict === null ? null : (
-                        <Text
-                            testID="kitchen-ingredient-editor-screen-conflict-detail"
-                            tone="secondary"
-                            variant="caption"
-                        >
-                            {concurrency.conflict.failure.message}
-                        </Text>
-                    )}
-                </Dialog>
+                    detail={concurrency.conflict?.failure.message}
+                    onKeepEditing={concurrency.keepEditing}
+                    onReload={concurrency.reload}
+                    testID="kitchen-ingredient-editor-screen"
+                />
             </Cascade>
         </IssueTrayFrame>
     );

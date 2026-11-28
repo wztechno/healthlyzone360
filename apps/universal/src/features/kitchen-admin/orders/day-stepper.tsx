@@ -1,4 +1,4 @@
-import { Icon } from '@healthy360/design-system';
+import { Button, DatePicker, Icon, IconButton } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,7 +6,6 @@ import { View } from 'react-native';
 
 import { useOrderDeskCalendarQuery } from '../../../data/order-desk-hooks.ts';
 import { addDays } from '../../planner/format.ts';
-import { DeskButton, DeskIconButton, MiniMonthPicker } from '../desk-kit/index.ts';
 import { monthGrid } from './order-book.ts';
 import { relativeDay, shortDay } from './order-columns.tsx';
 
@@ -54,7 +53,8 @@ export function DayStepper({
 
     return (
         <View testID={testID} className="z-tooltip flex-row items-center gap-1">
-            <DeskIconButton
+            <IconButton
+                variant="secondary"
                 testID={`${testID}-previous`}
                 label={t('kitchen:orders.day.previous')}
                 icon={<Icon name="chevronBackward" size="md" />}
@@ -62,7 +62,8 @@ export function DayStepper({
                     onChange(addDays(day, -1));
                 }}
             />
-            <MiniMonthPicker
+            <DatePicker
+                trigger="pill"
                 testID={`${testID}-pick`}
                 label={t('kitchen:orders.day.pick')}
                 value={day}
@@ -74,7 +75,8 @@ export function DayStepper({
                     setShown(month);
                 }}
             />
-            <DeskIconButton
+            <IconButton
+                variant="secondary"
                 testID={`${testID}-next`}
                 label={t('kitchen:orders.day.next')}
                 icon={<Icon name="chevronForward" size="md" />}
@@ -83,7 +85,7 @@ export function DayStepper({
                 }}
             />
             {day === today ? null : (
-                <DeskButton
+                <Button
                     testID={`${testID}-today`}
                     variant="quiet"
                     label={t('kitchen:orders.day.backToToday')}

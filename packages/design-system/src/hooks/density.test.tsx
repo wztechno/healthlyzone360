@@ -185,11 +185,12 @@ describe('compact density', () => {
             const classes: string = screen.getByTestId('copy').props.className;
 
             expect(classes).toContain(`text-role-${variant.toLowerCase()}`);
-            // The ramp is the whole treatment, except that `display` — one number, a KPI — is set in
-            // the mood board's display face. It used to be the ramp *plus* `font-admin` everywhere;
-            // asserting the absence is what keeps a family from creeping back in under a role name.
+            // The ramp is the whole treatment, except that `title` and `display` — the page title, a
+            // big figure — are set in the mood board's display face. It used to be the ramp *plus*
+            // `font-admin` everywhere; asserting the absence is what keeps a family from creeping
+            // back in under a role name.
             for (const face of ['font-admin', 'font-display', 'font-mono']) {
-                if (variant === 'display' && face === 'font-display') {
+                if ((variant === 'display' || variant === 'title') && face === 'font-display') {
                     expect(classes).toContain(face);
                 } else {
                     expect(classes).not.toContain(face);

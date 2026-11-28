@@ -1,11 +1,13 @@
 import type { KitchenServiceSettings } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    Button,
     Callout,
     Cascade,
     Dialog,
     EmptyState,
     ErrorState,
+    FailureToast,
     FormSection,
     FormSkeleton,
     Icon,
@@ -17,11 +19,10 @@ import {
 } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
-import { useFormatter } from '@healthy360/i18n';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Platform, View } from 'react-native';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -29,15 +30,12 @@ import {
     useBranchOperatingQuery,
     useSetBranchOperatingMutation,
 } from '../../../data/kitchen-admin-hooks.ts';
-import {
-    useBranchClosuresQuery,
-    useCreateBranchMutation,
-} from '../../../data/kitchen-ops-hooks.ts';
+import { useCreateBranchMutation } from '../../../data/kitchen-ops-hooks.ts';
 import {
     useKitchenServiceSettingsQuery,
     useSaveKitchenServiceSettingsMutation,
 } from '../../../data/staff-alerts-hooks.ts';
-import { useAccessState, useSession } from '../../../session/session-provider.tsx';
+import { useAccessState } from '../../../session/session-provider.tsx';
 import { weekdayKey } from '../../marketplace/format.ts';
 import { BranchClosuresSection } from '../branch-closures-section.tsx';
 import {
@@ -50,20 +48,15 @@ import {
 import type { OperatingDayDraft } from '../delivery-model.ts';
 import { OperatingWeekRows } from '../delivery-row-editors.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
-import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
-import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { useLocalSearchParams } from 'expo-router';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { useFinishDetour } from '../finish-detour.ts';
-import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/branch-operating` — when this branch trades, and when it stops taking today's orders.
  *
@@ -130,17 +123,6 @@ function kitchenBranchOf(branchId: string): KitchenBranchId {
     return KitchenBranchId.unsafe(branchId);
 }
 
-const EM_DASH = '—';
-
-/**
- * The summary's fixed track, and the least the week beside it keeps before the summary drops under
- * it — the week's 796px of tracks plus the card's padding, so Copy is never the column that pays
- * for the aside.
- */
-const ASIDE_WIDTH = 300;
-const FORM_MIN_WIDTH = 830;
-const COLUMN_GAP = 16;
-
 type ServiceTimingKey = keyof KitchenServiceSettings;
 
 /** The four timings: each field's copy, its name on the wire, and its place in the form. */
@@ -178,27 +160,8 @@ function BranchOperatingEditor() {
     const { t } = useTranslation();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
     const access = useAccessState();
-    const { me } = useSession();
 
     const branchId = access.branch === undefined ? null : kitchenBranchOf(String(access.branch.id));
-
-    /**
-     * The branch's own name, from the session rather than from a request.
-     *
-     * `me()` already carries every branch of every membership, with its name, code and time zone —
-     * so naming the record costs nothing, and the alternative (reading the *consumer* marketplace
-     * kitchen to find a branch name) would have this workspace depend on a published kitchen page.
-     */
-    const branch = useMemo(() => {
-        if (access.branch === undefined) return null;
-        for (const membership of me?.memberships ?? []) {
-            const found = membership.branches.find(
-                (candidate) => String(candidate.id) === String(access.branch?.id),
-            );
-            if (found !== undefined) return found;
-        }
-        return null;
-    }, [me, access.branch]);
 
     const record = useBranchOperatingQuery(branchId);
     const save = useSetBranchOperatingMutation();
@@ -211,12 +174,6 @@ function BranchOperatingEditor() {
     const [timingsDirty, setTimingsDirty] = useState(false);
     const [announcement, setAnnouncement] = useState('');
     const [addingBranch, setAddingBranch] = useState(false);
-    /*
-     * Read from the node rather than `onLayout`, which on the web delivered one early width and
-     * nothing after — see the sale screen. The port re-reads on resize and when the page panel settles.
-     */
-    const port = useCataloguePort();
-    const bodyWidth = port.width;
 
     const title = t('kitchen:branchHours.title');
     useKitchenTrailLeaf(title);
@@ -258,18 +215,6 @@ function BranchOperatingEditor() {
     );
 
     const summary = summariseOperating(days);
-
-    /*
-     * The next closure that has not ended yet, for the summary: the date someone checking this page
-     * most often wants. Read from the closures card's own query, so no second request.
-     */
-    const formatter = useFormatter();
-    const closures = useBranchClosuresQuery();
-    const today = new Date().toISOString().slice(0, 10);
-    const nextClosure =
-        (closures.data ?? [])
-            .filter((closure) => closure.closedTo >= today)
-            .sort((a, b) => a.closedFrom.localeCompare(b.closedFrom))[0] ?? null;
 
     const saveWeek = () => {
         if (data === undefined || branchId === null || dayIssues.size > 0) return;
@@ -374,10 +319,6 @@ function BranchOperatingEditor() {
         return index === -1 ? undefined : server.errorFor(`days.${String(index)}.${field}`);
     };
     const everyDayClosed = summary.openDays === 0;
-    const sideBySide = bodyWidth >= ASIDE_WIDTH + FORM_MIN_WIDTH + COLUMN_GAP;
-    const dayCount = (count: number) =>
-        `${String(count)} ${t('kitchen:branchHours.cardDayUnit', { count })}`;
-
     return (
         <Cascade space="md" testID="kitchen-branch-hours-screen">
             {/*
@@ -411,7 +352,7 @@ function BranchOperatingEditor() {
                 actions={
                     canManage ? (
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-branch-new"
                                 variant="secondary"
                                 size="sm"
@@ -442,15 +383,8 @@ function BranchOperatingEditor() {
                 />
             ) : null}
 
-            <View
-                ref={Platform.OS === 'web' ? port.ref : undefined}
-                onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
-                className={
-                    sideBySide ? 'z-auto flex-row items-start gap-base' : 'z-auto flex-col gap-base'
-                }
-            >
-                {/* The week is the row's filler beside the fixed summary. */}
-                <View className="z-auto min-w-0 flex-1 flex-col gap-base">
+            <View className="z-auto flex-col gap-base">
+                <View className="z-auto min-w-0 flex-col gap-base">
                     <FormSection
                         first
                         variant="panel"
@@ -458,11 +392,20 @@ function BranchOperatingEditor() {
                         title={t('kitchen:branchHours.weekTitle')}
                         description={t('kitchen:branchHours.cutOffHint')}
                         aside={
-                            <DeskChip
-                                testID="kitchen-branch-hours-week-scope"
-                                tone="neutral"
-                                label={t('kitchen:branchHours.scopeBranch')}
-                            />
+                            <>
+                                <Badge
+                                    testID="kitchen-branch-hours-week-scope"
+                                    tone="neutral"
+                                    label={t('kitchen:branchHours.scopeBranch')}
+                                />
+                                {data?.timeZone === undefined ? null : (
+                                    <Badge
+                                        testID="kitchen-branch-hours-time-zone"
+                                        tone="neutral"
+                                        label={data.timeZone}
+                                    />
+                                )}
+                            </>
                         }
                     >
                         <OperatingWeekRows
@@ -496,85 +439,6 @@ function BranchOperatingEditor() {
 
                     {canManage ? <ServiceTimingsSection onDirtyChange={setTimingsDirty} /> : null}
                 </View>
-
-                {/*
-                 * The week in a few facts and in words, day by day — what the stat cards and each
-                 * row's sentence used to say, read top to bottom in one place.
-                 */}
-                <RecordSummaryAside
-                    testID="kitchen-branch-hours-summary"
-                    variant="panel"
-                    title={t('kitchen:branchHours.summaryTitle')}
-                    width={sideBySide ? ASIDE_WIDTH : null}
-                    rows={[
-                        /*
-                         * Named only when the session knows the name: an organisation-wide
-                         * membership lists no branches, and a row that always read "—" for an
-                         * owner would be a fact the page does not have.
-                         */
-                        ...(branch === null
-                            ? []
-                            : [
-                                  {
-                                      key: 'branch',
-                                      label: t('kitchen:branchHours.summaryBranch'),
-                                      value: branch.name,
-                                  },
-                              ]),
-                        // The zone every time on the page is read in — stated, because it is not
-                        // edited here (see the note on the screen).
-                        {
-                            key: 'time-zone',
-                            label: t('kitchen:branchHours.summaryTimeZone'),
-                            value: data?.timeZone ?? EM_DASH,
-                        },
-                        {
-                            key: 'closed',
-                            label: t('kitchen:branchHours.closedLabel'),
-                            value: dayCount(summary.closedDays),
-                        },
-                        {
-                            key: 'cut-off',
-                            label: t('kitchen:branchHours.cardCutOff'),
-                            value: dayCount(summary.withCutOff),
-                        },
-                        {
-                            key: 'next-closure',
-                            label: t('kitchen:branchHours.summaryNextClosure'),
-                            value:
-                                nextClosure === null
-                                    ? t('kitchen:branchHours.summaryNoClosure')
-                                    : formatter.formatDate(`${nextClosure.closedFrom}T00:00:00`, {
-                                          dateStyle: 'medium',
-                                      }),
-                        },
-                    ]}
-                    total={{
-                        label: t('kitchen:branchHours.cardTrading'),
-                        value: `${String(summary.openDays)} ${t(
-                            'kitchen:branchHours.cardTradingUnit',
-                            { count: summary.openDays },
-                        )}`,
-                    }}
-                    list={{
-                        title: t('kitchen:branchHours.summaryDays'),
-                        // Never drawn: the week always has its seven days.
-                        empty: '',
-                        testID: 'kitchen-branch-hours-summary-days',
-                        emptyTestID: 'kitchen-branch-hours-summary-days-empty',
-                        items: days.map((day) => ({
-                            key: String(day.weekday),
-                            testID: `kitchen-branch-hours-summary-day-${String(day.weekday)}`,
-                            name: t(weekdayKey(day.weekday)),
-                            value: day.isClosed
-                                ? t('kitchen:branchHours.closedLabel')
-                                : t('kitchen:branchHours.dayHours', {
-                                      opens: day.opensAt === '' ? EM_DASH : day.opensAt,
-                                      closes: day.closesAt === '' ? EM_DASH : day.closesAt,
-                                  }),
-                        })),
-                    }}
-                />
             </View>
 
             <EditorGuardDialogs
@@ -617,13 +481,13 @@ function NewBranchDialog({
             title={t('kitchen:branchClosures.newBranch')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-branch-new-cancel"
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-branch-new-save"
                         label={t('kitchen:branchClosures.newBranchSave')}
                         loading={create.isPending}
@@ -817,7 +681,7 @@ function ServiceTimingsSection({
         return (
             <View
                 key={copy}
-                className="min-h-10 min-w-[300px] flex-1 basis-[420px] flex-row items-center justify-between gap-3"
+                className="min-h-10 min-w-[260px] flex-1 basis-[320px] flex-row items-center justify-between gap-3"
             >
                 <View className="min-w-0 flex-1 flex-row items-center gap-1">
                     <Text variant="strong" numberOfLines={2}>
@@ -887,14 +751,14 @@ function ServiceTimingsSection({
                 title={t('kitchen:serviceTimings.title')}
                 description={t('kitchen:serviceTimings.description')}
                 aside={
-                    <DeskChip
+                    <Badge
                         testID="kitchen-service-timings-scope"
                         tone="success"
                         label={t('kitchen:serviceTimings.scopeKitchen')}
                     />
                 }
                 actions={
-                    <DeskButton
+                    <Button
                         testID="kitchen-service-timings-save"
                         size="sm"
                         label={t('kitchen:serviceTimings.save')}
@@ -910,8 +774,17 @@ function ServiceTimingsSection({
                     title={t('kitchen:serviceTimings.saveError')}
                     body={server.unplaced ?? saveFailure?.message}
                 />
-                <View className="gap-3" testID="kitchen-service-timings-grid">
+                {/*
+                 * Two groups to a row where the section has room (taking orders beside what needs the
+                 * owner), the chain of waits across the whole row under them — so the fields sit near
+                 * their labels instead of at the far end of a wide tray.
+                 */}
+                <View
+                    className="z-auto flex-row flex-wrap gap-3"
+                    testID="kitchen-service-timings-grid"
+                >
                     <TimingGroup
+                        half
                         testID="kitchen-service-timings-group-orders"
                         icon="calendar"
                         title={t('kitchen:serviceTimings.groupOrders')}
@@ -932,6 +805,40 @@ function ServiceTimingsSection({
                                 onChange: edit('ordersPerWindow'),
                                 unit: t('kitchen:serviceTimings.capacityUnit'),
                                 placeholder: t('kitchen:serviceTimings.noLimit'),
+                            })}
+                        </View>
+                    </TimingGroup>
+
+                    <TimingGroup
+                        half
+                        testID="kitchen-service-timings-group-owner"
+                        icon="shield"
+                        title={t('kitchen:serviceTimings.groupOwner')}
+                    >
+                        <View className="flex-row flex-wrap gap-x-7 gap-y-1.5">
+                            {timingRow({
+                                copy: 'refund',
+                                field: 'refund_approval_above_minor',
+                                value: refundLimit,
+                                onChange: edit('refundApprovalAboveMinor'),
+                                unit: t('kitchen:serviceTimings.refundUnit'),
+                                required: true,
+                            })}
+                            {timingRow({
+                                copy: 'priceLimit',
+                                field: 'price_approval_above_percent',
+                                value: priceLimit,
+                                onChange: edit('priceApprovalAbovePercent'),
+                                unit: t('kitchen:serviceTimings.percentUnit'),
+                                placeholder: t('kitchen:serviceTimings.off'),
+                            })}
+                            {timingRow({
+                                copy: 'marginTarget',
+                                field: 'dish_margin_target_percent',
+                                value: marginTarget,
+                                onChange: edit('dishMarginTargetPercent'),
+                                unit: t('kitchen:serviceTimings.percentUnit'),
+                                placeholder: t('kitchen:serviceTimings.off'),
                             })}
                         </View>
                     </TimingGroup>
@@ -998,45 +905,17 @@ function ServiceTimingsSection({
                             })}
                         </View>
                     </TimingGroup>
-
-                    <TimingGroup
-                        testID="kitchen-service-timings-group-owner"
-                        icon="shield"
-                        title={t('kitchen:serviceTimings.groupOwner')}
-                    >
-                        <View className="flex-row flex-wrap gap-x-7 gap-y-1.5">
-                            {timingRow({
-                                copy: 'refund',
-                                field: 'refund_approval_above_minor',
-                                value: refundLimit,
-                                onChange: edit('refundApprovalAboveMinor'),
-                                unit: t('kitchen:serviceTimings.refundUnit'),
-                                required: true,
-                            })}
-                            {timingRow({
-                                copy: 'priceLimit',
-                                field: 'price_approval_above_percent',
-                                value: priceLimit,
-                                onChange: edit('priceApprovalAbovePercent'),
-                                unit: t('kitchen:serviceTimings.percentUnit'),
-                                placeholder: t('kitchen:serviceTimings.off'),
-                            })}
-                            {timingRow({
-                                copy: 'marginTarget',
-                                field: 'dish_margin_target_percent',
-                                value: marginTarget,
-                                onChange: edit('dishMarginTargetPercent'),
-                                unit: t('kitchen:serviceTimings.percentUnit'),
-                                placeholder: t('kitchen:serviceTimings.off'),
-                            })}
-                        </View>
-                    </TimingGroup>
                 </View>
             </FormSection>
             <EditorGuardDialogs guard={guard} testID="kitchen-service-timings" />
         </>
     );
 }
+
+/** Half the row, never narrower than a label beside its box. */
+
+const HALF_GROUP = { flexGrow: 1, flexBasis: '45%', minWidth: 380 } as const;
+const FULL_GROUP = { flexBasis: '100%' } as const;
 
 /**
  * One group of service timings: a sunken tray with a small mark and an uppercase name, then its
@@ -1048,9 +927,12 @@ function TimingGroup({
     title,
     icon,
     hint,
+    half = false,
     testID,
     children,
 }: {
+    /** One of two side by side; drops under its neighbour where the section is narrow. */
+    readonly half?: boolean | undefined;
     readonly title: string;
     readonly icon: IconName;
     readonly hint?: string | undefined;
@@ -1058,7 +940,11 @@ function TimingGroup({
     readonly children: ReactNode;
 }) {
     return (
-        <View testID={testID} className="z-auto gap-2.5 rounded-2xl bg-surface-sunken p-3.5">
+        <View
+            testID={testID}
+            className="z-auto gap-2.5 rounded-2xl bg-surface-sunken p-3.5"
+            style={half ? HALF_GROUP : FULL_GROUP}
+        >
             <View className="flex-row items-center gap-2">
                 <View className="h-7 w-7 items-center justify-center rounded-lg bg-surface-raised">
                     <Icon name={icon} size="sm" className="text-content-on-brand-subtle" />

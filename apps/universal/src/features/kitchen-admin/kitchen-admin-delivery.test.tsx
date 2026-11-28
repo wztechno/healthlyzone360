@@ -1953,10 +1953,6 @@ describe('the branch closures (Opening hours option A)', () => {
         expect(christmas.getByText('Christmas')).toBeTruthy();
         // The add form is a pop-up, not three fields above the list.
         expect(screen.queryByTestId('kitchen-branch-closures-from')).toBeNull();
-        // The summary names the next one.
-        expect(screen.getByTestId('kitchen-branch-hours-summary')).toHaveTextContent(
-            /Next closureDec 25, 2099/u,
-        );
     });
 
     it('opens the add pop-up and will not add a closure without a first day', async () => {
@@ -2093,13 +2089,20 @@ describe('the branch operating week', () => {
         expect(screen.queryByTestId('kitchen-branch-hours-context')).toBeNull();
         expect(screen.queryByTestId('kitchen-branch-hours-week-summary')).toBeNull();
 
-        // The summary beside the week says each day in words: a closed day as closed.
+        // No summary card under the week (2026-11-26): a closed day says so on its own row, and the
+        // time zone the times are read in sits beside the week's title.
+        expect(screen.queryByTestId('kitchen-branch-hours-summary')).toBeNull();
         const closed = BRANCH_OPERATING.days.find((day) => day.opensAt === null);
         if (closed !== undefined) {
             expect(
-                screen.getByTestId(`kitchen-branch-hours-summary-day-${String(closed.weekday)}`),
+                screen.getByTestId(
+                    `kitchen-branch-hours-rows-day-${String(closed.weekday)}-closed-badge`,
+                ),
             ).toHaveTextContent(/Closed/);
         }
+        expect(screen.getByTestId('kitchen-branch-hours-time-zone')).toHaveTextContent(
+            BRANCH_OPERATING.timeZone,
+        );
     });
 
     it('clears and disables the time fields when a day is closed, and restores them empty', async () => {

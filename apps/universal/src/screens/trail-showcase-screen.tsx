@@ -1,8 +1,8 @@
 import { DensityProvider, Stack, Text } from '@healthy360/design-system';
 import { View } from 'react-native';
 
-import { DeskTrail } from '../features/kitchen-admin/desk-kit/desk-trail.tsx';
-import type { DeskCrumb } from '../features/kitchen-admin/desk-kit/desk-trail.tsx';
+import { AdminTrail } from '../ui/admin-trail.tsx';
+import type { AdminCrumb } from '../ui/admin-trail.tsx';
 
 /**
  * `/showcase-trail` — the kitchen breadcrumb from the canvas's Breadcrumb boards (2026-11-11): a
@@ -14,9 +14,9 @@ import type { DeskCrumb } from '../features/kitchen-admin/desk-kit/desk-trail.ts
  */
 const noop = () => undefined;
 
-const home: DeskCrumb = { key: 'hub', kind: 'home', label: 'Kitchen workspace', onPress: noop };
+const home: AdminCrumb = { key: 'hub', kind: 'home', label: 'Kitchen workspace', onPress: noop };
 
-const buying: DeskCrumb = {
+const buying: AdminCrumb = {
     key: 'module',
     kind: 'module',
     label: 'Buying',
@@ -30,7 +30,7 @@ const buying: DeskCrumb = {
     ],
 };
 
-const SAMPLES: readonly { readonly title: string; readonly crumbs: readonly DeskCrumb[] }[] = [
+const SAMPLES: readonly { readonly title: string; readonly crumbs: readonly AdminCrumb[] }[] = [
     {
         title: 'A record, opened from its own list',
         crumbs: [
@@ -76,7 +76,7 @@ export function TrailShowcaseScreen() {
                         <Stack key={sample.title} space="xs">
                             <Text variant="label">{sample.title}</Text>
                             <View className="h-[60px] flex-row items-center rounded-[22px] border border-stroke-subtle bg-surface-raised px-3.5">
-                                <DeskTrail
+                                <AdminTrail
                                     testID={`trail-showcase-${String(index)}`}
                                     crumbs={sample.crumbs}
                                 />

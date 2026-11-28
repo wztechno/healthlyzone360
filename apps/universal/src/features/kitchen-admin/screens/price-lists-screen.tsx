@@ -4,16 +4,31 @@ import type {
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
     Inline,
+    LensBar,
     Stack,
+    TablePager,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+} from '@healthy360/design-system';
 import { PriceListId, SALES_CHANNELS } from '@healthy360/domain-types';
 import type { SalesChannel } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -31,20 +46,8 @@ import {
     usePriceListPageQuery,
     usePriceListQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import type { StatusLensSource } from '../catalogue/lens-status.ts';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { CATALOGUE_VIEW_PERMISSION, PRICE_LIST_MANAGE_PERMISSION } from '../entity-registry.ts';
 import {
     PRICE_LIST_STATUS_FILTERS,
@@ -58,7 +61,6 @@ import {
 } from '../format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { NewPriceListDialog } from '../new-price-list-dialog.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
     useListMemory,
     useRememberedFilter,
@@ -70,9 +72,6 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** Until the index has counted: every figure reads as pending. */
 const NO_FIGURES: PriceListFigures = {
     statusCounts: { draft: 0, review_required: 0, published: 0, retired: 0 },
@@ -99,8 +98,8 @@ function usePriceListById(id: string | null) {
  * Showing 1–25 of 40                                                          [ ‹ 1 2 › ]
  * ```
  *
- * The Catalogue list's parts, with nothing rebuilt: `LensBar`, `CatalogueList` with a column spec,
- * `CataloguePager`, and the `RecordWindow` behind View.
+ * The Catalogue list's parts, with nothing rebuilt: `LensBar`, `DataTable` with a column spec,
+ * `TablePager`, and the `RecordWindow` behind View.
  *
  * ## Create, but no archive
  *
@@ -193,7 +192,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
         );
     };
 
-    const columns: readonly ControlledColumn<PriceListAdmin, CatalogueColumn<PriceListAdmin>>[] = [
+    const columns: readonly ControlledColumn<PriceListAdmin, DataTableColumn<PriceListAdmin>>[] = [
         {
             key: 'name',
             role: 'title',
@@ -227,14 +226,14 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                             {name.value}
                         </Text>
                         {name.isFallback ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-missing-arabic`}
                                 tone="warning"
                                 label={t('kitchen:list.missingArabic')}
                             />
                         ) : null}
                         {isAgreementPriced(row.channels) ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-agreement`}
                                 tone="warning"
                                 label={t('kitchen:priceLists.agreementBadge')}
@@ -311,7 +310,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                     <Inline space="xs" align="center">
                         <Text testID={`${testID}-entries`}>{entriesText(row, t)}</Text>
                         {summary.inconsistent === 0 ? null : (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-entries-inconsistent`}
                                 tone="danger"
                                 label={t('kitchen:priceLists.inconsistentCount', {
@@ -351,7 +350,8 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                 },
             },
             render: (row) => (
-                <DeskStatusDot
+                <Badge
+                    variant="dot"
                     testID={`${priceListRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
                     label={t(statusShortKey(row.meta.status))}
@@ -399,7 +399,6 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-price-lists-view"
-                look="sheet"
                 figureKeys={['currency', 'entries', 'pending']}
                 eyebrow={t('kitchen:recordView.eyebrowPriceLists')}
                 onBack={() => {
@@ -437,7 +436,6 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-price-lists-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures(lens, figures, t)}
@@ -472,7 +470,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-price-lists-toolbar-create"
                                 label={t('kitchen:priceLists.create')}
                                 iconStart={<Icon name="plus" size="sm" />}
@@ -524,7 +522,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<PriceListAdmin>
+                        <DataTable<PriceListAdmin>
                             testID="kitchen-price-lists-table"
                             joined
                             label={t('kitchen:priceLists.caption')}
@@ -543,7 +541,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                                 {
                                     key: 'view',
                                     label: t('kitchen:list.view'),
-                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    icon: DATA_TABLE_ROW_ICONS.view,
                                     testID: `${priceListRowTestId(String(row.id))}-view`,
                                     onSelect: () => {
                                         rememberOpened(String(row.id));
@@ -553,7 +551,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                                 {
                                     key: 'edit',
                                     label: t('kitchen:catalogue.edit'),
-                                    icon: CATALOGUE_ROW_ICONS.edit,
+                                    icon: DATA_TABLE_ROW_ICONS.edit,
                                     testID: `${priceListRowTestId(String(row.id))}-open`,
                                     onSelect: () => {
                                         openEditor(row);
@@ -562,7 +560,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                             ]}
                         />
 
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-price-lists-pagination"
                             page={page}
                             totalPages={totalPages}

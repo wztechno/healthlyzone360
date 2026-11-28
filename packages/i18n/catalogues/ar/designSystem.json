@@ -104,10 +104,64 @@
     "infoTip": {
         "label": "حول {{label}}"
     },
+    "period": {
+        "label": "الفترة",
+        "all": "الكل",
+        "today": "اليوم",
+        "yesterday": "أمس",
+        "week": "هذا الأسبوع",
+        "month": "هذا الشهر",
+        "lastMonth": "الشهر الماضي",
+        "quarter": "آخر 3 أشهر",
+        "year": "هذه السنة",
+        "tomorrow": "غدًا",
+        "nextWeek": "الأسبوع القادم",
+        "twoWeeks": "الأسبوعان القادمان",
+        "custom": "مخصص"
+    },
+    "leave": {
+        "title": "المغادرة بدون حفظ؟",
+        "body": "يحمل هذا السجل تغييرات لم تُحفظ، والمغادرة الآن تتجاهلها.",
+        "keepEditing": "متابعة التعديل",
+        "discard": "تجاهل تغييراتي",
+        "keepableTitle": "مغادرة هذه الصفحة؟",
+        "keepableBody": "تغييراتك لم تُحفظ بعد.",
+        "stay": "البقاء",
+        "keepForLater": "الاحتفاظ لوقت لاحق"
+    },
+    "conflict": {
+        "title": "غيّر شخص آخر هذا السجل",
+        "body": "حفظه شخص آخر بينما كان مفتوحًا هنا، فالحفظ الآن سيطمس عمله. أعِد التحميل لأخذ نسخته، أو تابع التعديل وانسخ تغييراتك أولًا.",
+        "keepEditing": "متابعة التعديل",
+        "reload": "إعادة التحميل وفقدان تغييراتي"
+    },
+    "undoBar": {
+        "undo": "تراجع"
+    },
+    "bilingual": {
+        "arabicLabel": "{{field}} (بالعربية)",
+        "englishShort": "{{field}} (EN)",
+        "arabicShort": "{{field}} (AR)",
+        "englishLabel": "{{field}} (بالإنجليزية)",
+        "missingArabic": "لا يوجد نص عربي بعد",
+        "copyFromEnglish": "نسخ النص الإنجليزي",
+        "missingArabicHint": "تُحفظ المسودة بدونه، أما النشر فلا."
+    },
+    "checks": {
+        "allPass": "نجحت كل الفحوص",
+        "nextFixLabel": "نجح {{done}} من {{total}} فحوص. الإصلاح التالي: {{next}}",
+        "count": "{{done}}/{{total}} فحوص",
+        "nextFix": "الإصلاح التالي ←"
+    },
+    "unsavedMark": {
+        "label": "تغييرات غير محفوظة"
+    },
     "datePicker": {
         "previousMonth": "الشهر السابق",
         "nextMonth": "الشهر التالي",
-        "clear": "مسح التاريخ"
+        "clear": "مسح التاريخ",
+        "placeholder": "اختر يومًا",
+        "today": "اليوم"
     },
     "rating": {
         "summary": "{{value}} من {{max}}",
@@ -285,5 +339,23 @@
         "done": "تم",
         "placeholder": "--:--",
         "invalid": "أدخل الوقت بالصيغة HH:mm، مثل 09:30."
+    },
+    "dataTable": {
+        "pagerLabel": "الصفحات",
+        "actionHeader": "إجراءات",
+        "clearFilters": "مسح عوامل التصفية"
+    },
+    "columns": {
+        "clearFilter": "مسح",
+        "columnFilter": "صفِّ حسب {{column}}",
+        "columnFiltered": "مُصفّى",
+        "columnMenu": "الترتيب والتصفية: {{column}}",
+        "columnSort": "رتّب حسب {{column}}",
+        "columnsButton": "عرض الأعمدة · {{shown}} من {{max}}",
+        "columnsClear": "إلغاء تحديد الكل",
+        "columnsCount": "{{shown}} من {{max}}",
+        "columnsHeading": "اعرض حتى {{max}} أعمدة",
+        "columnsLabel": "اختر الأعمدة المعروضة",
+        "columnsReset": "استعادة الافتراضي"
     }
 }

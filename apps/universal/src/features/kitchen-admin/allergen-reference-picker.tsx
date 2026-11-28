@@ -3,17 +3,7 @@ import type {
     AllergenReferenceCandidate,
     AllergenReferenceSelection,
 } from '@healthy360/api-client/contracts';
-import {
-    Callout,
-    Checkbox,
-    Inline,
-    ListItem,
-    Stack,
-    Tag,
-    TagRow,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
+import { Button, Callout, Checkbox, Inline, ListItem, Stack, Tag, TagRow, Text, TextInputField } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +12,6 @@ import { Linking, View } from 'react-native';
 import { useAllergenReferenceSearch } from '../../data/kitchen-admin-hooks.ts';
 import { containmentKey, displayName } from './format.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 const ODBL_URL = 'https://opendatacommons.org/licenses/odbl/1-0/';
 
 /**
@@ -191,7 +180,7 @@ export function AllergenReferencePicker({
                     {/* `Button` holds itself to the top (`self-start`); the wrapper is what the row
                         lines up with the input box. */}
                     <View>
-                        <DeskButton
+                        <Button
                             testID="allergen-reference-search"
                             variant="secondary"
                             label={t('kitchen:nutritionLookup.search')}
@@ -266,7 +255,7 @@ export function AllergenReferencePicker({
                                     }
                                     trailing={
                                         selected ? (
-                                            <DeskButton
+                                            <Button
                                                 testID="allergen-reference-change"
                                                 size="sm"
                                                 variant="ghost"
@@ -274,7 +263,7 @@ export function AllergenReferencePicker({
                                                 onPress={() => onChange(undefined)}
                                             />
                                         ) : (
-                                            <DeskButton
+                                            <Button
                                                 testID={`allergen-reference-select-${candidate.ref}`}
                                                 size="sm"
                                                 variant="secondary"

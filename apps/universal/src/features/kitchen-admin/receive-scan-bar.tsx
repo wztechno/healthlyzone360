@@ -1,7 +1,9 @@
 import type { ApiFailure, BarcodeScan, StockItem } from '@healthy360/api-client/contracts';
 import {
+    Button,
     Callout,
     Dialog,
+    FailureToast,
     QuantityInput,
     Select,
     Stack,
@@ -20,13 +22,11 @@ import {
     useResolveBarcodeScan,
 } from '../../data/kitchen-ops-hooks.ts';
 import { barcodeFailureText, shelfForIngredient, unlinkedScanMessage } from './barcode-scan.ts';
-import { CameraScanButton } from './camera-scan-button.tsx';
+import { CameraScanButton } from '../../ui/camera-scan-button.tsx';
 import { focusField } from './field-focus.ts';
 import { unitShortKey } from './format.ts';
 import type { ScannedPack } from './receive-delivery-model.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
-import { FailureToast } from './failure-toast.tsx';
 /**
  * The scan field both receive screens put above their lines (ingredient barcodes, plan §8).
  *
@@ -293,13 +293,13 @@ function LinkBarcodeDialog({
             description={t('kitchen:barcodes.linkBody', { code: `⁦${scan.data}⁩` })}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID={`${testID}-cancel`}
                         variant="quiet"
                         label={t('kitchen:barcodes.linkCancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID={`${testID}-save`}
                         label={t('kitchen:barcodes.linkSave')}
                         loading={link.isPending}

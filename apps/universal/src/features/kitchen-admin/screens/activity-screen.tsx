@@ -1,14 +1,21 @@
 import type { ActivityEntry, StockActivityMovement } from '@healthy360/api-client/contracts';
 import {
+    Button,
     Callout,
     Cascade,
+    DataTable,
+    DatePicker,
     EmptyState,
     ErrorState,
-    Stack,
+    LensBar,
+    PeriodScope,
     SegmentedControl,
+    Stack,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
@@ -20,17 +27,9 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useActivityQuery, useStockActivityQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { daysBetween, isIsoDate, todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import { PeriodScope } from '../catalogue/period-scope.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { AUDIT_VIEW_PERMISSION } from '../entity-registry.ts';
 import { humaniseCode, unitCodeLabel } from '../format.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 /**
@@ -66,7 +65,7 @@ function OrderLink({
     const here = useCurrentHref();
 
     return (
-        <DeskButton
+        <Button
             testID={testID}
             size="sm"
             variant="quiet"
@@ -139,7 +138,8 @@ function Activity() {
                             }}
                         />
                         <View className="z-auto flex-row items-center gap-tight">
-                            <DeskDateButton
+                            <DatePicker
+                                trigger="pill"
                                 testID="kitchen-activity-from"
                                 label={t('kitchen:ops.cashReport.fromLabel')}
                                 value={from}
@@ -149,7 +149,8 @@ function Activity() {
                             <Text variant="caption" tone="secondary" aria-hidden>
                                 {t('kitchen:ops.requirements.windowTo')}
                             </Text>
-                            <DeskDateButton
+                            <DatePicker
+                                trigger="pill"
                                 testID="kitchen-activity-to"
                                 label={t('kitchen:ops.cashReport.toLabel')}
                                 value={to}
@@ -194,7 +195,7 @@ function StockMovements({ window }: { readonly window: { from: string; to: strin
 
     const columns: readonly ControlledColumn<
         StockActivityMovement,
-        CatalogueColumn<StockActivityMovement>
+        DataTableColumn<StockActivityMovement>
     >[] = [
         {
             key: 'when',
@@ -373,7 +374,7 @@ function StockMovements({ window }: { readonly window: { from: string; to: strin
                     </Text>
                 )}
             </Stack>
-            <CatalogueList<StockActivityMovement>
+            <DataTable<StockActivityMovement>
                 testID="kitchen-activity-stock-table"
                 label={t('kitchen:ops.activity.view.stock')}
                 columns={controls.columns}
@@ -392,7 +393,7 @@ function AuditTrail({ window }: { readonly window: { from: string; to: string } 
     const failure = toFailure(activity.error);
     const rows = activity.data?.entries ?? [];
 
-    const columns: readonly ControlledColumn<ActivityEntry, CatalogueColumn<ActivityEntry>>[] = [
+    const columns: readonly ControlledColumn<ActivityEntry, DataTableColumn<ActivityEntry>>[] = [
         {
             key: 'when',
             label: t('kitchen:ops.activity.columnWhen'),
@@ -497,7 +498,7 @@ function AuditTrail({ window }: { readonly window: { from: string; to: string } 
                     title={t('kitchen:ops.activity.truncated')}
                 />
             ) : null}
-            <CatalogueList<ActivityEntry>
+            <DataTable<ActivityEntry>
                 testID="kitchen-activity-audit-table"
                 label={t('kitchen:ops.activity.view.audit')}
                 columns={controls.columns}

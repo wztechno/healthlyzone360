@@ -1,15 +1,16 @@
-import { Icon, useContentWidth } from '@healthy360/design-system';
-import type { IconName, RecordDialogAction } from '@healthy360/design-system';
-import { createContext, useContext } from 'react';
+import { Button, Icon, InRecordPopup, RecordPopupWindow } from '@healthy360/design-system';
+import type {
+    IconName,
+    RecordPopupAction,
+    RecordPopupWindowProps,
+} from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { RECORD_POPUP_SPLIT_MIN, RECORD_SPLIT_MIN } from '../desk-layout.ts';
-import { CompactRecordPopup } from './compact-record-popup.tsx';
+import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 
 /**
  * A kitchen-admin record, opened as a pop-up over the list it was picked from — the
- * `View as a pop-up` canvas (2026-11-07). The design system's `RecordDialog` plus the two things
+ * `View as a pop-up` canvas (2026-11-07). The design system's `RecordPopupWindow` plus the two things
  * only the kitchen admin knows:
  *
  * - **The trail.** `useKitchenTrailLeaf` still names the record as the shell's last crumb, and the
@@ -19,14 +20,23 @@ import { CompactRecordPopup } from './compact-record-popup.tsx';
  *
  * A caller renders its list as always and this beside it while it holds a record.
  *
- * **The desk frame (2026-11-11).** The window is the Orders pop-up's (`CompactRecordPopup`): a slim
+ * **The desk frame (2026-11-11).** The window is the Orders pop-up's (`RecordPopupWindow`): a slim
  * header with the kind and the ✕, the record's own canopy and tiles as the scrolling body, and every
- * action as a `DeskButton` pinned at the foot — the primary first and green, the rest outlined, a
+ * action as a `Button` pinned at the foot — the primary first and green, the rest outlined, a
  * destructive one at the far end. A button that is writing shows the desk's sweep. Each keeps the
  * id it had as a ⋯ entry (`{testID}-actions-menu-item-{key}` unless it names its own).
  */
 
-export type RecordAction = RecordDialogAction;
+export type RecordAction = RecordPopupAction;
+
+/**
+ * The design system's record window, named as the shell trail's last crumb while it is open — the
+ * list's crumb closes it. Every kitchen record pop-up opens through this.
+ */
+export function TrailedRecordWindow(props: RecordPopupWindowProps) {
+    useKitchenTrailLeaf(props.label, props.onClose);
+    return <RecordPopupWindow {...props} />;
+}
 
 /**
  * The old canopy button, as the ⋯ menu's first entry. Kept so a screen moves across without
@@ -42,10 +52,7 @@ export interface RecordPrimaryAction {
     readonly disabled?: boolean | undefined;
 }
 
-export function primaryMenuAction(
-    primary: RecordPrimaryAction,
-    testID: string,
-): RecordDialogAction {
+export function primaryMenuAction(primary: RecordPrimaryAction, testID: string): RecordPopupAction {
     return {
         key: 'primary',
         label: primary.label,
@@ -56,14 +63,6 @@ export function primaryMenuAction(
         disabled: primary.disabled,
         testID: primary.testID ?? `${testID}-primary`,
     };
-}
-
-const InRecordPopup = createContext(false);
-
-/** One column or two for a record's body — against the pop-up's width when inside one. */
-export function useRecordSplit(): boolean {
-    const inPopup = useContext(InRecordPopup);
-    return useContentWidth().atLeast(inPopup ? RECORD_POPUP_SPLIT_MIN : RECORD_SPLIT_MIN);
 }
 
 export interface RecordPopupProps {
@@ -108,7 +107,7 @@ export function RecordPopup({
         primaryAction === undefined
             ? actions
             : [primaryMenuAction(primaryAction, testID), ...actions];
-    const button = (action: RecordDialogAction, index: number) => {
+    const button = (action: RecordPopupAction, index: number) => {
         const variant =
             action.tone === 'danger'
                 ? 'dangerOutline'
@@ -116,7 +115,7 @@ export function RecordPopup({
                   ? 'primary'
                   : 'secondary';
         return (
-            <DeskButton
+            <Button
                 key={action.key}
                 testID={action.testID ?? `${testID}-actions-menu-item-${action.key}`}
                 label={action.label}
@@ -140,7 +139,7 @@ export function RecordPopup({
     const danger = all.filter((action) => action.tone === 'danger');
 
     return (
-        <CompactRecordPopup
+        <TrailedRecordWindow
             label={title}
             kind={kind}
             leading={leading}

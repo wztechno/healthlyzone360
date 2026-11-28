@@ -11,8 +11,8 @@ import { guardNavigation } from '../../navigation/use-unsaved-guard.ts';
 import { useAccessState } from '../../session/session-provider.tsx';
 import { TrailLeafProvider, useTrailLeaf, useTrailLeafState } from '../../shell/area-trail.tsx';
 import { returnCrumbLabel } from './came-from.ts';
-import { DeskTrail } from './desk-kit/desk-trail.tsx';
-import type { DeskCrumb } from './desk-kit/desk-trail.tsx';
+import { AdminTrail } from '../../ui/admin-trail.tsx';
+import type { AdminCrumb } from '../../ui/admin-trail.tsx';
 import { ENTITY_FAMILIES } from './entity-registry.ts';
 import type { EntityFamily } from './entity-registry.ts';
 import {
@@ -32,7 +32,7 @@ import {
  * docblock says to wrap the admin shell in it. Until it was here every kitchen route rendered on the
  * *customer* ladder: `size="sm"` resolved to the 44px touch floor rather than `controlHeight.sm`, so
  * the search field, the status segments and both header buttons came out roughly half again too
- * tall; and a table cell drawn through `<Text>` took `text-base` (16px) while the cells `DataList`
+ * tall; and a table cell drawn through `<Text>` took `text-role-body` (16px) while the cells `DataList`
  * rendered from `value()` took `text-role-body` (12px), which is why one column of a row could be a
  * third larger than the one beside it and wrap out of its own row box.
  *
@@ -137,8 +137,8 @@ export const useKitchenTrailLeaf = useTrailLeaf;
 /** Holds the trail's leaf for everything under the kitchen layout — the top bar and the page. */
 export const KitchenTrailProvider = TrailLeafProvider;
 
-/** One crumb of the kitchen trail — the desk kit's (`desk-kit/desk-trail.tsx`). */
-export type KitchenCrumb = DeskCrumb;
+/** One crumb of the kitchen trail — the admin trail's (`ui/admin-trail.tsx`). */
+export type KitchenCrumb = AdminCrumb;
 
 /** The deepest registry family an href sits under — `/kitchen/order-desk/cash` is Cash's. */
 function familyOf(href: string): EntityFamily | undefined {
@@ -317,7 +317,7 @@ export function useKitchenTrail(navigation?: readonly NavigationItem[]): readonl
 
 /** The trail as the top bar draws it. `kitchen-breadcrumbs` is a print-stylesheet contract. */
 export function KitchenTrail({ crumbs }: { readonly crumbs: readonly KitchenCrumb[] }) {
-    return <DeskTrail testID="kitchen-breadcrumbs" crumbs={crumbs} />;
+    return <AdminTrail testID="kitchen-breadcrumbs" crumbs={crumbs} />;
 }
 
 export function KitchenOpsShell({ children }: KitchenOpsShellProps) {

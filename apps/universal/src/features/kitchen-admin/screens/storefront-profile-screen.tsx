@@ -1,9 +1,13 @@
 import type { LocalisedText, StorefrontProfile } from '@healthy360/api-client/contracts';
 import {
+    BilingualField,
+    Button,
     Cascade,
     ErrorState,
+    FailureToast,
     FormSection,
     FormSkeleton,
+    PageHeader,
     useToast,
 } from '@healthy360/design-system';
 import { useState } from 'react';
@@ -15,15 +19,11 @@ import {
     useSaveStorefrontProfileMutation,
     useStorefrontProfileQuery,
 } from '../../../data/staff-alerts-hooks.ts';
-import { BilingualField } from '../bilingual-field.tsx';
 import { CATALOGUE_MANAGE_PERMISSION } from '../entity-registry.ts';
-import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { FailureToast } from '../failure-toast.tsx';
 const PAGE = 'kitchen-storefront';
 
 /**
@@ -44,10 +44,10 @@ function StorefrontProfilePage() {
 
     return (
         <Cascade space="md" testID={`${PAGE}-screen`}>
-            <KitchenPageHeader
+            <PageHeader
                 testID={`${PAGE}-header`}
                 title={t('kitchen:families.storefront.name')}
-                subtitle={t('kitchen:families.storefront.description')}
+                info={t('kitchen:families.storefront.description')}
             />
             <StorefrontProfileSection />
         </Cascade>
@@ -183,7 +183,7 @@ function StorefrontProfileSection() {
                 title={t('kitchen:storefrontProfile.title')}
                 description={t('kitchen:storefrontProfile.description')}
                 actions={
-                    <DeskButton
+                    <Button
                         testID="kitchen-storefront-profile-save"
                         size="sm"
                         label={t('kitchen:storefrontProfile.save')}

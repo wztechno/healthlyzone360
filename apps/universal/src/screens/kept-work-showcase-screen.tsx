@@ -1,7 +1,13 @@
-import { Button, DensityProvider, Inline, Stack, Text } from '@healthy360/design-system';
+import {
+    Button,
+    DensityProvider,
+    Inline,
+    LeaveDialog,
+    Stack,
+    Text,
+} from '@healthy360/design-system';
 import { View } from 'react-native';
 
-import { UnsavedDialog } from '../features/kitchen-admin/record-form-opening.tsx';
 import { keepWork } from '../navigation/kept-work.ts';
 import { clearAllSessionDrafts } from '../navigation/session-draft.ts';
 import { useUnsavedGuard } from '../navigation/use-unsaved-guard.ts';
@@ -74,8 +80,8 @@ export function KeptWorkShowcaseScreen() {
                         />
                     </Inline>
                 </Stack>
-                <UnsavedDialog guard={keepable} testID="kept-work-showcase-keepable" />
-                <UnsavedDialog guard={plain} testID="kept-work-showcase-plain" />
+                <LeaveDialog guard={keepable} testID="kept-work-showcase-keepable" />
+                <LeaveDialog guard={plain} testID="kept-work-showcase-plain" />
             </View>
         </DensityProvider>
     );

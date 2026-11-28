@@ -3,15 +3,19 @@ import type {
     PlatformB2bApplicationSummary,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Button,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
+    LensBar,
     TableSkeleton,
     Text,
     useToast,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, LensFigure, LensTone, MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -24,12 +28,6 @@ import {
     useClaimApplicationMutation,
     usePlatformB2bApplicationsQuery,
 } from '../../../data/platform-b2b-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../../kitchen-admin/catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
-import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
-import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
-import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import {
     applicationRowTestId,
     applicationStatusKey,
@@ -149,7 +147,7 @@ function ApplicationsQueue() {
         },
     }));
 
-    const columns: readonly CatalogueColumn<PlatformB2bApplicationSummary>[] = [
+    const columns: readonly DataTableColumn<PlatformB2bApplicationSummary>[] = [
         {
             key: 'company',
             role: 'title',
@@ -208,7 +206,7 @@ function ApplicationsQueue() {
             priority: 90,
             value: (row) => statusLabel(row.status),
             render: (row) => (
-                <DeskChip
+                <Badge
                     testID={`${applicationRowTestId(row.id)}-status`}
                     tone={applicationStatusTone(row.status)}
                     label={statusLabel(row.status)}
@@ -226,7 +224,7 @@ function ApplicationsQueue() {
                     ? t('platformAdmin:b2b.unclaimed')
                     : t('platformAdmin:b2b.claimed'),
             render: (row) => (
-                <DeskChip
+                <Badge
                     testID={`${applicationRowTestId(row.id)}-reviewer`}
                     tone={row.reviewedBy === null ? 'warning' : 'neutral'}
                     label={
@@ -250,7 +248,6 @@ function ApplicationsQueue() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="platform-b2b-applications-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={figures}
@@ -322,7 +319,7 @@ function ApplicationsQueue() {
                               })}
                     />
                 ) : (
-                    <CatalogueList<PlatformB2bApplicationSummary>
+                    <DataTable<PlatformB2bApplicationSummary>
                         testID="platform-b2b-applications-table"
                         joined
                         label={t('platformAdmin:b2b.caption')}
@@ -332,12 +329,11 @@ function ApplicationsQueue() {
                         density="sm"
                         onRowPress={openApplication}
                         rowActionsLabel={t('platformAdmin:kitchens.rowActions')}
-                        rowActionsLook="desk"
                         rowActions={(row): readonly MenuItem[] => [
                             {
                                 key: 'open',
                                 label: t('platformAdmin:b2b.openShort'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `${applicationRowTestId(row.id)}-open`,
                                 onSelect: () => {
                                     openApplication(row);

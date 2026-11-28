@@ -1,3 +1,4 @@
+import { forgetColumnChoice } from '@healthy360/design-system';
 import type {
     AllergenReferenceCandidate,
     IngredientAssistSuggestion,
@@ -54,7 +55,6 @@ import { AllergenClassesScreen } from './screens/allergen-classes-screen.tsx';
 import { canSaveFiles } from './save-download.ts';
 import { IngredientEditScreen } from './screens/ingredient-edit-screen.tsx';
 import { IngredientsScreen } from './screens/ingredients-screen.tsx';
-import { forgetColumnChoice } from './catalogue/column-picker.tsx';
 import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
 
 /**

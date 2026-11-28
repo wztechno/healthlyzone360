@@ -3,7 +3,7 @@ import type {
     IngredientAssistReference,
     IngredientAssistSuggestion,
 } from '@healthy360/api-client/contracts';
-import { Callout, Icon, Inline, Stack, Text } from '@healthy360/design-system';
+import { Button, Callout, Icon, Inline, Stack, Text } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -19,7 +19,6 @@ import { queryKeys } from '../../data/query-keys.ts';
 import { useRepositories } from '../../data/repository-provider.tsx';
 import { displayName } from './format.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 type QuickAddState =
     | { readonly kind: 'idle' }
     | { readonly kind: 'checking' | 'creating'; readonly name: string }
@@ -160,7 +159,7 @@ export function useIngredientQuickAdd({
                     {entry.reason}
                 </Text>
             )}
-            <DeskButton
+            <Button
                 testID={`${testID}-use-${String(entry.id)}`}
                 size="sm"
                 variant="ghost"
@@ -173,7 +172,7 @@ export function useIngredientQuickAdd({
     );
 
     const cancel = (
-        <DeskButton
+        <Button
             testID={`${testID}-cancel`}
             size="sm"
             variant="ghost"
@@ -188,7 +187,7 @@ export function useIngredientQuickAdd({
         <>
             {busy ? (
                 <View>
-                    <DeskButton
+                    <Button
                         testID={`${testID}-busy`}
                         size="sm"
                         variant="secondary"
@@ -224,7 +223,7 @@ export function useIngredientQuickAdd({
                         title={t('kitchen:recipes.quickAddDuplicatesTitle', { name: shown.name })}
                         actions={
                             <Inline space="xs">
-                                <DeskButton
+                                <Button
                                     testID={`${testID}-anyway`}
                                     size="sm"
                                     variant="secondary"

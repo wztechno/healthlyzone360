@@ -9,18 +9,22 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    Button,
     Callout,
     Cascade,
     Checkbox,
+    DataTable,
     Dialog,
     EmptyState,
     ErrorState,
+    FailureToast,
     Stack,
     TableSkeleton,
     Text,
     TextInputField,
     useToast,
 } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -34,14 +38,9 @@ import {
     useSignOffCashSettlementMutation,
 } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { DeskTableTitle } from '../order-desk/desk-parts.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
-import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/order-desk/cash?tab=handins` — cash coming back from the road.
  *
@@ -109,7 +108,7 @@ function OrderDeskSettlement() {
         </Stack>
     );
 
-    const driverColumns: readonly CatalogueColumn<DriverCashOwed>[] = [
+    const driverColumns: readonly DataTableColumn<DriverCashOwed>[] = [
         {
             key: 'driver',
             role: 'title',
@@ -148,7 +147,7 @@ function OrderDeskSettlement() {
             priority: 99,
             render: (row) => (
                 <View className="flex-row justify-end">
-                    <DeskButton
+                    <Button
                         testID={`kitchen-settlement-driver-${row.driverUserId}${tillSuffix(row)}-settle`}
                         variant="secondary"
                         size="sm"
@@ -162,7 +161,7 @@ function OrderDeskSettlement() {
         },
     ];
 
-    const courierColumns: readonly CatalogueColumn<CourierCashOwed>[] = [
+    const courierColumns: readonly DataTableColumn<CourierCashOwed>[] = [
         {
             key: 'courier',
             role: 'title',
@@ -221,7 +220,7 @@ function OrderDeskSettlement() {
             priority: 99,
             render: (row) => (
                 <View className="flex-row justify-end">
-                    <DeskButton
+                    <Button
                         testID={`kitchen-settlement-courier-${row.courierName}${tillSuffix(row)}-settle`}
                         variant="secondary"
                         size="sm"
@@ -235,7 +234,7 @@ function OrderDeskSettlement() {
         },
     ];
 
-    const recentColumns: readonly CatalogueColumn<CashSettlementRecord>[] = [
+    const recentColumns: readonly DataTableColumn<CashSettlementRecord>[] = [
         {
             key: 'when',
             label: t('kitchen:ops.settlement.columnWhen'),
@@ -293,11 +292,11 @@ function OrderDeskSettlement() {
             priority: 92,
             render: (row) =>
                 row.shortMinor === 0 ? (
-                    <DeskChip tone="success" label={t('kitchen:ops.settlement.settled')} />
+                    <Badge tone="success" label={t('kitchen:ops.settlement.settled')} />
                 ) : row.signedOffAt !== null ? (
-                    <DeskChip tone="neutral" label={t('kitchen:ops.settlement.signedOff')} />
+                    <Badge tone="neutral" label={t('kitchen:ops.settlement.signedOff')} />
                 ) : canSignOff ? (
-                    <DeskButton
+                    <Button
                         testID={`kitchen-settlement-${row.id}-sign-off`}
                         variant="secondary"
                         size="sm"
@@ -347,7 +346,7 @@ function OrderDeskSettlement() {
                         title={t('kitchen:ops.settlement.driversHeading')}
                         count={data.drivers.length}
                     />
-                    <CatalogueList<DriverCashOwed>
+                    <DataTable<DriverCashOwed>
                         testID="kitchen-settlement-drivers"
                         label={t('kitchen:ops.settlement.driversHeading')}
                         columns={driverColumns}
@@ -371,7 +370,7 @@ function OrderDeskSettlement() {
                         title={t('kitchen:ops.settlement.couriersHeading')}
                         count={data.couriers.length}
                     />
-                    <CatalogueList<CourierCashOwed>
+                    <DataTable<CourierCashOwed>
                         testID="kitchen-settlement-couriers"
                         label={t('kitchen:ops.settlement.couriersHeading')}
                         columns={courierColumns}
@@ -390,7 +389,7 @@ function OrderDeskSettlement() {
                     />
 
                     <DeskTableTitle title={t('kitchen:ops.settlement.recentHeading')} />
-                    <CatalogueList<CashSettlementRecord>
+                    <DataTable<CashSettlementRecord>
                         testID="kitchen-settlement-recent"
                         label={t('kitchen:ops.settlement.recentHeading')}
                         columns={recentColumns}
@@ -516,13 +515,13 @@ function SettleDialog({
             description={t(`kitchen:ops.settlement.dialogBody.${settling.kind}`)}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-settlement-dismiss"
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-settlement-confirm"
                         label={t('kitchen:ops.settlement.confirm')}
                         loading={record.isPending}

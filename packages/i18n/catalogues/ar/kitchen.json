@@ -1541,6 +1541,7 @@
             "batchFactorLabel": "معامل الدفعة",
             "batchFactorPlaceholder": "مثال: 2",
             "notesLabel": "ملاحظات",
+            "addNote": "+ إضافة ملاحظة",
             "notesPlaceholder": "مثال: خفّفوا الملح",
             "amountRequired": "أدخل رقماً أكبر من صفر.",
             "batchTitle": "الدفعة {{reference}}",
@@ -3444,8 +3445,6 @@
         "sortAscending": "ترتيب تصاعدي",
         "sortDescending": "ترتيب تنازلي",
         "filter": "تصفية",
-        "clearFilter": "مسح",
-        "columnMenu": "الترتيب والتصفية: {{column}}",
         "statsAsCards": "بطاقات",
         "statsAsLine": "سطر",
         "statsViewLabel": "تغيير طريقة عرض الأعداد",
@@ -3453,16 +3452,7 @@
         "title": "الكتالوج",
         "columnUpdated": "آخر تحديث",
         "close": "إغلاق",
-        "columnSort": "رتّب حسب {{column}}",
-        "columnsButton": "عرض الأعمدة · {{shown}} من {{max}}",
-        "columnsCount": "{{shown}} من {{max}}",
-        "columnsClear": "إلغاء تحديد الكل",
-        "columnsHint": "اختر الأعمدة التي تظهر في الجدول، حتى {{max}} في المرة الواحدة.",
-        "columnsLabel": "اختر الأعمدة المعروضة",
-        "columnsHeading": "اعرض حتى {{max}} أعمدة",
-        "columnsReset": "استعادة الافتراضي",
-        "columnFilter": "صفِّ حسب {{column}}",
-        "columnFiltered": "مُصفّى"
+        "columnsHint": "اختر الأعمدة التي تظهر في الجدول، حتى {{max}} في المرة الواحدة."
     },
     "toolbar": {
         "filters": "عوامل التصفية",
@@ -3581,7 +3571,6 @@
         "lastUpdatedBySeed": "آخر تغيير {{when}}",
         "lastUpdatedBy": "آخر تغيير {{when}} بواسطة {{name}}",
         "neverSaved": "لم يُحفظ بعد",
-        "unsaved": "تغييرات غير محفوظة",
         "sectionDetails": "الاسم",
         "sectionClassification": "التصنيف",
         "sectionAliases": "أسماء أخرى",
@@ -3619,11 +3608,7 @@
         "pendingNutritionBody": "اقترح الذكاء الاصطناعي اسمه العربي وفئته ومطابقته الغذائية. راجعها، وأكّد مرجعًا غذائيًا أدناه، وقيّم مسبّبات الحساسية فيه. إلى أن يُؤكَّد المرجع، لا يمكن نشر الوصفات التي تستخدم هذا المكوّن."
     },
     "bilingual": {
-        "englishLabel": "{{field}} (بالإنجليزية)",
-        "arabicLabel": "{{field}} (بالعربية)",
-        "copyFromEnglish": "نسخ النص الإنجليزي",
         "missingArabic": "لا يوجد نص عربي بعد",
-        "missingArabicHint": "تُحفظ المسودة بدونه، أما النشر فلا.",
         "englishShort": "{{field}} (EN)",
         "arabicShort": "{{field}} (AR)"
     },
@@ -3786,22 +3771,8 @@
         "laboratoryTested": "مفحوص مخبريًا",
         "operatorConfirmed": "مؤكَّد من المشغّل"
     },
-    "conflict": {
-        "title": "غيّر شخص آخر هذا السجل",
-        "body": "حفظه شخص آخر بينما كان مفتوحًا هنا، فالحفظ الآن سيطمس عمله. أعِد التحميل لأخذ نسخته، أو تابع التعديل وانسخ تغييراتك أولًا.",
-        "reload": "إعادة التحميل وفقدان تغييراتي",
-        "keepEditing": "متابعة التعديل"
-    },
     "unsaved": {
-        "title": "المغادرة بدون حفظ؟",
-        "body": "يحمل هذا السجل تغييرات لم تُحفظ، والمغادرة الآن تتجاهلها.",
-        "discard": "تجاهل تغييراتي",
-        "keepEditing": "متابعة التعديل",
-        "browserPrompt": "يحمل هذا السجل تغييرات غير محفوظة.",
-        "keepableTitle": "مغادرة هذه الصفحة؟",
-        "keepableBody": "تغييراتك لم تُحفظ بعد.",
-        "stay": "البقاء",
-        "keepForLater": "الاحتفاظ لوقت لاحق"
+        "browserPrompt": "يحمل هذا السجل تغييرات غير محفوظة."
     },
     "classes": {
         "title": "أصناف مسبّبات الحساسية",
@@ -4153,10 +4124,6 @@
         "sheetAllergensDerived": "مسببات الحساسية (من المكوّنات)",
         "sheetRestrictedValue": "نعم — ليست للتداول",
         "publishChecksTitle": "فحوص النشر",
-        "checksCount": "{{done}}/{{total}} فحوص",
-        "checksNextFix": "الإصلاح التالي ←",
-        "checksNextFixLabel": "نجح {{done}} من {{total}} فحوص. الإصلاح التالي: {{next}}",
-        "checksAllPass": "نجحت كل الفحوص",
         "kitchenNameLabel": "الاسم",
         "costBatchTitle": "دفعة واحدة",
         "costUnitTitle": "لكل {{unit}}",
@@ -6249,22 +6216,7 @@
         "allProducts": "كل المنتجات",
         "reviewAction": "عرض السجلات بانتظار المراجعة فقط",
         "requirementsMix": "{{short}} ناقص، {{covered}} متوفر",
-        "deskMix": "{{placed}} مقدّم، {{confirmed}} مؤكد",
-        "periodLabel": "الفترة",
-        "period": {
-            "all": "الكل",
-            "today": "اليوم",
-            "yesterday": "أمس",
-            "week": "هذا الأسبوع",
-            "month": "هذا الشهر",
-            "lastMonth": "الشهر الماضي",
-            "quarter": "آخر 3 أشهر",
-            "year": "هذه السنة",
-            "tomorrow": "غدًا",
-            "nextWeek": "الأسبوع القادم",
-            "twoWeeks": "الأسبوعان القادمان",
-            "custom": "مخصص"
-        }
+        "deskMix": "{{placed}} مقدّم، {{confirmed}} مؤكد"
     },
     "tray": {
         "noChannel": "لا توجد قناة بيع",
@@ -6782,9 +6734,5 @@
         "perHundredGrams": "لكل 100 غ",
         "marginNote": "لكل {{unit}} · هامش {{percent}} %",
         "ofTotal": "من {{total}}"
-    },
-    "dateField": {
-        "placeholder": "اختر يومًا",
-        "today": "اليوم"
     }
 }

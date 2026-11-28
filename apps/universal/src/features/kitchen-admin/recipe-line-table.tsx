@@ -6,17 +6,7 @@ import type {
     RecipeLineCost,
 } from '@healthy360/api-client/contracts';
 import { PACKAGING_CATEGORY_CODE } from '@healthy360/api-client/contracts';
-import {
-    Button,
-    DataList,
-    Icon,
-    IconButton,
-    Text,
-    UNDROPPABLE_PRIORITY,
-    growWeights,
-    inputControlClass,
-    inputFrameClassName,
-} from '@healthy360/design-system';
+import { Badge, Button, DataTable, growWeights, Icon, IconButton, inputControlClass, inputFrameClassName, Select, Text, UNDROPPABLE_PRIORITY } from '@healthy360/design-system';
 import type { DataListColumn, SelectOption } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { MeasureUnit } from '@healthy360/nutrition';
@@ -26,8 +16,6 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, TextInput, View } from 'react-native';
 
 import { useIngredientWholeSetQuery } from '../../data/kitchen-admin-hooks.ts';
-import { DeskChip } from './desk-kit/desk-chip.tsx';
-import { DeskPicker } from './desk-kit/desk-picker.tsx';
 import { displayName, formatMoney, humaniseCode, parseQuantity, unitShortKey } from './format.ts';
 import { useIngredientQuickAdd } from './ingredient-quick-add.tsx';
 
@@ -121,7 +109,7 @@ export interface LineDraft {
  * only its title, its hint and its picker placeholder. Two copies would be two chances for the Qty
  * column to drift by a pixel.
  *
- * ## The picker is the desk's `DeskPicker`
+ * ## The picker is the design system's `Select` as an action pill
  *
  * "Type to add — the picker stays inline, no modal" is written on the section itself: a pill that
  * opens a floating card with the filter box inside it — the control every add picker in the kitchen
@@ -598,7 +586,7 @@ export function RecipeLineTable({
                                 </Text>
                             )}
                             {preparation === null ? null : (
-                                <DeskChip
+                                <Badge
                                     testID={`${rowTestId(row)}-preparation`}
                                     tone="neutral"
                                     size="sm"
@@ -832,7 +820,9 @@ export function RecipeLineTable({
             {canManage ? (
                 // It wraps, so the quick add's answer sits beneath the picker.
                 <View className="flex-row flex-wrap items-center gap-tight">
-                    <DeskPicker
+                    <Select
+                        trigger="pill"
+                        value={null}
                         testID={`${testID}-picker`}
                         label={pickerPlaceholder}
                         placeholder={pickerPlaceholder}
@@ -850,7 +840,8 @@ export function RecipeLineTable({
                  * `testID` goes on the list itself rather than on a wrapper, so a row is still
                  * `${testID}-row-${key}` — the id `DataList` mints from its own id and the row key.
                  */}
-                <DataList<LineDraft>
+                <DataTable<LineDraft>
+                    lines
                     testID={testID}
                     label={t(
                         wantsIngredients

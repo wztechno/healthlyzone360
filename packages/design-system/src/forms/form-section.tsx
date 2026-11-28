@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { Text as RNText, View } from 'react-native';
 
+import { useDensity } from '../hooks/use-density.tsx';
 import { InfoTip } from '../overlays/info-tip.tsx';
 import { IssueAnchor } from '../issues/issue-anchor.tsx';
 import { Separator } from '../primitives/separator.tsx';
@@ -121,6 +122,7 @@ export function FormSection({
     nativeID,
     testID,
 }: FormSectionProps) {
+    const density = useDensity();
     const board =
         useContext(SectionLookContext) === 'board' && (variant === 'card' || variant === 'panel');
     const card = variant === 'card' && !board;
@@ -183,7 +185,9 @@ export function FormSection({
                                     {...(board ? { dataSet: { face: 'body' } } : {})}
                                     className={cx(
                                         panel || ruled || board
-                                            ? 'text-[15px] font-bold'
+                                            ? density === 'compact'
+                                                ? 'text-role-section font-bold'
+                                                : 'text-[15px] font-bold'
                                             : 'text-role-section',
                                         'text-content-primary text-start',
                                     )}

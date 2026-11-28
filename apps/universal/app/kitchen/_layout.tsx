@@ -1,4 +1,4 @@
-import { ToastLookScope } from '@healthy360/design-system';
+import { AreaLookScope } from '@healthy360/design-system';
 import { Slot } from 'expo-router';
 
 import {
@@ -28,10 +28,10 @@ import { StaffAlertsButton } from '../../src/shell/staff-alerts-button.tsx';
 export default function KitchenLayout() {
     return (
         <KitchenTrailProvider>
-            {/* The admin's own toast: the desk card, bottom centre (design-system toast.tsx). */}
-            <ToastLookScope look="desk">
+            {/* The admin's look for every part: desk buttons, card dropdowns, the desk toast. */}
+            <AreaLookScope look="desk">
                 <KitchenAreaShell />
-            </ToastLookScope>
+            </AreaLookScope>
         </KitchenTrailProvider>
     );
 }

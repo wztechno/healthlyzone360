@@ -1,4 +1,11 @@
-import { Button, Cascade, DensityProvider, Text } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    ChoiceChips,
+    DensityProvider,
+    SheetFacts,
+    Text,
+} from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
 
@@ -7,10 +14,8 @@ import {
     PickedLinesBar,
     SendChecklist,
 } from '../features/business/corporate-parts.tsx';
-import { SheetFacts } from '../features/kitchen-admin/catalogue/record-sheet.tsx';
 import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
 import { SentBox } from '../features/business/screens/quotation-builder-screen.tsx';
-import { DeskChoiceChips } from '../features/kitchen-admin/desk-kit/desk-choice-chips.tsx';
 
 function noop(): void {}
 
@@ -52,14 +57,14 @@ export function CorporateShowcaseScreen() {
                         DeskChoiceChips — one choice from a few short ones
                     </Text>
                     <View className="max-w-[520px] gap-3">
-                        <DeskChoiceChips
+                        <ChoiceChips
                             testID="corporate-showcase-days"
                             label="Delivery day"
                             items={DAYS}
                             value={day}
                             onChange={setDay}
                         />
-                        <DeskChoiceChips
+                        <ChoiceChips
                             testID="corporate-showcase-windows"
                             label="Delivery window"
                             items={WINDOWS}
@@ -174,7 +179,6 @@ export function CorporateShowcaseScreen() {
 
             {open ? (
                 <RecordViewPage
-                    look="sheet"
                     testID="corporate-showcase-quotation"
                     onBack={() => {
                         setOpen(false);

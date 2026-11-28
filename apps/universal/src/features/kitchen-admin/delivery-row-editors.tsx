@@ -1,18 +1,24 @@
 import type { ServiceArea } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    BilingualField,
+    Button,
     Callout,
     Checkbox,
     cx,
-    DataList,
+    DataTable,
     fieldWidth,
     Icon,
+    IconButton,
     Inline,
-    TimeField,
     Select,
     Stack,
+    Tabs,
     Tag,
     Text,
     TextInputField,
+    TimeField,
+    UndoBar,
     useContentWidth,
 } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
@@ -24,7 +30,6 @@ import { useTranslation } from 'react-i18next';
 import { Pressable, View } from 'react-native';
 
 import { weekdayKey } from '../marketplace/format.ts';
-import { BilingualField } from './bilingual-field.tsx';
 import {
     areaMatches,
     groupServiceAreas,
@@ -39,11 +44,8 @@ import type {
     OperatingIssue,
 } from './delivery-model.ts';
 import { ISO_WEEKDAYS, displayName } from './format.ts';
-import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
+import { RowAnnouncer } from './row-editor-shell.tsx';
 
-import { DeskButton, DeskIconButton } from './desk-kit/desk-button.tsx';
-import { DeskChip } from './desk-kit/desk-chip.tsx';
-import { DeskTabs } from './desk-kit/desk-tabs.tsx';
 /**
  * The three repeated editors of the delivery slice (K1.7).
  *
@@ -405,7 +407,7 @@ export function DeliveryWindowRows({
                               if (onArchive === undefined) return null;
                               const label = displayName(row.label, locale).value;
                               return (
-                                  <DeskButton
+                                  <Button
                                       testID={`${rowTestId}-archive`}
                                       size="sm"
                                       variant="quiet"
@@ -444,7 +446,8 @@ export function DeliveryWindowRows({
 
     return (
         <Stack space="sm">
-            <DataList<DeliveryWindowDraft>
+            <DataTable<DeliveryWindowDraft>
+                lines
                 testID={testID}
                 label={t('kitchen:zones.sectionWindows')}
                 columns={columns}
@@ -462,7 +465,7 @@ export function DeliveryWindowRows({
 
             <Inline space="sm" wrap align="center">
                 {canManage ? (
-                    <DeskButton
+                    <Button
                         testID={`${testID}-add`}
                         size="sm"
                         variant="secondary"
@@ -543,9 +546,22 @@ export function DayToggle({
  * Branch operating week
  * ---------------------------------------------------------------------------------------------- */
 
-/** The time tracks: wide enough for a 12-hour value with its clock glyph. */
-const TIME_TRACK = 120;
-const CUT_OFF_TRACK = 172;
+/**
+ * The trading week's columns, wider than their boxes so each has air around it (2026-11-26): the
+ * day fits "Wednesday" beside its Closed tag, Open | Closed fits both words, and every time box is a
+ * fixed 140 (the cut-off's 160) — wide enough for a 12-hour value and its clock — inside a wider
+ * column.
+ */
+const OPERATING_TRACKS = {
+    day: 190,
+    trading: 210,
+    opens: 180,
+    closes: 180,
+    cutOff: 210,
+    copy: 72,
+} as const;
+const TIME_FIELD = 140;
+const CUT_OFF_FIELD = 160;
 
 export interface OperatingWeekRowsProps {
     readonly rows: readonly OperatingDayDraft[];
@@ -624,6 +640,8 @@ export function OperatingWeekRows({
         serverField: string,
         label: string,
         width: number,
+        /** The box itself — narrower than its column, so the columns breathe. */
+        fieldWidth: number,
         priority: number,
         read: (day: OperatingDayDraft) => string,
         write: (day: OperatingDayDraft, value: string) => OperatingDayDraft,
@@ -638,7 +656,7 @@ export function OperatingWeekRows({
         render: (day) => {
             const issue = issues.get(day.weekday);
             return (
-                <View className="w-full py-tight">
+                <View className="py-tight" style={{ width: fieldWidth }}>
                     <TimeField
                         fullWidth
                         min={
@@ -669,7 +687,7 @@ export function OperatingWeekRows({
         {
             key: 'day',
             label: t('kitchen:branchHours.columnDay'),
-            width: 128,
+            width: OPERATING_TRACKS.day,
             priority: 100,
             grow: false,
             render: (day) => {
@@ -680,7 +698,7 @@ export function OperatingWeekRows({
                             {t(weekdayKey(day.weekday))}
                         </Text>
                         {day.isClosed ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${dayID}-closed-badge`}
                                 tone="neutral"
                                 label={t('kitchen:branchHours.closedBadge')}
@@ -693,7 +711,7 @@ export function OperatingWeekRows({
         {
             key: 'trading',
             label: t('kitchen:branchHours.columnTrading'),
-            width: 176,
+            width: OPERATING_TRACKS.trading,
             priority: 95,
             grow: false,
             /*
@@ -708,7 +726,8 @@ export function OperatingWeekRows({
                 return (
                     <View className="z-auto min-w-0 flex-1">
                         {canManage ? (
-                            <DeskTabs<Trading>
+                            <Tabs<Trading>
+                                variant="segmented"
                                 testID={`${dayID}-trading`}
                                 radio
                                 label={t('kitchen:branchHours.tradingLabel', {
@@ -752,7 +771,8 @@ export function OperatingWeekRows({
             'opens',
             'opens_at',
             t('kitchen:branchHours.opensLabel'),
-            TIME_TRACK,
+            OPERATING_TRACKS.opens,
+            TIME_FIELD,
             90,
             (day) => day.opensAt,
             (day, value) => ({ ...day, opensAt: value }),
@@ -762,7 +782,8 @@ export function OperatingWeekRows({
             'closes',
             'closes_at',
             t('kitchen:branchHours.closesLabel'),
-            TIME_TRACK,
+            OPERATING_TRACKS.closes,
+            TIME_FIELD,
             90,
             (day) => day.closesAt,
             (day, value) => ({ ...day, closesAt: value }),
@@ -773,7 +794,8 @@ export function OperatingWeekRows({
             'cutOff',
             'order_cut_off_at',
             t('kitchen:branchHours.cutOffLabel'),
-            CUT_OFF_TRACK,
+            OPERATING_TRACKS.cutOff,
+            CUT_OFF_FIELD,
             85,
             (day) => day.orderCutOffAt,
             (day, value) => ({ ...day, orderCutOffAt: value }),
@@ -783,7 +805,7 @@ export function OperatingWeekRows({
                   {
                       key: 'copy',
                       label: t('kitchen:list.actionHeader'),
-                      width: 56,
+                      width: OPERATING_TRACKS.copy,
                       priority: 80,
                       sortable: false,
                       filterable: false,
@@ -791,7 +813,8 @@ export function OperatingWeekRows({
                       // words as the name and tooltip, so the column stays narrow (option A).
                       render: (day) =>
                           day.isClosed ? null : (
-                              <DeskIconButton
+                              <IconButton
+                                  variant="secondary"
                                   testID={`${testID}-day-${String(day.weekday)}-copy`}
                                   label={t('kitchen:branchHours.copyToOpenDays')}
                                   icon={
@@ -813,7 +836,8 @@ export function OperatingWeekRows({
 
     return (
         <Stack space="none">
-            <DataList<OperatingDayDraft>
+            <DataTable<OperatingDayDraft>
+                lines
                 testID={testID}
                 label={t('kitchen:branchHours.weekTitle')}
                 columns={columns}

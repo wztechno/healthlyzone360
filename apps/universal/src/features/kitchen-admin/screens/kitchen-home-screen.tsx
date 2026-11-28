@@ -1,20 +1,23 @@
 import type { KitchenOrder } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Callout,
     Card,
     Cascade,
+    cx,
     EmptyState,
+    FigureChips,
     Heading,
     Icon,
     Inline,
     Skeleton,
     Stack,
     Text,
-    cx,
     useContentWidth,
     useMotion,
 } from '@healthy360/design-system';
-import type { IconName } from '@healthy360/design-system';
+import type { IconName, LensFigure } from '@healthy360/design-system';
 import { KitchenBranchId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -67,8 +70,7 @@ import { GROUP_LABEL_KEYS } from '../kitchen-nav.ts';
 import { buildReviewQueue } from '../review-queue.ts';
 import { ordersHref } from '../orders/orders-url.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { COUNT_CLASS, CountPill, Panel, StatTile } from '../hub-parts.tsx';
+import { COUNT_CLASS, LENS_TONE, Panel } from '../hub-parts.tsx';
 import type { Tone } from '../hub-parts.tsx';
 /**
  * `/kitchen` — the overview: what needs someone today, then every module one press away.
@@ -88,7 +90,8 @@ import type { Tone } from '../hub-parts.tsx';
  * Counts stay honest: a total the server could not give is "Count unavailable", never a zero.
  */
 
-// `Tone`, `StatTile`, `Panel` and `CountPill` live in `../hub-parts.tsx`, shared with the corporate overview.
+// `Tone` and `Panel` live in `../hub-parts.tsx`, shared with the corporate overview; the five
+// figures are the design system's `FigureChips`, the Lens bar's own chips.
 
 /** How many module pills a Go to card shows before "+N more". */
 const GO_TO_PILLS = 4;
@@ -153,11 +156,14 @@ function AttentionRow({
                         {check.text}
                     </Text>
                     {check.extra}
-                    <Text className="font-display text-base font-bold tabular-nums">
+                    <Text className="font-display text-role-section font-bold tabular-nums">
                         {check.count === null ? '—' : String(check.count)}
                     </Text>
-                    <View className="h-8 justify-center rounded-full border border-stroke-subtle px-3">
-                        <Text variant="label">{check.actionLabel}</Text>
+                    {/* One width for every action ("Fix", "Review", "Plan"), so the pills match. */}
+                    <View className="h-8 w-20 items-center justify-center rounded-full border border-stroke-subtle px-3">
+                        <Text variant="label" numberOfLines={1}>
+                            {check.actionLabel}
+                        </Text>
                     </View>
                 </>
             )}
@@ -216,7 +222,7 @@ function ConfirmRow({
                 {formatMoney(formatter, order.totalMinor / 100, order.currencyCode)}
             </Text>
             {canConfirm ? (
-                <DeskButton
+                <Button
                     testID={`kitchen-home-order-${String(order.id)}-confirm`}
                     size="sm"
                     label={t('kitchen:ops.orders.confirm')}
@@ -270,7 +276,7 @@ function RouteStop({
                     <Text
                         testID={countTestID}
                         className={cx(
-                            'font-display text-lg font-bold tabular-nums',
+                            'font-display text-role-section font-bold tabular-nums',
                             waiting ? 'text-warning-on-subtle' : 'text-content-on-brand-subtle',
                         )}
                     >
@@ -455,57 +461,52 @@ export function KitchenHomeScreen() {
 
     /* ---------------------------------------------------------------- the five figures */
 
-    const stats: Array<Parameters<typeof StatTile>[0] & { readonly key: string }> = [];
+    const stats: LensFigure[] = [];
     if (permitted.has('review')) {
         stats.push({
             key: 'review',
-            testID: 'kitchen-kpi-review',
             label: t('kitchen:hub.kpi.needsReview'),
-            value: figure(reviewQueue?.total ?? null),
-            pending: reviewSources.isPending,
-            tone: waitingTone(reviewQueue?.total ?? null),
+            value: reviewSources.isPending ? null : (reviewQueue?.total ?? 0),
+            display: figure(reviewQueue?.total ?? null),
+            tone: LENS_TONE[waitingTone(reviewQueue?.total ?? null)],
             onPress: open('/kitchen/review'),
         });
     }
     if (permitted.has('consumption-exceptions')) {
         stats.push({
             key: 'consumption-exceptions',
-            testID: 'kitchen-kpi-consumption-exceptions',
             label: t('kitchen:hub.kpi.consumptionExceptions'),
-            value: figure(exceptionCount),
-            pending: exceptionsCount.isPending,
-            tone: waitingTone(exceptionCount),
+            value: exceptionsCount.isPending ? null : (exceptionCount ?? 0),
+            display: figure(exceptionCount),
+            tone: LENS_TONE[waitingTone(exceptionCount)],
             onPress: open('/kitchen/consumption-exceptions'),
         });
     }
     if (showShortfall) {
         stats.push({
             key: 'requirement-shortfalls',
-            testID: 'kitchen-kpi-requirement-shortfalls',
             label: t('kitchen:hub.kpi.requirementShortfalls'),
-            value: figure(shortfallCount),
-            pending: shortfalls.isPending,
-            tone: waitingTone(shortfallCount),
+            value: shortfalls.isPending ? null : (shortfallCount ?? 0),
+            display: figure(shortfallCount),
+            tone: LENS_TONE[waitingTone(shortfallCount)],
             onPress: open('/kitchen/order-desk/requirements'),
         });
     }
     if (permitted.has('stock')) {
         stats.push({
             key: 'low-stock',
-            testID: 'kitchen-kpi-low-stock',
             label: t('kitchen:hub.kpi.lowStock'),
-            value: figure(lowStockCount),
-            pending: lowStock.isPending,
-            tone: waitingTone(lowStockCount),
+            value: lowStock.isPending ? null : (lowStockCount ?? 0),
+            display: figure(lowStockCount),
+            tone: LENS_TONE[waitingTone(lowStockCount)],
             onPress: open('/kitchen/stock'),
         });
     }
     stats.push({
         key: 'drafts',
-        testID: 'kitchen-kpi-drafts',
         label: t('kitchen:hub.kpi.drafts'),
-        value: figure(draftTotal),
-        pending: draftsPending,
+        value: draftsPending ? null : (draftTotal ?? 0),
+        display: figure(draftTotal),
         tone: 'neutral',
     });
 
@@ -751,8 +752,9 @@ export function KitchenHomeScreen() {
     const wide = contentWidth >= 900;
     // Two rows rather than two columns, so each card lines up with the one beside it.
     const panelRow = wide ? 'flex-row items-stretch gap-3' : 'gap-3';
-    const panelStart = wide ? 'min-w-0 flex-[1.3]' : '';
-    const panelEnd = wide ? 'min-w-0 flex-1' : '';
+    // The four panels are one size (2026-11-27): two equal halves to a row, each row one height.
+    const panelStart = wide ? 'min-w-0 flex-1 basis-0' : '';
+    const panelEnd = wide ? 'min-w-0 flex-1 basis-0' : '';
     const goToGrid =
         contentWidth >= 1000 ? 'grid-cols-5' : contentWidth >= 640 ? 'grid-cols-3' : 'grid-cols-1';
     const todayDate = formatter.formatDate(new Date(), { dateStyle: 'full' });
@@ -775,7 +777,7 @@ export function KitchenHomeScreen() {
                         title={t('kitchen:setup.notOpenTitle')}
                         body={t('kitchen:setup.notOpenBody')}
                         actions={
-                            <DeskButton
+                            <Button
                                 testID="kitchen-home-open-setup"
                                 size="sm"
                                 label={t('kitchen:families.setup.name')}
@@ -798,13 +800,13 @@ export function KitchenHomeScreen() {
                                 <Text tone="secondary" testID="kitchen-home-date">
                                     {today}
                                 </Text>
-                                <Heading level={1} className="!text-3xl">
+                                <Heading level={1} className="!text-role-title">
                                     {t('kitchen:hub.title')}
                                 </Heading>
                             </Stack>
                             <Inline space="xs" align="center">
                                 {permitted.has('supplyOrders') ? (
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-home-order-supplies"
                                         variant="secondary"
                                         iconStart={
@@ -819,7 +821,7 @@ export function KitchenHomeScreen() {
                                     />
                                 ) : null}
                                 {permitted.has('orders') ? (
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-home-new-order"
                                         label={t('kitchen:hub.newSale')}
                                         iconStart={<Icon name="plus" size="sm" />}
@@ -829,10 +831,8 @@ export function KitchenHomeScreen() {
                             </Inline>
                         </Inline>
 
-                        <View testID="kitchen-home-kpis" className="flex-row flex-wrap gap-3">
-                            {stats.map(({ key, ...tile }) => (
-                                <StatTile key={key} {...tile} />
-                            ))}
+                        <View testID="kitchen-home-kpis">
+                            <FigureChips testID="kitchen-kpi" figures={stats} fill />
                         </View>
 
                         <View testID="kitchen-home-panels" className="gap-3">
@@ -844,10 +844,10 @@ export function KitchenHomeScreen() {
                                             grow={wide}
                                             title={t('kitchen:hub.attentionTitle')}
                                             count={
-                                                <CountPill
+                                                <Badge
                                                     testID="kitchen-home-attention-count"
-                                                    value={String(waitingChecks)}
-                                                    tone={waitingChecks > 0 ? 'warning' : 'ok'}
+                                                    label={String(waitingChecks)}
+                                                    tone={waitingChecks > 0 ? 'warning' : 'success'}
                                                 />
                                             }
                                         >
@@ -949,11 +949,13 @@ export function KitchenHomeScreen() {
                                             grow={wide}
                                             count={
                                                 display.isPending ? null : (
-                                                    <CountPill
+                                                    <Badge
                                                         testID="kitchen-home-orders-count"
-                                                        value={String(toConfirm.length)}
+                                                        label={String(toConfirm.length)}
                                                         tone={
-                                                            toConfirm.length > 0 ? 'warning' : 'ok'
+                                                            toConfirm.length > 0
+                                                                ? 'warning'
+                                                                : 'success'
                                                         }
                                                     />
                                                 )
@@ -1094,7 +1096,7 @@ export function KitchenHomeScreen() {
                                             </View>
                                             {permitted.has('supplyOrders') ? (
                                                 <View className="px-3 pb-1.5 pt-1">
-                                                    <DeskButton
+                                                    <Button
                                                         testID="kitchen-home-buying-order-supplies"
                                                         size="sm"
                                                         variant="secondary"

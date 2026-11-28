@@ -1,3 +1,4 @@
+import { forgetColumnChoice, rememberColumnChoice } from '@healthy360/design-system';
 import { apiFailure, throwFailure } from '@healthy360/api-client/contracts';
 import { PACKAGING_CATEGORY_CODE } from '@healthy360/api-client/contracts';
 import type {
@@ -25,7 +26,6 @@ import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { PackagingEditScreen } from './screens/packaging-edit-screen.tsx';
 import { PackagingScreen } from './screens/packaging-screen.tsx';
-import { forgetColumnChoice, rememberColumnChoice } from './catalogue/column-picker.tsx';
 import { getRecordAction } from '../../testing/record-actions.ts';
 
 afterEach(() => {
@@ -297,7 +297,7 @@ describe('the packaging list', () => {
         const base = `kitchen-packaging-row-${String(row.id)}`;
 
         // A packaging row is an ingredient row, so its photograph is `ingredient-<slug>`, drawn
-        // by `CatalogueList` from the spec's `thumbnail` — the packaging list had none before.
+        // by `DataTable` from the spec's `thumbnail` — the packaging list had none before.
         expect(
             screen.getByTestId(`kitchen-packaging-table-row-${String(row.id)}-image`, {
                 includeHiddenElements: true,

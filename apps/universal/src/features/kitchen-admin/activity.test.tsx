@@ -7,7 +7,7 @@ import { permissionsAdministratorSession } from '../../testing/session-fixtures.
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { ActivityScreen } from './screens/activity-screen.tsx';
 
-/** `CatalogueList` lays out columns from `md`; React Native's Jest window is 750px. */
+/** `DataTable` lays out columns from `md`; React Native's Jest window is 750px. */
 const narrowWindow = Dimensions.get('window');
 beforeAll(() => {
     Dimensions.set({

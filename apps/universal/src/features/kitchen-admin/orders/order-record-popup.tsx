@@ -1,6 +1,17 @@
 import type { KitchenOrder } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
-import { Callout, ErrorState, Inline, Skeleton, Text } from '@healthy360/design-system';
+import { TrailedRecordWindow } from '../catalogue/record-popup.tsx';
+import {
+    Badge,
+    Button,
+    Callout,
+    ErrorState,
+    Inline,
+    RecordPopupSection,
+    Skeleton,
+    StatusSteps,
+    Text,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useRouter } from 'expo-router';
@@ -13,7 +24,6 @@ import { useKitchenOrderQuery } from '../../../data/kitchen-orders-hooks.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
-import { CompactRecordPopup, CompactSection } from '../catalogue/compact-record-popup.tsx';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_MANAGE_PERMISSION,
@@ -29,7 +39,6 @@ import {
     kitchenOrderCancellationReasonKey,
     kitchenOrderPaymentMethodKey,
 } from '../ops-format.ts';
-import { DeskButton, DeskChip } from '../desk-kit/index.ts';
 import { OrderComplaintAction } from '../order-complaint-action.tsx';
 import { OrderRefundsSection } from '../order-refunds-section.tsx';
 import { PlanDayMeals, isPlanDayLine, visibleOrderLines } from '../plan-day-meals.tsx';
@@ -55,11 +64,11 @@ import {
 } from './order-columns.tsx';
 import { useDayOrders, useDeliveryWindows } from './use-order-book.ts';
 import type { OrderSteps } from './use-order-steps.tsx';
-import { CardLine, InfoCard, StageTrack, orderStages } from './order-popup-parts.tsx';
+import { CardLine, InfoCard, orderStages } from './order-popup-parts.tsx';
 
 /**
  * One order, from any tab — the order desk's pop-up and the order book's, merged into one, on the
- * compact pop-up (`CompactRecordPopup`, the design the user picked on 2026-11-10).
+ * compact pop-up (`RecordPopupWindow`, the design the user picked on 2026-11-10).
  *
  * The header is the order at a glance: its number, status and total, then one line with the day
  * and slot, the customer, the phone, where it goes and the money — and the next step beside them.
@@ -74,6 +83,13 @@ import { CardLine, InfoCard, StageTrack, orderStages } from './order-popup-parts
 const EM_DASH = '—';
 
 const STEP_TIME: Intl.DateTimeFormatOptions = { dateStyle: 'medium', timeStyle: 'short' };
+/** A stage's time under its bar: short enough for a fifth of the pop-up's width. */
+const STAGE_TIME: Intl.DateTimeFormatOptions = {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+};
 
 type Formatter = ReturnType<typeof useFormatter>;
 
@@ -154,7 +170,7 @@ export function OrderRecordPopup({
 
     if (shown === null) {
         return (
-            <CompactRecordPopup
+            <TrailedRecordWindow
                 testID="kitchen-orders-record"
                 label={t('kitchen:orders.record.loading')}
                 kind={t('kitchen:recordView.eyebrowOrders')}
@@ -250,10 +266,10 @@ export function OrderRecordPopup({
                       }),
                       tone: 'success',
                   };
-    const stages = orderStages(shown, t);
+    const stages = orderStages(shown, t, (instant) => formatter.formatDate(instant, STAGE_TIME));
     const nextButton =
         !stepReady || step === null ? undefined : (
-            <DeskButton
+            <Button
                 testID={`kitchen-orders-record-${step}`}
                 variant="primary"
                 label={t(NEXT_STEP_KEYS[step])}
@@ -267,7 +283,7 @@ export function OrderRecordPopup({
 
     const footer = (
         <>
-            <DeskButton
+            <Button
                 testID="kitchen-orders-record-print"
                 variant="secondary"
                 label={t('kitchen:kds.print')}
@@ -281,7 +297,7 @@ export function OrderRecordPopup({
                 }}
             />
             {!shown.amendable || !canSell ? null : (
-                <DeskButton
+                <Button
                     testID="kitchen-orders-record-edit"
                     variant="secondary"
                     label={t('kitchen:desk.edit.open')}
@@ -297,7 +313,7 @@ export function OrderRecordPopup({
             )}
             {!failed || !canSupervise ? null : (
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-record-redeliver"
                         variant="secondary"
                         label={t('kitchen:ops.orders.redeliver')}
@@ -305,7 +321,7 @@ export function OrderRecordPopup({
                             steps.openDelivery('redeliver', shown);
                         }}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-record-close-failed"
                         variant="secondary"
                         label={t('kitchen:ops.orders.closeFailed')}
@@ -316,7 +332,7 @@ export function OrderRecordPopup({
                 </>
             )}
             {!canCourier ? null : (
-                <DeskButton
+                <Button
                     testID="kitchen-orders-record-courier-open"
                     variant="secondary"
                     label={t('kitchen:desk.courier.open')}
@@ -326,7 +342,7 @@ export function OrderRecordPopup({
                 />
             )}
             {!canManage || run?.status !== 'in_transit' || !withCourier(shown) ? null : (
-                <DeskButton
+                <Button
                     testID="kitchen-orders-record-fail-delivery"
                     variant="secondary"
                     label={t('kitchen:ops.orders.failDelivery')}
@@ -336,7 +352,7 @@ export function OrderRecordPopup({
                 />
             )}
             {remakeOf === null ? null : (
-                <DeskButton
+                <Button
                     testID="kitchen-orders-record-remake-of"
                     variant="quiet"
                     label={t('kitchen:ops.orders.remakeOf', { number: remakeOf.number })}
@@ -349,7 +365,7 @@ export function OrderRecordPopup({
     );
 
     return (
-        <CompactRecordPopup
+        <TrailedRecordWindow
             testID="kitchen-orders-record"
             label={t('kitchen:ops.orders.detailTitle', { number })}
             kind={t(
@@ -361,20 +377,20 @@ export function OrderRecordPopup({
             nav={nav}
             chips={
                 <>
-                    <DeskChip
+                    <Badge
                         testID="kitchen-orders-record-status"
                         tone={orderStatusTone(shown)}
                         label={orderStatusLabel(shown, t)}
                     />
                     {late ? (
-                        <DeskChip
+                        <Badge
                             testID="kitchen-orders-record-late"
                             tone="danger"
                             label={t('kitchen:orders.late')}
                         />
                     ) : null}
                     {shown.allergy === null ? null : (
-                        <DeskChip
+                        <Badge
                             tone={shown.allergy.severe ? 'danger' : 'warning'}
                             label={t(
                                 shown.allergy.severe
@@ -404,11 +420,16 @@ export function OrderRecordPopup({
                             <View className="flex-row justify-end">{nextButton}</View>
                         )
                     ) : (
-                        <StageTrack
+                        <StatusSteps
                             testID="kitchen-orders-record-stages"
                             label={t('kitchen:orders.stage.label')}
-                            stages={stages}
-                            next={nextButton}
+                            steps={stages.map((stage) => ({
+                                ...stage,
+                                testID: `kitchen-orders-record-stages-${stage.key}`,
+                            }))}
+                            noValue={EM_DASH}
+                            trailing={nextButton}
+                            className="rounded-2xl bg-surface-sunken px-3 py-2.5"
                         />
                     )}
                     {shown.allergy === null ? null : (
@@ -453,7 +474,7 @@ export function OrderRecordPopup({
                             testID="kitchen-orders-record-delivery"
                             action={
                                 !canDriver ? undefined : (
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-orders-record-driver-open"
                                         variant="quiet"
                                         label={t(
@@ -525,7 +546,7 @@ export function OrderRecordPopup({
                             testID="kitchen-orders-record-payment"
                             action={
                                 !canPay ? undefined : (
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-orders-record-payment-open"
                                         variant="quiet"
                                         label={t('kitchen:desk.recordPayment.open')}
@@ -578,7 +599,7 @@ export function OrderRecordPopup({
                 </>
             }
             main={
-                <CompactSection
+                <RecordPopupSection
                     title={t('kitchen:ops.orders.linesHeading')}
                     testID="kitchen-orders-record-items"
                 >
@@ -599,22 +620,22 @@ export function OrderRecordPopup({
                         total
                         testID="kitchen-orders-record-total"
                     />
-                </CompactSection>
+                </RecordPopupSection>
             }
             side={
                 <>
-                    <CompactSection title={t('kitchen:orders.record.history')}>
+                    <RecordPopupSection title={t('kitchen:orders.record.history')}>
                         <OrderHistory order={shown} formatter={formatter} t={t} />
-                    </CompactSection>
+                    </RecordPopupSection>
 
                     {order === null || !canSupervise ? null : (
                         <>
-                            <CompactSection title={t('kitchen:ops.orders.refunds.heading')}>
+                            <RecordPopupSection title={t('kitchen:ops.orders.refunds.heading')}>
                                 <OrderRefundsSection order={order} />
-                            </CompactSection>
-                            <CompactSection title={t('kitchen:complaints.sectionTitle')}>
+                            </RecordPopupSection>
+                            <RecordPopupSection title={t('kitchen:complaints.sectionTitle')}>
                                 <OrderComplaintAction order={order} />
-                            </CompactSection>
+                            </RecordPopupSection>
                         </>
                     )}
                 </>
@@ -622,7 +643,7 @@ export function OrderRecordPopup({
             footer={footer}
             footerEnd={
                 !cancelAllowed ? undefined : (
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-record-cancel"
                         variant="dangerOutline"
                         label={t('kitchen:ops.orders.cancel')}
@@ -734,7 +755,7 @@ function OrderLines({
                         {line.allergens.length === 0 ? null : (
                             <Inline space="xs" wrap>
                                 {line.allergens.map((allergen) => (
-                                    <DeskChip
+                                    <Badge
                                         key={allergen.allergenCode}
                                         tone={
                                             allergen.containment === 'contains'

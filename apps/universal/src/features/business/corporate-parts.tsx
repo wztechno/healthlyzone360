@@ -1,4 +1,4 @@
-import { Icon } from '@healthy360/design-system';
+import { Button, Icon } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -70,7 +70,7 @@ export function PackStepper({
                 onBlur={() => {
                     setDraft(null);
                 }}
-                className="h-[34px] w-[52px] border-x border-stroke-subtle text-center text-[13px] font-semibold tabular-nums text-content-primary web:outline-none"
+                className="h-[34px] w-[52px] border-x border-stroke-subtle text-center text-role-body font-semibold tabular-nums text-content-primary web:outline-none"
             />
             {step('plus', t('business:stepper.more'), value + 1, 'increment')}
         </View>
@@ -121,41 +121,33 @@ export function PickedLinesBar({
                 <RNText
                     testID={`${testID}-count`}
                     aria-live="polite"
-                    className="text-sm font-bold text-content-inverse text-start"
+                    className="text-role-body font-bold text-content-inverse text-start"
                 >
                     {t('business:picked.count', { count: names.length })}
                 </RNText>
                 <RNText
                     numberOfLines={1}
-                    className="text-xs text-content-inverse opacity-75 text-start"
+                    className="text-role-caption text-content-inverse opacity-75 text-start"
                 >
                     {more > 0
                         ? t('business:picked.namesMore', { names: shown, count: more })
                         : shown}
                 </RNText>
             </View>
-            <Pressable
+            <Button
                 testID={`${testID}-clear`}
-                role="button"
-                accessibilityRole="button"
+                variant="inverseOutline"
+                size="sm"
+                label={t('business:picked.clear')}
                 onPress={onClear}
-                className="h-desk-toolbar flex-row items-center rounded-full border border-content-inverse/30 px-3 hover:bg-content-inverse/15 web:transition-colors"
-            >
-                <RNText className="text-[13px] font-semibold text-content-inverse">
-                    {t('business:picked.clear')}
-                </RNText>
-            </Pressable>
-            <Pressable
+            />
+            <Button
                 testID={`${testID}-ask`}
-                role="button"
-                accessibilityRole="button"
+                variant="inverse"
+                size="sm"
+                label={t('business:picked.ask')}
                 onPress={onAsk}
-                className="h-desk-toolbar flex-row items-center rounded-full bg-stage-green px-4 hover:opacity-90 web:transition-opacity"
-            >
-                <RNText className="text-[13px] font-semibold text-surface-canopy">
-                    {t('business:picked.ask')}
-                </RNText>
-            </Pressable>
+            />
         </View>
     );
 }
@@ -193,7 +185,7 @@ export function SendChecklist({
             role="list"
             aria-label={heading}
         >
-            <RNText className="mb-1 text-[13px] font-bold text-content-primary text-start">
+            <RNText className="mb-1 text-role-body font-bold text-content-primary text-start">
                 {heading}
             </RNText>
             {checks.map((check) => (
@@ -211,8 +203,8 @@ export function SendChecklist({
                             <View aria-hidden className="h-2 w-2 rounded-full bg-warning-strong" />
                         )}
                     </View>
-                    <RNText className="min-w-0 flex-1 text-xs text-content-secondary text-start">
-                        <RNText className="text-[13px] font-bold text-content-primary">
+                    <RNText className="min-w-0 flex-1 text-role-caption text-content-secondary text-start">
+                        <RNText className="text-role-body font-bold text-content-primary">
                             {check.label}
                         </RNText>
                         {check.detail === undefined ? '' : ` · ${check.detail}`}

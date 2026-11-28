@@ -16,7 +16,7 @@ import { Pressable, ScrollView, View } from 'react-native';
  *
  * ## The table's style, the matrix's shape
  *
- * The frame, the header and the rows are `CatalogueList`'s (`DataList`): a raised panel, a green
+ * The frame, the header and the rows are `DataTable`'s (`DataList`): a raised panel, a green
  * header band that is the table's one rule, and rows with **no hairline between them** — told apart
  * by their height and the hover tint, because a rule under every row stripes a page into a ledger.
  * A sidebar section is a sunken band across the full width, not a line.
@@ -93,7 +93,7 @@ function trackStyle(weight: number, tracks: MatrixTracks) {
     return weight === 1 ? { width: tracks.cell } : { flex: weight, minWidth: tracks.cell * weight };
 }
 
-/** `CatalogueList`'s panel — the frame every kitchen table sits in. */
+/** `DataTable`'s panel — the frame every kitchen table sits in. */
 const PANEL =
     'flex-col overflow-hidden rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-card';
 

@@ -4,35 +4,11 @@
  * A list screen is these in order and nothing else:
  *
  * ```tsx
- * <CataloguePageHeader … />     // breadcrumb (with the ☰), optional title, the actions
- * <CatalogueStatCards … />      // the four figures
- * <CatalogueToolbar … />        // one 28px row: search and the status segments
- * <CatalogueList … />           // the spec-driven grid, or two-line rows below `md`
- * <CataloguePager … />          // range + compact buttons
+ * <LensBar … />                 // the figures and the query row (design system)
+ * <DataTable … />           // the spec-driven grid, or two-line rows below `md`
+ * <TablePager … />          // range + compact buttons
  * ```
- *
- * All of it wrapped once, high up, in `CatalogueNavProvider` — the open state has to outlive the
- * screen for the rail not to reappear on every navigation.
  */
-
-export { CataloguePageHeader } from './catalogue-page-header.tsx';
-export type { CataloguePageHeaderProps } from './catalogue-page-header.tsx';
-
-export { CATALOGUE_STAT_TONES, CatalogueStatCards } from './catalogue-stat-cards.tsx';
-export type {
-    CatalogueStatCard,
-    CatalogueStatCardsProps,
-    CatalogueStatTone,
-} from './catalogue-stat-cards.tsx';
-
-export { CatalogueToolbar } from './catalogue-toolbar.tsx';
-export type { CatalogueStatusSegment, CatalogueToolbarProps } from './catalogue-toolbar.tsx';
-
-export { CatalogueList } from './catalogue-list.tsx';
-export type { CatalogueListProps } from './catalogue-list.tsx';
-
-export { CatalogueListItem } from './catalogue-list-item.tsx';
-export type { CatalogueListItemProps } from './catalogue-list-item.tsx';
 
 export { DerivedPanel } from './derived-panel.tsx';
 export type { DerivedFigure, DerivedPanelProps } from './derived-panel.tsx';
@@ -43,34 +19,6 @@ export type {
     RecordViewPageProps,
     RecordViewSection,
 } from './record-view-page.tsx';
-
-export { CataloguePager } from './catalogue-pager.tsx';
-export type { CataloguePagerProps } from './catalogue-pager.tsx';
-
-export { CatalogueListBody } from './catalogue-list-body.tsx';
-export type { CatalogueListBodyProps, CatalogueListBodyState } from './catalogue-list-body.tsx';
-
-export {
-    CATALOGUE_COLUMN_ROLES,
-    CATALOGUE_PRIORITY,
-    columnFloor,
-    columnForRole,
-} from './catalogue-column-spec.ts';
-export type { CatalogueColumn, CatalogueColumnRole } from './catalogue-column-spec.ts';
-
-export {
-    CATALOGUE_NAV_TRANSITION_MS,
-    CatalogueNavProvider,
-    CatalogueNavToggle,
-    useCatalogueNav,
-    useCataloguePort,
-} from './catalogue-nav.tsx';
-export type {
-    CatalogueNavProviderProps,
-    CatalogueNavState,
-    CatalogueNavToggleProps,
-    CataloguePort,
-} from './catalogue-nav.tsx';
 
 /* ── the per-entity specs and their list state ───────────────────────────────────────────────── */
 

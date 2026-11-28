@@ -2,6 +2,8 @@ import { formatGtin } from '@healthy360/api-client/contracts';
 import type { ApiFailure, BarcodeScan, IngredientBarcode } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    Button,
+    FailureToast,
     FormSection,
     Icon,
     IconButton,
@@ -27,11 +29,9 @@ import {
     useRemoveIngredientBarcodeMutation,
 } from '../../data/kitchen-ops-hooks.ts';
 import { barcodeFailureText } from './barcode-scan.ts';
-import { CameraScanButton } from './camera-scan-button.tsx';
+import { CameraScanButton } from '../../ui/camera-scan-button.tsx';
 import { unitCodeLabel, unitShortKey } from './format.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
-import { FailureToast } from './failure-toast.tsx';
 /**
  * An ingredient's barcodes (ingredient barcodes, plan §8): producer's codes and the one kitchen code.
  *
@@ -107,7 +107,7 @@ export function IngredientBarcodesSection({
             description={t('kitchen:barcodes.description')}
             actions={
                 canManage && !hasKitchenCode && barcodes.data !== undefined ? (
-                    <DeskButton
+                    <Button
                         testID="kitchen-ingredient-barcode-generate"
                         variant="secondary"
                         size="sm"
@@ -169,7 +169,7 @@ export function IngredientBarcodesSection({
                                 trailing={
                                     <Inline space="xs" align="center">
                                         {row.origin === 'system' ? (
-                                            <DeskButton
+                                            <Button
                                                 testID={`kitchen-ingredient-barcode-${row.id}-print`}
                                                 variant="quiet"
                                                 size="sm"
@@ -244,7 +244,7 @@ export function IngredientBarcodesSection({
                         {/* Wrapped: `Button` pins itself `self-start`, which beats the row's
                             `items-end` and left it level with the labels, not the inputs. */}
                         <View>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-ingredient-barcode-add"
                                 size="sm"
                                 label={t('kitchen:barcodes.add')}

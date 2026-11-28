@@ -10,6 +10,7 @@ import {
     FormGrid,
     InfoTip,
     Inline,
+    PageHeader,
     RecordSkeleton,
     Stack,
     Table,
@@ -35,7 +36,6 @@ import {
     useRunSettlementChecksMutation,
     useSignOffOffboardingMutation,
 } from '../../../data/b2b-application-hooks.ts';
-import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
 import { OtpChallengePanel } from '../../verification/otp-challenge-panel.tsx';
 
 /**
@@ -99,7 +99,7 @@ export function WindDownScreen({ organisationId }: WindDownScreenProps) {
 
     return (
         <Cascade space="md" testID={`${TEST_ID}-screen`}>
-            <CataloguePageHeader
+            <PageHeader
                 testID={`${TEST_ID}-header`}
                 titleTestID={`${TEST_ID}-title`}
                 title={t('b2bApplication:windDown.title')}

@@ -100,10 +100,64 @@
     "infoTip": {
         "label": "About {{label}}"
     },
+    "period": {
+        "label": "Period",
+        "all": "All",
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "week": "This week",
+        "month": "This month",
+        "lastMonth": "Last month",
+        "quarter": "Last 3 months",
+        "year": "This year",
+        "tomorrow": "Tomorrow",
+        "nextWeek": "Next week",
+        "twoWeeks": "Next 2 weeks",
+        "custom": "Custom"
+    },
+    "leave": {
+        "title": "Leave without saving?",
+        "body": "This record has changes that have not been saved. Leaving now discards them.",
+        "keepEditing": "Keep editing",
+        "discard": "Discard my changes",
+        "keepableTitle": "Leave this page?",
+        "keepableBody": "Your changes aren't saved yet.",
+        "stay": "Stay",
+        "keepForLater": "Keep for later"
+    },
+    "conflict": {
+        "title": "Someone else changed this record",
+        "body": "It was saved by somebody else while this was open, so saving now would overwrite their work. Reload to take their version, or keep editing and copy your changes out first.",
+        "keepEditing": "Keep editing",
+        "reload": "Reload and lose my changes"
+    },
+    "undoBar": {
+        "undo": "Undo"
+    },
+    "bilingual": {
+        "arabicLabel": "{{field}} (Arabic)",
+        "englishShort": "{{field}} (EN)",
+        "arabicShort": "{{field}} (AR)",
+        "englishLabel": "{{field}} (English)",
+        "missingArabic": "No Arabic yet",
+        "copyFromEnglish": "Copy the English",
+        "missingArabicHint": "A draft saves without it; publication does not."
+    },
+    "checks": {
+        "allPass": "All checks pass",
+        "nextFixLabel": "{{done}} of {{total}} checks pass. Next fix: {{next}}",
+        "count": "{{done}}/{{total}} checks",
+        "nextFix": "Next fix →"
+    },
+    "unsavedMark": {
+        "label": "Unsaved changes"
+    },
     "datePicker": {
         "previousMonth": "Previous month",
         "nextMonth": "Next month",
-        "clear": "Clear date"
+        "clear": "Clear date",
+        "placeholder": "Pick a day",
+        "today": "Today"
     },
     "rating": {
         "summary": "{{value}} out of {{max}}",
@@ -253,5 +307,23 @@
         "done": "Done",
         "placeholder": "--:--",
         "invalid": "Enter a time as HH:mm, for example 09:30."
+    },
+    "dataTable": {
+        "pagerLabel": "Pages",
+        "actionHeader": "Actions",
+        "clearFilters": "Clear the filters"
+    },
+    "columns": {
+        "clearFilter": "Clear",
+        "columnFilter": "Filter by {{column}}",
+        "columnFiltered": "Filtered",
+        "columnMenu": "Sort and filter: {{column}}",
+        "columnSort": "Sort by {{column}}",
+        "columnsButton": "Show columns · {{shown}} of {{max}}",
+        "columnsClear": "Clear all",
+        "columnsCount": "{{shown}} of {{max}}",
+        "columnsHeading": "Show up to {{max}} columns",
+        "columnsLabel": "Choose the columns to show",
+        "columnsReset": "Reset to default"
     }
 }

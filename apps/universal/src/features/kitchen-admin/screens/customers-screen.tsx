@@ -1,13 +1,26 @@
 import type { KitchenCustomer, KitchenCustomerType } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Callout,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
+    DataTable,
     EmptyState,
     ErrorState,
+    LensBar,
+    Select,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { BadgeTone } from '@healthy360/design-system';
+import type {
+    BadgeTone,
+    ControlledColumn,
+    DataTableColumn,
+    SelectOption,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -18,17 +31,6 @@ import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useKitchenCustomersQuery } from '../../../data/kitchen-customers-hooks.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
-import type { LensScopeOption } from '../catalogue/lens-bar.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { ORDER_VIEW_CUSTOMER_CONTACT_PERMISSION } from '../entity-registry.ts';
 import { useDebouncedValue } from '../order-desk/use-debounced-value.ts';
 import {
@@ -38,7 +40,6 @@ import {
     useRememberedQuery,
 } from '../list-memory.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/customers` — the kitchen's customer book, for reference (Access group).
  *
@@ -120,7 +121,7 @@ function CustomersList() {
             ? t('kitchen:ops.customers.neverOrdered')
             : formatter.formatDate(row.lastOrderedAt);
 
-    const columns: readonly ControlledColumn<KitchenCustomer, CatalogueColumn<KitchenCustomer>>[] =
+    const columns: readonly ControlledColumn<KitchenCustomer, DataTableColumn<KitchenCustomer>>[] =
         [
             {
                 key: 'name',
@@ -154,7 +155,7 @@ function CustomersList() {
                 sort: (left, right, direction) => compareText(left.type, right.type, direction),
                 render: (row) => (
                     <View className="flex-row">
-                        <DeskChip
+                        <Badge
                             testID={`${rowTestId(row.id)}-type`}
                             tone={customerTypeTone(row.type)}
                             label={t(customerTypeKey(row.type))}
@@ -228,7 +229,7 @@ function CustomersList() {
     const failure = toFailure(customers.error);
     const unfiltered = settledQuery === '' && segment === 'all' && !controls.filtered;
 
-    const segments: readonly LensScopeOption<TypeSegment>[] = (
+    const segments: readonly SelectOption<TypeSegment>[] = (
         [
             ['all', 'kitchen:ops.customers.segmentAll'],
             ['b2c', 'kitchen:ops.customers.typeB2c'],
@@ -266,12 +267,12 @@ function CustomersList() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-customers-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={[]}
                     scope={
-                        <LensScope<TypeSegment>
+                        <Select<TypeSegment>
+                            trigger="pill"
                             testID="kitchen-customers-toolbar-status"
                             label={t('kitchen:ops.customers.segmentLabel')}
                             value={segment}
@@ -319,7 +320,7 @@ function CustomersList() {
                         retrying={customers.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-customers-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -347,7 +348,7 @@ function CustomersList() {
                         }
                     />
                 ) : (
-                    <CatalogueList<KitchenCustomer>
+                    <DataTable<KitchenCustomer>
                         testID="kitchen-customers-table"
                         joined
                         label={t('kitchen:ops.customers.caption')}

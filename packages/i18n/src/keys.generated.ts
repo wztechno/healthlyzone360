@@ -3,7 +3,7 @@
  * Source: packages/i18n/catalogues/en/*.json
  * Regenerate: pnpm --filter @healthy360/i18n gen:keys
  *
- * 10992 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
+ * 11000 keys across 21 namespaces. Plural variants (zero, one, two, few, many, other)
  * are collapsed to their base key, because that is the key t() is called with.
  */
 
@@ -2953,19 +2953,50 @@ export interface NamespaceKeys {
     | 'unsaved.keepEditing'
     | 'unsaved.title';
   readonly "designSystem":
+    | 'bilingual.arabicLabel'
+    | 'bilingual.arabicShort'
+    | 'bilingual.copyFromEnglish'
+    | 'bilingual.englishLabel'
+    | 'bilingual.englishShort'
+    | 'bilingual.missingArabic'
+    | 'bilingual.missingArabicHint'
     | 'breadcrumbs.label'
+    | 'checks.allPass'
+    | 'checks.count'
+    | 'checks.nextFix'
+    | 'checks.nextFixLabel'
     | 'chip.remove'
+    | 'columns.clearFilter'
+    | 'columns.columnFilter'
+    | 'columns.columnFiltered'
+    | 'columns.columnMenu'
+    | 'columns.columnSort'
+    | 'columns.columnsButton'
+    | 'columns.columnsClear'
+    | 'columns.columnsCount'
+    | 'columns.columnsHeading'
+    | 'columns.columnsLabel'
+    | 'columns.columnsReset'
+    | 'conflict.body'
+    | 'conflict.keepEditing'
+    | 'conflict.reload'
+    | 'conflict.title'
     | 'controls.currentDirection'
     | 'controls.currentLocale'
     | 'controls.currentTheme'
     | 'controls.toggleLocale'
     | 'controls.toggleTheme'
+    | 'dataTable.actionHeader'
+    | 'dataTable.clearFilters'
+    | 'dataTable.pagerLabel'
     | 'dateField.day'
     | 'dateField.month'
     | 'dateField.year'
     | 'datePicker.clear'
     | 'datePicker.nextMonth'
+    | 'datePicker.placeholder'
     | 'datePicker.previousMonth'
+    | 'datePicker.today'
     | 'emptyState.prototypeBadge'
     | 'emptyState.prototypeBody'
     | 'fileUpload.choose'
@@ -2987,6 +3018,14 @@ export interface NamespaceKeys {
     | 'issueTray.progress'
     | 'issueTray.showMe'
     | 'issueTray.toFix'
+    | 'leave.body'
+    | 'leave.discard'
+    | 'leave.keepEditing'
+    | 'leave.keepForLater'
+    | 'leave.keepableBody'
+    | 'leave.keepableTitle'
+    | 'leave.stay'
+    | 'leave.title'
     | 'numberStepper.decrease'
     | 'numberStepper.increase'
     | 'pagination.label'
@@ -2995,6 +3034,19 @@ export interface NamespaceKeys {
     | 'pagination.previous'
     | 'passwordInput.hide'
     | 'passwordInput.show'
+    | 'period.all'
+    | 'period.custom'
+    | 'period.label'
+    | 'period.lastMonth'
+    | 'period.month'
+    | 'period.nextWeek'
+    | 'period.quarter'
+    | 'period.today'
+    | 'period.tomorrow'
+    | 'period.twoWeeks'
+    | 'period.week'
+    | 'period.year'
+    | 'period.yesterday'
     | 'rangeFilter.inverted'
     | 'rangeFilter.max'
     | 'rangeFilter.min'
@@ -3133,7 +3185,9 @@ export interface NamespaceKeys {
     | 'timeField.invalid'
     | 'timeField.minute'
     | 'timeField.open'
-    | 'timeField.placeholder';
+    | 'timeField.placeholder'
+    | 'undoBar.undo'
+    | 'unsavedMark.label';
   readonly "errors":
     | 'cart.otherKitchen'
     | 'failure.access_self_lockout'
@@ -3772,13 +3826,9 @@ export interface NamespaceKeys {
     | 'barcodes.title'
     | 'barcodes.typeQuantity'
     | 'barcodes.unknown'
-    | 'bilingual.arabicLabel'
     | 'bilingual.arabicShort'
-    | 'bilingual.copyFromEnglish'
-    | 'bilingual.englishLabel'
     | 'bilingual.englishShort'
     | 'bilingual.missingArabic'
-    | 'bilingual.missingArabicHint'
     | 'branchClosures.add'
     | 'branchClosures.addedToast'
     | 'branchClosures.description'
@@ -3876,20 +3926,9 @@ export interface NamespaceKeys {
     | 'cash.tab.handins'
     | 'cash.tab.taken'
     | 'catalogue.archive'
-    | 'catalogue.clearFilter'
     | 'catalogue.close'
-    | 'catalogue.columnFilter'
-    | 'catalogue.columnFiltered'
-    | 'catalogue.columnMenu'
-    | 'catalogue.columnSort'
     | 'catalogue.columnUpdated'
-    | 'catalogue.columnsButton'
-    | 'catalogue.columnsClear'
-    | 'catalogue.columnsCount'
-    | 'catalogue.columnsHeading'
     | 'catalogue.columnsHint'
-    | 'catalogue.columnsLabel'
-    | 'catalogue.columnsReset'
     | 'catalogue.edit'
     | 'catalogue.fields'
     | 'catalogue.filter'
@@ -4022,14 +4061,8 @@ export interface NamespaceKeys {
     | 'composition.fromDatabase'
     | 'composition.per100g'
     | 'composition.title'
-    | 'conflict.body'
-    | 'conflict.keepEditing'
-    | 'conflict.reload'
-    | 'conflict.title'
     | 'containment.contains'
     | 'containment.mayContain'
-    | 'dateField.placeholder'
-    | 'dateField.today'
     | 'deliveryWindows.emptyBody'
     | 'deliveryWindows.emptyTitle'
     | 'deliveryWindows.intro'
@@ -4526,7 +4559,6 @@ export interface NamespaceKeys {
     | 'editor.sectionOtherNames'
     | 'editor.stepCounter'
     | 'editor.stepsLabel'
-    | 'editor.unsaved'
     | 'families.activity.description'
     | 'families.activity.name'
     | 'families.allergenClasses.description'
@@ -4888,19 +4920,6 @@ export interface NamespaceKeys {
     | 'lens.ordersMix'
     | 'lens.partialAction'
     | 'lens.pendingChecksAction'
-    | 'lens.period.all'
-    | 'lens.period.custom'
-    | 'lens.period.lastMonth'
-    | 'lens.period.month'
-    | 'lens.period.nextWeek'
-    | 'lens.period.quarter'
-    | 'lens.period.today'
-    | 'lens.period.tomorrow'
-    | 'lens.period.twoWeeks'
-    | 'lens.period.week'
-    | 'lens.period.year'
-    | 'lens.period.yesterday'
-    | 'lens.periodLabel'
     | 'lens.periodsMix'
     | 'lens.publishedAction'
     | 'lens.qcMix'
@@ -5933,6 +5952,7 @@ export interface NamespaceKeys {
     | 'ops.production.actualCost'
     | 'ops.production.actualCostCaption'
     | 'ops.production.actualCostFact'
+    | 'ops.production.addNote'
     | 'ops.production.amountRequired'
     | 'ops.production.asPlanned'
     | 'ops.production.backToDesk'
@@ -7755,10 +7775,6 @@ export interface NamespaceKeys {
     | 'recipes.checkYield'
     | 'recipes.checkYieldMissing'
     | 'recipes.checkYieldOk'
-    | 'recipes.checksAllPass'
-    | 'recipes.checksCount'
-    | 'recipes.checksNextFix'
-    | 'recipes.checksNextFixLabel'
     | 'recipes.coefficientsHint'
     | 'recipes.columnAllergens'
     | 'recipes.columnKind'
@@ -8517,15 +8533,7 @@ export interface NamespaceKeys {
     | 'unitsShort.slice'
     | 'unitsShort.tbsp'
     | 'unitsShort.tsp'
-    | 'unsaved.body'
     | 'unsaved.browserPrompt'
-    | 'unsaved.discard'
-    | 'unsaved.keepEditing'
-    | 'unsaved.keepForLater'
-    | 'unsaved.keepableBody'
-    | 'unsaved.keepableTitle'
-    | 'unsaved.stay'
-    | 'unsaved.title'
     | 'verification.laboratoryTested'
     | 'verification.operatorConfirmed'
     | 'verification.supplierDeclared'
@@ -13967,19 +13975,50 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'common:unsaved.discard',
   'common:unsaved.keepEditing',
   'common:unsaved.title',
+  'designSystem:bilingual.arabicLabel',
+  'designSystem:bilingual.arabicShort',
+  'designSystem:bilingual.copyFromEnglish',
+  'designSystem:bilingual.englishLabel',
+  'designSystem:bilingual.englishShort',
+  'designSystem:bilingual.missingArabic',
+  'designSystem:bilingual.missingArabicHint',
   'designSystem:breadcrumbs.label',
+  'designSystem:checks.allPass',
+  'designSystem:checks.count',
+  'designSystem:checks.nextFix',
+  'designSystem:checks.nextFixLabel',
   'designSystem:chip.remove',
+  'designSystem:columns.clearFilter',
+  'designSystem:columns.columnFilter',
+  'designSystem:columns.columnFiltered',
+  'designSystem:columns.columnMenu',
+  'designSystem:columns.columnSort',
+  'designSystem:columns.columnsButton',
+  'designSystem:columns.columnsClear',
+  'designSystem:columns.columnsCount',
+  'designSystem:columns.columnsHeading',
+  'designSystem:columns.columnsLabel',
+  'designSystem:columns.columnsReset',
+  'designSystem:conflict.body',
+  'designSystem:conflict.keepEditing',
+  'designSystem:conflict.reload',
+  'designSystem:conflict.title',
   'designSystem:controls.currentDirection',
   'designSystem:controls.currentLocale',
   'designSystem:controls.currentTheme',
   'designSystem:controls.toggleLocale',
   'designSystem:controls.toggleTheme',
+  'designSystem:dataTable.actionHeader',
+  'designSystem:dataTable.clearFilters',
+  'designSystem:dataTable.pagerLabel',
   'designSystem:dateField.day',
   'designSystem:dateField.month',
   'designSystem:dateField.year',
   'designSystem:datePicker.clear',
   'designSystem:datePicker.nextMonth',
+  'designSystem:datePicker.placeholder',
   'designSystem:datePicker.previousMonth',
+  'designSystem:datePicker.today',
   'designSystem:emptyState.prototypeBadge',
   'designSystem:emptyState.prototypeBody',
   'designSystem:fileUpload.choose',
@@ -14001,6 +14040,14 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:issueTray.progress',
   'designSystem:issueTray.showMe',
   'designSystem:issueTray.toFix',
+  'designSystem:leave.body',
+  'designSystem:leave.discard',
+  'designSystem:leave.keepEditing',
+  'designSystem:leave.keepForLater',
+  'designSystem:leave.keepableBody',
+  'designSystem:leave.keepableTitle',
+  'designSystem:leave.stay',
+  'designSystem:leave.title',
   'designSystem:numberStepper.decrease',
   'designSystem:numberStepper.increase',
   'designSystem:pagination.label',
@@ -14009,6 +14056,19 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:pagination.previous',
   'designSystem:passwordInput.hide',
   'designSystem:passwordInput.show',
+  'designSystem:period.all',
+  'designSystem:period.custom',
+  'designSystem:period.label',
+  'designSystem:period.lastMonth',
+  'designSystem:period.month',
+  'designSystem:period.nextWeek',
+  'designSystem:period.quarter',
+  'designSystem:period.today',
+  'designSystem:period.tomorrow',
+  'designSystem:period.twoWeeks',
+  'designSystem:period.week',
+  'designSystem:period.year',
+  'designSystem:period.yesterday',
   'designSystem:rangeFilter.inverted',
   'designSystem:rangeFilter.max',
   'designSystem:rangeFilter.min',
@@ -14148,6 +14208,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'designSystem:timeField.minute',
   'designSystem:timeField.open',
   'designSystem:timeField.placeholder',
+  'designSystem:undoBar.undo',
+  'designSystem:unsavedMark.label',
   'errors:cart.otherKitchen',
   'errors:failure.access_self_lockout',
   'errors:failure.account_customer_missing',
@@ -14782,13 +14844,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:barcodes.title',
   'kitchen:barcodes.typeQuantity',
   'kitchen:barcodes.unknown',
-  'kitchen:bilingual.arabicLabel',
   'kitchen:bilingual.arabicShort',
-  'kitchen:bilingual.copyFromEnglish',
-  'kitchen:bilingual.englishLabel',
   'kitchen:bilingual.englishShort',
   'kitchen:bilingual.missingArabic',
-  'kitchen:bilingual.missingArabicHint',
   'kitchen:branchClosures.add',
   'kitchen:branchClosures.addedToast',
   'kitchen:branchClosures.description',
@@ -14886,20 +14944,9 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:cash.tab.handins',
   'kitchen:cash.tab.taken',
   'kitchen:catalogue.archive',
-  'kitchen:catalogue.clearFilter',
   'kitchen:catalogue.close',
-  'kitchen:catalogue.columnFilter',
-  'kitchen:catalogue.columnFiltered',
-  'kitchen:catalogue.columnMenu',
-  'kitchen:catalogue.columnSort',
   'kitchen:catalogue.columnUpdated',
-  'kitchen:catalogue.columnsButton',
-  'kitchen:catalogue.columnsClear',
-  'kitchen:catalogue.columnsCount',
-  'kitchen:catalogue.columnsHeading',
   'kitchen:catalogue.columnsHint',
-  'kitchen:catalogue.columnsLabel',
-  'kitchen:catalogue.columnsReset',
   'kitchen:catalogue.edit',
   'kitchen:catalogue.fields',
   'kitchen:catalogue.filter',
@@ -15032,14 +15079,8 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:composition.fromDatabase',
   'kitchen:composition.per100g',
   'kitchen:composition.title',
-  'kitchen:conflict.body',
-  'kitchen:conflict.keepEditing',
-  'kitchen:conflict.reload',
-  'kitchen:conflict.title',
   'kitchen:containment.contains',
   'kitchen:containment.mayContain',
-  'kitchen:dateField.placeholder',
-  'kitchen:dateField.today',
   'kitchen:deliveryWindows.emptyBody',
   'kitchen:deliveryWindows.emptyTitle',
   'kitchen:deliveryWindows.intro',
@@ -15536,7 +15577,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:editor.sectionOtherNames',
   'kitchen:editor.stepCounter',
   'kitchen:editor.stepsLabel',
-  'kitchen:editor.unsaved',
   'kitchen:families.activity.description',
   'kitchen:families.activity.name',
   'kitchen:families.allergenClasses.description',
@@ -15898,19 +15938,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:lens.ordersMix',
   'kitchen:lens.partialAction',
   'kitchen:lens.pendingChecksAction',
-  'kitchen:lens.period.all',
-  'kitchen:lens.period.custom',
-  'kitchen:lens.period.lastMonth',
-  'kitchen:lens.period.month',
-  'kitchen:lens.period.nextWeek',
-  'kitchen:lens.period.quarter',
-  'kitchen:lens.period.today',
-  'kitchen:lens.period.tomorrow',
-  'kitchen:lens.period.twoWeeks',
-  'kitchen:lens.period.week',
-  'kitchen:lens.period.year',
-  'kitchen:lens.period.yesterday',
-  'kitchen:lens.periodLabel',
   'kitchen:lens.periodsMix',
   'kitchen:lens.publishedAction',
   'kitchen:lens.qcMix',
@@ -16943,6 +16970,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:ops.production.actualCost',
   'kitchen:ops.production.actualCostCaption',
   'kitchen:ops.production.actualCostFact',
+  'kitchen:ops.production.addNote',
   'kitchen:ops.production.amountRequired',
   'kitchen:ops.production.asPlanned',
   'kitchen:ops.production.backToDesk',
@@ -18765,10 +18793,6 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:recipes.checkYield',
   'kitchen:recipes.checkYieldMissing',
   'kitchen:recipes.checkYieldOk',
-  'kitchen:recipes.checksAllPass',
-  'kitchen:recipes.checksCount',
-  'kitchen:recipes.checksNextFix',
-  'kitchen:recipes.checksNextFixLabel',
   'kitchen:recipes.coefficientsHint',
   'kitchen:recipes.columnAllergens',
   'kitchen:recipes.columnKind',
@@ -19527,15 +19551,7 @@ export const TRANSLATION_KEYS: readonly TranslationKey[] = [
   'kitchen:unitsShort.slice',
   'kitchen:unitsShort.tbsp',
   'kitchen:unitsShort.tsp',
-  'kitchen:unsaved.body',
   'kitchen:unsaved.browserPrompt',
-  'kitchen:unsaved.discard',
-  'kitchen:unsaved.keepEditing',
-  'kitchen:unsaved.keepForLater',
-  'kitchen:unsaved.keepableBody',
-  'kitchen:unsaved.keepableTitle',
-  'kitchen:unsaved.stay',
-  'kitchen:unsaved.title',
   'kitchen:verification.laboratoryTested',
   'kitchen:verification.operatorConfirmed',
   'kitchen:verification.supplierDeclared',

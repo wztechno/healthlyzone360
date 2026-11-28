@@ -1,16 +1,22 @@
 import { PLAN_DURATION_KINDS } from '@healthy360/api-client/contracts';
 import type { PlanDurationKind } from '@healthy360/api-client/contracts';
-import { DataList, Select, Switch, Text, TextInputField } from '@healthy360/design-system';
+import {
+    DataTable,
+    RowMenu,
+    Select,
+    Switch,
+    Text,
+    TextInputField,
+    UndoBar,
+} from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
-import { DeskRowMenu } from './desk-kit/desk-row-menu.tsx';
 import { durationKindKey } from './format.ts';
 import { withDurationKind } from './plan-matrix.ts';
 import type { DurationDraft, DurationError, VariantDraft } from './plan-matrix.ts';
-import { UndoBar } from './row-editor-shell.tsx';
 
 /**
  * The plan editor's two repeated-row editors (K1.6): configurations and durations.
@@ -248,7 +254,7 @@ export function PlanVariantRows({
                       grow: false,
                       align: 'end',
                       render: (row: VariantDraft) => (
-                          <DeskRowMenu
+                          <RowMenu
                               testID={`${rowId(row)}-menu`}
                               label={t('kitchen:list.rowActions')}
                               actions={[
@@ -285,7 +291,8 @@ export function PlanVariantRows({
                     {t('kitchen:plans.variantsEmpty')}
                 </Text>
             ) : (
-                <DataList<VariantDraft>
+                <DataTable<VariantDraft>
+                    lines
                     testID={testID}
                     label={t('kitchen:plans.variantsTitle')}
                     columns={columns}
@@ -583,7 +590,7 @@ export function PlanDurationRows({
                       grow: false,
                       align: 'end',
                       render: (row: DurationDraft) => (
-                          <DeskRowMenu
+                          <RowMenu
                               testID={`${testID}-row-${row.key}-menu`}
                               label={t('kitchen:list.rowActions')}
                               actions={[
@@ -620,7 +627,8 @@ export function PlanDurationRows({
                     {t('kitchen:plans.durationsEmpty')}
                 </Text>
             ) : (
-                <DataList<DurationDraft>
+                <DataTable<DurationDraft>
+                    lines
                     testID={testID}
                     label={t('kitchen:plans.sectionDurations')}
                     columns={columns}

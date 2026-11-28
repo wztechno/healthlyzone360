@@ -175,7 +175,7 @@ export function DerivedPanel({
                                 <View className="flex-row items-baseline gap-1">
                                     <RNText
                                         testID={`${testID}-figure-${figure.key}-value`}
-                                        className={`font-display text-lg font-bold tabular-nums text-start ${
+                                        className={`font-display text-role-section font-bold tabular-nums text-start ${
                                             index === 0
                                                 ? 'text-content-on-brand-subtle'
                                                 : figure.value === null

@@ -86,7 +86,7 @@ const COMPACT_VARIANT_CLASS: Readonly<Record<TextVariant, string>> = {
     label: 'text-role-label',
     strong: 'text-role-strong',
     section: 'text-role-section',
-    title: 'text-role-title',
+    title: 'text-role-title font-display',
     display: 'text-role-display font-display',
     mono: 'text-role-body tabular-nums',
 };
@@ -277,13 +277,13 @@ const COMFORTABLE_HEADING_CLASS: Readonly<Record<HeadingLevel, string>> = {
 };
 
 /**
- * The admin has one page title and one section title, not four heading sizes. Levels 1 and 2 both
- * land on `role-title` (16px — the handoff's "was `text-3xl`") and 3 and 4 on `role-section`, so
+ * The admin has one page title and one section title, not four heading sizes. Level 1 is
+ * `role-title` (20px in the display face); 2, 3 and 4 are `role-section` (14px — a card's title), so
  * the document outline stays intact for a screen reader while the page stops shouting.
  */
 const COMPACT_HEADING_CLASS: Readonly<Record<HeadingLevel, string>> = {
-    1: 'text-role-title',
-    2: 'text-role-title',
+    1: 'text-role-title font-display',
+    2: 'text-role-section font-display',
     3: 'text-role-section',
     4: 'text-role-section',
 };

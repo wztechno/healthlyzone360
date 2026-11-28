@@ -1,5 +1,5 @@
 import type { PlatformKitchenOwner } from '@healthy360/api-client/contracts';
-import { Callout, Dialog, TextInputField, useToast } from '@healthy360/design-system';
+import { Button, Callout, Dialog, TextInputField, useToast } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -12,7 +12,6 @@ import {
     useRevokeOwnerMutation,
     useSuspendKitchenMutation,
 } from '../../data/platform-admin-hooks.ts';
-import { DeskButton } from '../kitchen-admin/desk-kit/desk-button.tsx';
 
 /**
  * The four things the platform does to a kitchen, each as the desk's card dialog (Platform admin
@@ -61,13 +60,13 @@ export function SuspendKitchenDialog({
             description={t('platformAdmin:lifecycle.suspendBody')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="platform-admin-suspend-cancel"
                         variant="quiet"
                         label={t('platformAdmin:common.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="platform-admin-suspend-confirm"
                         variant="danger"
                         label={t('platformAdmin:lifecycle.suspendConfirm')}
@@ -139,13 +138,13 @@ export function ReactivateKitchenDialog({
             description={t('platformAdmin:lifecycle.reactivateBody')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="platform-admin-reactivate-cancel"
                         variant="quiet"
                         label={t('platformAdmin:common.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="platform-admin-reactivate-confirm"
                         label={t('platformAdmin:lifecycle.reactivateConfirm')}
                         loading={reactivate.isPending}
@@ -206,13 +205,13 @@ export function EndMembershipDialog({
             })}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="platform-admin-revoke-cancel"
                         variant="quiet"
                         label={t('platformAdmin:common.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="platform-admin-revoke-confirm"
                         variant="danger"
                         label={t('platformAdmin:owners.revokeConfirm')}
@@ -286,13 +285,13 @@ export function InviteOwnerDialog({
             title={t('platformAdmin:invite.dialogTitle', { name: kitchen.name })}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="platform-admin-invite-cancel"
                         variant="quiet"
                         label={t('platformAdmin:common.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="platform-admin-invite-submit"
                         label={t('platformAdmin:invite.submit')}
                         disabled={email.trim() === ''}

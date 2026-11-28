@@ -6,11 +6,21 @@ import type {
 import {
     Callout,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
+    DataTable,
+    DatePicker,
     EmptyState,
     ErrorState,
+    LensBar,
+    PeriodScope,
+    Select,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, LensFigure } from '@healthy360/design-system';
 import type { BranchId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
@@ -23,20 +33,8 @@ import { useOrderDeskCashReportQuery } from '../../../data/order-desk-hooks.ts';
 import { daysBetween, isIsoDate, todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { ORDER_MANAGE_PERMISSION } from '../entity-registry.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
 import { kitchenOrderPaymentMethodKey } from '../ops-format.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import { DeskColumnPicker, DeskSelect, MiniMonthPicker } from '../desk-kit/index.ts';
 import { shortDay } from '../orders/order-columns.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import { PeriodScope } from '../catalogue/period-scope.tsx';
 
 /**
  * `/kitchen/order-desk/cash?tab=taken` — who took what, day by day.
@@ -162,7 +160,7 @@ function OrderDeskCashReport() {
 
     const columns: readonly ControlledColumn<
         OrderDeskCashReportRow,
-        CatalogueColumn<OrderDeskCashReportRow>
+        DataTableColumn<OrderDeskCashReportRow>
     >[] = [
         {
             key: 'day',
@@ -297,7 +295,6 @@ function OrderDeskCashReport() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-order-desk-cash-report-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={(() => {
@@ -337,7 +334,6 @@ function OrderDeskCashReport() {
                     scope={
                         <>
                             <PeriodScope
-                                look="desk"
                                 testID="kitchen-order-desk-cash-report-period"
                                 today={today}
                                 value={{ from, to }}
@@ -347,7 +343,8 @@ function OrderDeskCashReport() {
                                 }}
                             />
                             <View className="z-auto flex-row items-center gap-tight">
-                                <MiniMonthPicker
+                                <DatePicker
+                                    trigger="pill"
                                     testID="kitchen-order-desk-cash-report-from"
                                     label={t('kitchen:ops.cashReport.fromLabel')}
                                     value={isIsoDate(from) ? from : today}
@@ -359,7 +356,8 @@ function OrderDeskCashReport() {
                                 <Text variant="caption" tone="secondary" aria-hidden>
                                     {t('kitchen:ops.requirements.windowTo')}
                                 </Text>
-                                <MiniMonthPicker
+                                <DatePicker
+                                    trigger="pill"
                                     testID="kitchen-order-desk-cash-report-to"
                                     label={t('kitchen:ops.cashReport.toLabel')}
                                     value={isIsoDate(to) ? to : today}
@@ -370,7 +368,8 @@ function OrderDeskCashReport() {
                                 />
                             </View>
                             {branches.length > 1 ? (
-                                <DeskSelect<string>
+                                <Select<string>
+                                    trigger="pill"
                                     testID="kitchen-order-desk-cash-report-branch"
                                     label={t('kitchen:ops.dailyClose.branchLabel')}
                                     value={branch}
@@ -401,9 +400,7 @@ function OrderDeskCashReport() {
                     }
                     clearLabel={t('kitchen:lens.clear')}
                     {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
-                    trailing={
-                        rows.length === 0 ? undefined : <DeskColumnPicker {...controls.picker} />
-                    }
+                    trailing={rows.length === 0 ? undefined : <ColumnPicker {...controls.picker} />}
                 />
 
                 {filters === null ? (
@@ -436,14 +433,13 @@ function OrderDeskCashReport() {
                         retrying={report.isFetching}
                     />
                 ) : rows.length === 0 ? (
-                    <CatalogueList<OrderDeskCashReportRow>
+                    <DataTable<OrderDeskCashReportRow>
                         testID="kitchen-order-desk-cash-report-table"
                         label={t('kitchen:ops.cashReport.caption')}
                         columns={controls.columns}
                         rows={[]}
                         rowKey={rowTestId}
                         rowActionsLabel={t('kitchen:list.rowActions')}
-                        rowActionsLook="desk"
                         joined
                         frameEmpty
                         emptyState={
@@ -458,14 +454,13 @@ function OrderDeskCashReport() {
                     />
                 ) : (
                     <View className="flex-col gap-loose">
-                        <CatalogueList<OrderDeskCashReportRow>
+                        <DataTable<OrderDeskCashReportRow>
                             testID="kitchen-order-desk-cash-report-table"
                             label={t('kitchen:ops.cashReport.caption')}
                             columns={controls.columns}
                             rows={controls.rows}
                             rowKey={rowTestId}
                             rowActionsLabel={t('kitchen:list.rowActions')}
-                            rowActionsLook="desk"
                             joined
                         />
 

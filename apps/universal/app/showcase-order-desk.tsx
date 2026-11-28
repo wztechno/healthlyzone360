@@ -1,3 +1,4 @@
+import { AreaLookScope } from '@healthy360/design-system';
 import { Redirect } from 'expo-router';
 
 import { appConfig } from '../src/config.ts';
@@ -25,7 +26,9 @@ export default function OrderDeskShowcase() {
             title="Order desk parts"
             testID="order-desk-showcase-shell"
         >
-            <OrderDeskShowcaseScreen />
+            <AreaLookScope look="desk">
+                <OrderDeskShowcaseScreen />
+            </AreaLookScope>
         </AreaShell>
     );
 }

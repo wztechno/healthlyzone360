@@ -1,3 +1,4 @@
+import { AreaLookScope } from '@healthy360/design-system';
 import { Redirect } from 'expo-router';
 
 import { appConfig } from '../src/config.ts';
@@ -22,7 +23,9 @@ export default function TrailShowcase() {
             title="Kitchen breadcrumb"
             testID="trail-showcase-shell"
         >
-            <TrailShowcaseScreen />
+            <AreaLookScope look="desk">
+                <TrailShowcaseScreen />
+            </AreaLookScope>
         </AreaShell>
     ) : (
         <Redirect href="/" />

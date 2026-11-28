@@ -8,9 +8,12 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    Button,
     Dialog,
+    FailureToast,
     Inline,
     Stack,
+    Tabs,
     Text,
     TextInputField,
     useToast,
@@ -28,12 +31,9 @@ import {
     useRecordOrderRefundMutation,
 } from '../../data/kitchen-orders-hooks.ts';
 import { formatMoney } from '../marketplace/format.ts';
-import { DeskButton, DeskTabs } from './desk-kit/index.ts';
 import { ORDER_APPROVE_REFUND_PERMISSION } from './entity-registry.ts';
 import { kitchenOrderPaymentMethodKey } from './ops-format.ts';
 
-import { DeskChip } from './desk-kit/desk-chip.tsx';
-import { FailureToast } from './failure-toast.tsx';
 /**
  * The refund part of the order record, for a manager. A ledger beside the receipts: entries are
  * added, never edited, and a receipt is never touched. One above the kitchen's limit waits here for
@@ -110,7 +110,7 @@ export function OrderRefundsSection({ order }: { readonly order: KitchenOrder })
                     <Text>{entry.reason}</Text>
                     {entry.status !== 'pending_approval' || !canApprove ? null : (
                         <Inline space="xs" wrap>
-                            <DeskButton
+                            <Button
                                 testID={`kitchen-orders-refund-${entry.id}-approve`}
                                 variant="secondary"
                                 label={t('kitchen:ops.orders.refunds.approve')}
@@ -132,7 +132,7 @@ export function OrderRefundsSection({ order }: { readonly order: KitchenOrder })
                                     );
                                 }}
                             />
-                            <DeskButton
+                            <Button
                                 testID={`kitchen-orders-refund-${entry.id}-reject`}
                                 variant="secondary"
                                 label={t('kitchen:ops.orders.refunds.reject')}
@@ -165,7 +165,7 @@ export function OrderRefundsSection({ order }: { readonly order: KitchenOrder })
                 </Text>
             ) : position.refundableMinor <= 0 ? null : (
                 <View className="flex-row">
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-refund-open"
                         variant="secondary"
                         label={t('kitchen:ops.orders.refunds.open')}
@@ -196,9 +196,9 @@ function EntryBadge({ entry }: { readonly entry: OrderRefund }) {
     return entry.status === 'pending_approval' ? (
         <Badge tone="warning" icon="warning" label={label} />
     ) : entry.status === 'rejected' ? (
-        <DeskChip tone="neutral" label={label} />
+        <Badge tone="neutral" label={label} />
     ) : (
-        <DeskChip tone="success" label={label} />
+        <Badge tone="success" label={label} />
     );
 }
 
@@ -258,13 +258,13 @@ function RefundDialog({
             description={t('kitchen:ops.orders.refunds.dialogBody')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-refund-dismiss"
                         variant="secondary"
                         label={t('kitchen:common.back')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-refund-confirm"
                         variant="primary"
                         label={t('kitchen:ops.orders.refunds.confirm')}
@@ -276,9 +276,9 @@ function RefundDialog({
             }
         >
             <Stack space="sm">
-                <DeskTabs<OrderRefundKind>
+                <Tabs<OrderRefundKind>
+                    variant="segmented"
                     testID="kitchen-orders-refund-kinds"
-                    size="sm"
                     radio
                     block
                     label={t('kitchen:ops.orders.refunds.dialogTitle', {
@@ -299,9 +299,9 @@ function RefundDialog({
                     <Text variant="label" tone="secondary" className="!font-semibold">
                         {t('kitchen:ops.orders.refunds.methodLabel')}
                     </Text>
-                    <DeskTabs<KitchenOrderPaymentMethod>
+                    <Tabs<KitchenOrderPaymentMethod>
+                        variant="segmented"
                         testID="kitchen-orders-refund-method"
-                        size="sm"
                         radio
                         block
                         label={t('kitchen:ops.orders.refunds.methodLabel')}

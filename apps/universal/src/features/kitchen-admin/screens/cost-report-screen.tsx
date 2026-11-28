@@ -1,5 +1,23 @@
 import type { MonthlyCostReportRow } from '@healthy360/api-client/contracts';
-import { Cascade, EmptyState, ErrorState, TableSkeleton, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
+    DataTable,
+    DatePicker,
+    EmptyState,
+    ErrorState,
+    LensBar,
+    PeriodScope,
+    periodWindows,
+    RecordTile,
+    TableSkeleton,
+    Text,
+    useColumnControls,
+} from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, LensFigure } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -11,23 +29,8 @@ import { toFailure } from '../../../data/hooks.ts';
 import { useCostReportQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { PairedBars } from '../analytics/paired-bars.tsx';
 import { RatioBars } from '../analytics/ratio-bars.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
-import { RecordTile } from '../catalogue/record-tiles.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 /**
@@ -166,7 +169,7 @@ function CostReport() {
             : `${amount(value)} ${activeCurrency}`;
     const columns: readonly ControlledColumn<
         MonthlyCostReportRow,
-        CatalogueColumn<MonthlyCostReportRow>
+        DataTableColumn<MonthlyCostReportRow>
     >[] = [
         {
             key: 'month',
@@ -182,14 +185,14 @@ function CostReport() {
                         {row.month}
                     </Text>
                     {row.hasDataQualityFlag ? (
-                        <DeskChip
+                        <Badge
                             testID={`kitchen-cost-report-${row.month}-flag`}
                             tone="warning"
                             label={t('kitchen:ops.costReport.flagged')}
                         />
                     ) : null}
                     {row.isMarginWithheld ? (
-                        <DeskChip
+                        <Badge
                             testID={`kitchen-cost-report-${row.month}-withheld`}
                             tone="warning"
                             label={t('kitchen:ops.costReport.marginWithheld')}
@@ -236,7 +239,7 @@ function CostReport() {
         ).map(
             ([key, labelKey, read, priority]): ControlledColumn<
                 MonthlyCostReportRow,
-                CatalogueColumn<MonthlyCostReportRow>
+                DataTableColumn<MonthlyCostReportRow>
             > => ({
                 key,
                 label: t(`kitchen:ops.costReport.${labelKey}`),
@@ -344,7 +347,6 @@ function CostReport() {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-cost-report-window"
-                look="sheet"
                 figureKeys={['spend', 'cogs', 'revenue', 'margin', 'marginPercent']}
                 eyebrow={t('kitchen:recordView.eyebrowCostReport')}
                 onBack={() => {
@@ -449,7 +451,6 @@ function CostReport() {
     const lensBar = (
         <LensBar
             testID="kitchen-cost-report-toolbar"
-            layout="split"
             label={t('kitchen:lens.label')}
             figures={(
                 [
@@ -485,7 +486,8 @@ function CostReport() {
                         }}
                     />
                     <View className="z-auto flex-row items-center gap-tight">
-                        <DeskDateButton
+                        <DatePicker
+                            trigger="pill"
                             testID="kitchen-cost-report-filter-from"
                             label={t('kitchen:ops.costReport.filterFrom')}
                             value={fromDate}
@@ -497,7 +499,8 @@ function CostReport() {
                         <Text variant="caption" tone="secondary" aria-hidden>
                             {t('kitchen:ops.requirements.windowTo')}
                         </Text>
-                        <DeskDateButton
+                        <DatePicker
+                            trigger="pill"
                             testID="kitchen-cost-report-filter-to"
                             label={t('kitchen:ops.costReport.filterTo')}
                             value={toDate}
@@ -592,7 +595,7 @@ function CostReport() {
                             </View>
                         )}
                     </View>
-                    <CatalogueList<MonthlyCostReportRow>
+                    <DataTable<MonthlyCostReportRow>
                         testID="kitchen-cost-report-table"
                         label={t('kitchen:ops.costReport.caption')}
                         columns={controls.columns}

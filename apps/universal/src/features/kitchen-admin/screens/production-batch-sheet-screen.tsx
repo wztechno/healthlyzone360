@@ -1,8 +1,10 @@
 import {
+    Button,
     Callout,
     EmptyState,
     ErrorState,
     FormSection,
+    PageHeader,
     RecordSkeleton,
     Stack,
     Text,
@@ -17,10 +19,8 @@ import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useProductionTechnicalSheetQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
-import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { BatchLinesPanel } from '../production-desk/batch-lines-panel.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 /**
  * `/kitchen/production-desk/{order}/sheet` — what one batch stood on (PROD1).
@@ -119,13 +119,13 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
 
     return (
         <Stack space="lg" testID="kitchen-production-batch-sheet-screen">
-            <KitchenPageHeader
+            <PageHeader
                 testID="kitchen-production-batch-sheet-header"
                 title={t('kitchen:ops.production.sheetTitle')}
-                subtitle={t('kitchen:ops.production.sheetSubtitle')}
+                info={t('kitchen:ops.production.sheetSubtitle')}
                 back={
                     <View className="flex-row">
-                        <DeskButton
+                        <Button
                             testID="kitchen-production-batch-sheet-back"
                             variant="ghost"
                             size="sm"

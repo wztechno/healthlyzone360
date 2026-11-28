@@ -1,11 +1,9 @@
 import type { ProductionOrderLine } from '@healthy360/api-client/contracts';
-import { Text } from '@healthy360/design-system';
+import { compareAmount, compareText, Text } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { compareAmount, compareText } from '../catalogue/use-column-controls.tsx';
 import { formatMoney, knownCurrency } from '../format.ts';
 import { BATCH_QUANTITY_FORMAT } from '../operations/batch-sheet.tsx';
 import { ledgerQuantity } from '../ops-format.ts';
@@ -52,7 +50,7 @@ export interface BatchLinesPanelProps {
     readonly panel?: boolean | undefined;
 }
 
-type LineColumn = ControlledColumn<ProductionOrderLine, CatalogueColumn<ProductionOrderLine>>;
+type LineColumn = ControlledColumn<ProductionOrderLine, DataTableColumn<ProductionOrderLine>>;
 
 export function BatchLinesPanel({
     testID,

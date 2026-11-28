@@ -4,16 +4,33 @@ import {
     QUALITY_CHECK_SUBJECT_TYPES,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Cascade,
+    ColumnPicker,
+    compareText,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     Stack,
+    TablePager,
     TableSkeleton,
     Text,
+    useColumnControls,
     useToast,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensMixPart,
+    LensToken,
+    LensTone,
+    MenuItem,
+} from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
@@ -27,14 +44,6 @@ import {
     useQualityChecksQuery,
     useReleaseQualityCheckMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart, LensTone, LensToken } from '../catalogue/lens-bar.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     qualityCheckRowTestId,
@@ -44,7 +53,6 @@ import {
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { QualityCheckCreate } from '../quality-check-create.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
     useListMemory,
     useRememberedFilter,
@@ -54,8 +62,6 @@ import {
 } from '../list-memory.ts';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The subject as a reader names it, for sorting: its label, or the bare id when it has none. */
 function subjectName(row: QualityCheck): string {
     return row.subjectLabel ?? row.subjectId;
@@ -238,7 +244,7 @@ function QualityCheckList({
         return null;
     };
 
-    const columns: readonly ControlledColumn<QualityCheck, CatalogueColumn<QualityCheck>>[] = [
+    const columns: readonly ControlledColumn<QualityCheck, DataTableColumn<QualityCheck>>[] = [
         {
             key: 'subject',
             role: 'title',
@@ -318,7 +324,8 @@ function QualityCheckList({
                 },
             },
             render: (row) => (
-                <DeskStatusDot
+                <Badge
+                    variant="dot"
                     testID={`${qualityCheckRowTestId(String(row.id))}-status`}
                     tone={qualityCheckStatusTone(row.status)}
                     label={t(qualityCheckStatusKey(row.status))}
@@ -371,7 +378,6 @@ function QualityCheckList({
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-qc-view"
-                look="sheet"
                 figureKeys={['kind', 'holds']}
                 eyebrow={t('kitchen:recordView.eyebrowQualityControl')}
                 onBack={() => {
@@ -433,7 +439,6 @@ function QualityCheckList({
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-qc-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     {...(failure !== null
@@ -460,7 +465,7 @@ function QualityCheckList({
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-qc-create"
                                 label={t('kitchen:ops.qc.create')}
                                 iconStart={<Icon name="plus" size="sm" />}
@@ -483,7 +488,7 @@ function QualityCheckList({
                         retrying={checks.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-qc-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -512,7 +517,7 @@ function QualityCheckList({
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<QualityCheck>
+                        <DataTable<QualityCheck>
                             testID="kitchen-qc-checks"
                             joined
                             label={t('kitchen:ops.qc.checksHeading')}
@@ -528,7 +533,7 @@ function QualityCheckList({
                                     {
                                         key: 'view',
                                         label: t('kitchen:list.view'),
-                                        icon: CATALOGUE_ROW_ICONS.view,
+                                        icon: DATA_TABLE_ROW_ICONS.view,
                                         testID: `${qualityCheckRowTestId(String(row.id))}-view`,
                                         onSelect: () => {
                                             openView(row);
@@ -552,7 +557,7 @@ function QualityCheckList({
                             }}
                         />
 
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-qc-pagination"
                             page={currentPage}
                             totalPages={totalPages}

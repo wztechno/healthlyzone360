@@ -13,19 +13,26 @@ import type {
 import { ORDER_DESK_FULFILMENT_TYPES } from '@healthy360/api-client/contracts';
 import { OrderId } from '@healthy360/domain-types';
 import {
+    Badge,
+    Button,
     Callout,
     Checkbox,
+    DatePicker,
+    Dropdown,
     EmptyState,
     ErrorState,
-    Dropdown,
     FormSection,
     Icon,
+    IconButton,
     InfoTip,
     SearchInput,
     Select,
     Skeleton,
+    TablePager,
+    Tabs,
     Text,
     TextInputField,
+    useTablePort,
     useToast,
 } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
@@ -56,15 +63,7 @@ import {
 import { EntityImage } from '../../../media/entity-image.tsx';
 import { todayIso } from '../../commerce/dates.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import {
-    KindTiles,
-    SaleSteps,
-    SectionRail,
-    TicketLabel,
-    TileStepper,
-} from '../order-desk/sale-parts.tsx';
+import { KindTiles, SectionRail, TicketLabel, TileStepper } from '../order-desk/sale-parts.tsx';
 import type { SectionTint } from '../order-desk/sale-parts.tsx';
 import {
     CATALOGUE_MANAGE_PERMISSION,
@@ -76,7 +75,6 @@ import { displayName } from '../format.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { EditorGuardDialogs } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
-import { DeskButton, DeskChip, DeskIconButton, MiniMonthPicker } from '../desk-kit/index.ts';
 import { allergenLabel, kitchenOrderPaymentMethodKey } from '../ops-format.ts';
 import type { BasketLine } from '../order-desk/basket.ts';
 import { dishOptionsLine } from '../../../ui/dish-choices.tsx';
@@ -412,7 +410,7 @@ function Sale() {
      * cut for a narrower row than the one on screen and a band of nothing opened between the last
      * tile and the ticket. The port hook reads on mount, on resize and when the nav rail settles.
      */
-    const port = useCataloguePort();
+    const port = useTablePort();
     const bodyWidth = port.width;
 
     const place = usePlaceOrderDeskSaleMutation();
@@ -797,7 +795,7 @@ function Sale() {
                 {editOrder === null ? (
                     <Text
                         variant="title"
-                        className="font-display !text-[26px] !leading-8 !font-bold tracking-tight"
+                        className="font-display !text-role-title !leading-8 !font-bold tracking-tight"
                         accessibilityRole="header"
                     >
                         {t('kitchen:desk.sale.title')}
@@ -806,22 +804,37 @@ function Sale() {
                     <Text
                         variant="title"
                         accessibilityRole="header"
-                        className="font-display !text-[26px] !leading-8 !font-bold tracking-tight"
+                        className="font-display !text-role-title !leading-8 !font-bold tracking-tight"
                         testID="kitchen-order-desk-sale-editing"
                     >
                         {t('kitchen:desk.edit.title', { number: editOrder.orderNumber })}
                     </Text>
                 )}
                 {isEditing ? null : (
-                    <SaleSteps
+                    <Tabs
+                        variant="pills"
+                        readOnly
                         testID="kitchen-order-desk-sale-steps"
                         label={t('kitchen:desk.sale.stepsLabel')}
-                        current={step}
-                        steps={[
-                            { key: 'customer', label: t('kitchen:desk.sale.step.customer') },
-                            { key: 'meals', label: t('kitchen:desk.sale.step.meals') },
-                            { key: 'checkout', label: t('kitchen:desk.sale.step.checkout') },
+                        value={(['customer', 'meals', 'checkout'] as const)[step] ?? 'customer'}
+                        items={[
+                            {
+                                value: 'customer',
+                                testID: 'kitchen-order-desk-sale-steps-customer',
+                                label: t('kitchen:desk.sale.step.customer'),
+                            },
+                            {
+                                value: 'meals',
+                                testID: 'kitchen-order-desk-sale-steps-meals',
+                                label: t('kitchen:desk.sale.step.meals'),
+                            },
+                            {
+                                value: 'checkout',
+                                testID: 'kitchen-order-desk-sale-steps-checkout',
+                                label: t('kitchen:desk.sale.step.checkout'),
+                            },
                         ]}
+                        onChange={() => undefined}
                     />
                 )}
                 <View className="ms-auto flex-row">
@@ -865,7 +878,7 @@ function Sale() {
                 />
             )}
             <View
-                // Both measurement paths, each inert on the other's platform — as `CatalogueList`.
+                // Both measurement paths, each inert on the other's platform — as `DataTable`.
                 ref={Platform.OS === 'web' ? port.ref : undefined}
                 onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
                 className={
@@ -905,7 +918,7 @@ function Sale() {
                                                 : 'kitchen:desk.sale.addressTitle',
                                         )}
                                         actions={
-                                            <DeskButton
+                                            <Button
                                                 testID="kitchen-order-desk-sale-edit-address-toggle"
                                                 variant="secondary"
                                                 label={t(
@@ -1246,10 +1259,11 @@ function WhenSection({
              */}
             <View className="z-auto flex-col gap-base">
                 <View className="z-auto flex-row flex-wrap items-end gap-snug">
-                    <MiniMonthPicker
+                    <DatePicker
+                        trigger="pill"
                         testID="kitchen-order-desk-sale-date"
                         label={t('kitchen:desk.sale.dateLabel')}
-                        caption={t('kitchen:desk.sale.dateLabel')}
+                        labelVisible
                         value={schedule.requestedDeliveryDate}
                         today={today}
                         valueLabel={dayLabel(schedule.requestedDeliveryDate)}
@@ -1494,7 +1508,7 @@ function ConflictBand({
                     ) : (
                         <View className="flex-row flex-wrap gap-1">
                             {names.map((name) => (
-                                <DeskChip key={name} tone="warning" label={name} />
+                                <Badge key={name} tone="warning" label={name} />
                             ))}
                         </View>
                     )}
@@ -1703,7 +1717,7 @@ function MenuGrid({
                                         // A row of its own, so `block` widens the button across the
                                         // card instead of taking half the card's height.
                                         <View className="flex-row">
-                                            <DeskButton
+                                            <Button
                                                 testID={`kitchen-order-desk-sale-tile-${tile.id}-off-today`}
                                                 variant="quiet"
                                                 block
@@ -1726,7 +1740,7 @@ function MenuGrid({
                             );
                         })}
                     </View>
-                    <CataloguePager
+                    <TablePager
                         testID="kitchen-order-desk-sale-menu-pager"
                         label={t('kitchen:catalogue.pagerLabel')}
                         page={page}
@@ -2079,11 +2093,11 @@ function Ticket({
                     <Text
                         variant="section"
                         accessibilityRole="header"
-                        className="font-display !text-[17px] !font-bold"
+                        className="font-display !text-role-section !font-bold"
                     >
                         {t('kitchen:desk.sale.ticketTitle')}
                     </Text>
-                    <DeskChip
+                    <Badge
                         testID="kitchen-order-desk-sale-ticket-count"
                         tone="success"
                         label={t('kitchen:desk.sale.itemCount', { count: itemCount })}
@@ -2171,14 +2185,14 @@ function Ticket({
                                                 <Text
                                                     variant="strong"
                                                     numberOfLines={2}
-                                                    className="!text-sm"
+                                                    className="!text-role-body"
                                                 >
                                                     {name}
                                                 </Text>
                                             </View>
                                             <Text
                                                 variant="strong"
-                                                className="!text-sm !font-bold tabular-nums"
+                                                className="!text-role-body !font-bold tabular-nums"
                                                 testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-total`}
                                             >
                                                 {quoted?.lineTotalMinor == null
@@ -2204,7 +2218,8 @@ function Ticket({
                                                 </Text>
                                             </View>
                                             <View className="flex-row items-center gap-hair">
-                                                <DeskIconButton
+                                                <IconButton
+                                                    variant="secondary"
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-options`}
                                                     icon={<Icon name="pen" size="sm" />}
                                                     label={t('kitchen:dishOptions.lineAction', {
@@ -2214,7 +2229,8 @@ function Ticket({
                                                         setChoosing(key);
                                                     }}
                                                 />
-                                                <DeskIconButton
+                                                <IconButton
+                                                    variant="secondary"
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-decrement`}
                                                     icon={<Icon name="minus" size="sm" />}
                                                     label={t(
@@ -2227,7 +2243,8 @@ function Ticket({
                                                         step(quantity - 1);
                                                     }}
                                                 />
-                                                <DeskIconButton
+                                                <IconButton
+                                                    variant="secondary"
                                                     testID={`kitchen-order-desk-sale-line-${line.catalogueItemId}-increment`}
                                                     icon={<Icon name="plus" size="sm" />}
                                                     label={t(
@@ -2459,7 +2476,7 @@ function Ticket({
                             title={t('kitchen:ops.orders.conflictTitle')}
                             body={t('kitchen:ops.orders.conflictBody')}
                             actions={
-                                <DeskButton
+                                <Button
                                     testID="kitchen-order-desk-sale-conflict-reload"
                                     variant="secondary"
                                     label={t('kitchen:ops.orders.conflictRefresh')}
@@ -2500,7 +2517,7 @@ function Ticket({
                     )}
 
                     {stage === 'menu' ? (
-                        <DeskButton
+                        <Button
                             testID="kitchen-order-desk-sale-charge"
                             variant="primary"
                             size="lg"
@@ -2527,7 +2544,7 @@ function Ticket({
                         </Text>
                     ) : (
                         <View className="flex-col gap-hair">
-                            <DeskButton
+                            <Button
                                 testID="kitchen-order-desk-sale-submit"
                                 variant="primary"
                                 size="lg"
@@ -2613,7 +2630,7 @@ function Totals({
             <Text
                 variant={strong ? 'strong' : 'label'}
                 tone={strong ? 'primary' : 'secondary'}
-                className={strong ? '!text-sm !font-bold' : '!text-[13px]'}
+                className={strong ? '!text-role-body !font-bold' : '!text-role-body'}
             >
                 {label}
             </Text>
@@ -2621,7 +2638,9 @@ function Totals({
                 variant={strong ? 'title' : 'strong'}
                 tone={strong ? 'brand' : 'primary'}
                 className={
-                    strong ? 'font-display !text-2xl !font-bold tabular-nums' : 'tabular-nums'
+                    strong
+                        ? 'font-display !text-role-title !font-bold tabular-nums'
+                        : 'tabular-nums'
                 }
                 testID={testID}
             >

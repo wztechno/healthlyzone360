@@ -1,18 +1,32 @@
 import type { OrderComplaint } from '@healthy360/api-client/contracts';
 import { COMPLAINT_OUTCOMES } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Cascade,
+    compareText,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     Dialog,
     EmptyState,
     ErrorState,
+    LensBar,
     Select,
     Stack,
+    TablePager,
     TableSkeleton,
     Text,
     TextInputField,
+    useColumnControls,
     useToast,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensMixPart,
+    MenuItem,
+} from '@healthy360/design-system';
 import { parseMinorAmount } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -29,15 +43,7 @@ import {
     useUpdateComplaintMutation,
 } from '../../../data/kitchen-orders-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 import {
     useListMemory,
@@ -48,8 +54,6 @@ import {
 } from '../list-memory.ts';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 /**
@@ -123,7 +127,7 @@ function Complaints({ view }: { readonly view: string | undefined }) {
     );
     const [page, setPage] = useRememberedPage(memory, `${trimmed}|${state}`);
 
-    const columns: readonly ControlledColumn<OrderComplaint, CatalogueColumn<OrderComplaint>>[] = [
+    const columns: readonly ControlledColumn<OrderComplaint, DataTableColumn<OrderComplaint>>[] = [
         {
             key: 'order',
             role: 'title',
@@ -163,7 +167,7 @@ function Complaints({ view }: { readonly view: string | undefined }) {
             priority: 80,
             value: (row) => stateLabel(row),
             render: (row) => (
-                <DeskChip tone={isOpen(row) ? 'warning' : 'neutral'} label={stateLabel(row)} />
+                <Badge tone={isOpen(row) ? 'warning' : 'neutral'} label={stateLabel(row)} />
             ),
         },
     ];
@@ -186,7 +190,6 @@ function Complaints({ view }: { readonly view: string | undefined }) {
             <>
                 <RecordViewPage
                     testID="kitchen-complaints-view"
-                    look="sheet"
                     figureKeys={['cost', 'opened']}
                     eyebrow={t('kitchen:recordView.eyebrowComplaints')}
                     onBack={() => {
@@ -313,7 +316,6 @@ function Complaints({ view }: { readonly view: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-complaints-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     {...(failure !== null
@@ -357,7 +359,7 @@ function Complaints({ view }: { readonly view: string | undefined }) {
                         retrying={complaints.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-complaints-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -378,7 +380,7 @@ function Complaints({ view }: { readonly view: string | undefined }) {
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<OrderComplaint>
+                        <DataTable<OrderComplaint>
                             testID="kitchen-complaints-list"
                             joined
                             label={t('kitchen:families.complaints.name')}
@@ -392,7 +394,7 @@ function Complaints({ view }: { readonly view: string | undefined }) {
                                 {
                                     key: 'view',
                                     label: t('kitchen:list.view'),
-                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    icon: DATA_TABLE_ROW_ICONS.view,
                                     testID: `kitchen-complaints-row-${row.id}-view`,
                                     onSelect: () => {
                                         openRecord(row);
@@ -400,7 +402,7 @@ function Complaints({ view }: { readonly view: string | undefined }) {
                                 },
                             ]}
                         />
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-complaints-pagination"
                             page={currentPage}
                             totalPages={totalPages}
@@ -501,7 +503,7 @@ function CloseDialog({
             }}
             title={t('kitchen:complaints.closeTitle')}
             actions={
-                <DeskButton
+                <Button
                     testID="kitchen-complaints-close-confirm"
                     label={t('kitchen:complaints.closeConfirm')}
                     loading={update.isPending}

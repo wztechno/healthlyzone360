@@ -1,16 +1,6 @@
 import type { Repositories } from '@healthy360/api-client';
 import type { DownloadedFile, ImportReport, ImportUpload } from '@healthy360/api-client/contracts';
-import {
-    Callout,
-    Dialog,
-    Icon,
-    Inline,
-    Menu,
-    Stack,
-    Tag,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Callout, Dialog, Icon, Inline, Menu, Stack, Tag, Text, useToast } from '@healthy360/design-system';
 import type { FileUploadRejection, MenuItem } from '@healthy360/design-system';
 import type { TFunction } from 'i18next';
 import { useState } from 'react';
@@ -26,7 +16,6 @@ import { canSaveFiles } from '../save-download.ts';
 import { ImportDropZone } from './import-drop-zone.tsx';
 import type { ImportGuide } from './import-guides.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * Import and Export, the pair that opens every Catalogue list beside its primary.
  *
@@ -99,7 +88,7 @@ export function CatalogueTransferActions({
     return (
         <>
             {importGuide === undefined ? (
-                <DeskButton
+                <Button
                     testID={`${testID}-import`}
                     variant="secondary"
                     disabled
@@ -121,7 +110,7 @@ export function CatalogueTransferActions({
 function DisabledExport({ testID }: { readonly testID: string }) {
     const { t } = useTranslation();
     return (
-        <DeskButton
+        <Button
             testID={`${testID}-export`}
             variant="secondary"
             disabled
@@ -185,7 +174,7 @@ function ExportControl({
             look="card"
             sections={[{ items }]}
             trigger={({ triggerProps, toggle }) => (
-                <DeskButton
+                <Button
                     {...triggerProps}
                     testID={`${testID}-export`}
                     variant="secondary"
@@ -295,20 +284,20 @@ function ImportControl({
 
     const actions =
         report !== undefined ? (
-            <DeskButton
+            <Button
                 testID={`${testID}-import-done`}
                 label={t('kitchen:transfer.import.done')}
                 onPress={close}
             />
         ) : (
             <>
-                <DeskButton
+                <Button
                     testID={`${testID}-import-cancel`}
                     variant="secondary"
                     label={t('kitchen:common.cancel')}
                     onPress={close}
                 />
-                <DeskButton
+                <Button
                     testID={`${testID}-import-submit`}
                     label={t('kitchen:transfer.import.action')}
                     disabled={picked === null || blocked !== undefined}
@@ -322,7 +311,7 @@ function ImportControl({
 
     return (
         <>
-            <DeskButton
+            <Button
                 testID={`${testID}-import`}
                 variant="secondary"
                 label={t('kitchen:list.import')}
@@ -445,7 +434,7 @@ function GuideBlock({
                 {t('kitchen:transfer.guide.rowCap', { count: guide.rowCap })}
             </Text>
             <Inline space="sm" align="center" wrap>
-                <DeskButton
+                <Button
                     testID={`${testID}-template`}
                     variant="quiet"
                     size="sm"

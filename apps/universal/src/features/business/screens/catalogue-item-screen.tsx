@@ -133,7 +133,6 @@ export function CatalogueItemScreen({ itemId, programmeId }: CatalogueItemScreen
                 <CorporateCatalogueScreen programmeId={programmeKey} />
             )}
             <RecordViewPage
-                look="sheet"
                 testID="catalogue-item-screen"
                 eyebrow={t('business:item.kind')}
                 title={item.name}

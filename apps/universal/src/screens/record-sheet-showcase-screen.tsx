@@ -1,21 +1,24 @@
-import { Button, Cascade, DensityProvider, Text } from '@healthy360/design-system';
-import { useState } from 'react';
-import { View } from 'react-native';
-
-import { IngredientDetail } from '../features/kitchen-admin/catalogue/ingredient-detail.tsx';
 import {
+    Badge,
+    Button,
+    Cascade,
+    DensityProvider,
     RecordFigures,
     RecordSheetHead,
-    RecordSteps,
     SheetCard,
     SheetColumns,
     SheetFacts,
     SheetTagRows,
     SheetText,
-} from '../features/kitchen-admin/catalogue/record-sheet.tsx';
+    StatusSteps,
+    Text,
+} from '@healthy360/design-system';
+import { useState } from 'react';
+import { View } from 'react-native';
+
+import { IngredientDetail } from '../features/kitchen-admin/catalogue/ingredient-detail.tsx';
 import { RecordViewPage } from '../features/kitchen-admin/catalogue/record-view-page.tsx';
-import { DeskChip } from '../features/kitchen-admin/desk-kit/desk-chip.tsx';
-import { BLANK, TAHINI, categoryName } from './record-canopy-showcase-screen.tsx';
+import { BLANK, TAHINI, categoryName } from './showcase-ingredients.ts';
 
 function noop(): void {}
 
@@ -81,7 +84,6 @@ export function RecordSheetShowcaseScreen() {
                     {open !== 'packaging' ? null : (
                         <RecordViewPage
                             testID="record-sheet-showcase-packaging"
-                            look="sheet"
                             eyebrow="Packaging"
                             title="Kraft bowl, 750 ml"
                             kind="Packaging item"
@@ -115,7 +117,6 @@ export function RecordSheetShowcaseScreen() {
                     {open !== 'allergen' ? null : (
                         <RecordViewPage
                             testID="record-sheet-showcase-allergen"
-                            look="sheet"
                             eyebrow="Allergen classes"
                             title="Sesame"
                             kind="Allergen class"
@@ -169,7 +170,7 @@ export function RecordSheetShowcaseScreen() {
                                     note: 'by Sara K. · Version 7',
                                 }}
                             />
-                            <RecordSteps
+                            <StatusSteps
                                 testID="record-sheet-showcase-steps"
                                 label="Where the order has got to"
                                 noValue="—"
@@ -234,7 +235,7 @@ export function RecordSheetShowcaseScreen() {
                                                     key: 'contains',
                                                     label: 'Contains',
                                                     content: (
-                                                        <DeskChip
+                                                        <Badge
                                                             tone="danger"
                                                             size="lg"
                                                             label="Sesame"
@@ -245,7 +246,7 @@ export function RecordSheetShowcaseScreen() {
                                                     key: 'may',
                                                     label: 'May contain',
                                                     content: (
-                                                        <DeskChip
+                                                        <Badge
                                                             tone="warning"
                                                             size="lg"
                                                             label="Peanuts"

@@ -261,14 +261,14 @@ describe('planning a batch', () => {
         await waitFor(
             () => {
                 expect(
-                    screen.getByTestId('kitchen-production-batch-new-summary-version'),
+                    screen.getByTestId('kitchen-production-batch-new-summary-version-value'),
                 ).toHaveTextContent('v1');
             },
             { timeout: 10_000 },
         );
-        expect(screen.getByTestId('kitchen-production-batch-new-summary-runs')).toHaveTextContent(
-            '×2.5',
-        );
+        expect(
+            screen.getByTestId('kitchen-production-batch-new-summary-runs-value'),
+        ).toHaveTextContent('×2.5');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-production-batch-new-submit'));
@@ -294,7 +294,7 @@ describe('planning a batch', () => {
         await waitFor(
             () => {
                 expect(
-                    screen.getByTestId('kitchen-production-batch-new-summary-runs'),
+                    screen.getByTestId('kitchen-production-batch-new-summary-runs-value'),
                 ).toHaveTextContent('×2.5');
             },
             { timeout: 10_000 },
@@ -321,8 +321,11 @@ describe('planning a batch', () => {
             repositories: repositoriesFor(recipe()),
         });
 
-        // Before a recipe, the section is there and says what it is waiting for.
-        await untilVisible('kitchen-production-batch-new-preview-pending');
+        // Before a recipe there is nothing under the form: no preview, no figures, no waiting note.
+        await untilVisible('kitchen-production-batch-new-recipe');
+        expect(screen.queryByTestId('kitchen-production-batch-new-preview')).toBeNull();
+        expect(screen.queryByTestId('kitchen-production-batch-new-preview-pending')).toBeNull();
+        expect(screen.queryByTestId('kitchen-production-batch-new-summary')).toBeNull();
 
         await pickTheRecipe();
         await act(async () => {
@@ -335,12 +338,12 @@ describe('planning a batch', () => {
         await untilVisible('kitchen-production-batch-new-preview');
         // 40 L of a recipe whose output is 20 L is two runs — divided by the output, not the 4 kg
         // yield, because that is the division the server does.
-        expect(screen.getByTestId('kitchen-production-batch-new-summary-runs')).toHaveTextContent(
-            '×2',
-        );
-        expect(screen.getByTestId('kitchen-production-batch-new-summary-makes')).toHaveTextContent(
-            '40 L',
-        );
+        expect(
+            screen.getByTestId('kitchen-production-batch-new-summary-runs-value'),
+        ).toHaveTextContent('×2');
+        expect(
+            screen.getByTestId('kitchen-production-batch-new-summary-makes-value'),
+        ).toHaveTextContent('40 L');
         expect(repositories.kitchenOps.createProductionOrder).not.toHaveBeenCalled();
     });
 

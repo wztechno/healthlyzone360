@@ -37,7 +37,7 @@ export function CostCard({
     readonly testID: string;
 }) {
     const sm = size === 'sm';
-    const text = sm ? 'text-[13px]' : 'text-[15px]';
+    const text = sm ? 'text-role-body' : 'text-role-section';
     return (
         <View
             testID={testID}
@@ -52,8 +52,8 @@ export function CostCard({
                 numberOfLines={1}
                 className={
                     sm
-                        ? 'text-xs font-semibold text-content-secondary'
-                        : 'mb-0.5 border-b border-stroke pb-2 text-[15px] font-bold text-content-primary'
+                        ? 'text-role-caption font-semibold text-content-secondary'
+                        : 'mb-0.5 border-b border-stroke pb-2 text-role-section font-bold text-content-primary'
                 }
             >
                 {title}

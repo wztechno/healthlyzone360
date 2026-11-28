@@ -1,6 +1,28 @@
 import type { ReceiptCostStatus, UnpricedReceipt } from '@healthy360/api-client/contracts';
-import { Cascade, EmptyState, ErrorState, TableSkeleton, Text } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    ColumnPicker,
+    compareText,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
+    EmptyState,
+    ErrorState,
+    LensBar,
+    TableSkeleton,
+    Text,
+    useColumnControls,
+} from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensMixPart,
+    LensToken,
+    LensTone,
+    MenuItem,
+} from '@healthy360/design-system';
 import { SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -12,17 +34,9 @@ import { View } from 'react-native';
 import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useSuppliersQuery, useUnpricedReceiptsQuery } from '../../../data/kitchen-ops-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart, LensTone, LensToken } from '../catalogue/lens-bar.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
     useListMemory,
     useRememberedFilter,
@@ -30,14 +44,12 @@ import {
     useRememberedQuery,
 } from '../list-memory.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/supplier-bills?tab=unpriced` — the work queue (SUP5, §3.6, §7).
  *
  * On the Catalogue list parts since the Operations handoff: the Lens bar (figures counted over the
  * queue in hand, the two unfinished states among them as filters, the search over supplier and
- * references) and `CatalogueList`, whose one row action — and whose row press — opens the
+ * references) and `DataTable`, whose one row action — and whose row press — opens the
  * receipt's own page, `unpriced-receipt-screen.tsx`, where the prices are typed.
  *
  * A delivery may be posted with no prices at all: the goods are on the shelf and the paperwork is in
@@ -130,7 +142,7 @@ function UnpricedReceipts() {
             ? '—'
             : formatter.formatDate(row.receivedOn, { dateStyle: 'medium' });
 
-    const columns: readonly ControlledColumn<UnpricedReceipt, CatalogueColumn<UnpricedReceipt>>[] =
+    const columns: readonly ControlledColumn<UnpricedReceipt, DataTableColumn<UnpricedReceipt>>[] =
         [
             {
                 key: 'receivedOn',
@@ -222,7 +234,7 @@ function UnpricedReceipts() {
                             })}
                         </Text>
                         {row.valuationPendingCount > 0 ? (
-                            <DeskChip
+                            <Badge
                                 tone="warning"
                                 testID={`kitchen-unpriced-${String(row.id)}-pending-fx`}
                                 label={t('kitchen:ops.unpricedReceipts.pendingFxBadge', {
@@ -242,7 +254,7 @@ function UnpricedReceipts() {
                 sort: false,
                 value: (row) => t(receiptCostStatusKey(row.costStatus)),
                 render: (row) => (
-                    <DeskChip
+                    <Badge
                         tone={receiptCostStatusTone(row.costStatus)}
                         testID={`kitchen-unpriced-${String(row.id)}-status`}
                         label={t(receiptCostStatusKey(row.costStatus))}
@@ -295,7 +307,6 @@ function UnpricedReceipts() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-unpriced-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     {...lens}
@@ -332,7 +343,7 @@ function UnpricedReceipts() {
                         retrying={queue.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-unpriced-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -360,7 +371,7 @@ function UnpricedReceipts() {
                                 // so the way back has to be here.
                                 actions={
                                     unfiltered ? undefined : (
-                                        <DeskButton
+                                        <Button
                                             testID="kitchen-unpriced-clear"
                                             variant="secondary"
                                             size="sm"
@@ -373,7 +384,7 @@ function UnpricedReceipts() {
                         }
                     />
                 ) : (
-                    <CatalogueList<UnpricedReceipt>
+                    <DataTable<UnpricedReceipt>
                         testID="kitchen-unpriced-table"
                         joined
                         label={t('kitchen:ops.unpricedReceipts.title')}
@@ -393,7 +404,7 @@ function UnpricedReceipts() {
                             {
                                 key: 'open',
                                 label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
+                                icon: DATA_TABLE_ROW_ICONS.edit,
                                 testID: `kitchen-unpriced-${String(row.id)}-open`,
                                 onSelect: () => {
                                     openReceipt(row);

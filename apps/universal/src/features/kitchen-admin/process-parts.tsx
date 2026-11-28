@@ -1,9 +1,9 @@
-import { ShellDock, Text, cx } from '@healthy360/design-system';
+import { Badge, ShellDock, Text, cx } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 /**
- * The parts a stepped posting form is drawn from besides its step track (`process-steps.tsx`):
+ * The parts a stepped posting form is drawn from besides its step track (the design system's `Tabs variant="pills"`):
  * the card one step lives in, the boxes its last step reviews in, and the bar Post sits on. The
  * Procurement boards of 2026-11-24 — Receive a delivery and Post a goods receipt.
  */
@@ -30,48 +30,18 @@ export function StepCard({ title, count, actions, children, testID }: StepCardPr
                 <Text
                     role="heading"
                     aria-level={2}
-                    className="font-display !text-[18px] !leading-6 font-bold tracking-[-0.01em] text-content-primary"
+                    className="font-display !text-role-section !leading-6 font-bold tracking-[-0.01em] text-content-primary"
                 >
                     {title}
                 </Text>
                 {count === undefined ? null : (
-                    <CountPill testID={`${testID}-count`} label={count} />
+                    <Badge testID={`${testID}-count`} tone="brand" label={count} />
                 )}
                 {actions === undefined ? null : (
                     <View className="ms-auto flex-row flex-wrap items-center gap-2">{actions}</View>
                 )}
             </View>
             {children}
-        </View>
-    );
-}
-
-/** A figure on a pill — brand by default; `warning` for a count that is waiting on someone. */
-export function CountPill({
-    label,
-    tone = 'brand',
-    testID,
-}: {
-    readonly label: string;
-    readonly tone?: 'brand' | 'warning' | undefined;
-    readonly testID?: string;
-}) {
-    return (
-        <View
-            className={cx(
-                'h-5 min-w-[22px] items-center justify-center rounded-full px-[7px]',
-                tone === 'warning' ? 'bg-warning-subtle' : 'bg-surface-brand-subtle',
-            )}
-        >
-            <Text
-                testID={testID}
-                className={cx(
-                    'text-[11px] font-bold tabular-nums',
-                    tone === 'warning' ? 'text-warning-on-subtle' : 'text-content-on-brand-subtle',
-                )}
-            >
-                {label}
-            </Text>
         </View>
     );
 }
@@ -97,7 +67,7 @@ export function ReviewBox({
                 <Text
                     role="heading"
                     aria-level={3}
-                    className="!text-sm font-bold text-content-primary"
+                    className="!text-role-body font-bold text-content-primary"
                 >
                     {title}
                 </Text>
@@ -135,7 +105,7 @@ export function PostBar({ summary, figure, action, testID }: PostBarProps) {
                     <Text
                         testID={`${testID}-summary`}
                         numberOfLines={1}
-                        className="text-[13px] font-semibold tabular-nums text-content-secondary"
+                        className="text-role-body font-semibold tabular-nums text-content-secondary"
                     >
                         {summary}
                     </Text>

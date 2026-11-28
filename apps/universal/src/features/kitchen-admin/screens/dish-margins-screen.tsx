@@ -2,12 +2,15 @@ import type { DishMargin } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
+    LensBar,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, LensFigure, MenuItem } from '@healthy360/design-system';
 import type { TFunction } from 'i18next';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -19,15 +22,9 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useDishMarginsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { RECIPE_VIEW_COSTS_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { unitCodeLabel } from '../format.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/dish-margins` — what each dish earns at today's costs, lowest first.
  *
@@ -81,7 +78,7 @@ function DishMarginsPage() {
         {
             key: 'recipe',
             label: t('kitchen:ops.dishMargins.openRecipe'),
-            icon: CATALOGUE_ROW_ICONS.view,
+            icon: DATA_TABLE_ROW_ICONS.view,
             onSelect: () => {
                 open(row, 'production');
             },
@@ -119,7 +116,7 @@ function DishMarginsPage() {
               });
     };
 
-    const columns: readonly CatalogueColumn<DishMargin>[] = [
+    const columns: readonly DataTableColumn<DishMargin>[] = [
         {
             key: 'dish',
             role: 'title',
@@ -205,7 +202,7 @@ function DishMarginsPage() {
             priority: 92,
             render: (row) =>
                 row.withheldReason !== null ? (
-                    <DeskChip
+                    <Badge
                         tone="warning"
                         label={t(`kitchen:ops.dishMargins.withheld.${row.withheldReason}`)}
                     />
@@ -218,7 +215,7 @@ function DishMarginsPage() {
                 ) : report.data?.targetPercent === null ? (
                     <Text tone="secondary">{EM_DASH}</Text>
                 ) : (
-                    <DeskChip tone="success" label={t('kitchen:ops.dishMargins.onTarget')} />
+                    <Badge tone="success" label={t('kitchen:ops.dishMargins.onTarget')} />
                 ),
         },
     ];
@@ -268,7 +265,7 @@ function DishMarginsPage() {
                         }
                         clearLabel={t('kitchen:lens.clear')}
                     />
-                    <CatalogueList<DishMargin>
+                    <DataTable<DishMargin>
                         testID="kitchen-dish-margins-table"
                         label={t('kitchen:ops.dishMargins.heading')}
                         columns={columns}

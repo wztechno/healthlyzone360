@@ -1334,6 +1334,7 @@
             "batchFactorLabel": "Batch factor",
             "batchFactorPlaceholder": "For example 2",
             "notesLabel": "Notes",
+            "addNote": "+ Add a note",
             "notesPlaceholder": "For example Go easy on the salt",
             "amountRequired": "Enter a number above zero.",
             "batchTitle": "Batch {{reference}}",
@@ -3081,8 +3082,6 @@
         "sortAscending": "Sort ascending",
         "sortDescending": "Sort descending",
         "filter": "Filter",
-        "clearFilter": "Clear",
-        "columnMenu": "Sort and filter: {{column}}",
         "statsAsCards": "Cards",
         "statsAsLine": "Line",
         "statsViewLabel": "Change how the counts are shown",
@@ -3090,16 +3089,7 @@
         "title": "Catalogue",
         "columnUpdated": "Updated",
         "close": "Close",
-        "columnSort": "Sort by {{column}}",
-        "columnsButton": "Show columns · {{shown}} of {{max}}",
-        "columnsCount": "{{shown}} of {{max}}",
-        "columnsClear": "Clear all",
-        "columnsHint": "Choose which columns appear in the table. Up to {{max}} at a time.",
-        "columnsLabel": "Choose the columns to show",
-        "columnsHeading": "Show up to {{max}} columns",
-        "columnsReset": "Reset to default",
-        "columnFilter": "Filter by {{column}}",
-        "columnFiltered": "Filtered"
+        "columnsHint": "Choose which columns appear in the table. Up to {{max}} at a time."
     },
     "toolbar": {
         "filters": "Filters",
@@ -3214,7 +3204,6 @@
         "lastUpdatedBySeed": "Last changed {{when}}",
         "lastUpdatedBy": "Last changed {{when}} by {{name}}",
         "neverSaved": "Not saved yet",
-        "unsaved": "Unsaved changes",
         "sectionDetails": "Name",
         "sectionClassification": "Classification",
         "sectionAliases": "Other names",
@@ -3252,11 +3241,7 @@
         "pendingNutritionBody": "Its Arabic name, category and nutrition match were suggested by AI. Check them, confirm a nutrition reference below and assess its allergens. Until the reference is confirmed, recipes using this ingredient cannot be published."
     },
     "bilingual": {
-        "englishLabel": "{{field}} (English)",
-        "arabicLabel": "{{field}} (Arabic)",
-        "copyFromEnglish": "Copy the English",
         "missingArabic": "No Arabic yet",
-        "missingArabicHint": "A draft saves without it; publication does not.",
         "englishShort": "{{field}} (EN)",
         "arabicShort": "{{field}} (AR)"
     },
@@ -3415,22 +3400,8 @@
         "laboratoryTested": "Laboratory tested",
         "operatorConfirmed": "Operator confirmed"
     },
-    "conflict": {
-        "title": "Someone else changed this record",
-        "body": "It was saved by somebody else while this was open, so saving now would overwrite their work. Reload to take their version, or keep editing and copy your changes out first.",
-        "reload": "Reload and lose my changes",
-        "keepEditing": "Keep editing"
-    },
     "unsaved": {
-        "title": "Leave without saving?",
-        "body": "This record has changes that have not been saved. Leaving now discards them.",
-        "discard": "Discard my changes",
-        "keepEditing": "Keep editing",
-        "browserPrompt": "This record has unsaved changes.",
-        "keepableTitle": "Leave this page?",
-        "keepableBody": "Your changes aren't saved yet.",
-        "stay": "Stay",
-        "keepForLater": "Keep for later"
+        "browserPrompt": "This record has unsaved changes."
     },
     "classes": {
         "title": "Allergen classes",
@@ -3730,10 +3701,6 @@
         "sheetAllergensDerived": "Allergens (from the ingredients)",
         "sheetRestrictedValue": "Yes — not for circulation",
         "publishChecksTitle": "Publish checks",
-        "checksCount": "{{done}}/{{total}} checks",
-        "checksNextFix": "Next fix →",
-        "checksNextFixLabel": "{{done}} of {{total}} checks pass. Next fix: {{next}}",
-        "checksAllPass": "All checks pass",
         "kitchenNameLabel": "Name",
         "costBatchTitle": "One batch",
         "costUnitTitle": "Per {{unit}}",
@@ -5514,22 +5481,7 @@
         "allProducts": "All products",
         "reviewAction": "Show only records awaiting review",
         "requirementsMix": "{{short}} short, {{covered}} covered",
-        "deskMix": "{{placed}} placed, {{confirmed}} confirmed",
-        "periodLabel": "Period",
-        "period": {
-            "all": "All",
-            "today": "Today",
-            "yesterday": "Yesterday",
-            "week": "This week",
-            "month": "This month",
-            "lastMonth": "Last month",
-            "quarter": "Last 3 months",
-            "year": "This year",
-            "tomorrow": "Tomorrow",
-            "nextWeek": "Next week",
-            "twoWeeks": "Next 2 weeks",
-            "custom": "Custom"
-        }
+        "deskMix": "{{placed}} placed, {{confirmed}} confirmed"
     },
     "tray": {
         "noChannel": "No sales channel",
@@ -6011,9 +5963,5 @@
         "perHundredGrams": "per 100 g",
         "marginNote": "per {{unit}} · margin {{percent}} %",
         "ofTotal": "of {{total}}"
-    },
-    "dateField": {
-        "placeholder": "Pick a day",
-        "today": "Today"
     }
 }

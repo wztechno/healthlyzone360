@@ -6,13 +6,19 @@ import type {
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Cascade,
+    compareNumber,
+    compareText,
     EmptyState,
     ErrorState,
     Heading,
     Icon,
+    IconButton,
     InfoTip,
     Inline,
+    LensFigureCell,
     QuantityInput,
     SearchInput,
     SegmentedControl,
@@ -20,6 +26,14 @@ import {
     Stack,
     TableSkeleton,
     Text,
+    useColumnControls,
+} from '@healthy360/design-system';
+import type {
+    ColumnControls,
+    ColumnFilter,
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
 } from '@healthy360/design-system';
 import { RecipeId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -40,21 +54,6 @@ import {
 import { withQuery } from '../../../navigation/return-to.ts';
 import { batchFactor, scaleLine, scalePackaging, withWaste } from '../batch-scaling.ts';
 import type { BatchMode } from '../batch-scaling.ts';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { LensFigureCell } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import type {
-    ColumnControls,
-    ColumnFilter,
-    ControlledColumn,
-} from '../catalogue/use-column-controls.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import { DeskButton, DeskIconButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import {
     CATALOGUE_VIEW_PERMISSION,
     PRODUCTION_MANAGE_PERMISSION,
@@ -397,7 +396,8 @@ function BatchPlanner() {
                                 ) : null}
                             </View>
                             <View className="flex-row items-center justify-center gap-1.5">
-                                <DeskIconButton
+                                <IconButton
+                                    variant="secondary"
                                     testID="kitchen-batch-less"
                                     label={t('kitchen:ops.batch.less')}
                                     icon={<Icon name="minus" size="sm" />}
@@ -428,7 +428,8 @@ function BatchPlanner() {
                                         }
                                     />
                                 </View>
-                                <DeskIconButton
+                                <IconButton
+                                    variant="secondary"
                                     testID="kitchen-batch-more"
                                     label={t('kitchen:ops.batch.more')}
                                     icon={<Icon name="plus" size="sm" />}
@@ -509,7 +510,7 @@ function BatchPlanner() {
                                     actions={
                                         <Inline space="xs" align="center">
                                             {print.mode === 'browser' ? (
-                                                <DeskButton
+                                                <Button
                                                     testID="kitchen-batch-print"
                                                     size="sm"
                                                     variant="secondary"
@@ -519,7 +520,7 @@ function BatchPlanner() {
                                                 />
                                             ) : null}
                                             {canStart ? (
-                                                <DeskButton
+                                                <Button
                                                     testID="kitchen-batch-start"
                                                     size="sm"
                                                     label={t('kitchen:ops.batch.startBatch')}
@@ -552,11 +553,11 @@ function PlanStep({ number, title }: { readonly number: number; readonly title: 
                 aria-hidden
                 className="h-[26px] w-[26px] items-center justify-center rounded-full bg-surface-brand-subtle"
             >
-                <Text className="font-display text-xs font-bold text-content-on-brand-subtle">
+                <Text className="font-display text-role-caption font-bold text-content-on-brand-subtle">
                     {String(number)}
                 </Text>
             </View>
-            <Heading level={3} className="!text-base font-bold">
+            <Heading level={3} className="!text-role-section font-bold">
                 {title}
             </Heading>
         </View>
@@ -600,14 +601,14 @@ function RecipeOption({
             <View className="flex-row items-center gap-1.5">
                 <Text
                     numberOfLines={1}
-                    className={`shrink text-sm font-bold ${
+                    className={`shrink text-role-body font-bold ${
                         selected ? 'text-content-on-brand-subtle' : 'text-content-primary'
                     }`}
                 >
                     {name}
                 </Text>
                 {row.meta.status === 'published' ? null : (
-                    <DeskChip
+                    <Badge
                         testID={`kitchen-batch-recipe-${String(row.id)}-status`}
                         tone="warning"
                         label={t(statusShortKey(row.meta.status))}
@@ -617,7 +618,7 @@ function RecipeOption({
             {meta === '' ? null : (
                 <Text
                     numberOfLines={1}
-                    className={`text-xs font-medium tabular-nums ${
+                    className={`text-role-caption font-medium tabular-nums ${
                         selected ? 'text-content-on-brand-subtle' : 'text-content-secondary'
                     }`}
                 >
@@ -656,7 +657,7 @@ function QuickBatch({
             }`}
         >
             <Text
-                className={`text-sm font-semibold ${
+                className={`text-role-body font-semibold ${
                     on ? 'text-content-on-brand-subtle' : 'text-content-primary'
                 }`}
             >
@@ -698,7 +699,7 @@ function Summary({
                     level={2}
                     testID="kitchen-batch-summary-name"
                     numberOfLines={2}
-                    className="!text-2xl min-w-0 shrink font-bold"
+                    className="!text-role-title min-w-0 shrink font-bold"
                 >
                     {name}
                 </Heading>
@@ -819,10 +820,10 @@ function useSheetColumns(
     factor: number,
     ingredients: Readonly<Record<string, IngredientAdmin>>,
 ): {
-    readonly lineColumns: readonly ControlledColumn<RecipeLine, CatalogueColumn<RecipeLine>>[];
+    readonly lineColumns: readonly ControlledColumn<RecipeLine, DataTableColumn<RecipeLine>>[];
     readonly packagingColumns: readonly ControlledColumn<
         RecipePackagingLine,
-        CatalogueColumn<RecipePackagingLine>
+        DataTableColumn<RecipePackagingLine>
     >[];
     /** The kilogram lines' To issue, summed — the summary's Total weight. */
     readonly totalWeight: number | null;
@@ -876,7 +877,7 @@ function useSheetColumns(
         };
     }
 
-    const lineColumns: readonly ControlledColumn<RecipeLine, CatalogueColumn<RecipeLine>>[] = [
+    const lineColumns: readonly ControlledColumn<RecipeLine, DataTableColumn<RecipeLine>>[] = [
         {
             key: 'reference',
             role: 'meta',
@@ -914,7 +915,7 @@ function useSheetColumns(
                         {nameOf(line.ingredientId)}
                     </Text>
                     {line.isOptional ? (
-                        <DeskChip
+                        <Badge
                             testID={`${rowId(line.ingredientId)}-optional`}
                             tone="neutral"
                             label={t('kitchen:ops.batch.optionalBadge')}
@@ -972,7 +973,7 @@ function useSheetColumns(
 
     const packagingColumns: readonly ControlledColumn<
         RecipePackagingLine,
-        CatalogueColumn<RecipePackagingLine>
+        DataTableColumn<RecipePackagingLine>
     >[] = [
         {
             key: 'reference',
@@ -1063,10 +1064,10 @@ function useSheetColumns(
 
 interface ScaledSheetProps {
     readonly version: RecipeVersionAdmin;
-    readonly lines: ColumnControls<RecipeLine, CatalogueColumn<RecipeLine>>;
+    readonly lines: ColumnControls<RecipeLine, DataTableColumn<RecipeLine>>;
     readonly packagingColumns: readonly ControlledColumn<
         RecipePackagingLine,
-        CatalogueColumn<RecipePackagingLine>
+        DataTableColumn<RecipePackagingLine>
     >[];
 }
 

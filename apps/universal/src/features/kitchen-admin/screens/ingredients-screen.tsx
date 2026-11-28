@@ -1,5 +1,26 @@
-import { Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    ColumnPicker,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
+    DataTableBody,
+    Dialog,
+    Icon,
+    Inline,
+    LensBar,
+    Select,
+    Text,
+    useColumnControls,
+    useToast,
+} from '@healthy360/design-system';
+import type {
+    ColumnControl,
+    DataTableColumn,
+    LensFigure,
+    LensToken,
+    MenuItem,
+} from '@healthy360/design-system';
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -8,32 +29,24 @@ import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
+import { CameraScanButton } from '../../../ui/camera-scan-button.tsx';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { PageBackPill } from '../../../shell/area-trail.tsx';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
 import { IngredientDetail } from '../catalogue/ingredient-detail.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { ingredientImportGuide } from '../catalogue/import-guides.ts';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { listPrintJob, useListPrint } from '../catalogue/list-print.ts';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import {
     INGREDIENT_DEFAULT_COLUMNS,
     INGREDIENT_LOCKED_COLUMNS,
     ingredientColumns,
 } from '../catalogue/ingredient-columns.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import type { IngredientListState, IngredientSortKey } from '../catalogue/use-ingredient-list.ts';
 import { useIngredientList } from '../catalogue/use-ingredient-list.ts';
-import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
-import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import {
     INGREDIENT_STATUS_FILTERS,
     displayName,
@@ -42,7 +55,6 @@ import {
     statusShortKey,
 } from '../format.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/ingredients` — the ingredient list, as `Catalogue.dc.html` draws it.
  *
@@ -97,7 +109,7 @@ import { DeskButton } from '../desk-kit/desk-button.tsx';
  *    figure goes, and the list is `TableSkeleton` in the table's own frame. Both are their loaded
  *    height, so the data landing moves nothing on the page.
  * 3. **The data lands.** The figures fade in inside their cards and the rows cascade into the
- *    frame (`CatalogueList` does this for every list). A later page of the pager cascades the same
+ *    frame (`DataTable` does this for every list). A later page of the pager cascades the same
  *    way; a re-sort does not, because a row that is already on the page has already arrived.
  *
  * Every step is `useMotion`'s: under reduced motion the page is drawn in its final place on the
@@ -166,7 +178,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
         [t, locale, formatter, categoryName],
     );
 
-    const controls = useColumnControls<IngredientAdmin, CatalogueColumn<IngredientAdmin>>(
+    const controls = useColumnControls<IngredientAdmin, DataTableColumn<IngredientAdmin>>(
         list.rows,
         columns.map((column) => ({
             ...column,
@@ -216,18 +228,18 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
             {/*
              * One block, so the toolbar card runs straight on into the table: the figures and the
              * actions stand on the page, and the query row is the top of the list's card
-             * (`LensBar` `layout="split"`), as the Ingredients board draws it.
+             * (`LensBar`), as the Ingredients board draws it.
              */}
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-ingredients-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures(list, t)}
                     {...statusLensMix(list, t)}
                     scope={
-                        <LensScope<string>
+                        <Select<string>
+                            trigger="pill"
                             testID="kitchen-ingredients-category"
                             label={t('kitchen:toolbar.categoryLabel')}
                             value={list.category ?? ALL_SCOPE}
@@ -247,9 +259,14 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                     onSearchChange={list.setQuery}
                     // A camera read goes into the search box: the server matches a code there as well
                     // as a name, which is also how a keyboard-wedge scan already works.
-                    onScan={(scan) => {
-                        list.setQuery(scan.data);
-                    }}
+                    scanAction={
+                        <CameraScanButton
+                            testID="kitchen-ingredients-toolbar-camera"
+                            onScan={(scan) => {
+                                list.setQuery(scan.data);
+                            }}
+                        />
+                    }
                     searchLabel={t('kitchen:toolbar.searchLabel')}
                     searchPlaceholder={t('kitchen:toolbar.searchIngredients')}
                     tokens={lensTokens(list, t, locale)}
@@ -324,7 +341,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                                 />
                             ) : null}
                             {canManage ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-ingredients-toolbar-create"
                                     label={t('kitchen:toolbar.create')}
                                     iconStart={<Icon name="plus" size="sm" />}
@@ -335,7 +352,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                     }
                 />
 
-                <CatalogueListBody
+                <DataTableBody
                     testID="kitchen-ingredients"
                     list={list}
                     empty={{
@@ -352,7 +369,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                             : undefined
                     }
                 >
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-ingredients-table"
                         joined
                         label={t('kitchen:list.caption')}
@@ -371,7 +388,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'view',
                                 label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `${ingredientRowTestId(row.id)}-view`,
                                 onSelect: () => {
                                     list.openView(row);
@@ -380,7 +397,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'edit',
                                 label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
+                                icon: DATA_TABLE_ROW_ICONS.edit,
                                 testID: `${ingredientRowTestId(row.id)}-open`,
                                 onSelect: () => {
                                     list.openEditor(String(row.id));
@@ -417,7 +434,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                                       {
                                           key: 'archive',
                                           label: t('kitchen:list.archive'),
-                                          icon: CATALOGUE_ROW_ICONS.archive,
+                                          icon: DATA_TABLE_ROW_ICONS.archive,
                                           tone: 'danger' as const,
                                           disabled:
                                               !row.isEditable || row.meta.status === 'retired',
@@ -430,7 +447,7 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                                 : []),
                         ]}
                     />
-                </CatalogueListBody>
+                </DataTableBody>
             </View>
 
             <Dialog
@@ -442,13 +459,13 @@ function IngredientsList({ view }: { readonly view?: string | undefined }) {
                 description={t('kitchen:editor.archiveBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-ingredients-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={list.cancelArchive}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-ingredients-archive-confirm"
                             variant="danger"
                             label={t('kitchen:editor.archiveConfirm')}

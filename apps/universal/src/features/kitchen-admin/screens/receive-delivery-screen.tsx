@@ -1,8 +1,12 @@
 import { formatGtin } from '@healthy360/api-client/contracts';
 import type { ReceivableOrder } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Checkbox,
-    DataList,
+    cx,
+    DataTable,
+    DatePicker,
     EmptyState,
     ErrorState,
     Icon,
@@ -10,13 +14,18 @@ import {
     SearchInput,
     Skeleton,
     Stack,
+    Tabs,
     Text,
     TextInputField,
-    cx,
     useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
-import type { DataListColumn, IssueCardItem, IssueTrayContent } from '@healthy360/design-system';
+import type {
+    DataListColumn,
+    IssueCardItem,
+    IssueTrayContent,
+    TabItem,
+} from '@healthy360/design-system';
 import { PurchaseOrderId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -73,12 +82,7 @@ import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
-import { DeskDateField } from '../desk-kit/desk-date-field.tsx';
 import { ReviewBox, StepCard } from '../process-parts.tsx';
-import { ProcessSteps } from '../process-steps.tsx';
-import type { ProcessStep } from '../process-steps.tsx';
 /**
  * `/kitchen/procurement/receive` — booking in a delivery against an issued order (SUP5, §7).
  *
@@ -328,7 +332,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             priority: 99,
             grow: false,
             render: (row) => (
-                <Text className="text-[13px] font-bold tabular-nums text-content-primary">
+                <Text className="text-role-body font-bold tabular-nums text-content-primary">
                     {row.number}
                 </Text>
             ),
@@ -339,7 +343,10 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             width: 200,
             priority: 90,
             render: (row) => (
-                <Text numberOfLines={1} className="text-[13px] font-semibold text-content-primary">
+                <Text
+                    numberOfLines={1}
+                    className="text-role-body font-semibold text-content-primary"
+                >
                     {row.supplier?.nameEn ?? t('kitchen:ops.procurement.noSupplier')}
                 </Text>
             ),
@@ -368,7 +375,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             grow: false,
             align: 'end',
             render: (row) => (
-                <Text className="text-[13px] font-bold tabular-nums text-content-primary">
+                <Text className="text-role-body font-bold tabular-nums text-content-primary">
                     {t('kitchen:ops.procurement.awaitingLines', {
                         count: row.outstandingLineCount,
                     })}
@@ -825,39 +832,52 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
         delivered: state.deliveredLineCount,
         skipped: state.skippedLineCount,
     });
-    const steps: readonly ProcessStep<ReceiveStep>[] = [
+    const steps: readonly TabItem<ReceiveStep>[] = [
         {
-            key: 'order',
+            value: 'order',
+            testID: 'kitchen-receive-steps-order',
             label: t('kitchen:ops.receiving.sectionOrder'),
-            caption:
+            detail:
                 selectedOrder === null
                     ? t('kitchen:ops.receiving.captionChooseOrder')
                     : selectedOrder.number,
             done: order !== undefined || (selectedOrder !== null && step !== 'order'),
-            issues: issuesOn('order'),
-            issuesLabel: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('order') }),
+            issues: {
+                count: issuesOn('order'),
+                tone: 'warning',
+                label: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('order') }),
+            },
         },
         {
-            key: 'delivery',
+            value: 'delivery',
+            testID: 'kitchen-receive-steps-delivery',
             label: t('kitchen:ops.receiving.sectionDelivery'),
-            caption: t('kitchen:ops.receiving.captionDelivery'),
+            detail: t('kitchen:ops.receiving.captionDelivery'),
             done: (step === 'lines' || step === 'check') && issuesOn('delivery') === 0,
-            issues: issuesOn('delivery'),
-            issuesLabel: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('delivery') }),
+            issues: {
+                count: issuesOn('delivery'),
+                tone: 'warning',
+                label: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('delivery') }),
+            },
         },
         {
-            key: 'lines',
+            value: 'lines',
+            testID: 'kitchen-receive-steps-lines',
             label: t('kitchen:ops.receiving.linesTitle'),
-            caption: summary,
+            detail: summary,
             done: step === 'check' && issuesOn('lines') === 0,
-            issues: issuesOn('lines'),
-            issuesLabel: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('lines') }),
+            issues: {
+                count: issuesOn('lines'),
+                tone: 'warning',
+                label: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('lines') }),
+            },
         },
         {
-            key: 'check',
+            value: 'check',
+            testID: 'kitchen-receive-steps-check',
             label: t('kitchen:ops.receiving.stepCheck'),
-            caption: outcome.label,
-            captionTone: outcome.tone === 'warning' ? 'warning' : undefined,
+            detail: outcome.label,
+            detailTone: outcome.tone === 'warning' ? 'warning' : undefined,
         },
     ];
 
@@ -875,7 +895,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             width: 220,
             priority: 100,
             render: (line) => (
-                <Text className="py-2 !text-sm !font-bold leading-[18px] text-content-primary">
+                <Text className="py-2 !text-role-body !font-bold leading-[18px] text-content-primary">
                     {line.itemLabel}
                 </Text>
             ),
@@ -888,10 +908,10 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             grow: false,
             render: (line) => (
                 <View className="h-9 flex-row items-center gap-1">
-                    <Text className="text-[15px] font-bold tabular-nums text-content-primary">
+                    <Text className="text-role-section font-bold tabular-nums text-content-primary">
                         {line.outstandingQuantity}
                     </Text>
-                    <Text className="text-[13px] font-medium text-content-secondary">
+                    <Text className="text-role-body font-medium text-content-secondary">
                         {unitOf(line)}
                     </Text>
                 </View>
@@ -920,7 +940,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                         className="w-full"
                         caution={exceedsOutstanding(line, lines)}
                         trailing={
-                            <Text className="text-xs font-medium text-content-secondary">
+                            <Text className="text-role-caption font-medium text-content-secondary">
                                 {unitOf(line)}
                             </Text>
                         }
@@ -1018,15 +1038,17 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             render: (line) => {
                 const index = lines.indexOf(line);
                 return (
-                    <DeskDateField
+                    <DatePicker
                         testID={`${lineFieldId(index, 'trace')}-expires`}
                         label={t('kitchen:barcodes.expiresLabel')}
                         labelHidden
-                        clearable
                         className="w-full"
                         value={line.expiresOn ?? ''}
                         onChange={(next) => {
-                            patchLine(index, { expiresOn: next ?? '' });
+                            patchLine(index, { expiresOn: next });
+                        }}
+                        onClear={() => {
+                            patchLine(index, { expiresOn: '' });
                         }}
                     />
                 );
@@ -1041,16 +1063,18 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
             render: (line) => {
                 const index = lines.indexOf(line);
                 return (
-                    <DeskDateField
+                    <DatePicker
                         testID={`${lineFieldId(index, 'trace')}-best-before`}
                         label={t('kitchen:barcodes.bestBeforeLabel')}
                         labelHidden
-                        clearable
                         align="end"
                         className="w-full"
                         value={line.bestBeforeOn ?? ''}
                         onChange={(next) => {
-                            patchLine(index, { bestBeforeOn: next ?? '' });
+                            patchLine(index, { bestBeforeOn: next });
+                        }}
+                        onClear={() => {
+                            patchLine(index, { bestBeforeOn: '' });
                         }}
                     />
                 );
@@ -1086,7 +1110,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                 {gtin === null ? null : (
                     <Text
                         testID={`${traceId}-gtin`}
-                        className="text-xs font-medium text-content-secondary"
+                        className="text-role-caption font-medium text-content-secondary"
                     >
                         {t('kitchen:barcodes.scannedProduct', {
                             gtin: `⁦${formatGtin(gtin)}⁩`,
@@ -1130,7 +1154,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                     ) : (
                         <Text
                             testID="kitchen-receive-order-header"
-                            className="text-[13px] font-medium tabular-nums text-content-secondary"
+                            className="text-role-body font-medium tabular-nums text-content-secondary"
                         >
                             <Text className="font-bold text-content-primary">
                                 {selectedOrder.number}
@@ -1153,7 +1177,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                 hideSave
                 primaryAction={
                     selectedOrder === null ? undefined : (
-                        <DeskButton
+                        <Button
                             testID="kitchen-receive-post"
                             label={t('kitchen:ops.receiving.post')}
                             iconStart={<Icon name="check" size="sm" />}
@@ -1195,10 +1219,11 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                     />
                 ) : (
                     <View testID="kitchen-receive-content" className="pb-2">
-                        <ProcessSteps<ReceiveStep>
+                        <Tabs<ReceiveStep>
+                            variant="pills"
                             testID="kitchen-receive-steps"
                             label={t('kitchen:ops.receiving.stepsLabel')}
-                            steps={steps}
+                            items={steps}
                             value={step}
                             onChange={setStep}
                         />
@@ -1225,7 +1250,8 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                 }
                             >
                                 {order === undefined ? (
-                                    <DataList<ReceivableOrder>
+                                    <DataTable<ReceivableOrder>
+                                        lines
                                         testID="kitchen-receive-order-picker"
                                         label={t('kitchen:ops.receiving.fieldOrder')}
                                         columns={pickColumns}
@@ -1248,14 +1274,14 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         testID="kitchen-receive-order-fixed"
                                         className="flex-row flex-wrap items-center gap-3.5 rounded-2xl bg-surface-sunken px-4 py-3.5"
                                     >
-                                        <Text className="font-display text-base font-bold tabular-nums text-content-primary">
+                                        <Text className="font-display text-role-section font-bold tabular-nums text-content-primary">
                                             {selectedOrder.number}
                                         </Text>
-                                        <Text className="text-sm font-semibold text-content-primary">
+                                        <Text className="text-role-body font-semibold text-content-primary">
                                             {selectedOrder.supplier?.nameEn ??
                                                 t('kitchen:ops.procurement.noSupplier')}
                                         </Text>
-                                        <Text className="text-[13px] font-medium text-content-secondary">
+                                        <Text className="text-role-body font-medium text-content-secondary">
                                             {[
                                                 selectedOrder.issuedAt === null
                                                     ? null
@@ -1273,7 +1299,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                 .join(' · ')}
                                         </Text>
                                         <View className="ms-auto">
-                                            <DeskChip
+                                            <Badge
                                                 tone="neutral"
                                                 label={t('kitchen:ops.receiving.orderFixed')}
                                             />
@@ -1289,7 +1315,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                 title={t('kitchen:ops.receiving.sectionDelivery')}
                             >
                                 <View className="flex-row flex-wrap items-start gap-3">
-                                    <DeskDateField
+                                    <DatePicker
                                         testID="kitchen-receive-received-on"
                                         id={RECEIVED_ON_ID}
                                         {...server.flag('received_on')}
@@ -1301,7 +1327,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         onChange={(next) => {
                                             editHeader((current) => ({
                                                 ...current,
-                                                receivedOn: next ?? '',
+                                                receivedOn: next,
                                             }));
                                         }}
                                     />
@@ -1340,11 +1366,10 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         }}
                                         className={field}
                                     />
-                                    <DeskDateField
+                                    <DatePicker
                                         testID="kitchen-receive-invoice-date"
                                         id={INVOICE_DATE_ID}
                                         {...server.flag('invoice_date')}
-                                        clearable
                                         align="end"
                                         label={t('kitchen:ops.receiving.fieldInvoiceDate')}
                                         value={header.invoiceDate}
@@ -1352,7 +1377,13 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         onChange={(next) => {
                                             editHeader((current) => ({
                                                 ...current,
-                                                invoiceDate: next ?? '',
+                                                invoiceDate: next,
+                                            }));
+                                        }}
+                                        onClear={() => {
+                                            editHeader((current) => ({
+                                                ...current,
+                                                invoiceDate: '',
                                             }));
                                         }}
                                     />
@@ -1366,12 +1397,12 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                         <Text
                                             role="heading"
                                             aria-level={3}
-                                            className="text-sm font-bold text-content-primary"
+                                            className="text-role-body font-bold text-content-primary"
                                         >
                                             {t('kitchen:ops.receiving.sectionCharges')}
                                         </Text>
                                         <View className="ms-auto">
-                                            <DeskButton
+                                            <Button
                                                 testID="kitchen-receive-charges-toggle"
                                                 size="sm"
                                                 variant="secondary"
@@ -1452,7 +1483,8 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                     />
                                 }
                             >
-                                <DataList<ReceiveLineDraft>
+                                <DataTable<ReceiveLineDraft>
+                                    lines
                                     testID="kitchen-receive-lines"
                                     label={t('kitchen:ops.receiving.linesTitle')}
                                     columns={lineColumns}
@@ -1600,7 +1632,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                             testID="kitchen-receive-confirm"
                                             title={t('kitchen:ops.receiving.thisDelivery')}
                                             trailing={
-                                                <DeskChip
+                                                <Badge
                                                     tone={outcome.tone}
                                                     testID={outcome.testID}
                                                     label={outcome.label}
@@ -1642,7 +1674,7 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                     />
                                                 ) : null}
                                             </View>
-                                            <Text className="mt-2.5 text-[13px] font-medium text-content-secondary">
+                                            <Text className="mt-2.5 text-role-body font-medium text-content-secondary">
                                                 {t('kitchen:ops.receiving.confirmDate', {
                                                     date: filedOn,
                                                 })}
@@ -1671,10 +1703,10 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                             size="sm"
                                                             className="text-content-on-brand-subtle"
                                                         />
-                                                        <Text className="text-xs font-semibold text-content-on-brand-subtle">
+                                                        <Text className="text-role-caption font-semibold text-content-on-brand-subtle">
                                                             {line.itemLabel.split(' — ').at(-1)}
                                                         </Text>
-                                                        <Text className="text-xs font-bold tabular-nums text-content-on-brand-subtle">
+                                                        <Text className="text-role-caption font-bold tabular-nums text-content-on-brand-subtle">
                                                             {t(
                                                                 'kitchen:ops.procurement.risesQuantity',
                                                                 {
@@ -1702,10 +1734,10 @@ function ReceiveDelivery({ order }: ReceiveDeliveryScreenProps) {
                                                             className="min-h-11 flex-row items-center gap-2.5 rounded-xl bg-danger-subtle py-1.5 pe-1.5 ps-3"
                                                         >
                                                             <View className="h-2 w-2 rounded-full bg-danger-strong" />
-                                                            <Text className="min-w-0 flex-1 text-[13px] font-semibold text-danger-on-subtle">
+                                                            <Text className="min-w-0 flex-1 text-role-body font-semibold text-danger-on-subtle">
                                                                 {fix.label}
                                                             </Text>
-                                                            <DeskButton
+                                                            <Button
                                                                 testID={`kitchen-receive-fix-${fix.key}-go`}
                                                                 size="sm"
                                                                 variant="secondary"
@@ -1756,7 +1788,7 @@ function ConfirmRow({
             <Text
                 testID={testID}
                 className={cx(
-                    'min-w-0 flex-1 text-sm',
+                    'min-w-0 flex-1 text-role-body',
                     strong
                         ? 'font-bold text-content-primary'
                         : 'font-medium text-content-secondary',
@@ -1773,7 +1805,10 @@ function RowMessage({ text, testID }: { readonly text: string; readonly testID?:
     return (
         <View className="flex-row items-center gap-2">
             <View className="h-2 w-2 rounded-full bg-warning-strong" />
-            <Text testID={testID} className="text-xs font-semibold text-warning-on-subtle">
+            <Text
+                testID={testID}
+                className="text-role-caption font-semibold text-warning-on-subtle"
+            >
                 {text}
             </Text>
         </View>

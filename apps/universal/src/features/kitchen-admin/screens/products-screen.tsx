@@ -1,6 +1,26 @@
 import type { ProductAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import { Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    ColumnPicker,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
+    DataTableBody,
+    Dialog,
+    Icon,
+    Inline,
+    LensBar,
+    Text,
+    useColumnControls,
+    useToast,
+} from '@healthy360/design-system';
+import type {
+    ColumnControl,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -10,18 +30,10 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
-import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
-import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { productColumns } from '../catalogue/product-columns.tsx';
 import type {
     ProductItemType,
@@ -42,10 +54,7 @@ import {
     statusTone,
     unitShortKey,
 } from '../format.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/products` — what this kitchen buys in and sells on as goods, rather than cooks. The
  * cooked kinds that were listed here too — sauces, dressings, frozen meals — are recipes in the
@@ -182,7 +191,7 @@ function ProductsList({
         [t, locale, formatter, categoryName],
     );
 
-    const controls = useColumnControls<ProductAdmin, CatalogueColumn<ProductAdmin>>(
+    const controls = useColumnControls<ProductAdmin, DataTableColumn<ProductAdmin>>(
         list.rows,
         columns.map((column) => ({ ...column, ...columnControl(column.key, list, t) })),
         'kitchen-products',
@@ -206,7 +215,6 @@ function ProductsList({
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-products-view"
-                look="sheet"
                 eyebrow={t('kitchen:recordView.eyebrowResale')}
                 photo={{
                     assetId: viewing.imagePlaceholderId,
@@ -253,7 +261,6 @@ function ProductsList({
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-products-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures(list, t, t(family.allLabel))}
@@ -275,7 +282,7 @@ function ProductsList({
                         canManage ? (
                             <Inline space="xs" align="center">
                                 <CatalogueTransferActions testID="kitchen-products-toolbar" />
-                                <DeskButton
+                                <Button
                                     testID="kitchen-products-toolbar-create"
                                     label={t(family.create)}
                                     iconStart={<Icon name="plus" size="sm" />}
@@ -286,7 +293,7 @@ function ProductsList({
                     }
                 />
 
-                <CatalogueListBody
+                <DataTableBody
                     testID="kitchen-products"
                     list={list}
                     empty={{ title: t(family.emptyTitle), body: t(family.emptyBody) }}
@@ -298,7 +305,7 @@ function ProductsList({
                         canManage ? { label: t(family.create), onPress: list.createNew } : undefined
                     }
                 >
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-products-table"
                         joined
                         label={t(family.caption)}
@@ -317,7 +324,7 @@ function ProductsList({
                             {
                                 key: 'view',
                                 label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `${productRowTestId(String(row.id))}-view`,
                                 onSelect: () => {
                                     list.openView(row);
@@ -326,7 +333,7 @@ function ProductsList({
                             {
                                 key: 'edit',
                                 label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
+                                icon: DATA_TABLE_ROW_ICONS.edit,
                                 testID: `${productRowTestId(String(row.id))}-open`,
                                 onSelect: () => {
                                     list.openEditor(String(row.id));
@@ -339,7 +346,7 @@ function ProductsList({
                                       {
                                           key: 'archive',
                                           label: t('kitchen:list.archive'),
-                                          icon: CATALOGUE_ROW_ICONS.archive,
+                                          icon: DATA_TABLE_ROW_ICONS.archive,
                                           tone: 'danger' as const,
                                           testID: `${productRowTestId(String(row.id))}-archive`,
                                           onSelect: () => {
@@ -350,7 +357,7 @@ function ProductsList({
                                 : []),
                         ]}
                     />
-                </CatalogueListBody>
+                </DataTableBody>
             </View>
 
             {/*
@@ -367,13 +374,13 @@ function ProductsList({
                 description={t('kitchen:products.archiveBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-products-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={list.cancelArchive}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-products-archive-confirm"
                             variant="danger"
                             label={t('kitchen:products.archiveConfirm')}
@@ -432,10 +439,10 @@ function channelChips(row: ProductAdmin, t: TFunction): ReactNode {
     const channels = availableChannels(row.channelAvailability);
 
     return channels.length === 0 ? (
-        <DeskChip tone="neutral" label={t('kitchen:products.noChannels')} />
+        <Badge tone="neutral" label={t('kitchen:products.noChannels')} />
     ) : (
         channels.map((channel) => (
-            <DeskChip key={channel} tone="info" label={t(channelKey(channel))} />
+            <Badge key={channel} tone="info" label={t(channelKey(channel))} />
         ))
     );
 }

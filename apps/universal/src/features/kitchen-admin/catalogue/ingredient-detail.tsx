@@ -1,6 +1,20 @@
 import type { IngredientAdmin } from '@healthy360/api-client/contracts';
 import type { ReactNode } from 'react';
-import { Cascade, InfoTip, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Cascade,
+    InfoTip,
+    RecordFigures,
+    RecordSheetHead,
+    SheetCard,
+    SheetColumns,
+    SheetFacts,
+    SheetTagRows,
+    SheetText,
+    Text,
+    TileEmpty,
+} from '@healthy360/design-system';
+import type { SheetFigure } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { coreNutrientDefinition, findAmount } from '@healthy360/nutrition';
 import { useTranslation } from 'react-i18next';
@@ -9,22 +23,10 @@ import type { DimensionValue } from 'react-native';
 
 import { PhotoCredit } from '../../../media/photo-credit.tsx';
 import { displayName, statusShortKey, statusTone, unitKey, unitShortKey } from '../format.ts';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 import { allergenLabel } from '../ops-format.ts';
 import { ingredientStockPhotoId } from './ingredient-photo.ts';
 import { primaryMenuAction, RecordPopup } from './record-popup.tsx';
-import {
-    RecordFigures,
-    RecordSheetHead,
-    RecordThumb,
-    SheetCard,
-    SheetColumns,
-    SheetFacts,
-    SheetTagRows,
-    SheetText,
-} from './record-sheet.tsx';
-import type { SheetFigure } from './record-sheet.tsx';
-import { TileEmpty } from './record-tiles.tsx';
+import { RecordThumb } from './record-thumb.tsx';
 import { SegmentBar, SegmentKey } from './segment-bar.tsx';
 
 /**
@@ -257,7 +259,7 @@ export function IngredientDetail({
     const nutritionBadges = [
         ...(ingredient.nutritionEstimated === true
             ? [
-                  <DeskChip
+                  <Badge
                       key="estimated"
                       testID={`${testID}-nutrition-estimated`}
                       tone="warning"
@@ -268,7 +270,7 @@ export function IngredientDetail({
         ...(ingredient.nutritionDerivedFromVersionId === null
             ? []
             : [
-                  <DeskChip
+                  <Badge
                       key="derived"
                       testID={`${testID}-nutrition-derived`}
                       tone="info"
@@ -333,7 +335,7 @@ export function IngredientDetail({
     const assessed = ingredient.allergens.length > 0 || ingredient.allergensAssessedClear === true;
     const reviewRequired = ingredient.allergenReviewRequired === true;
     const quiet = (key: string) => (
-        <RNText testID={`${testID}-${key}`} className="pt-1 text-base text-content-secondary">
+        <RNText testID={`${testID}-${key}`} className="pt-1 text-role-body text-content-secondary">
             {dash}
         </RNText>
     );
@@ -344,7 +346,7 @@ export function IngredientDetail({
             : found.map((mapping) => {
                   const code = String(mapping.allergenCode);
                   return (
-                      <DeskChip
+                      <Badge
                           key={code}
                           testID={`${testID}-allergen-${code}-${containment}`}
                           tone={containment === 'contains' ? 'danger' : 'warning'}
@@ -377,7 +379,7 @@ export function IngredientDetail({
                                   label: t('kitchen:recordSheet.contains'),
                                   content:
                                       ingredient.allergens.length === 0 ? (
-                                          <DeskChip
+                                          <Badge
                                               testID={`${testID}-allergens-clear`}
                                               tone="success"
                                               size="lg"
@@ -401,7 +403,7 @@ export function IngredientDetail({
                             ingredient.dietClassifications.length === 0
                                 ? quiet('no-diets')
                                 : ingredient.dietClassifications.map((diet) => (
-                                      <DeskChip
+                                      <Badge
                                           key={diet}
                                           testID={`${testID}-diet-${diet}`}
                                           tone="info"
@@ -416,7 +418,7 @@ export function IngredientDetail({
                         content: (
                             <RNText
                                 testID={`${testID}-allergens-checked`}
-                                className={`pt-1 text-base font-semibold ${
+                                className={`pt-1 text-role-section font-semibold ${
                                     reviewRequired || !assessed
                                         ? 'text-warning-strong'
                                         : 'text-content-primary'
@@ -462,15 +464,15 @@ export function IngredientDetail({
                     <View className="flex-row items-baseline gap-2 rounded-xl border border-stroke-subtle bg-surface-sunken px-4 py-3">
                         <RNText
                             testID={`${testID}-energy-line`}
-                            className="font-display text-3xl font-bold tabular-nums text-content-primary"
+                            className="font-display text-role-title font-bold tabular-nums text-content-primary"
                         >
                             {energy?.value ?? dash}
                         </RNText>
-                        <RNText className="text-sm font-semibold text-content-secondary">
+                        <RNText className="text-role-body font-semibold text-content-secondary">
                             {kcal}
                         </RNText>
                         {energy?.share == null ? null : (
-                            <RNText className="ms-auto text-sm font-semibold tabular-nums text-content-primary">
+                            <RNText className="ms-auto text-role-body font-semibold tabular-nums text-content-primary">
                                 {t('kitchen:ingredientDetail.energyShareOfRi', {
                                     percent: wholePercent(energy.share),
                                 })}
@@ -493,7 +495,7 @@ export function IngredientDetail({
                                     <View className="min-w-0 flex-1">
                                         <RNText
                                             numberOfLines={1}
-                                            className={`text-sm text-start ${
+                                            className={`text-role-body text-start ${
                                                 row.sub === true
                                                     ? 'text-content-secondary'
                                                     : 'font-semibold text-content-primary'
@@ -512,10 +514,10 @@ export function IngredientDetail({
                                             />
                                         )}
                                     </View>
-                                    <RNText className="w-20 text-end text-sm font-semibold tabular-nums text-content-primary">
+                                    <RNText className="w-20 text-end text-role-body font-semibold tabular-nums text-content-primary">
                                         {`${row.figure.value} ${row.unit}`}
                                     </RNText>
-                                    <RNText className="w-12 text-end text-sm font-semibold tabular-nums text-content-secondary">
+                                    <RNText className="w-12 text-end text-role-body font-semibold tabular-nums text-content-secondary">
                                         {row.figure.share === null
                                             ? dash
                                             : `${wholePercent(row.figure.share)} %`}
@@ -692,7 +694,7 @@ export function IngredientDetail({
                                                 ingredient.aliases.length === 0
                                                     ? dash
                                                     : ingredient.aliases.map((alias) => (
-                                                          <DeskChip
+                                                          <Badge
                                                               key={alias}
                                                               tone="neutral"
                                                               size="lg"

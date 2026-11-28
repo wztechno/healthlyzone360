@@ -14,7 +14,7 @@ import { StockScreen } from './screens/stock-screen.tsx';
 // jest-expo runs as iOS, where nothing can be saved; the Export tests below say this build can.
 jest.mock('./save-download.ts');
 
-/** The desk width the kitchen list is built for; narrower, `CatalogueList` draws its phone rows. */
+/** The desk width the kitchen list is built for; narrower, `DataTable` draws its phone rows. */
 jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
     __esModule: true,
     default: () => ({ width: 1280, height: 900, scale: 1, fontScale: 1 }),

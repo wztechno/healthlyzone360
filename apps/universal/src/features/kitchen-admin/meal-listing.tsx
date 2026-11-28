@@ -6,6 +6,9 @@ import type {
     ProductionMode,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    BilingualField,
+    Button,
     Callout,
     Dialog,
     ErrorState,
@@ -16,6 +19,7 @@ import {
     Icon,
     InfoTip,
     Inline,
+    InlineChecksButton,
     IssueTrayFrame,
     IssueUnanchored,
     Select,
@@ -38,7 +42,6 @@ import { View } from 'react-native';
 
 import { Gate, useCan } from '../../access/gate.tsx';
 import { DishOptionsSection } from './dish-options-section.tsx';
-import { InlineChecksButton } from './inline-checks-button.tsx';
 import { toFailure } from '../../data/hooks.ts';
 import { useDishOptionsQuery } from '../../data/order-desk-hooks.ts';
 import {
@@ -51,7 +54,6 @@ import {
     useUpdateMealMutation,
 } from '../../data/kitchen-admin-hooks.ts';
 import { useProcurementReferenceQuery } from '../../data/kitchen-ops-hooks.ts';
-import { BilingualField } from './bilingual-field.tsx';
 import {
     MealAvailabilityEditor,
     availabilityErrors,
@@ -93,8 +95,6 @@ import { useNudgeOnRefusal } from './tray-nudge.ts';
 import { useOptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from './use-unsaved-guard.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * A meal's listing — the Selling tab of its page, and the one form in this workspace whose save a
  * shopper can see.
@@ -1047,7 +1047,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                      * the only way the person who pressed Publish can check what they published.
                      */}
                     {isPublished && data !== undefined ? (
-                        <DeskButton
+                        <Button
                             testID="kitchen-meal-view-public"
                             variant="quiet"
                             label={t('kitchen:meals.viewPublic')}
@@ -1066,7 +1066,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         />
                     ) : null}
                     {!canManage ? null : isPublished ? (
-                        <DeskButton
+                        <Button
                             testID="kitchen-meal-retire"
                             variant="secondary"
                             label={t('kitchen:meals.retire')}
@@ -1075,7 +1075,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                             }}
                         />
                     ) : (
-                        <DeskButton
+                        <Button
                             testID="kitchen-meal-publish"
                             label={t('kitchen:publish.action')}
                             // Visibly disabled while any check in the tray fails. The dialog's
@@ -1127,7 +1127,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                     }
                                 />
                             )}
-                            <DeskChip
+                            <Badge
                                 testID="kitchen-meal-allergens-source"
                                 tone="neutral"
                                 label={t('kitchen:meals.allergensFromRecipe')}
@@ -1150,7 +1150,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         ) : (
                             <Inline space="xs" wrap>
                                 {data.allergens.map((code) => (
-                                    <DeskChip
+                                    <Badge
                                         key={code}
                                         testID={`kitchen-meal-allergen-${String(code)}`}
                                         tone="danger"
@@ -1462,7 +1462,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                     }
                     actions={
                         !canManage ? undefined : (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-meal-availability-add"
                                 size="sm"
                                 variant="secondary"
@@ -1513,7 +1513,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                          */}
                         {!canManage || !daysDirty || onRegisterSave !== undefined ? null : (
                             <Inline space="sm" wrap justify="end">
-                                <DeskButton
+                                <Button
                                     testID="kitchen-meal-availability-save"
                                     variant="secondary"
                                     label={t('kitchen:availability.save')}
@@ -1566,7 +1566,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                 description={t('kitchen:meals.publishBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-meal-publish-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -1574,7 +1574,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 setShowPublish(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-meal-publish-confirm"
                             label={t('kitchen:publish.confirm')}
                             loading={publish.isPending}
@@ -1625,7 +1625,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                         ) : (
                             <Inline space="xs" wrap>
                                 {data.allergens.map((code) => (
-                                    <DeskChip
+                                    <Badge
                                         key={code}
                                         testID={`kitchen-meal-publish-allergen-${String(code)}`}
                                         tone="danger"
@@ -1695,7 +1695,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                 description={t('kitchen:meals.retireBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-meal-retire-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -1703,7 +1703,7 @@ function MealListingEditor({ meal, onDirtyChange, onRegisterSave, returnHref }: 
                                 setShowRetire(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-meal-retire-confirm"
                             variant="danger"
                             label={t('kitchen:meals.retireConfirm')}

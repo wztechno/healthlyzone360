@@ -1,9 +1,8 @@
-import { DATA_LIST_HEAD_TEXT_CLASS, Icon } from '@healthy360/design-system';
+import { Button, DATA_LIST_HEAD_TEXT_CLASS, Icon } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { Platform, Text as RNText, ScrollView, View } from 'react-native';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { cellVariants } from '../plan-matrix.ts';
 import type { MatrixBand, MatrixRow, VariantDraft } from '../plan-matrix.ts';
 
@@ -99,11 +98,11 @@ export function PlanMatrixGrid({
                 className="min-h-14 flex-row items-center gap-2.5 rounded-2xl border border-dashed border-stroke px-3.5 py-2.5"
             >
                 <Icon name="layoutGrid" size="md" className="text-content-secondary" />
-                <RNText className="min-w-0 flex-1 text-sm font-medium text-content-secondary text-start">
+                <RNText className="min-w-0 flex-1 text-role-body font-medium text-content-secondary text-start">
                     {t('kitchen:plans.matrixEmpty')}
                 </RNText>
                 {onOpenConfigurations === undefined ? null : (
-                    <DeskButton
+                    <Button
                         testID={`${testID}-open-variants`}
                         variant="quiet"
                         size="sm"
@@ -160,7 +159,7 @@ export function PlanMatrixGrid({
                         >
                             <RNText
                                 numberOfLines={2}
-                                className="text-sm font-bold text-content-primary text-start"
+                                className="text-role-body font-bold text-content-primary text-start"
                             >
                                 {row.combination === null || row.combination.label.en.trim() === ''
                                     ? servings(row)
@@ -202,8 +201,8 @@ export function PlanMatrixGrid({
                                         <RNText
                                             className={
                                                 sold
-                                                    ? 'text-[13px] font-bold text-content-on-brand-subtle text-start'
-                                                    : 'text-[13px] font-medium text-content-secondary text-start'
+                                                    ? 'text-role-body font-bold text-content-on-brand-subtle text-start'
+                                                    : 'text-role-body font-medium text-content-secondary text-start'
                                             }
                                         >
                                             {word}
@@ -212,7 +211,7 @@ export function PlanMatrixGrid({
                                             <RNText
                                                 testID={`${cellId}-count`}
                                                 numberOfLines={1}
-                                                className="text-xs font-medium text-content-on-brand-subtle text-start"
+                                                className="text-role-caption font-medium text-content-on-brand-subtle text-start"
                                             >
                                                 {t('kitchen:plans.cellVariantCount', {
                                                     count: occupants.length,
@@ -222,7 +221,7 @@ export function PlanMatrixGrid({
                                             <RNText
                                                 testID={`${cellId}-name`}
                                                 numberOfLines={1}
-                                                className="text-xs font-medium text-content-on-brand-subtle text-start"
+                                                className="text-role-caption font-medium text-content-on-brand-subtle text-start"
                                             >
                                                 {variantName(first)}
                                             </RNText>

@@ -1,9 +1,11 @@
 import type { DeliveryWindow } from '@healthy360/api-client/contracts';
 import {
+    Button,
     Cascade,
     Dialog,
     EmptyState,
     ErrorState,
+    FailureToast,
     FormSection,
     FormSkeleton,
     Icon,
@@ -38,8 +40,6 @@ import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.ts
 import { serverFieldErrors } from '../server-field-errors.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/delivery-windows` — the kitchen's delivery slots, org-wide.
  *
@@ -285,7 +285,7 @@ function DeliveryWindowsEditor() {
                     body={t('kitchen:deliveryWindows.emptyBody')}
                     actions={
                         canManage ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-windows-empty-add"
                                 variant="secondary"
                                 iconStart={<Icon name="plus" />}
@@ -361,7 +361,7 @@ function DeliveryWindowsEditor() {
                 description={t('kitchen:windows.archiveBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-windows-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -369,7 +369,7 @@ function DeliveryWindowsEditor() {
                                 setArchiving(null);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-windows-archive-confirm"
                             variant="danger"
                             label={t('kitchen:windows.archiveConfirm')}

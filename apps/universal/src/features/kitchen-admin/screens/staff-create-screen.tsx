@@ -1,20 +1,5 @@
 import type { CreateStaffAccountRequest } from '@healthy360/api-client/contracts';
-import {
-    Cascade,
-    Dialog,
-    FormGrid,
-    FormSection,
-    Icon,
-    IconButton,
-    IssueTrayFrame,
-    SegmentedControl,
-    Select,
-    Stack,
-    Text,
-    TextInputField,
-    useIssueTrayController,
-    useToast,
-} from '@healthy360/design-system';
+import { Button, Cascade, Dialog, FormGrid, FormSection, Icon, IconButton, IssueTrayFrame, SegmentedControl, Select, Stack, Text, TextInputField, useIssueTrayController, useToast } from '@healthy360/design-system';
 import type { IssueCardItem, IssueTrayContent, TabItem } from '@healthy360/design-system';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -39,7 +24,6 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/team/new` — letting somebody in, two ways (AA1).
  *
@@ -509,7 +493,7 @@ function StaffCreateForm() {
                     dirty={guard.isDirty}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-staff-create-cancel"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -518,7 +502,7 @@ function StaffCreateForm() {
                                 }}
                             />
                             {/* The commit, last, on every step. */}
-                            <DeskButton
+                            <Button
                                 testID="kitchen-staff-create-submit"
                                 label={t(
                                     mode === 'invite'
@@ -787,7 +771,7 @@ function StaffCreateForm() {
                 title={t('accessAdmin:add.passwordTitle')}
                 description={t('accessAdmin:add.passwordBody', { name: issued?.name ?? '' })}
                 actions={
-                    <DeskButton
+                    <Button
                         testID="kitchen-staff-create-password-acknowledge"
                         label={t('accessAdmin:add.passwordAcknowledge')}
                         onPress={() => {

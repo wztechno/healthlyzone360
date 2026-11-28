@@ -1,11 +1,10 @@
 import type { Supplier } from '@healthy360/api-client/contracts';
-import { Dialog, FormGrid, Stack, Text, TextInputField } from '@healthy360/design-system';
+import { Button, Dialog, FormGrid, Stack, Text, TextInputField } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { toFailure } from '../../data/hooks.ts';
 import { useCreateSupplierMutation } from '../../data/kitchen-ops-hooks.ts';
-import { DeskButton } from './desk-kit/desk-button.tsx';
 import { serverFieldErrors } from './server-field-errors.ts';
 
 /** The only currency this system prices in, so it is the only honest answer. */
@@ -106,13 +105,13 @@ export function NewSupplierDialog({
             description={t('kitchen:ops.procurement.newSupplierBody')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID={`${testID}-cancel`}
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={close}
                     />
-                    <DeskButton
+                    <Button
                         testID={`${testID}-confirm`}
                         label={t('kitchen:ops.procurement.newSupplierSave')}
                         loading={createSupplier.isPending}

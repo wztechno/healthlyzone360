@@ -6,19 +6,36 @@ import type {
     KitchenQuotationStatus,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Callout,
     Cascade,
+    ColumnPicker,
+    compareText,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     FormSection,
+    LensBar,
     RecordSkeleton,
+    RecordSummaryAside,
     RecordWindowFieldGrid,
     Stack,
     TableSkeleton,
     Text,
+    useColumnControls,
+    useTablePort,
     useToast,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensMixPart,
+    LensTone,
+    MenuItem,
+} from '@healthy360/design-system';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -35,14 +52,6 @@ import {
     useQuoteQuotationMutation,
 } from '../../../data/kitchen-quotations-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { useCataloguePort } from '../catalogue/catalogue-nav.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart, LensTone } from '../catalogue/lens-bar.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { quotationLineColumns } from '../commercial/quotation-line-columns.tsx';
 import {
     B2B_QUOTATION_QUOTE_PERMISSION,
@@ -58,17 +67,12 @@ import {
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { focusField } from '../field-focus.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { EditorGuardDialogs, RecordFormOpening } from '../record-form-opening.tsx';
 import { useUnsavedGuardFor } from '../use-unsaved-guard.ts';
-import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 
 import { PageBackPill } from '../../../shell/area-trail.tsx';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The request `?view=` names, read on its own when the loaded page does not hold it. */
 function useQuotationById(id: string | null) {
     const parsed = QuotationId.safeParse(id);
@@ -185,7 +189,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
 
     const columns: readonly ControlledColumn<
         KitchenQuotation,
-        CatalogueColumn<KitchenQuotation>
+        DataTableColumn<KitchenQuotation>
     >[] = [
         {
             key: 'reference',
@@ -286,7 +290,8 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                 match: (row, value) => row.status === value,
             },
             render: (row) => (
-                <DeskStatusDot
+                <Badge
+                    variant="dot"
                     testID={`${kitchenQuotationRowTestId(String(row.id))}-status`}
                     tone={kitchenQuotationStatusTone(row.status)}
                     label={t(kitchenQuotationStatusKey(row.status))}
@@ -324,7 +329,6 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-quotations-view"
-                look="sheet"
                 eyebrow={t('kitchen:recordView.eyebrowQuotations')}
                 onBack={() => {
                     setViewing(null);
@@ -363,7 +367,6 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-quotations-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures(all, pending, filter, t, (next) => {
@@ -434,7 +437,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                         )}
                         actions={
                             unfiltered ? undefined : (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-quotations-clear"
                                     variant="secondary"
                                     size="sm"
@@ -445,7 +448,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                         }
                     />
                 ) : (
-                    <CatalogueList<KitchenQuotation>
+                    <DataTable<KitchenQuotation>
                         testID="kitchen-quotations-table"
                         joined
                         label={t('kitchen:ops.quotations.caption')}
@@ -461,7 +464,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'view',
                                 label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `${kitchenQuotationRowTestId(String(row.id))}-view`,
                                 onSelect: () => {
                                     setViewing(row);
@@ -470,7 +473,7 @@ function Quotations({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'edit',
                                 label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
+                                icon: DATA_TABLE_ROW_ICONS.edit,
                                 testID: `${kitchenQuotationRowTestId(String(row.id))}-open`,
                                 onSelect: () => {
                                     setOpenId(row.id);
@@ -523,7 +526,7 @@ function QuotationPricing({
     const [prices, setPrices] = useState<Readonly<Record<string, string>>>({});
     const detail = useKitchenQuotationQuery(id);
     const quote = useQuoteQuotationMutation();
-    const port = useCataloguePort();
+    const port = useTablePort();
 
     const quotation = detail.data ?? null;
     const lines: readonly KitchenQuotationLine[] = quotation?.lines ?? NO_LINES;
@@ -685,7 +688,7 @@ function QuotationPricing({
                 })}
                 dirty={dirty}
                 badges={
-                    <DeskChip
+                    <Badge
                         testID="kitchen-quotations-detail-status"
                         tone={kitchenQuotationStatusTone(quotation.status)}
                         label={t(kitchenQuotationStatusKey(quotation.status))}
@@ -710,7 +713,7 @@ function QuotationPricing({
                     <>
                         {backButton}
                         {editable ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-quotations-send"
                                 label={t('kitchen:ops.quotations.send')}
                                 loading={quote.isPending}
@@ -744,7 +747,7 @@ function QuotationPricing({
                                     : 'kitchen:ops.quotations.conflictTitle',
                             )}
                             actions={
-                                <DeskButton
+                                <Button
                                     testID="kitchen-quotations-conflict-refresh"
                                     size="sm"
                                     variant="secondary"
@@ -807,7 +810,7 @@ function QuotationPricing({
                                 {t('kitchen:ops.quotations.noLines')}
                             </Text>
                         ) : (
-                            <CatalogueList<KitchenQuotationLine>
+                            <DataTable<KitchenQuotationLine>
                                 testID="kitchen-quotations-detail-lines"
                                 label={t('kitchen:ops.quotations.linesHeading')}
                                 columns={lineControls.columns}

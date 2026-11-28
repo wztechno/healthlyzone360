@@ -1,13 +1,8 @@
-import { FormSection } from '@healthy360/design-system';
+import { ColumnPicker, DataTable, FormSection, useColumnControls } from '@healthy360/design-system';
+import type { ColumnControls, ControlledColumn, DataTableColumn } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
-
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import type { ColumnControls, ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 
 /**
  * Every table in the production flow, drawn one way.
@@ -20,13 +15,13 @@ import { useColumnControls } from '../catalogue/use-column-controls.tsx';
  * ```
  *
  * The batch planner, the new batch's preview, a batch's plan and its claimed lines each drew their
- * tables differently — a `Table`, a bare `DataList` under a heading, a `CatalogueList` in a section
+ * tables differently — a `Table`, a bare `DataList` under a heading, a `DataTable` in a section
  * — so the same shelf looked like a different thing at every step. This is the batch planner's
  * shape, once: a `FormSection` whose title names the table, the `ColumnPicker` at its end, and the
- * admin's `CatalogueList` at `sm` with headers that sort and filter from the column spec.
+ * admin's `DataTable` at `sm` with headers that sort and filter from the column spec.
  *
  * In-memory rows only: every production table holds the whole set, so the hook sorts and filters
- * what it was given and `CatalogueList` pages it like any other admin table.
+ * what it was given and `DataTable` pages it like any other admin table.
  */
 
 export interface ProductionTableProps<Row> {
@@ -42,7 +37,7 @@ export interface ProductionTableProps<Row> {
     /** No hairline over it: the first section of its column. */
     readonly first?: boolean | undefined;
     readonly rows: readonly Row[];
-    readonly columns: readonly ControlledColumn<Row, CatalogueColumn<Row>>[];
+    readonly columns: readonly ControlledColumn<Row, DataTableColumn<Row>>[];
     readonly rowKey: (row: Row) => string;
     /** Drawn in place of the list, with no column picker, when there are no rows. */
     readonly empty?: ReactNode | undefined;
@@ -62,7 +57,7 @@ export interface ProductionTableSectionProps<Row> extends Omit<
     'columns'
 > {
     /** The table's column controls, from a `useColumnControls` the screen owns. */
-    readonly controls: ColumnControls<Row, CatalogueColumn<Row>>;
+    readonly controls: ColumnControls<Row, DataTableColumn<Row>>;
     /** Draws the `ColumnPicker` at the section's end. Off when the screen draws it elsewhere. */
     readonly picker?: boolean | undefined;
 }
@@ -92,7 +87,7 @@ export function ProductionTableSection<Row>({
         rows.length === 0 && empty !== undefined ? (
             empty
         ) : (
-            <CatalogueList<Row>
+            <DataTable<Row>
                 testID={testID}
                 label={title}
                 columns={controls.columns}

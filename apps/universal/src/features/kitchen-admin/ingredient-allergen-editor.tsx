@@ -6,8 +6,10 @@ import type {
     IngredientAllergenMapping,
 } from '@healthy360/api-client/contracts';
 import {
+    Button,
     Callout,
     Checkbox,
+    FailureToast,
     Inline,
     Stack,
     Text,
@@ -33,8 +35,6 @@ import { AllergenReferenceSource } from './allergen-reference-source.tsx';
 import { displayName } from './format.ts';
 import { serverFieldErrors } from './server-field-errors.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
-import { FailureToast } from './failure-toast.tsx';
 type Choice = AllergenChoice;
 
 export interface IngredientAllergenEditorProps {
@@ -217,7 +217,7 @@ export function IngredientAllergenEditor({
                 />
             ) : null}
             {selection === undefined ? null : (
-                <DeskButton
+                <Button
                     testID="allergen-reference-import"
                     label={t('kitchen:allergenLookup.import')}
                     loading={importReference.isPending}
@@ -319,7 +319,7 @@ export function IngredientAllergenEditor({
                                     {/* `Button` holds itself to the top; the wrapper lines it up
                                         with the input box. */}
                                     <View>
-                                        <DeskButton
+                                        <Button
                                             testID="allergen-review-confirm"
                                             variant="primary"
                                             label={t('kitchen:nutritionLookup.confirmReview')}
@@ -415,7 +415,7 @@ export function IngredientAllergenEditor({
 
             {fromLookup ? null : (
                 <Inline justify="end">
-                    <DeskButton
+                    <Button
                         testID="kitchen-ingredient-mapping-save"
                         variant="primary"
                         size="sm"

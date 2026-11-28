@@ -1,13 +1,30 @@
 import type { Supplier } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
+    Select,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+    SelectOption,
+    SortDirection,
+} from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -18,22 +35,10 @@ import { View } from 'react-native';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useSuppliersQuery } from '../../../data/kitchen-ops-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensScopeOption } from '../catalogue/lens-bar.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { supplierRowTestId } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
     useListMemory,
     useRememberedFilter,
@@ -43,8 +48,6 @@ import {
 import { useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/suppliers` — who this kitchen buys from (SUP1), on the Catalogue list (Operations
  * design, `suppliers`).
@@ -215,7 +218,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
         );
     };
 
-    const columns: readonly ControlledColumn<Supplier, CatalogueColumn<Supplier>>[] = [
+    const columns: readonly ControlledColumn<Supplier, DataTableColumn<Supplier>>[] = [
         {
             key: 'name',
             role: 'title',
@@ -238,7 +241,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                                 {displayName(row.name, locale).value}
                             </Text>
                             {row.archivedAt === null ? null : (
-                                <DeskChip
+                                <Badge
                                     testID={`${testID}-archived`}
                                     tone="neutral"
                                     label={t('kitchen:ops.suppliers.archivedBadge')}
@@ -332,7 +335,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
     // The archive switch is a scope, not a filter: Clear leaves it, as the Lens bar's scopes do.
     const searchedOrFiltered = trimmed !== '' || controls.filtered;
 
-    const segments: readonly LensScopeOption<ArchiveSegment>[] = [
+    const segments: readonly SelectOption<ArchiveSegment>[] = [
         {
             value: 'active',
             label: t('kitchen:ops.suppliers.segmentActive'),
@@ -352,7 +355,6 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-suppliers-view"
-                look="sheet"
                 figureKeys={['items', 'terms', 'currency']}
                 eyebrow={t('kitchen:recordView.eyebrowSuppliers')}
                 onBack={() => {
@@ -418,7 +420,6 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-suppliers-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures(
@@ -427,7 +428,8 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                         t,
                     )}
                     scope={
-                        <LensScope<ArchiveSegment>
+                        <Select<ArchiveSegment>
+                            trigger="pill"
                             testID="kitchen-suppliers-toolbar-status"
                             label={t('kitchen:ops.suppliers.segmentLabel')}
                             value={segment}
@@ -465,7 +467,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-suppliers-toolbar-create"
                                 label={t('kitchen:ops.suppliers.create')}
                                 iconStart={<Icon name="plus" size="sm" />}
@@ -492,7 +494,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                         retrying={suppliers.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-suppliers-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -520,7 +522,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                         }
                     />
                 ) : (
-                    <CatalogueList<Supplier>
+                    <DataTable<Supplier>
                         testID="kitchen-suppliers-table"
                         joined
                         label={t('kitchen:ops.suppliers.caption')}
@@ -543,7 +545,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'view',
                                 label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `${supplierRowTestId(String(row.id))}-view`,
                                 onSelect: () => {
                                     rememberOpened(String(row.id));
@@ -553,7 +555,7 @@ function SuppliersList({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'open',
                                 label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
+                                icon: DATA_TABLE_ROW_ICONS.edit,
                                 testID: `${supplierRowTestId(String(row.id))}-open`,
                                 onSelect: () => {
                                     openRecord(row);

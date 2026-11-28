@@ -1,16 +1,5 @@
 import type { ProductionOrderLine } from '@healthy360/api-client/contracts';
-import {
-    DataList,
-    DateField,
-    Dialog,
-    Heading,
-    InfoTip,
-    Inline,
-    QuantityInput,
-    Stack,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
+import { Button, DataTable, DatePicker, Dialog, Heading, InfoTip, Inline, QuantityInput, Stack, Text, TextInputField } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
@@ -30,7 +19,6 @@ import {
     withLineQuantity,
 } from './completion-model.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * What the cook says actually happened (PROD1).
  *
@@ -261,14 +249,14 @@ export function BatchSettlementDialog({
             }
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID={`${testID}-cancel`}
                         variant="quiet"
                         size="sm"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID={`${testID}-submit`}
                         variant={mode === 'abandon' ? 'danger' : 'primary'}
                         size="sm"
@@ -337,10 +325,11 @@ export function BatchSettlementDialog({
                     </Inline>
                     {/*
                      * A plain `DataList`, unframed: inside a window a raised panel is a card on a
-                     * card. Not `CatalogueList` either — that one pages at eighteen rows and turns
+                     * card. Not `DataTable` either — that one pages at eighteen rows and turns
                      * two-line below `md`, and either would hide an input.
                      */}
-                    <DataList<ProductionOrderLine>
+                    <DataTable<ProductionOrderLine>
+                        lines
                         testID={`${testID}-lines`}
                         label={t('kitchen:ops.production.consumedHeading')}
                         columns={columns}
@@ -353,7 +342,7 @@ export function BatchSettlementDialog({
 
             <View className="flex-row items-start gap-base">
                 <View className="min-w-0 flex-1">
-                    <DateField
+                    <DatePicker
                         testID={`${testID}-production-date`}
                         id={`${testID}-production-date`}
                         label={t('kitchen:ops.production.productionDateLabel')}
@@ -365,7 +354,7 @@ export function BatchSettlementDialog({
                 </View>
                 <View className="min-w-0 flex-1">
                     {shelfLifeDays === null ? (
-                        <DateField
+                        <DatePicker
                             testID={`${testID}-expiry-date`}
                             id={`${testID}-expiry-date`}
                             label={t('kitchen:ops.production.expiryDateLabel')}

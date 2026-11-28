@@ -2,12 +2,24 @@ import {
     Button,
     Callout,
     Cascade,
+    Checkbox,
+    ColumnPicker,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     TableSkeleton,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensTone,
+    MenuItem,
+} from '@healthy360/design-system';
 import type { CatalogueItem, CatalogueItemKind } from '@healthy360/api-client/contracts';
 import { CorporateProgrammeId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -17,16 +29,6 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { toFailure, useCorporateCatalogueQuery } from '../../../data/business-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../../kitchen-admin/catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
-import { ColumnPicker } from '../../kitchen-admin/catalogue/column-picker.tsx';
-import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
-import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
-import { useColumnControls } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
-import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
-import { DeskCheckbox } from '../../kitchen-admin/desk-kit/desk-checkbox.tsx';
 import { catalogueColumns } from '../catalogue-columns.tsx';
 import { CORPORATE_HOME_HREF, CORPORATE_NEW_QUOTATION_HREF } from '../corporate-chrome.tsx';
 import { PickedLinesBar } from '../corporate-parts.tsx';
@@ -122,7 +124,7 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
     };
     const shownPicked = items.filter((item) => picked.has(item.id));
 
-    const pickColumn: ControlledColumn<CatalogueItem, CatalogueColumn<CatalogueItem>> = {
+    const pickColumn: ControlledColumn<CatalogueItem, DataTableColumn<CatalogueItem>> = {
         key: 'pick',
         label: t('business:picked.pickAll'),
         width: 40,
@@ -131,7 +133,8 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
         sort: false,
         value: () => '',
         renderHeader: () => (
-            <DeskCheckbox
+            <Checkbox
+                labelHidden
                 testID="corporate-catalogue-pick-all"
                 label={t('business:picked.pickAll')}
                 checked={items.length > 0 && shownPicked.length === items.length}
@@ -149,7 +152,8 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
             />
         ),
         render: (item) => (
-            <DeskCheckbox
+            <Checkbox
+                labelHidden
                 testID={`catalogue-item-${item.id}-pick`}
                 label={t('business:picked.pickOne', { name: item.name })}
                 checked={picked.has(item.id)}
@@ -236,12 +240,11 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="corporate-catalogue-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={figures}
                     actions={
-                        <DeskButton
+                        <Button
                             testID="corporate-catalogue-build-quotation"
                             size="sm"
                             label={t('business:nav.newQuotation')}
@@ -322,7 +325,7 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
                         }
                     />
                 ) : (
-                    <CatalogueList<CatalogueItem>
+                    <DataTable<CatalogueItem>
                         testID="corporate-catalogue-list"
                         joined
                         label={t('business:catalogue.caption')}
@@ -334,12 +337,11 @@ export function CorporateCatalogueScreen({ programmeId }: CorporateCatalogueScre
                             router.push(catalogueLineHref(programme, item.id) as never);
                         }}
                         rowActionsLabel={t('business:catalogue.rowActions')}
-                        rowActionsLook="desk"
                         rowActions={(item): readonly MenuItem[] => [
                             {
                                 key: 'open',
                                 label: t('business:quotations.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `catalogue-item-${item.id}-open`,
                                 onSelect: () => {
                                     router.push(catalogueLineHref(programme, item.id) as never);

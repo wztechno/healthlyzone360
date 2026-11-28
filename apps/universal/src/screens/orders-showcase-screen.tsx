@@ -1,34 +1,32 @@
 import type { KitchenOrder } from '@healthy360/api-client/contracts';
 import type { OrderId } from '@healthy360/domain-types';
-import { Cascade, DensityProvider, Icon, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    Cascade,
+    Checkbox,
+    ChoiceRow,
+    ColumnPicker,
+    DataTable,
+    DatePicker,
+    DensityProvider,
+    Icon,
+    IconButton,
+    initialsOf,
+    RecordPopupField,
+    RecordPopupSection,
+    RecordPopupWindow,
+    RowMenu,
+    Select,
+    Tabs,
+    Text,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { CatalogueList } from '../features/kitchen-admin/catalogue/catalogue-list.tsx';
-import {
-    CompactField,
-    CompactRecordPopup,
-    CompactSection,
-} from '../features/kitchen-admin/catalogue/compact-record-popup.tsx';
-import {
-    ChoiceRow,
-    DeskButton,
-    DeskChip,
-    DeskIconButton,
-    DeskCheckbox,
-    DeskColumnPicker,
-    DeskDateButton,
-    DeskPicker,
-    DeskRowMenu,
-    DeskSelect,
-    DeskTabs,
-    DeskToggleTile,
-    ListGroupRow,
-    MiniMonthPicker,
-    initialsOf,
-} from '../features/kitchen-admin/desk-kit/index.ts';
+import { ListGroupRow } from '../features/kitchen-admin/orders/list-group-row.tsx';
 import { RecordPopup } from '../features/kitchen-admin/catalogue/record-popup.tsx';
 import { DayStepper } from '../features/kitchen-admin/orders/day-stepper.tsx';
 import { orderColumns } from '../features/kitchen-admin/orders/order-columns.tsx';
@@ -38,9 +36,8 @@ import { OrderPopupProposal } from './orders-popup-proposal.tsx';
 
 /**
  * `/showcase-orders` — the parts the Orders redesign (Option A, 2026-11-10) added, on a page of
- * their own: the desk kit (`kitchen-admin/desk-kit/` — buttons, chips, the dropdown, the mini
- * month, the tabs, the group row), the day stepper, the order table with its slot headings
- * (`DataList` / `CatalogueList` `sectionHeader`), and the compact pop-up with its thin scrollbar.
+ * their own: the group row (`orders/list-group-row.tsx`), the day stepper, the order table with its slot headings
+ * (`DataList` / `DataTable` `sectionHeader`), and the compact pop-up with its thin scrollbar.
  *
  * Literal copy, like `/showcase`: a development page, never a customer one.
  */
@@ -190,7 +187,8 @@ export function OrdersShowcaseScreen() {
             <View className="mx-auto w-full max-w-[1280px] p-6">
                 <Cascade space="lg" testID="orders-showcase">
                     <Text variant="title">Desk tabs — a page's views, and a toolbar's switch</Text>
-                    <DeskTabs
+                    <Tabs
+                        variant="strip"
                         testID="showcase-orders-tabs"
                         label="Orders views"
                         value={tab}
@@ -202,9 +200,9 @@ export function OrdersShowcaseScreen() {
                         ]}
                     />
 
-                    <DeskTabs
+                    <Tabs
+                        variant="segmented"
                         testID="showcase-orders-mode"
-                        size="sm"
                         label="Calendar view"
                         value={mode}
                         onChange={setMode}
@@ -216,18 +214,19 @@ export function OrdersShowcaseScreen() {
 
                     <Text variant="title">Desk buttons</Text>
                     <View className="flex-row flex-wrap items-center gap-2">
-                        <DeskButton
+                        <Button
                             label="New order"
                             iconStart={
                                 <Icon name="plus" size="md" className="text-content-on-brand" />
                             }
                         />
-                        <DeskButton variant="secondary" label="Pause kitchen" />
-                        <DeskButton variant="next" label="Mark delivered" />
-                        <DeskButton variant="quiet" label="Clear filters" />
-                        <DeskButton variant="dangerOutline" label="Cancel order" />
-                        <DeskButton variant="danger" label="Cancel this order" />
-                        <DeskIconButton
+                        <Button variant="secondary" label="Pause kitchen" />
+                        <Button variant="next" label="Mark delivered" />
+                        <Button variant="quiet" label="Clear filters" />
+                        <Button variant="dangerOutline" label="Cancel order" />
+                        <Button variant="danger" label="Cancel this order" />
+                        <IconButton
+                            variant="secondary"
                             label="Previous day"
                             icon={<Icon name="chevronBackward" size="md" />}
                         />
@@ -236,38 +235,38 @@ export function OrdersShowcaseScreen() {
                         Busy — a sweep runs across the pill; disabled — a filled pill turns grey
                     </Text>
                     <View className="flex-row flex-wrap items-center gap-2">
-                        <DeskButton label="Confirm" loading />
-                        <DeskButton variant="next" label="Mark picked up" loading />
-                        <DeskButton variant="secondary" label="Saving" loading />
-                        <DeskButton variant="danger" label="Cancelling" loading />
-                        <DeskButton label="New order" disabled />
-                        <DeskButton variant="secondary" label="Pause kitchen" disabled />
+                        <Button label="Confirm" loading />
+                        <Button variant="next" label="Mark picked up" loading />
+                        <Button variant="secondary" label="Saving" loading />
+                        <Button variant="danger" label="Cancelling" loading />
+                        <Button label="New order" disabled />
+                        <Button variant="secondary" label="Pause kitchen" disabled />
                     </View>
                     <Text variant="label" tone="secondary">
                         A ticket's total — lg, in a column
                     </Text>
                     <View className="w-full max-w-[400px] flex-col gap-2">
-                        <DeskButton size="lg" block label="Save changes · $22.00" />
-                        <DeskButton size="lg" block label="Placing order" loading />
-                        <DeskButton size="lg" block label="Save changes · $3.00" disabled />
+                        <Button size="lg" block label="Save changes · $22.00" />
+                        <Button size="lg" block label="Placing order" loading />
+                        <Button size="lg" block label="Save changes · $3.00" disabled />
                     </View>
 
                     <Text variant="title">Desk chips</Text>
                     <View className="flex-row flex-wrap items-center gap-1.5">
-                        <DeskChip tone="warning" label="To confirm" />
-                        <DeskChip tone="info" label="Confirmed" />
-                        <DeskChip tone="success" label="Delivered" />
-                        <DeskChip tone="neutral" label="Cancelled" />
-                        <DeskChip tone="danger" label="Late" />
-                        <DeskChip tone="warning" size="sm" label="1 to confirm" />
-                        <DeskChip tone="danger" size="lg" label="2 late" />
+                        <Badge tone="warning" label="To confirm" />
+                        <Badge tone="info" label="Confirmed" />
+                        <Badge tone="success" label="Delivered" />
+                        <Badge tone="neutral" label="Cancelled" />
+                        <Badge tone="danger" label="Late" />
+                        <Badge tone="warning" size="sm" label="1 to confirm" />
+                        <Badge tone="danger" size="lg" label="2 late" />
                     </View>
 
                     <Text variant="title">Dialog choices — rows and radio segments</Text>
                     <View className="w-full max-w-[432px] flex-col gap-3">
-                        <DeskTabs<'cash' | 'counter' | 'wish'>
+                        <Tabs<'cash' | 'counter' | 'wish'>
+                            variant="segmented"
                             testID="showcase-orders-method"
-                            size="sm"
                             radio
                             block
                             label="How did the money arrive?"
@@ -336,7 +335,7 @@ export function OrdersShowcaseScreen() {
 
                     <Text variant="title">Row menu, tick boxes and Show columns</Text>
                     <View className="z-20 flex-row flex-wrap items-center gap-4">
-                        <DeskRowMenu
+                        <RowMenu
                             testID="showcase-orders-row-menu"
                             label="Row actions"
                             actions={[
@@ -355,33 +354,37 @@ export function OrdersShowcaseScreen() {
                                 },
                             ]}
                         />
-                        <DeskCheckbox
+                        <Checkbox
+                            labelHidden
                             testID="showcase-orders-check-all"
                             label="Order every item"
                             checked={false}
                             mixed
                             onChange={() => undefined}
                         />
-                        <DeskCheckbox
+                        <Checkbox
+                            labelHidden
                             testID="showcase-orders-check"
                             label="Order Tahini"
                             checked={ticked}
                             onChange={setTicked}
                         />
                         {/* `.dtl`: a record's own multi-choice (the plan's diets), ticked as tiles. */}
-                        <DeskToggleTile
+                        <Checkbox
+                            shape="card"
                             testID="showcase-orders-tile"
                             label="High protein"
-                            selected={ticked}
+                            checked={ticked}
                             onChange={setTicked}
                         />
-                        <DeskToggleTile
+                        <Checkbox
+                            shape="card"
                             testID="showcase-orders-tile-off"
                             label="Vegan"
-                            selected={false}
+                            checked={false}
                             onChange={() => undefined}
                         />
-                        <DeskColumnPicker
+                        <ColumnPicker
                             testID="showcase-orders-columns"
                             options={columnChoices.map((key) => ({
                                 key,
@@ -412,7 +415,8 @@ export function OrdersShowcaseScreen() {
 
                     <Text variant="title">Desk dropdown and mini month</Text>
                     <View className="z-10 flex-row flex-wrap items-center gap-2">
-                        <DeskSelect<'all' | 'lunch' | 'dinner'>
+                        <Select<'all' | 'lunch' | 'dinner'>
+                            trigger="pill"
                             testID="showcase-orders-slot"
                             label="Slot"
                             value={slot}
@@ -424,7 +428,9 @@ export function OrdersShowcaseScreen() {
                             ]}
                         />
                         {/* The add picker: a long list you pick from, filtered, with "add it" when nothing matches. */}
-                        <DeskPicker
+                        <Select
+                            trigger="pill"
+                            value={null}
                             testID="showcase-orders-add-picker"
                             label="Add an ingredient"
                             placeholder="Add an ingredient…"
@@ -450,7 +456,7 @@ export function OrdersShowcaseScreen() {
                             ]}
                             onChange={() => undefined}
                             noResultsAction={(typed, close) => (
-                                <DeskButton
+                                <Button
                                     testID="showcase-orders-add-picker-new"
                                     variant="quiet"
                                     label={`Add "${typed}" as new`}
@@ -458,7 +464,8 @@ export function OrdersShowcaseScreen() {
                                 />
                             )}
                         />
-                        <MiniMonthPicker
+                        <DatePicker
+                            trigger="pill"
                             testID="showcase-orders-month"
                             label="Pick a day"
                             value={day}
@@ -467,8 +474,9 @@ export function OrdersShowcaseScreen() {
                             onChange={setDay}
                             marked={(candidate) => candidate.endsWith('5')}
                         />
-                        {/* `DatePickerButton`'s props: a placeholder until a day is set, and Clear. */}
-                        <DeskDateButton
+                        {/* A placeholder until a day is set, and Clear. */}
+                        <DatePicker
+                            trigger="pill"
                             testID="showcase-orders-from"
                             label="From"
                             placeholder="Any day"
@@ -502,7 +510,7 @@ export function OrdersShowcaseScreen() {
                     />
 
                     <Text variant="title">Order table — slot headings over the rows</Text>
-                    <CatalogueList<BookRow>
+                    <DataTable<BookRow>
                         testID="showcase-orders-table"
                         label="Orders"
                         columns={columns}
@@ -523,7 +531,7 @@ export function OrdersShowcaseScreen() {
 
                     <Text variant="title">Compact pop-up</Text>
                     <View className="flex-row">
-                        <DeskButton
+                        <Button
                             testID="showcase-orders-open-popup"
                             variant="secondary"
                             label="Open the compact pop-up"
@@ -535,7 +543,7 @@ export function OrdersShowcaseScreen() {
 
                     <Text variant="title">Record pop-up in the desk frame (every record view)</Text>
                     <View className="flex-row">
-                        <DeskButton
+                        <Button
                             testID="showcase-orders-open-record"
                             variant="secondary"
                             label="Open a record pop-up"
@@ -575,17 +583,17 @@ export function OrdersShowcaseScreen() {
                                 },
                             ]}
                         >
-                            <CompactSection title="Details">
-                                <CompactField label="Category">
+                            <RecordPopupSection title="Details">
+                                <RecordPopupField label="Category">
                                     <Text variant="strong">Grains</Text>
-                                </CompactField>
-                                <CompactField label="Unit">
+                                </RecordPopupField>
+                                <RecordPopupField label="Unit">
                                     <Text variant="strong">kg</Text>
-                                </CompactField>
-                                <CompactField label="Status">
-                                    <DeskChip tone="success" label="Active" />
-                                </CompactField>
-                            </CompactSection>
+                                </RecordPopupField>
+                                <RecordPopupField label="Status">
+                                    <Badge tone="success" label="Active" />
+                                </RecordPopupField>
+                            </RecordPopupSection>
                         </RecordPopup>
                     )}
 
@@ -598,7 +606,7 @@ export function OrdersShowcaseScreen() {
                         totals
                     </Text>
                     <View className="flex-row">
-                        <DeskButton
+                        <Button
                             testID="showcase-orders-open-popup-b"
                             variant="secondary"
                             label="Open layout B"
@@ -613,11 +621,31 @@ export function OrdersShowcaseScreen() {
                                 setOpenB(false);
                             }}
                             stages={[
-                                { key: 'placed', label: 'Placed', state: 'done' },
-                                { key: 'confirmed', label: 'Confirmed', state: 'done' },
-                                { key: 'ready', label: 'Ready', state: 'done' },
-                                { key: 'road', label: 'On the way', state: 'now' },
-                                { key: 'delivered', label: 'Delivered', state: 'later' },
+                                {
+                                    key: 'placed',
+                                    label: 'Placed',
+                                    at: 'Nov 26, 10:41',
+                                    state: 'done',
+                                },
+                                {
+                                    key: 'confirmed',
+                                    label: 'Confirmed',
+                                    at: 'Nov 26, 10:42',
+                                    state: 'done',
+                                },
+                                {
+                                    key: 'ready',
+                                    label: 'Ready',
+                                    at: 'Nov 26, 11:05',
+                                    state: 'done',
+                                },
+                                { key: 'road', label: 'On the way', at: null, state: 'current' },
+                                {
+                                    key: 'delivered',
+                                    label: 'Delivered',
+                                    at: null,
+                                    state: 'pending',
+                                },
                             ]}
                             lines={[
                                 {
@@ -637,7 +665,7 @@ export function OrdersShowcaseScreen() {
                         />
                     )}
                     {!open ? null : (
-                        <CompactRecordPopup
+                        <RecordPopupWindow
                             testID="showcase-orders-popup"
                             label="Order ORD-SHOW000002"
                             kind="Delivery order"
@@ -649,8 +677,8 @@ export function OrdersShowcaseScreen() {
                             }}
                             chips={
                                 <>
-                                    <DeskChip tone="info" label="Confirmed" />
-                                    <DeskChip tone="danger" label="Late" />
+                                    <Badge tone="info" label="Confirmed" />
+                                    <Badge tone="danger" label="Late" />
                                 </>
                             }
                             figure={{ label: 'Total', value: '$16.00' }}
@@ -670,40 +698,41 @@ export function OrdersShowcaseScreen() {
                                     tone: 'warning',
                                 },
                             ]}
-                            primary={<DeskButton label="Choose a driver" />}
+                            primary={<Button label="Choose a driver" />}
                             main={
-                                <CompactSection title="Items">
+                                <RecordPopupSection title="Items">
                                     {Array.from({ length: 12 }, (_, index) => (
-                                        <CompactField key={index} label={`× ${String(index + 1)}`}>
+                                        <RecordPopupField
+                                            key={index}
+                                            label={`× ${String(index + 1)}`}
+                                        >
                                             <Text variant="strong">Grilled Salmon Bowl</Text>
-                                        </CompactField>
+                                        </RecordPopupField>
                                     ))}
-                                </CompactSection>
+                                </RecordPopupSection>
                             }
                             side={
-                                <CompactSection title="Payment">
-                                    <CompactField label="Paying by">
+                                <RecordPopupSection title="Payment">
+                                    <RecordPopupField label="Paying by">
                                         <Text variant="strong">Cash on delivery</Text>
-                                    </CompactField>
-                                    <CompactField
+                                    </RecordPopupField>
+                                    <RecordPopupField
                                         label="To collect"
-                                        action={
-                                            <DeskButton variant="quiet" label="Record a payment" />
-                                        }
+                                        action={<Button variant="quiet" label="Record a payment" />}
                                     >
                                         <Text variant="strong" tone="warning">
                                             $16.00
                                         </Text>
-                                    </CompactField>
-                                </CompactSection>
+                                    </RecordPopupField>
+                                </RecordPopupSection>
                             }
                             footer={
                                 <>
-                                    <DeskButton variant="secondary" label="Print ticket" />
-                                    <DeskButton variant="secondary" label="Edit order" />
+                                    <Button variant="secondary" label="Print ticket" />
+                                    <Button variant="secondary" label="Edit order" />
                                 </>
                             }
-                            footerEnd={<DeskButton variant="dangerOutline" label="Cancel order" />}
+                            footerEnd={<Button variant="dangerOutline" label="Cancel order" />}
                             onClose={() => {
                                 setOpen(false);
                             }}

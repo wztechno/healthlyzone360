@@ -1,14 +1,27 @@
 import type { OrganisationRoleSummary } from '@healthy360/api-client/contracts';
 import { isDeletableRole } from '@healthy360/api-client/contracts';
 import {
+    Button,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+} from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -22,22 +35,9 @@ import {
     useOrganisationRolesQuery,
 } from '../../../data/access-admin-hooks.ts';
 import { toFailure } from '../../../data/hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { ROLE_MANAGE_PERMISSION, ROLE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { useListMemory, useRememberedOpened, useRememberedQuery } from '../list-memory.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/roles` — what each job title is allowed to reach (AA1), on the Catalogue list.
  *
@@ -130,7 +130,7 @@ function RolesList() {
 
     const columns: readonly ControlledColumn<
         OrganisationRoleSummary,
-        CatalogueColumn<OrganisationRoleSummary>
+        DataTableColumn<OrganisationRoleSummary>
     >[] = [
         {
             key: 'role',
@@ -224,7 +224,6 @@ function RolesList() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-roles-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures(roles.data, roles.isPending, t)}
@@ -254,7 +253,7 @@ function RolesList() {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-roles-create"
                                 label={t('accessAdmin:roles.create')}
                                 iconStart={<Icon name="plus" size="sm" />}
@@ -276,7 +275,7 @@ function RolesList() {
                         retrying={roles.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-roles-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -296,7 +295,7 @@ function RolesList() {
                         }
                     />
                 ) : (
-                    <CatalogueList<OrganisationRoleSummary>
+                    <DataTable<OrganisationRoleSummary>
                         testID="kitchen-roles-table"
                         joined
                         label={t('accessAdmin:roles.caption')}
@@ -323,8 +322,8 @@ function RolesList() {
                                     ? t('accessAdmin:roles.edit')
                                     : t('accessAdmin:roles.open'),
                                 icon: canManage
-                                    ? CATALOGUE_ROW_ICONS.edit
-                                    : CATALOGUE_ROW_ICONS.view,
+                                    ? DATA_TABLE_ROW_ICONS.edit
+                                    : DATA_TABLE_ROW_ICONS.view,
                                 testID: `${roleRowTestId(String(row.id))}-open`,
                                 onSelect: () => {
                                     openRole(row);

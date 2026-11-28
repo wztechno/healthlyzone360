@@ -1,9 +1,7 @@
-import { InfoTip, Text } from '@healthy360/design-system';
+import { InfoTip, LensFigureCell, Text } from '@healthy360/design-system';
+import type { LensFigure, LensTone } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
-
-import { LensFigureCell } from './lens-bar.tsx';
-import type { LensFigure, LensTone } from './lens-bar.tsx';
 
 /**
  * The Record lens — a record page's state, figures and facts as one object. It is the Lens bar's

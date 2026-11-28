@@ -6,15 +6,18 @@ import type {
     SalesChannelRecord,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Cascade,
+    cx,
     ErrorState,
     FormSkeleton,
     Icon,
     Inline,
+    PageHeader,
     Stack,
     Text,
     useToast,
-    cx,
 } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -43,11 +46,8 @@ import {
     PRICE_LIST_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { displayName, statusShortKey, statusTone } from '../format.ts';
-import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { NewPriceListDialog } from '../new-price-list-dialog.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 const PAGE = 'kitchen-wholesale';
 const ROUTE = '/kitchen/wholesale';
 
@@ -300,10 +300,10 @@ function WholesaleSetup() {
 
     return (
         <Cascade space="md" testID={`${PAGE}-screen`}>
-            <KitchenPageHeader
+            <PageHeader
                 testID={`${PAGE}-header`}
                 title={t('kitchen:families.wholesale.name')}
-                subtitle={t('kitchen:wholesale.subtitle')}
+                info={t('kitchen:wholesale.subtitle')}
             />
 
             <SetupStep
@@ -319,7 +319,7 @@ function WholesaleSetup() {
                 error={channelFailure?.message}
                 action={
                     wholesale === null && canManageCatalogue ? (
-                        <DeskButton
+                        <Button
                             size="sm"
                             testID={`${PAGE}-channel-open`}
                             label={t('kitchen:wholesale.channelOpen')}
@@ -344,7 +344,7 @@ function WholesaleSetup() {
                           })
                 }
                 action={
-                    <DeskButton
+                    <Button
                         testID={`${PAGE}-lists-new`}
                         variant={agreementLists.length === 0 ? 'primary' : 'secondary'}
                         label={t('kitchen:wholesale.listsNew')}
@@ -395,18 +395,18 @@ function WholesaleSetup() {
                                           {nameOf(list)}
                                       </Text>
                                   </View>
-                                  <DeskChip
+                                  <Badge
                                       tone={statusTone(list.meta.status)}
                                       label={t(statusShortKey(list.meta.status))}
                                   />
                                   {isAssigned(list) ? (
-                                      <DeskChip
+                                      <Badge
                                           testID={`${rowID}-assigned`}
                                           tone="success"
                                           label={t('kitchen:wholesale.assigned')}
                                       />
                                   ) : (
-                                      <DeskButton
+                                      <Button
                                           size="sm"
                                           testID={`${rowID}-assign`}
                                           variant="secondary"
@@ -418,7 +418,7 @@ function WholesaleSetup() {
                                           }}
                                       />
                                   )}
-                                  <DeskButton
+                                  <Button
                                       size="sm"
                                       testID={`${rowID}-open`}
                                       variant="quiet"
@@ -448,7 +448,7 @@ function WholesaleSetup() {
                     canManageCatalogue &&
                     !offerings.pending &&
                     offered.size < itemIds.length ? (
-                        <DeskButton
+                        <Button
                             size="sm"
                             testID={`${PAGE}-items-offer`}
                             label={t('kitchen:wholesale.itemsOffer')}
@@ -542,7 +542,7 @@ export function SetupStep({
                 <View className="min-w-0 flex-1 gap-1" style={{ flexBasis: 280 }}>
                     <Inline space="xs">
                         <Text variant="strong">{title}</Text>
-                        <DeskChip
+                        <Badge
                             testID={`${testID}-state`}
                             tone={done ? 'success' : 'warning'}
                             label={done ? t('kitchen:wholesale.done') : t('kitchen:wholesale.todo')}

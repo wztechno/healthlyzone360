@@ -5,17 +5,21 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    Button,
     Callout,
     Cascade,
     Checkbox,
-    Dialog,
+    DatePicker,
     FormIssueScope,
     FormSkeleton,
     Icon,
     InfoTip,
     IssueTrayFrame,
+    LeaveDialog,
+    RecordSummaryAside,
     Select,
     Stack,
+    Tabs,
     Text,
     TextInputField,
     useIssueTrayController,
@@ -26,6 +30,7 @@ import type {
     IssueCardItem,
     IssueTrayContent,
     SelectOption,
+    TabItem,
 } from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
@@ -83,18 +88,13 @@ import type {
 } from '../ops-line-editor.tsx';
 import { readAmount, readQuantity, todayIsoDate } from '../receive-delivery-model.ts';
 import { RecordFormOpening, focusFirstRefusal } from '../record-form-opening.tsx';
-import { RecordSummaryAside } from '../record-summary-aside.tsx';
 import { NewSupplierDialog } from '../new-supplier-dialog.tsx';
 import { serverFieldErrors } from '../server-field-errors.ts';
 import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskDateField } from '../desk-kit/desk-date-field.tsx';
 import { ReviewBox, StepCard } from '../process-parts.tsx';
-import { ProcessSteps } from '../process-steps.tsx';
-import type { ProcessStep } from '../process-steps.tsx';
 /**
  * `/kitchen/procurement/new` — post a goods receipt (O2, SUP5, INV1.1), from the Post Receipt design.
  *
@@ -923,41 +923,54 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
         const order: readonly PostStep[] = ['arrival', 'receipt', 'lines', 'check'];
         return order.indexOf(key) < order.indexOf(step) && issuesOn(key) === 0;
     };
-    const steps: readonly ProcessStep<PostStep>[] = [
+    const steps: readonly TabItem<PostStep>[] = [
         {
-            key: 'arrival',
+            value: 'arrival',
+            testID: 'kitchen-post-receipt-steps-arrival',
             label: t('kitchen:ops.procurement.arrivalSection'),
-            caption:
+            detail:
                 orderMode && order !== null
                     ? order.number
                     : orderMode
                       ? t('kitchen:ops.procurement.captionAgainstOrder')
                       : t('kitchen:ops.procurement.kindMarket'),
             done: walked('arrival'),
-            issues: issuesOn('arrival'),
-            issuesLabel: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('arrival') }),
+            issues: {
+                count: issuesOn('arrival'),
+                tone: 'warning',
+                label: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('arrival') }),
+            },
         },
         {
-            key: 'receipt',
+            value: 'receipt',
+            testID: 'kitchen-post-receipt-steps-receipt',
             label: t('kitchen:ops.procurement.receiptSection'),
-            caption:
+            detail:
                 shownSupplierId === null ? t('kitchen:ops.procurement.noSupplier') : supplierName,
             done: walked('receipt'),
-            issues: issuesOn('receipt'),
-            issuesLabel: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('receipt') }),
+            issues: {
+                count: issuesOn('receipt'),
+                tone: 'warning',
+                label: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('receipt') }),
+            },
         },
         {
-            key: 'lines',
+            value: 'lines',
+            testID: 'kitchen-post-receipt-steps-lines',
             label: t('kitchen:ops.procurement.linesSection'),
-            caption: t('kitchen:ops.procurement.lineCount', { count: lines.length }),
+            detail: t('kitchen:ops.procurement.lineCount', { count: lines.length }),
             done: walked('lines'),
-            issues: issuesOn('lines'),
-            issuesLabel: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('lines') }),
+            issues: {
+                count: issuesOn('lines'),
+                tone: 'warning',
+                label: t('kitchen:ops.receiving.stepIssues', { count: issuesOn('lines') }),
+            },
         },
         {
-            key: 'check',
+            value: 'check',
+            testID: 'kitchen-post-receipt-steps-check',
             label: t('kitchen:ops.receiving.stepCheck'),
-            caption: canViewCosts ? `${formatAmount(receiptTotal)} ${RECEIPT_CURRENCY}` : postLabel,
+            detail: canViewCosts ? `${formatAmount(receiptTotal)} ${RECEIPT_CURRENCY}` : postLabel,
         },
     ];
 
@@ -1179,7 +1192,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                     }}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-procurement-post-cancel"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -1190,7 +1203,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                             {/* Post sits up here on every step. Pressed before the receipt is
                                 ready it posts nothing and opens the first thing to fix. */}
                             {loading ? null : (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-procurement-post-confirm"
                                     label={postLabel}
                                     iconStart={<Icon name="check" size="sm" />}
@@ -1212,10 +1225,11 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                     />
                 ) : (
                     <View className="z-auto pb-2">
-                        <ProcessSteps<PostStep>
+                        <Tabs<PostStep>
+                            variant="pills"
                             testID="kitchen-post-receipt-steps"
                             label={t('kitchen:ops.receiving.stepsLabel')}
-                            steps={steps}
+                            items={steps}
                             value={step}
                             onChange={setStep}
                         />
@@ -1256,7 +1270,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                             })}
                                             body={t('kitchen:ops.procurement.openOrdersBody')}
                                             actions={
-                                                <DeskButton
+                                                <Button
                                                     testID="kitchen-post-receipt-open-orders-receive"
                                                     variant="secondary"
                                                     label={t(
@@ -1345,7 +1359,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                          */}
                                         {canManage && !orderMode ? (
                                             <View className="flex-row">
-                                                <DeskButton
+                                                <Button
                                                     testID="kitchen-procurement-post-new-supplier"
                                                     size="sm"
                                                     variant="ghost"
@@ -1384,7 +1398,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                         value={invoiceRef}
                                         onChangeText={edited(setInvoiceRef)}
                                     />
-                                    <DeskDateField
+                                    <DatePicker
                                         testID="kitchen-procurement-post-received-on"
                                         id="kitchen-procurement-post-received-on"
                                         label={t('kitchen:ops.procurement.fieldReceivedOn')}
@@ -1398,7 +1412,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                                 : server.errorFor('received_on')
                                         }
                                         onChange={(next) => {
-                                            setReceivedOn(next ?? '');
+                                            setReceivedOn(next);
                                             guard.markDirty();
                                         }}
                                     />
@@ -1451,7 +1465,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                          * has any, because most market purchases carry none.
                                          */}
                                         {lines.some((line) => line.stockItemId !== null) ? (
-                                            <DeskButton
+                                            <Button
                                                 testID="kitchen-procurement-post-trace-toggle"
                                                 variant="secondary"
                                                 size="sm"
@@ -1564,7 +1578,7 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                                         onChange={edited(setOverConfirmed)}
                                                     />
                                                 ) : (
-                                                    <Text className="text-[13px] font-semibold text-warning-on-subtle">
+                                                    <Text className="text-role-body font-semibold text-warning-on-subtle">
                                                         {t(
                                                             'kitchen:ops.procurement.unplannedTitle',
                                                         )}
@@ -1693,10 +1707,10 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                                                             className="min-h-11 flex-row items-center gap-2.5 rounded-xl bg-danger-subtle py-1.5 pe-1.5 ps-3"
                                                         >
                                                             <View className="h-2 w-2 rounded-full bg-danger-strong" />
-                                                            <Text className="min-w-0 flex-1 text-[13px] font-semibold text-danger-on-subtle">
+                                                            <Text className="min-w-0 flex-1 text-role-body font-semibold text-danger-on-subtle">
                                                                 {issue.label}
                                                             </Text>
-                                                            <DeskButton
+                                                            <Button
                                                                 testID={`kitchen-post-receipt-fix-${issue.key}-go`}
                                                                 size="sm"
                                                                 variant="secondary"
@@ -1740,29 +1754,11 @@ function PostReceipt({ ingredient, item, returnTo }: PostReceiptScreenProps) {
                     }}
                 />
 
-                <Dialog
-                    look="card"
-                    testID="kitchen-post-receipt-screen-unsaved-dialog"
-                    open={guard.isPrompting}
-                    onClose={guard.cancelDiscard}
+                <LeaveDialog
+                    guard={guard}
                     title={t('kitchen:ops.procurement.discardTitle')}
-                    description={t('kitchen:ops.procurement.discardBody', { count: lines.length })}
-                    actions={
-                        <>
-                            <DeskButton
-                                testID="kitchen-post-receipt-screen-unsaved-keep"
-                                variant="quiet"
-                                label={t('kitchen:unsaved.keepEditing')}
-                                onPress={guard.cancelDiscard}
-                            />
-                            <DeskButton
-                                testID="kitchen-post-receipt-screen-unsaved-discard"
-                                variant="danger"
-                                label={t('kitchen:common.discard')}
-                                onPress={guard.confirmDiscard}
-                            />
-                        </>
-                    }
+                    body={t('kitchen:ops.procurement.discardBody', { count: lines.length })}
+                    testID="kitchen-post-receipt-screen"
                 />
             </Cascade>
         </IssueTrayFrame>

@@ -5,7 +5,24 @@ import type {
     KitchenAnalyticsReport,
     KitchenAnalyticsTotals,
 } from '@healthy360/api-client/contracts';
-import { Cascade, EmptyState, ErrorState, RecordSkeleton, Text } from '@healthy360/design-system';
+import {
+    Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
+    DataTable,
+    DatePicker,
+    EmptyState,
+    ErrorState,
+    LensBar,
+    PeriodScope,
+    periodWindows,
+    RecordSkeleton,
+    RecordTile,
+    Text,
+    useColumnControls,
+} from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, LensFigure } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
@@ -17,23 +34,9 @@ import { useKitchenAnalyticsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { RatioBars } from '../analytics/ratio-bars.tsx';
 import { StatMix } from '../analytics/stat-mix.tsx';
 import { TrendBars } from '../analytics/trend-bars.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
 import { ORDER_VIEW_PERMISSION } from '../entity-registry.ts';
-import { RecordTile } from '../catalogue/record-tiles.tsx';
 import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
 import { addDays, daysBetween, todayIso } from '../../commerce/dates.ts';
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 /**
  * `/kitchen/analytics` — what the order book did over a window of days, as `Workbench.dc.html`
  * draws the dashboard (§3.3).
@@ -155,7 +158,7 @@ function AnalyticsDashboard() {
     const totalUnits = data?.current.units ?? 0;
     const columns: readonly ControlledColumn<
         KitchenAnalyticsItem,
-        CatalogueColumn<KitchenAnalyticsItem>
+        DataTableColumn<KitchenAnalyticsItem>
     >[] = [
         {
             key: 'name',
@@ -250,7 +253,6 @@ function AnalyticsDashboard() {
     const lens = (
         <LensBar
             testID="kitchen-analytics-toolbar"
-            layout="split"
             label={t('kitchen:lens.label')}
             figures={figures}
             scope={
@@ -262,7 +264,8 @@ function AnalyticsDashboard() {
                         onChange={pickWindow}
                     />
                     <View className="z-auto flex-row items-center gap-tight">
-                        <DeskDateButton
+                        <DatePicker
+                            trigger="pill"
                             testID="kitchen-analytics-from"
                             label={t('kitchen:analytics.filters.from')}
                             value={from}
@@ -275,7 +278,8 @@ function AnalyticsDashboard() {
                         <Text variant="caption" tone="secondary" aria-hidden>
                             {t('kitchen:ops.requirements.windowTo')}
                         </Text>
-                        <DeskDateButton
+                        <DatePicker
+                            trigger="pill"
                             testID="kitchen-analytics-to"
                             label={t('kitchen:analytics.filters.to')}
                             value={to}
@@ -445,7 +449,7 @@ function AnalyticsDashboard() {
                     </RecordTile>
                     <View className="flex-col">
                         <WorkbenchSectionHeading title={t('kitchen:analytics.table.title')} />
-                        <CatalogueList<KitchenAnalyticsItem>
+                        <DataTable<KitchenAnalyticsItem>
                             testID="kitchen-analytics-table"
                             label={t('kitchen:analytics.table.caption')}
                             columns={controls.columns}

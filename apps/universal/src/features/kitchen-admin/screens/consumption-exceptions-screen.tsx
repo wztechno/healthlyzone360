@@ -1,12 +1,29 @@
 import type { ConsumptionException } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Cascade,
+    ColumnPicker,
+    compareText,
+    DataTable,
+    DatePicker,
     Dialog,
     EmptyState,
     ErrorState,
+    LensBar,
+    PeriodScope,
+    ROW_ACTIONS_WIDTH,
+    TablePager,
     TableSkeleton,
     Text,
+    useColumnControls,
     useToast,
+} from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensMixPart,
 } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { can } from '@healthy360/permissions';
@@ -52,24 +69,11 @@ import {
     PRODUCTION_VIEW_PERMISSION,
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { ROW_ACTIONS_WIDTH } from '../catalogue/row-actions-menu.tsx';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
 import { useListPage } from '../use-list-page.ts';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import { PeriodScope } from '../catalogue/period-scope.tsx';
 import { todayIso } from '../../commerce/dates.ts';
-import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { useListMemory, useRememberedQuery } from '../list-memory.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/consumption-exceptions` — what a confirmed order could not deduct honestly (INV1.5), as
  * `Workbench.dc.html` draws it (§3.5).
@@ -413,7 +417,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
 
     const columns: readonly ControlledColumn<
         ConsumptionException,
-        CatalogueColumn<ConsumptionException>
+        DataTableColumn<ConsumptionException>
     >[] = [
         {
             key: 'order',
@@ -529,13 +533,13 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
             },
             render: (row) =>
                 row.resolved ? (
-                    <DeskChip
+                    <Badge
                         testID={`kitchen-exception-${row.id}-resolved`}
                         tone="success"
                         label={t('kitchen:ops.exceptions.resolvedBadge')}
                     />
                 ) : (
-                    <DeskChip
+                    <Badge
                         testID={`kitchen-exception-${row.id}-open`}
                         tone="danger"
                         label={t('kitchen:ops.exceptions.unresolvedBadge')}
@@ -621,7 +625,6 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
     const viewPopup =
         viewing === null ? null : (
             <RecordViewPage
-                look="sheet"
                 figureKeys={['raised', 'money']}
                 testID="kitchen-consumption-exceptions-window"
                 onBack={closeRecord}
@@ -708,7 +711,6 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                 {/* The Lens bar — figures, mix and query row as one object (`lens-bar.tsx`). */}
                 <LensBar
                     testID="kitchen-consumption-exceptions-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     {...(failure !== null
@@ -760,7 +762,8 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                                 }}
                             />
                             <View className="z-auto flex-row items-center gap-tight">
-                                <DeskDateButton
+                                <DatePicker
+                                    trigger="pill"
                                     testID="kitchen-exceptions-filter-from"
                                     label={t('kitchen:ops.exceptions.filterFrom')}
                                     value={from}
@@ -778,7 +781,8 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                                 <Text variant="caption" tone="secondary" aria-hidden>
                                     {t('kitchen:ops.requirements.windowTo')}
                                 </Text>
-                                <DeskDateButton
+                                <DatePicker
+                                    trigger="pill"
                                     testID="kitchen-exceptions-filter-to"
                                     label={t('kitchen:ops.exceptions.filterTo')}
                                     value={to}
@@ -824,7 +828,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                     />
                 ) : (
                     <View className="flex-col gap-2.5">
-                        <CatalogueList<ConsumptionException>
+                        <DataTable<ConsumptionException>
                             testID="kitchen-consumption-exceptions-table"
                             joined
                             label={t('kitchen:ops.exceptions.title')}
@@ -834,7 +838,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                             onRowPress={openRecord}
                             rowActionsLabel={t('kitchen:list.rowActions')}
                         />
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-consumption-exceptions-pagination"
                             page={page}
                             totalPages={totalPages}
@@ -859,7 +863,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                 description={t('kitchen:ops.exceptions.resolveBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-exception-resolve-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -867,7 +871,7 @@ function ConsumptionExceptions(params: ConsumptionExceptionsScreenProps) {
                                 setResolving(null);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-exception-resolve-confirm"
                             variant="danger"
                             label={t('kitchen:ops.exceptions.resolveConfirm')}

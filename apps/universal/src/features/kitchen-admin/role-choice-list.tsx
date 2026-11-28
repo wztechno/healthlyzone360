@@ -26,7 +26,7 @@ import { Pressable, View } from 'react-native';
  *
  * ## Drawn as a kitchen table
  *
- * `CatalogueList`'s frame and header band — Role, Type, Permissions — and rows with no hairline
+ * `DataTable`'s frame and header band — Role, Type, Permissions — and rows with no hairline
  * between them, told apart by height and the hover tint; a chosen row keeps the brand tint.
  *
  * A list rather than a dropdown because a role is chosen by what it is for: each row carries its
@@ -56,7 +56,7 @@ export interface RoleChoiceListProps {
     readonly itemTestID: string;
 }
 
-/** `CatalogueList`'s panel — the frame every kitchen table sits in. */
+/** `DataTable`'s panel — the frame every kitchen table sits in. */
 const PANEL =
     'flex-col overflow-hidden rounded-panel border bg-surface-raised shadow-elevation-card';
 

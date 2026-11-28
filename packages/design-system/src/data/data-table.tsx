@@ -1,0 +1,590 @@
+import { DataList, fitColumns } from '../content/data-list.tsx';
+import type { DataListRowTone } from '../content/data-list.tsx';
+import { Inline } from '../primitives/stack.tsx';
+import { Text } from '../primitives/text.tsx';
+import { useBreakpoint } from '../hooks/use-breakpoint.ts';
+import type { MenuItem } from '../overlays/menu.tsx';
+import type { RowDensity } from '@healthy360/design-tokens';
+import type { ReactNode, RefObject } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Platform, View } from 'react-native';
+
+import { DataTableItem } from './data-table-item.tsx';
+import { DATA_TABLE_PRIORITY, columnFloor, columnForRole } from './data-table-columns.ts';
+import type { DataTableColumn } from './data-table-columns.ts';
+import { useTablePort } from './table-port.ts';
+import { TABLE_PAGE_SIZE, TablePager } from './table-pager.tsx';
+import { ROW_ACTIONS_WIDTH, RowMenu } from './row-menu.tsx';
+
+/**
+ * The list's panel — the same surface as the toolbar above it and every other admin panel, so the
+ * rows read as one object on the page rather than lines drawn straight onto the ground. Only drawn
+ * around rows: an empty state is the caller's own block and brings its own layout.
+ */
+const FRAME_CLASS = 'flex-col rounded-panel border border-stroke-subtle bg-surface-raised';
+
+/**
+ * The panel's lower half, under a split Lens bar's query row (`LensBar` `layout="split"`): the bar
+ * draws the top corners and the side rules down to here, so the toolbar and the rows read as one card.
+ */
+const JOINED_FRAME_CLASS = 'flex-col rounded-b-panel border border-stroke-subtle bg-surface-raised';
+
+/**
+ * Part five (§4.1): the list.
+ *
+ * ```
+ * 10px upper column labels · a rule under the header · 32px rows · hover tint
+ * ```
+ *
+ * **Ingredients, Recipes and Sauces differ by `columns` and nothing else.** Everything a spec could
+ * want to vary is in the array — the tracks, the priorities, the cell renderers, and (through
+ * `role`) what each column becomes when the grid collapses. Nothing entity-specific is written
+ * here, and the third entity should be a spec file with no companion component.
+ *
+ * One panel around the rows (`FRAME_CLASS`), and inside it no vertical rules and no zebra.
+ * `DataList` owns the row geometry; this component adds only the frame.
+ *
+ * ## Why the fitting happens here and not in `DataList`
+ *
+ * `DataList` measures its own box and fits against it, which is right for a list standing on its
+ * own. It is not sufficient here, because §4.2's warning is precisely that the measurement which
+ * matters — the port after the nav's width transition — is the one an automatic observer misses,
+ * and `DataList` reads its node after every commit while the transition is still running. So the
+ * port is measured by `useTablePort` (commit, *settled*, resize) and the columns are fitted
+ * against that before they reach `DataList`.
+ *
+ * The double fit is deliberate and idempotent: `fitColumns` over an already-fitting set returns it
+ * unchanged, so `DataList`'s own pass is a no-op on the same width and a correct fallback on a
+ * surface with no nav around it — the showcase, a test renderer, a native screen before its first
+ * layout.
+ *
+ * `columnFloor` is what is charged against the budget: `min` where a spec states one, `width`
+ * otherwise. That is the difference between "this column needs 96px to be worth drawing" and "this
+ * column gets a 140px track when it is drawn".
+ *
+ * ## The overflow column is the shell's, not the spec's
+ *
+ * `rowActions` appends the action column rather than each entity declaring one. §4.1 fixes
+ * everything about it — the `⋯`, the priority that keeps it undroppable, the plain non-interactive
+ * header, the end alignment — so three specs restating it would be three chances to get one of
+ * them wrong. What an entity decides is which actions there are, which is exactly what the callback
+ * returns.
+ *
+ * ## The photograph is the shell's too
+ *
+ * A spec names a row's picture with `thumbnail` on its title column and nothing else. This file
+ * draws it in both shapes — 20px inside the wide table's title cell, avatar-sized on the narrow
+ * row's leading edge — for the same reason as the overflow column. When the specs drew their own,
+ * the three that had a picture all drew it in the wide table and none on the narrow row, because
+ * the narrow row reads a column's plain `value` and never calls its renderer.
+ *
+ * ## The narrow branch
+ *
+ * Below `md` the tracks are gone and each record renders through `DataTableItem`. The branch is
+ * in JavaScript, on `useBreakpoint`, because the two trees have different element counts — the
+ * reasoning `ListItem` already carries. The roles in the spec are what let one array feed both
+ * shapes.
+ */
+export interface DataTableProps<Row> {
+    /** The spec. The only thing that differs between Ingredients, Recipes and Sauces. */
+    readonly columns: readonly DataTableColumn<Row>[];
+    readonly rows: readonly Row[];
+    readonly rowKey: (row: Row) => string;
+    /** Accessible name for the list as a whole. */
+    readonly label: string;
+    readonly density?: RowDensity | undefined;
+    /** The row body opens the editor, at both widths. */
+    readonly onRowPress?: ((row: Row) => void) | undefined;
+    /** View · Edit · Archive for one row. Rendered by the `actions` column, and by the narrow row. */
+    readonly rowActions?: ((row: Row) => readonly MenuItem[]) | undefined;
+    /** Accessible name for the overflow trigger. Defaults to "Actions". */
+    readonly rowActionsLabel?: string | undefined;
+    readonly emptyState?: ReactNode | undefined;
+    /**
+     * Rows cascade in as they mount — `DataList`'s `rowEntrance`. On by default: every admin list
+     * arrives the same way, and a list that should not (one redrawn on every keystroke of a form
+     * beside it) says so. Wide table only: below `md` the two-line rows arrive with the list's own
+     * band, because a phone shows four of them and a cascade down four rows reads as lag rather
+     * than arrival.
+     */
+    readonly rowEntrance?: boolean | undefined;
+    /**
+     * The row the reader opened last, by `rowKey`. Drawn on the brand's subtle ground — the same
+     * ground a selected row takes — and brought into view once as the list comes back, so the
+     * reader returns to where they were rather than to the top of page one.
+     */
+    readonly highlightedId?: string | null | undefined;
+    /**
+     * Where a list this component pages itself starts, when it is being returned to. The page
+     * holding `highlightedId` wins over it until the reader pages; a list the screen pages on the
+     * server never reads it.
+     */
+    readonly initialPage?: number | undefined;
+    /** Told when the reader pages a list this component pages itself — for the list's memory. */
+    readonly onPageChange?: ((page: number) => void) | undefined;
+    /** Closes the card a split Lens bar opens above it, instead of drawing a panel of its own. */
+    readonly joined?: boolean | undefined;
+    /** Keeps the frame when empty: for an `emptyState` drawn in the table's `table` or `row` shape. */
+    readonly frameEmpty?: boolean | undefined;
+    /** A heading row before a row — `DataList`'s `sectionHeader`, at both widths. */
+    readonly sectionHeader?: ((row: Row, previous: Row | undefined) => ReactNode) | undefined;
+    /**
+     * A form's own lines — recipe lines, an order's items, a closure list: every row at every
+     * width, no panel and no pager, because the rows are fields being filled in, not records being
+     * browsed. Folding them into two-line rows below `md` would hide the inputs, and paging them
+     * would hide lines the form still saves.
+     */
+    readonly lines?: boolean | undefined;
+    /** `lines` only: a full-width note under a row — a line's warning or its trace fields. */
+    readonly rowNote?: ((row: Row) => ReactNode) | undefined;
+    /** `lines` only: draws a row as the one in hand. */
+    readonly isRowSelected?: ((row: Row) => boolean) | undefined;
+    /** `lines` only: a row's ground — `danger` for a line that will not save, `new` for one added. */
+    readonly rowTone?: ((row: Row) => DataListRowTone | undefined) | undefined;
+    /** `lines` only: `false` drops the header band's ground, for lines inside a card of their own. */
+    readonly framed?: boolean | undefined;
+    /** `lines` only. */
+    readonly className?: string | undefined;
+    readonly testID: string;
+}
+
+/**
+ * Every admin table shows {@link TABLE_PAGE_SIZE} rows a page, whoever fetched them.
+ *
+ * A screen that pages on the server hands over one page, which never exceeds the size, so nothing
+ * is drawn here and its own pager stays in charge. A screen that hands over the whole set is cut
+ * into pages here, with the same pager under it — so no table runs on past eighteen rows just
+ * because its screen never wrote a pager of its own.
+ */
+export function DataTable<Row>(props: DataTableProps<Row>) {
+    const { t } = useTranslation();
+    const { rows, rowKey, highlightedId, initialPage, onPageChange, testID } = props;
+    // `null` until the reader pages: before that the list opens where it was left.
+    const [requested, setRequested] = useState<number | null>(null);
+
+    if (props.lines === true) return <FormLines {...props} />;
+
+    const totalPages = Math.max(1, Math.ceil(rows.length / TABLE_PAGE_SIZE));
+    if (totalPages === 1) return <CatalogueTable {...props} />;
+
+    const setPage = (next: number) => {
+        setRequested(next);
+        onPageChange?.(next);
+    };
+
+    // Clamped rather than reset: a filter that shrinks the set lands on its last page, not past it.
+    const page = Math.min(
+        requested ?? pageHolding(rows, rowKey, highlightedId) ?? initialPage ?? 1,
+        totalPages,
+    );
+    const from = (page - 1) * TABLE_PAGE_SIZE;
+
+    return (
+        <View className="flex-col gap-3">
+            <CatalogueTable {...props} rows={rows.slice(from, from + TABLE_PAGE_SIZE)} />
+            <TablePager
+                testID={`${testID}-pagination`}
+                page={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+                label={t('designSystem:dataTable.pagerLabel')}
+            />
+        </View>
+    );
+}
+
+/** {@link DataTableProps.lines}: the bare rows, every one, at every width. */
+function FormLines<Row>({
+    columns,
+    rows,
+    rowKey,
+    label,
+    density = 'md',
+    onRowPress,
+    emptyState,
+    rowEntrance = false,
+    sectionHeader,
+    rowNote,
+    isRowSelected,
+    rowTone,
+    framed,
+    className,
+    testID,
+}: DataTableProps<Row>) {
+    return (
+        <DataList
+            columns={columns}
+            rows={rows}
+            rowKey={rowKey}
+            label={label}
+            density={density}
+            onRowPress={onRowPress}
+            isRowSelected={isRowSelected}
+            rowTone={rowTone}
+            emptyState={emptyState}
+            framed={framed}
+            rowEntrance={rowEntrance}
+            sectionHeader={sectionHeader}
+            rowNote={rowNote}
+            className={className}
+            testID={testID}
+        />
+    );
+}
+
+/** The 1-based page of {@link TABLE_PAGE_SIZE} rows holding `id`, or `undefined`. */
+function pageHolding<Row>(
+    rows: readonly Row[],
+    rowKey: (row: Row) => string,
+    id: string | null | undefined,
+): number | undefined {
+    if (id === null || id === undefined) return undefined;
+    const index = rows.findIndex((row) => rowKey(row) === id);
+    return index < 0 ? undefined : Math.floor(index / TABLE_PAGE_SIZE) + 1;
+}
+
+function CatalogueTable<Row>({
+    columns,
+    rows,
+    rowKey,
+    label,
+    density = 'md',
+    onRowPress,
+    rowActions,
+    rowActionsLabel,
+    emptyState,
+    rowEntrance = true,
+    highlightedId,
+    joined = false,
+    frameEmpty = false,
+    sectionHeader,
+    testID,
+}: DataTableProps<Row>) {
+    const { t } = useTranslation();
+    const actionsLabel = rowActionsLabel ?? t('designSystem:dataTable.actionHeader');
+    const frameClass = joined ? JOINED_FRAME_CLASS : FRAME_CLASS;
+    const { atLeast } = useBreakpoint();
+    const port = useTablePort();
+    const wide = atLeast('md');
+    const frame = useRef<View | null>(null);
+    const highlighted =
+        highlightedId === null || highlightedId === undefined
+            ? null
+            : (rows.find((row) => rowKey(row) === highlightedId) ?? null);
+    useRevealRow(
+        frame,
+        highlighted === null ? null : `${testID}-row-${rowKey(highlighted)}`,
+        // The narrow row paints itself through `ListItem`'s `selected`; `DataList` has no such
+        // state, so the wide row is painted here.
+        wide,
+    );
+
+    if (!wide) {
+        return (
+            <View
+                ref={frame}
+                testID={testID}
+                role="list"
+                aria-label={label}
+                accessibilityLabel={label}
+                className={rows.length === 0 ? 'flex-col' : frameClass}
+            >
+                {rows.length === 0
+                    ? emptyState
+                    : rows.map((row, index) => (
+                          <Fragment key={rowKey(row)}>
+                              {sectionHeader === undefined ? null : (
+                                  <NarrowSection heading={sectionHeader(row, rows[index - 1])} />
+                              )}
+                              <DataTableItem
+                                  key={rowKey(row)}
+                                  title={cellText(columnForRole(columns, 'title'), row)}
+                                  media={narrowThumbnail(columns, row, rowKey, testID)}
+                                  status={renderRole(columns, 'status', row)}
+                                  metric={renderRole(columns, 'metric', row)}
+                                  meta={metaEntries(columns, row)}
+                                  actions={rowActions?.(row)}
+                                  actionsLabel={actionsLabel}
+                                  onPress={
+                                      onRowPress === undefined
+                                          ? undefined
+                                          : () => {
+                                                onRowPress(row);
+                                            }
+                                  }
+                                  divider={index < rows.length - 1}
+                                  highlighted={row === highlighted}
+                                  testID={`${testID}-row-${rowKey(row)}`}
+                              />
+                          </Fragment>
+                      ))}
+            </View>
+        );
+    }
+
+    /*
+     * No column is told to take the slack: `DataList` shares it across every column in proportion
+     * to its declared width, so the table ends where the page does without a hole after the names.
+     * A spec that wants one column to absorb it can still say `fill`.
+     */
+    const drawn = withTableThumbnail(columns, rowKey, testID);
+    const withActions =
+        rowActions === undefined
+            ? drawn
+            : [
+                  ...drawn,
+                  actionColumn<Row>(
+                      rowActions,
+                      actionsLabel,
+                      t('designSystem:dataTable.actionHeader'),
+                      rowKey,
+                      testID,
+                  ),
+              ];
+
+    // `columnFloor` is the fitting currency; the tracks `DataList` draws are still `width`. Fitting
+    // on a floor and drawing on a width is the whole reason the spec carries both.
+    const fitted = fitColumns(
+        withActions.map((column) => ({ ...column, width: columnFloor(column) })),
+        port.width,
+    );
+    const visible = withActions.filter((column) =>
+        fitted.some((candidate) => candidate.key === column.key),
+    );
+
+    return (
+        /*
+         * The frame is outside the port, not on it: the port is measured with
+         * `getBoundingClientRect`, which includes a border, so a frame on the measured box would
+         * fit tracks two pixels wider than the space inside it.
+         */
+        <View ref={frame} className={rows.length === 0 && !frameEmpty ? 'flex-col' : frameClass}>
+            <View
+                testID={`${testID}-port`}
+                // Both measurement paths, and each is inert on the other's platform: `onLayout` never
+                // fires with a useful width on web before the nav settles, and `ref` has no
+                // `getBoundingClientRect` on native.
+                ref={Platform.OS === 'web' ? port.ref : undefined}
+                onLayout={Platform.OS === 'web' ? undefined : port.onLayout}
+                /*
+                 * No scroll port of its own.
+                 *
+                 * This used to carry `web:overflow-x-auto` so a track sum wider than the port could be
+                 * reached. Two things are wrong with that. The first is CSS: `overflow-x: auto` with
+                 * `overflow-y: visible` computes `overflow-y: auto` as well, so the list grew its own
+                 * *vertical* scrollbar inside the page's — the table scrolled independently of the
+                 * screen it sits on, which is what the reader sees as a scrollbar appearing halfway
+                 * down the page and a row list that will not move with the wheel.
+                 *
+                 * The second is that it should never be needed. §4.1 is explicit that columns are
+                 * *dropped by priority, never scrolled away*, because a row that scrolls sideways
+                 * hides its overflow menu. `fitColumns` runs twice — here against the measured port,
+                 * again inside `DataList` — precisely so the track sum fits. A scroll port on top of
+                 * that was a second answer to a question the fitter had already answered, and the two
+                 * disagreed.
+                 */
+                className="flex-col"
+            >
+                <DataList
+                    columns={visible}
+                    rows={rows}
+                    rowKey={rowKey}
+                    label={label}
+                    density={density}
+                    onRowPress={onRowPress}
+                    emptyState={emptyState}
+                    framed={rows.length > 0 || frameEmpty}
+                    flushTop={joined}
+                    rowEntrance={rowEntrance}
+                    sectionHeader={sectionHeader}
+                    testID={testID}
+                />
+            </View>
+        </View>
+    );
+}
+
+/**
+ * The highlighted row's ground — the token `bg-surface-brand-subtle` resolves to, so a palette
+ * change reaches it like any other.
+ */
+const HIGHLIGHT_GROUND = 'rgb(var(--h360-color-brand-surface-subtle))';
+
+/**
+ * Brings the highlighted row into view once as the list mounts, and paints it when asked to.
+ *
+ * Web only, and by the element React Native Web writes out for the row's `testID`. The wide row
+ * belongs to `DataList`, which has no highlighted state to set, and a scroll belongs to the
+ * document — the shell's scroll port is what moves, and `scrollIntoView` scrolls whichever
+ * ancestor does. On native the narrow row still paints itself, and nothing is scrolled.
+ *
+ * The paint is re-applied after every commit, because a page change or the row's entrance can
+ * hand the row a new element; the cleanup takes it off the old one.
+ */
+function useRevealRow(
+    frame: RefObject<View | null>,
+    rowTestID: string | null,
+    paint: boolean,
+): void {
+    const revealed = useRef(false);
+
+    useEffect(() => {
+        if (Platform.OS !== 'web' || rowTestID === null) return undefined;
+        const root = frame.current as unknown as HTMLElement | null;
+        const row = root?.querySelector<HTMLElement>(
+            `[data-testid="${rowTestID.replace(/["\\]/g, '\\$&')}"]`,
+        );
+        if (row === null || row === undefined) return undefined;
+
+        if (!revealed.current) {
+            revealed.current = true;
+            // Optional: jsdom implements no scrolling, and a missing scroll is no reason to fail.
+            row.scrollIntoView?.({ block: 'center' });
+        }
+
+        if (!paint) return undefined;
+        row.style.backgroundColor = HIGHLIGHT_GROUND;
+        return () => {
+            row.style.backgroundColor = '';
+        };
+    });
+}
+
+/** The heading row of the two-line list, which brings its own ground. Nothing when there is none. */
+function NarrowSection({ heading }: { readonly heading: ReactNode }) {
+    if (heading === null || heading === undefined || heading === false) return null;
+    return <View>{heading}</View>;
+}
+
+function cellText<Row>(column: DataTableColumn<Row> | undefined, row: Row): string {
+    return column?.value?.(row) ?? '';
+}
+
+/**
+ * The spec's columns with the row photograph drawn into the title cell, when the spec names one.
+ *
+ * The title's own renderer is kept and wrapped, not replaced, so a spec still owns how its title
+ * reads — the missing-Arabic badge, the weight — and only the picture is added in front of it.
+ */
+function withTableThumbnail<Row>(
+    columns: readonly DataTableColumn<Row>[],
+    rowKey: (row: Row) => string,
+    testID: string,
+): readonly DataTableColumn<Row>[] {
+    return columns.map((column) => {
+        const thumbnail = column.thumbnail;
+        if (column.role !== 'title' || thumbnail === undefined) return column;
+
+        const titleCell = (row: Row): ReactNode =>
+            column.render === undefined ? (
+                <Text variant="label">{cellText(column, row)}</Text>
+            ) : (
+                column.render(row)
+            );
+
+        /*
+         * Held to the cell's width, with the title beside the picture rather than under it. The
+         * title's track is the one that fills, but a name can still be longer than whatever is
+         * left: then it ends in an ellipsis, readable on hover. Left to its content width, the pair
+         * ran past the track and wrote the name over the next column.
+         */
+        return {
+            ...column,
+            render: (row: Row) => (
+                <Inline space="xs" align="center" wrap={false} className="min-w-0 flex-1">
+                    {thumbnail(row, {
+                        size: 'table',
+                        seed: rowKey(row),
+                        label: cellText(column, row),
+                        testID: `${testID}-row-${rowKey(row)}-image`,
+                    })}
+                    {}
+                    <View className="min-w-0 flex-1">{titleCell(row)}</View>
+                </Inline>
+            ),
+        };
+    });
+}
+
+/** The same photograph for the two-line row below `md`, or nothing when the spec names none. */
+function narrowThumbnail<Row>(
+    columns: readonly DataTableColumn<Row>[],
+    row: Row,
+    rowKey: (row: Row) => string,
+    testID: string,
+): ReactNode {
+    const title = columnForRole(columns, 'title');
+    if (title?.thumbnail === undefined) return undefined;
+
+    return title.thumbnail(row, {
+        size: 'narrow',
+        seed: rowKey(row),
+        label: cellText(title, row),
+        testID: `${testID}-row-${rowKey(row)}-image`,
+    });
+}
+
+function renderRole<Row>(
+    columns: readonly DataTableColumn<Row>[],
+    role: 'status' | 'metric',
+    row: Row,
+): ReactNode {
+    const column = columnForRole(columns, role);
+    if (column === undefined) return undefined;
+    return column.render === undefined ? column.value?.(row) : column.render(row);
+}
+
+/**
+ * The second line's meta run: every column the spec marked `meta`, in spec order.
+ *
+ * Explicit rather than "whatever did not fit", because what a narrow row should say is a decision
+ * about the entity, not a leftover of the fitting maths — a reference and a category read well
+ * there; a lock version does not.
+ */
+function metaEntries<Row>(
+    columns: readonly DataTableColumn<Row>[],
+    row: Row,
+): readonly ReactNode[] {
+    return columns
+        .filter((column) => column.role === 'meta')
+        .map((column) => (column.render === undefined ? column.value?.(row) : column.render(row)))
+        .filter((entry): entry is ReactNode => entry !== undefined && entry !== '');
+}
+
+/**
+ * The row-action column: one `⋯` holding whatever the caller's `MenuItem[]` says, at every width, so
+ * a row reads as its data and its actions appear when asked for (the admin canvas, 2026-11-09).
+ *
+ * `sortable` is left off deliberately: a column with nothing to sort or filter renders a plain,
+ * non-interactive header.
+ */
+function actionColumn<Row>(
+    rowActions: (row: Row) => readonly MenuItem[],
+    label: string,
+    header: string,
+    rowKey: (row: Row) => string,
+    testID: string,
+): DataTableColumn<Row> {
+    return {
+        key: 'actions',
+        label: header,
+        width: ROW_ACTIONS_WIDTH,
+        min: ROW_ACTIONS_WIDTH,
+        priority: DATA_TABLE_PRIORITY.actions,
+        align: 'end',
+        // The one column whose width is its content. `DataList` shares the port's leftover width
+        // out over the other tracks; a share here would only spend it on padding.
+        grow: false,
+        role: 'actions',
+        render: (row) => {
+            const actions = rowActions(row).map((action) => ({
+                ...action,
+                // The item's own id where it has one, else one derived from the row.
+                testID: action.testID ?? `${testID}-row-${rowKey(row)}-action-${action.key}`,
+            }));
+            const menuTestID = `${testID}-row-${rowKey(row)}-actions`;
+            return <RowMenu actions={actions} label={label} testID={menuTestID} />;
+        },
+    };
+}

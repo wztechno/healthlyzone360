@@ -4,17 +4,36 @@ import type {
     PurchaseOrderStatus,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Callout,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     FormSection,
     Icon,
+    LensBar,
+    Select,
     Stack,
+    TABLE_PAGE_SIZE,
+    TablePager,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+    SelectOption,
+    SortDirection,
+} from '@healthy360/design-system';
 import { PurchaseOrderId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -33,18 +52,6 @@ import {
     usePurchaseOrderQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CATALOGUE_PAGE_SIZE, CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensScopeOption } from '../catalogue/lens-bar.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { displayName, unitCodeLabel } from '../format.ts';
 import {
@@ -54,7 +61,6 @@ import {
     supplyOrderRowTestId,
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
     useListMemory,
     useRememberedFilter,
@@ -66,9 +72,6 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The order `?view=` names, read on its own when the loaded page does not hold it. */
 function useOrderById(id: string | null) {
     const parsed = PurchaseOrderId.safeParse(id);
@@ -259,7 +262,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
             ...(status === 'all' ? {} : { status }),
             ...(supplier === null ? {} : { supplierId: SupplierId.unsafe(supplier) }),
             ...(cursor === undefined ? {} : { cursor }),
-            limit: CATALOGUE_PAGE_SIZE,
+            limit: TABLE_PAGE_SIZE,
         }),
         [status, supplier, cursor],
     );
@@ -331,7 +334,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
             ? EM_DASH
             : formatter.formatDate(row.createdAt, { dateStyle: 'medium' });
 
-    const orderColumns: readonly ControlledColumn<PurchaseOrder, CatalogueColumn<PurchaseOrder>>[] =
+    const orderColumns: readonly ControlledColumn<PurchaseOrder, DataTableColumn<PurchaseOrder>>[] =
         [
             {
                 key: 'number',
@@ -449,7 +452,8 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                     },
                 },
                 render: (row) => (
-                    <DeskStatusDot
+                    <Badge
+                        variant="dot"
                         testID={`${purchaseOrderRowTestId(String(row.id))}-status`}
                         tone={purchaseOrderStatusTone(row.status)}
                         label={t(purchaseOrderStatusKey(row.status))}
@@ -460,7 +464,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
 
     const previewColumns: readonly ControlledColumn<
         OrderProposalItem,
-        CatalogueColumn<OrderProposalItem>
+        DataTableColumn<OrderProposalItem>
     >[] = [
         {
             key: 'item',
@@ -522,13 +526,13 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                         </Text>
                         {/* A word and a tone, never colour alone. Out wins when a row is both. */}
                         {row.isOutOfStock ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-out`}
                                 tone="danger"
                                 label={t('kitchen:ops.supplyOrders.outBadge')}
                             />
                         ) : row.isLow ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-low`}
                                 tone="warning"
                                 label={t('kitchen:ops.supplyOrders.lowBadge')}
@@ -573,15 +577,15 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
         previewColumns,
         'kitchen-supply-orders-preview',
     );
-    const queuePages = Math.max(1, Math.ceil(previewControls.rows.length / CATALOGUE_PAGE_SIZE));
+    const queuePages = Math.max(1, Math.ceil(previewControls.rows.length / TABLE_PAGE_SIZE));
     const queuePage =
         queuePaging.key === previewControls.key ? Math.min(queuePaging.page, queuePages) : 1;
     const preview = previewControls.rows.slice(
-        (queuePage - 1) * CATALOGUE_PAGE_SIZE,
-        queuePage * CATALOGUE_PAGE_SIZE,
+        (queuePage - 1) * TABLE_PAGE_SIZE,
+        queuePage * TABLE_PAGE_SIZE,
     );
 
-    const statusOptions: readonly LensScopeOption<StatusSegmentValue>[] = [
+    const statusOptions: readonly SelectOption<StatusSegmentValue>[] = [
         {
             value: 'all',
             label: t('kitchen:toolbar.statusAll'),
@@ -617,7 +621,6 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-supply-orders-view"
-                look="sheet"
                 figureKeys={['lines', 'madeOn', 'branch']}
                 eyebrow={t('kitchen:recordView.eyebrowSupplyOrders')}
                 onBack={() => {
@@ -654,7 +657,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                     })}
                     body={t('kitchen:ops.supplyOrders.print.createdBody')}
                     actions={
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-orders-created-print"
                             variant="secondary"
                             label={t('kitchen:ops.supplyOrders.print.printThem', {
@@ -678,7 +681,6 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
             <View className={bookJoined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-supply-orders-toolbar"
-                    layout="split"
                     joined={bookJoined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures({
@@ -693,7 +695,8 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                         },
                     })}
                     scope={
-                        <LensScope<StatusSegmentValue>
+                        <Select<StatusSegmentValue>
+                            trigger="pill"
                             testID="kitchen-supply-orders-toolbar-status"
                             label={t('kitchen:toolbar.statusLabel')}
                             value={status}
@@ -733,7 +736,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                           })}
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
-                        <DeskButton
+                        <Button
                             testID="kitchen-supply-orders-prepare"
                             label={t('kitchen:ops.supplyOrders.prepare')}
                             iconStart={<Icon name="plus" size="sm" />}
@@ -758,7 +761,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                         retrying={orders.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-supply-orders-book-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -786,7 +789,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                                 // way back has to be here.
                                 actions={
                                     unfiltered ? undefined : (
-                                        <DeskButton
+                                        <Button
                                             testID="kitchen-supply-orders-book-clear"
                                             variant="secondary"
                                             size="sm"
@@ -805,7 +808,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<PurchaseOrder>
+                        <DataTable<PurchaseOrder>
                             testID="kitchen-supply-orders-book-table"
                             joined
                             label={t('kitchen:ops.supplyOrders.ordersCaption')}
@@ -823,7 +826,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                                 {
                                     key: 'view',
                                     label: t('kitchen:list.view'),
-                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    icon: DATA_TABLE_ROW_ICONS.view,
                                     testID: `${purchaseOrderRowTestId(String(row.id))}-view`,
                                     onSelect: () => {
                                         rememberOpened(String(row.id));
@@ -833,7 +836,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                                 {
                                     key: 'open',
                                     label: t('kitchen:catalogue.edit'),
-                                    icon: CATALOGUE_ROW_ICONS.edit,
+                                    icon: DATA_TABLE_ROW_ICONS.edit,
                                     testID: `${purchaseOrderRowTestId(String(row.id))}-open`,
                                     onSelect: () => {
                                         openOrder(row);
@@ -841,7 +844,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                                 },
                             ]}
                         />
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-supply-orders-book-pagination"
                             page={page}
                             totalPages={cursors.length}
@@ -902,7 +905,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                         title={t('kitchen:ops.supplyOrders.nothingNeededTitle')}
                         body={t('kitchen:ops.supplyOrders.nothingNeededBody')}
                         actions={
-                            <DeskButton
+                            <Button
                                 testID="kitchen-supply-orders-order-anyway"
                                 variant="secondary"
                                 label={t('kitchen:ops.supplyOrders.orderAnyway')}
@@ -912,7 +915,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<OrderProposalItem>
+                        <DataTable<OrderProposalItem>
                             testID="kitchen-supply-orders-preview"
                             label={t('kitchen:ops.supplyOrders.previewCaption')}
                             columns={previewControls.columns}
@@ -921,7 +924,7 @@ function SupplyOrders({ created, view }: SupplyOrdersScreenProps) {
                             density="sm"
                             rowActionsLabel={t('kitchen:list.rowActions')}
                         />
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-supply-orders-preview-pagination"
                             page={queuePage}
                             totalPages={queuePages}

@@ -4,14 +4,18 @@ import type {
     StockItem,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Cascade,
-    DataList,
-    Dialog,
+    DataTable,
     EmptyState,
     ErrorState,
+    FigureChips,
     FormSection,
     IssueTrayFrame,
     IssueUnanchored,
+    LeaveDialog,
+    PageHeader,
     QuantityInput,
     RecordSkeleton,
     Text,
@@ -23,6 +27,7 @@ import type {
     DataListColumn,
     IssueCardItem,
     IssueTrayContent,
+    LensFigure,
     RecordWindowField,
 } from '@healthy360/design-system';
 import { GoodsReceiptId } from '@healthy360/domain-types';
@@ -42,9 +47,6 @@ import {
     useGoodsReceiptQuery,
     useStockItemsQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { CataloguePageHeader } from '../catalogue/catalogue-page-header.tsx';
-import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
-import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
 import { unitCodeLabel } from '../format.ts';
@@ -59,8 +61,6 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/supplier-bills/{receipt}` — one receipt's missing prices (SUP5, §7).
  *
@@ -177,7 +177,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                 title={t('kitchen:ops.unpricedReceipts.notFoundTitle')}
                 body={t('kitchen:ops.unpricedReceipts.notFoundBody')}
                 actions={
-                    <DeskButton
+                    <Button
                         testID="kitchen-unpriced-receipt-not-found-back"
                         variant="secondary"
                         size="sm"
@@ -346,19 +346,19 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
     return (
         <IssueTrayFrame tray={trayContent} controller={issueTray}>
             <Cascade space="md" testID="kitchen-unpriced-receipt-screen">
-                <CataloguePageHeader
+                <PageHeader
                     testID="kitchen-unpriced-receipt-header"
                     title={title ?? undefined}
                     titleAside={
-                        <DeskChip
+                        <Badge
                             testID="kitchen-unpriced-receipt-status"
                             tone={receiptCostStatusTone(detail.costStatus)}
                             label={t(receiptCostStatusKey(detail.costStatus))}
                         />
                     }
-                    primaryAction={
+                    actions={
                         <View className="flex-row flex-wrap items-center gap-tight">
-                            <DeskButton
+                            <Button
                                 testID="kitchen-unpriced-receipt-cancel"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -367,7 +367,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                                 }}
                             />
                             {priceable.length === 0 ? null : (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-unpriced-receipt-save"
                                     label={t('kitchen:ops.unpricedReceipts.savePrices', {
                                         count: typed.length,
@@ -385,9 +385,10 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
 
                 <IssueUnanchored testID="kitchen-unpriced-receipt-issues-loose" />
 
-                <CatalogueStatCards
+                <FigureChips
                     testID="kitchen-unpriced-receipt-facts"
-                    cards={receiptFacts(detail, priceable.length, typed.length, formatter, t)}
+                    fill
+                    figures={receiptFacts(detail, priceable.length, typed.length, formatter, t)}
                 />
 
                 {/*
@@ -418,7 +419,8 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                                     : t('kitchen:ops.unpricedReceipts.quantitiesImmutable')
                             }
                         >
-                            <DataList<GoodsReceiptLine>
+                            <DataTable<GoodsReceiptLine>
+                                lines
                                 testID="kitchen-unpriced-receipt-lines-table"
                                 label={t('kitchen:ops.unpricedReceipts.linesHeading')}
                                 columns={columns}
@@ -452,30 +454,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                     </View>
                 </View>
 
-                <Dialog
-                    look="card"
-                    testID="kitchen-unpriced-receipt-unsaved-dialog"
-                    open={guard.isPrompting}
-                    onClose={guard.cancelDiscard}
-                    title={t('kitchen:unsaved.title')}
-                    description={t('kitchen:unsaved.body')}
-                    actions={
-                        <>
-                            <DeskButton
-                                testID="kitchen-unpriced-receipt-unsaved-keep"
-                                variant="quiet"
-                                label={t('kitchen:unsaved.keepEditing')}
-                                onPress={guard.cancelDiscard}
-                            />
-                            <DeskButton
-                                testID="kitchen-unpriced-receipt-unsaved-discard"
-                                variant="danger"
-                                label={t('kitchen:unsaved.discard')}
-                                onPress={guard.confirmDiscard}
-                            />
-                        </>
-                    }
-                />
+                <LeaveDialog guard={guard} testID="kitchen-unpriced-receipt" />
             </Cascade>
         </IssueTrayFrame>
     );
@@ -627,7 +606,7 @@ function lineColumns({
             render: (line) => {
                 const state = lineState(line);
                 return (
-                    <DeskChip
+                    <Badge
                         testID={`kitchen-unpriced-line-${line.id}-state`}
                         tone={state === 'priced' ? 'success' : 'warning'}
                         label={t(
@@ -644,50 +623,52 @@ function lineColumns({
     ];
 }
 
-/** The receipt in four figures: what is left to price, what is typed, what waits, and when. */
+/**
+ * The receipt in four figures: what is left to price, what is typed, what waits, and when. What each
+ * one means sits behind its (i).
+ */
 function receiptFacts(
     receipt: GoodsReceiptDetail,
     toPrice: number,
     typed: number,
     formatter: Formatter,
     t: TFunction,
-): readonly CatalogueStatCard[] {
+): readonly LensFigure[] {
+    const lines = t('kitchen:ops.ledger.statLinesUnit');
     return [
         {
             key: 'toPrice',
             label: t('kitchen:ops.unpricedReceipts.columnToPrice'),
-            value: String(toPrice),
-            unit: t('kitchen:ops.ledger.statLinesUnit'),
-            caption: t('kitchen:ops.unpricedReceipts.statToPriceCaption'),
-            mark: 'coins',
-            tone: toPrice === 0 ? 'default' : 'warning',
+            value: toPrice,
+            note: lines,
+            info: t('kitchen:ops.unpricedReceipts.statToPriceCaption'),
+            tone: 'warning',
         },
         {
             key: 'typed',
             label: t('kitchen:ops.unpricedReceipts.statTypedLabel'),
-            value: String(typed),
-            unit: t('kitchen:ops.ledger.statLinesUnit'),
-            caption: t('kitchen:ops.unpricedReceipts.statTypedCaption'),
-            mark: 'receipt',
+            value: typed,
+            note: lines,
+            info: t('kitchen:ops.unpricedReceipts.statTypedCaption'),
             tone: 'brand',
         },
         {
             key: 'pendingFx',
             label: t('kitchen:ops.ledger.statePendingFx'),
-            value: String(receipt.valuationPendingCount),
-            unit: t('kitchen:ops.ledger.statLinesUnit'),
-            caption: t('kitchen:ops.unpricedReceipts.statPendingFxCaption'),
-            mark: 'clock',
+            value: receipt.valuationPendingCount,
+            note: lines,
+            info: t('kitchen:ops.unpricedReceipts.statPendingFxCaption'),
+            tone: 'info',
         },
         {
             key: 'receivedOn',
             label: t('kitchen:ops.unpricedReceipts.columnReceivedOn'),
-            value:
+            value: 0,
+            display:
                 receipt.receivedOn === null
                     ? t('kitchen:list.noValue')
                     : formatter.formatDate(receipt.receivedOn, { dateStyle: 'medium' }),
-            caption: t('kitchen:ops.unpricedReceipts.statReceivedCaption'),
-            mark: 'calendar',
+            info: t('kitchen:ops.unpricedReceipts.statReceivedCaption'),
         },
     ];
 }

@@ -1,12 +1,18 @@
 import { apiFailure } from '@healthy360/api-client/contracts';
 import {
+    Button,
     Cascade,
+    ColumnPicker,
+    DatePicker,
     EmptyState,
     ErrorState,
+    LensBar,
+    PeriodScope,
     Stack,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
+import type { LensFigure, LensMixPart, PeriodWindow } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -22,18 +28,11 @@ import { displayName, statusKey } from '../format.ts';
 import { ReviewTable, useReviewColumns } from '../review/review-table.tsx';
 import { buildReviewQueue, isBlocked, reviewFamilyKey, reviewReasonKey } from '../review-queue.ts';
 import type { ReviewItem, ReviewQueue, ReviewSection } from '../review-queue.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import { PeriodScope } from '../catalogue/period-scope.tsx';
-import type { PeriodWindow } from '../catalogue/period-scope.tsx';
 import { todayIso } from '../../commerce/dates.ts';
-import type { LensFigure, LensMixPart } from '../catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { useListMemory, useRememberedFilter, useRememberedQuery } from '../list-memory.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 /**
  * `/kitchen/review` — the publication review queue (K1.8), as `Workbench.dc.html` draws it.
  *
@@ -238,7 +237,6 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                 {(queue !== null && queue.total === 0) || failure !== null ? null : (
                     <LensBar
                         testID="kitchen-review-toolbar"
-                        layout="split"
                         joined={joined}
                         label={t('kitchen:lens.label')}
                         figures={lensFigures(searched, scope, t, pickScope)}
@@ -286,7 +284,8 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                                     onChange={pickWindow}
                                 />
                                 <View className="z-auto flex-row items-center gap-tight">
-                                    <DeskDateButton
+                                    <DatePicker
+                                        trigger="pill"
                                         testID="kitchen-review-filter-from"
                                         label={t('kitchen:review.filterFrom')}
                                         value={from}
@@ -302,7 +301,8 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                                     <Text variant="caption" tone="secondary" aria-hidden>
                                         {t('kitchen:ops.requirements.windowTo')}
                                     </Text>
-                                    <DeskDateButton
+                                    <DatePicker
+                                        trigger="pill"
                                         testID="kitchen-review-filter-to"
                                         label={t('kitchen:review.filterTo')}
                                         value={to}
@@ -358,7 +358,7 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                                 title={t('kitchen:review.filteredEmptyTitle')}
                                 body={t('kitchen:review.filteredEmptyBody')}
                                 actions={
-                                    <DeskButton
+                                    <Button
                                         testID="kitchen-review-clear-filters"
                                         variant="secondary"
                                         size="sm"
@@ -403,7 +403,6 @@ function ReviewWindow({
 
     return (
         <RecordViewPage
-            look="sheet"
             testID="kitchen-review-window"
             onBack={onBack}
             title={displayName(item.name, locale).value}

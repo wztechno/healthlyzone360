@@ -1,13 +1,11 @@
 import type { RecipeVersionSummary } from '@healthy360/api-client/contracts';
-import { Dropdown, Icon, InfoTip, Text, cx } from '@healthy360/design-system';
+import { Badge, Button, cx, Dropdown, Icon, InfoTip, Text } from '@healthy360/design-system';
 import type { RecipeVersionId } from '@healthy360/domain-types';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 import { statusKey, statusShortKey, statusTone } from './format.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 type VersionStatus = RecipeVersionSummary['status'];
 
 /** The dot beside a status: amber for work in progress, green for what customers see. */
@@ -80,7 +78,7 @@ export function RecipeVersionMenu({
                     <View aria-hidden className={cx('h-2 w-2 rounded-full', dotClass(status))} />
                     <RNText
                         testID="kitchen-recipe-editor-screen-status"
-                        className="text-xs font-semibold text-content-primary"
+                        className="text-role-caption font-semibold text-content-primary"
                     >
                         {label}
                     </RNText>
@@ -92,7 +90,7 @@ export function RecipeVersionMenu({
         >
             {({ close }) => (
                 <View testID="kitchen-recipe-version-list" className="flex-col gap-1 p-2">
-                    <RNText className="px-2 pb-1 pt-1.5 text-xs font-semibold text-content-secondary text-start">
+                    <RNText className="px-2 pb-1 pt-1.5 text-role-caption font-semibold text-content-secondary text-start">
                         {t('kitchen:recipes.sectionVersions')}
                     </RNText>
                     {versions.map((version) => {
@@ -109,7 +107,7 @@ export function RecipeVersionMenu({
                             >
                                 <View className="min-w-0 flex-1 flex-col">
                                     <View className="flex-row flex-wrap items-center gap-1.5">
-                                        <DeskChip
+                                        <Badge
                                             testID={`${rowTestId}-status`}
                                             tone={statusTone(version.status)}
                                             label={t(statusKey(version.status))}
@@ -120,7 +118,7 @@ export function RecipeVersionMenu({
                                             })}
                                         </Text>
                                         {version.isCurrent ? (
-                                            <DeskChip
+                                            <Badge
                                                 testID={`${rowTestId}-current`}
                                                 tone="info"
                                                 label={t('kitchen:recipes.currentVersion')}
@@ -131,7 +129,7 @@ export function RecipeVersionMenu({
                                         {t(audienceKey(version.status))}
                                     </Text>
                                 </View>
-                                <DeskButton
+                                <Button
                                     testID={`${rowTestId}-select`}
                                     size="sm"
                                     variant={isSelected ? 'secondary' : 'ghost'}
@@ -150,7 +148,7 @@ export function RecipeVersionMenu({
                     })}
                     {onRetire === undefined ? null : (
                         <View className="mt-1 border-t border-stroke-subtle pt-1">
-                            <DeskButton
+                            <Button
                                 testID="kitchen-recipe-retire"
                                 size="sm"
                                 variant="ghost"

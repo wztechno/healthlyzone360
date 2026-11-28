@@ -1,11 +1,19 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Cascade,
+    ColumnPicker,
+    compareText,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
+    Select,
     TableSkeleton,
     Text,
+    useColumnControls,
     useToast,
 } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
@@ -22,15 +30,13 @@ import {
     useStartProductionOrderMutation,
 } from '../../../data/kitchen-ops-hooks.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+} from '@healthy360/design-system';
 
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { PRODUCTION_MANAGE_PERMISSION, PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import {
     nextProductionEdge,
@@ -46,8 +52,6 @@ import {
 } from '../production-desk/batch-figures.ts';
 import { trimDecimal, unitCodeLabel } from '../format.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/production-desk` — the batches this kitchen still has to do something about (PROD1).
  *
@@ -179,7 +183,7 @@ function ProductionDesk() {
     // The lot, or what a cook typed on the tray before lots were minted.
     const lotCaption = (row: ProductionOrder) => formatLot(row.lotNumber) ?? row.batchReference;
 
-    const columns: readonly ControlledColumn<ProductionOrder, CatalogueColumn<ProductionOrder>>[] =
+    const columns: readonly ControlledColumn<ProductionOrder, DataTableColumn<ProductionOrder>>[] =
         [
             {
                 key: 'reference',
@@ -253,13 +257,13 @@ function ProductionDesk() {
                 priority: 95,
                 render: (row) => (
                     <View className="flex-row flex-wrap items-center gap-1.5">
-                        <DeskChip
+                        <Badge
                             testID={`${productionBatchTestId(String(row.id))}-status`}
                             tone={productionStatusTone(row.status)}
                             label={t(productionStatusKey(row.status))}
                         />
                         {row.isExpired ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${productionBatchTestId(String(row.id))}-expired`}
                                 tone="danger"
                                 label={t('kitchen:ops.production.expiredBadge')}
@@ -273,7 +277,7 @@ function ProductionDesk() {
     /**
      * The one edge a row can take, as the list's own row action.
      *
-     * `CatalogueList` draws these as buttons beside the row above `md` and folds them into the
+     * `DataTable` draws these as buttons beside the row above `md` and folds them into the
      * overflow menu below it, and the `actions` track is undroppable at every width — which a
      * column of my own would not have been. An empty list is no control at all rather than a
      * disabled one: a batch in production has an edge, and it is a form.
@@ -330,7 +334,6 @@ function ProductionDesk() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-production-desk-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     // A failed read counts nothing: its figures are dashes, as past the first page.
@@ -359,7 +362,8 @@ function ProductionDesk() {
                           }
                         : {})}
                     scope={
-                        <LensScope<DeskScope>
+                        <Select<DeskScope>
+                            trigger="pill"
                             testID="kitchen-production-desk-toolbar-status"
                             label={t('kitchen:ops.production.filterStatus')}
                             // A figure narrows inside Open; the picker still says where it stands.
@@ -398,7 +402,7 @@ function ProductionDesk() {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-production-desk-new"
                                 size="sm"
                                 label={t('kitchen:ops.production.create')}
@@ -423,7 +427,7 @@ function ProductionDesk() {
                         retrying={batches.isFetching}
                     />
                 ) : rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-production-desk-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -443,7 +447,7 @@ function ProductionDesk() {
                         }
                     />
                 ) : searched.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-production-desk-no-match-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -464,7 +468,7 @@ function ProductionDesk() {
                     />
                 ) : (
                     <View className="flex-col gap-2.5">
-                        <CatalogueList<ProductionOrder>
+                        <DataTable<ProductionOrder>
                             testID="kitchen-production-desk-table"
                             joined
                             label={t('kitchen:ops.production.title')}
@@ -479,7 +483,7 @@ function ProductionDesk() {
                         />
                         <View className="flex-row flex-wrap items-center justify-center gap-snug">
                             {page > 1 ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-production-desk-previous"
                                     variant="secondary"
                                     size="sm"
@@ -490,7 +494,7 @@ function ProductionDesk() {
                                 />
                             ) : null}
                             {hasMore ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-production-desk-next"
                                     variant="secondary"
                                     size="sm"

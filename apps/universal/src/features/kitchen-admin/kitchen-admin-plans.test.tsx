@@ -1642,12 +1642,12 @@ describe('editing the plan', () => {
         );
         await untilVisible('kitchen-plan-diets');
 
-        // What the server holds is what the chips show.
+        // What the server holds is what the cards show.
         expect(
-            screen.getByTestId('kitchen-plan-diet-keto').props.accessibilityState?.selected,
+            screen.getByTestId('kitchen-plan-diet-keto-control').props.accessibilityState?.checked,
         ).toBe(true);
         expect(
-            screen.getByTestId('kitchen-plan-diet-vegan').props.accessibilityState?.selected,
+            screen.getByTestId('kitchen-plan-diet-vegan-control').props.accessibilityState?.checked,
         ).toBe(false);
 
         // A name change alone does not echo the diet set back: the set is replaced wholesale, and
@@ -1673,11 +1673,12 @@ describe('editing the plan', () => {
 
         // A pressed chip is a change, and the whole set goes up.
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-plan-diet-vegan'));
+            fireEvent.press(screen.getByTestId('kitchen-plan-diet-vegan-control'));
         });
         await waitFor(() => {
             expect(
-                screen.getByTestId('kitchen-plan-diet-vegan').props.accessibilityState?.selected,
+                screen.getByTestId('kitchen-plan-diet-vegan-control').props.accessibilityState
+                    ?.checked,
             ).toBe(true);
         });
         await act(async () => {

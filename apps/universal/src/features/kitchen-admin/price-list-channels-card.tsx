@@ -1,5 +1,13 @@
 import type { PriceListId } from '@healthy360/domain-types';
-import { FormSection, Stack, Switch, Text, useToast } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    FormSection,
+    Stack,
+    Switch,
+    Text,
+    useToast,
+} from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,8 +21,6 @@ import {
 } from '../../data/kitchen-wholesale-hooks.ts';
 import { displayName } from './format.ts';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
-import { DeskChip } from './desk-kit/desk-chip.tsx';
 export interface PriceListChannelsCardProps {
     readonly priceListId: PriceListId;
     readonly canManage: boolean;
@@ -58,7 +64,7 @@ export function PriceListChannelsCard({
             title={t('kitchen:priceLists.channelsTitle')}
             actions={
                 canManage && changed && assignment.data !== undefined ? (
-                    <DeskButton
+                    <Button
                         size="sm"
                         testID={`${testID}-save`}
                         label={t('kitchen:priceLists.channelsSave')}
@@ -121,7 +127,7 @@ export function PriceListChannelsCard({
                                 {row.code}
                             </Text>
                             {row.isActive ? null : (
-                                <DeskChip
+                                <Badge
                                     tone="neutral"
                                     label={t('kitchen:priceLists.channelInactive')}
                                 />

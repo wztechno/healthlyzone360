@@ -1,10 +1,8 @@
 import { screen } from '@testing-library/react-native';
-import { Button, ContentWidthProvider } from '@healthy360/design-system';
+import { ContentWidthProvider } from '@healthy360/design-system';
 import { Text } from 'react-native';
 
 import { renderStubScreen } from '../../../testing/stub-screen.tsx';
-import { CatalogueToolbar } from './catalogue-toolbar.tsx';
-import { statCardRows } from './catalogue-stat-cards.tsx';
 import { RecordViewPage } from './record-view-page.tsx';
 import { getRecordAction } from '../../../testing/record-actions.ts';
 
@@ -24,60 +22,6 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
 const PANEL_OPEN = { chrome: 288, padding: 28 };
 /** The same shell with the panel shut — what a laptop opens on. */
 const PANEL_SHUT = { chrome: 56, padding: 28 };
-
-describe('statCardRows', () => {
-    it('keeps the whole set on one row while every card clears its floor', () => {
-        expect(statCardRows(4, 1168)).toEqual({ perRow: 4 });
-        expect(statCardRows(5, 1168)).toEqual({ perRow: 5 });
-    });
-
-    it('balances the rows rather than leaving one card on a line of its own', () => {
-        // 680px holds three 200px cards: four go 2 + 2, not 3 + 1.
-        expect(statCardRows(4, 680)).toEqual({ perRow: 2 });
-        // 920px holds four: the home's five go 3 + 2, not 4 + 1.
-        expect(statCardRows(5, 920)).toEqual({ perRow: 3 });
-    });
-
-    it('draws one row before there is a width to count against', () => {
-        expect(statCardRows(4, 0)).toEqual({ perRow: 4 });
-    });
-});
-
-describe('CatalogueToolbar', () => {
-    it('keeps the actions in their own zone, apart from the filters that wrap', async () => {
-        await renderStubScreen(
-            <CatalogueToolbar
-                testID="toolbar"
-                search=""
-                onSearchChange={() => undefined}
-                searchLabel="Search"
-                filters={<Text testID="toolbar-date">From</Text>}
-            >
-                <Button testID="toolbar-create" label="New" onPress={() => undefined} />
-            </CatalogueToolbar>,
-        );
-
-        const filters = screen.getByTestId('toolbar-filters');
-        const actions = screen.getByTestId('toolbar-actions');
-        expect(screen.getByTestId('toolbar-search')).toBeTruthy();
-        // The entity's own filter wraps with the search; the primary never does.
-        expect(filters).toContainElement(screen.getByTestId('toolbar-date'));
-        expect(filters).not.toContainElement(screen.getByTestId('toolbar-create'));
-        expect(actions).toContainElement(screen.getByTestId('toolbar-create'));
-    });
-
-    it('draws no actions zone for a toolbar that has none', async () => {
-        await renderStubScreen(
-            <CatalogueToolbar
-                testID="toolbar"
-                search=""
-                onSearchChange={() => undefined}
-                searchLabel="Search"
-            />,
-        );
-        expect(screen.queryByTestId('toolbar-actions')).toBeNull();
-    });
-});
 
 describe('RecordViewPage as a pop-up', () => {
     const page = (
@@ -101,7 +45,9 @@ describe('RecordViewPage as a pop-up', () => {
             <ContentWidthProvider value={PANEL_OPEN}>{page}</ContentWidthProvider>,
         );
 
-        expect(screen.getByTestId('record-body').props.className).toContain('flex-row');
+        // Side by side: the main column shares the row with the rail.
+        expect(screen.getByTestId('record-main')).toHaveStyle({ flexBasis: 0 });
+        expect(screen.getByTestId('record-rail')).toBeTruthy();
         expect(screen.getByTestId('record-eyebrow')).toHaveTextContent('Ingredient');
     });
 
@@ -111,7 +57,7 @@ describe('RecordViewPage as a pop-up', () => {
             <ContentWidthProvider value={PANEL_SHUT}>{page}</ContentWidthProvider>,
         );
 
-        expect(screen.getByTestId('record-body').props.className).not.toContain('flex-row');
+        expect(screen.getByTestId('record-main')).not.toHaveStyle({ flexBasis: 0 });
     });
 
     it('pins the primary in the desk footer and draws no button on the canopy', async () => {

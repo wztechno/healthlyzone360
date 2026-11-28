@@ -1,6 +1,25 @@
 import type { IngredientAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import { Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import {
+    Button,
+    Cascade,
+    ColumnPicker,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
+    DataTableBody,
+    Dialog,
+    Icon,
+    Inline,
+    LensBar,
+    Text,
+    useColumnControls,
+    useToast,
+} from '@healthy360/design-system';
+import type {
+    ColumnControl,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -9,15 +28,7 @@ import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
-import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
-import { useColumnControls } from '../catalogue/use-column-controls.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
@@ -33,9 +44,7 @@ import type { PackagingListState, PackagingSortKey } from '../catalogue/use-pack
 import { usePackagingList } from '../catalogue/use-packaging-list.ts';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, humaniseCode, unitShortKey } from '../format.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/packaging` — bags, boxes, lids, cutlery and labels, and what each costs.
  *
@@ -138,7 +147,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
         [t, locale, formatter, categoryName],
     );
 
-    const controls = useColumnControls<IngredientAdmin, CatalogueColumn<IngredientAdmin>>(
+    const controls = useColumnControls<IngredientAdmin, DataTableColumn<IngredientAdmin>>(
         list.rows,
         columns.map((column) => ({ ...column, ...columnControl(column.key, list, t, locale) })),
         'kitchen-packaging',
@@ -163,7 +172,6 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-packaging-view"
-                look="sheet"
                 eyebrow={t('kitchen:recordView.eyebrowPackaging')}
                 photo={{
                     assetId: `ingredient-${viewing.slug}`,
@@ -203,7 +211,6 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-packaging-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures(list, t)}
@@ -232,7 +239,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                                  * which is what stops a successful save from producing a row the
                                  * page that created it cannot show.
                                  */}
-                                <DeskButton
+                                <Button
                                     testID="kitchen-packaging-toolbar-create"
                                     label={t('kitchen:packaging.create')}
                                     iconStart={<Icon name="plus" size="sm" />}
@@ -245,7 +252,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                     }
                 />
 
-                <CatalogueListBody
+                <DataTableBody
                     testID="kitchen-packaging"
                     list={list}
                     empty={{
@@ -257,7 +264,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                         body: t('kitchen:list.filteredEmptyBody'),
                     }}
                 >
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-packaging-table"
                         joined
                         label={t('kitchen:packaging.caption')}
@@ -278,7 +285,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'view',
                                 label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `${packagingRowTestId(row.id)}-view`,
                                 onSelect: () => {
                                     list.openView(row);
@@ -290,7 +297,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                             {
                                 key: 'edit',
                                 label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
+                                icon: DATA_TABLE_ROW_ICONS.edit,
                                 testID: `${packagingRowTestId(row.id)}-open`,
                                 onSelect: () => {
                                     list.openEditor(String(row.id));
@@ -314,7 +321,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                                       {
                                           key: 'archive',
                                           label: t('kitchen:list.archive'),
-                                          icon: CATALOGUE_ROW_ICONS.archive,
+                                          icon: DATA_TABLE_ROW_ICONS.archive,
                                           tone: 'danger' as const,
                                           disabled:
                                               !row.isEditable || row.meta.status === 'retired',
@@ -327,7 +334,7 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                                 : []),
                         ]}
                     />
-                </CatalogueListBody>
+                </DataTableBody>
             </View>
 
             {/*
@@ -344,13 +351,13 @@ function PackagingList({ view }: { readonly view?: string | undefined }) {
                 description={t('kitchen:packaging.archiveBody')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-packaging-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={list.cancelArchive}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-packaging-archive-confirm"
                             variant="danger"
                             label={t('kitchen:packaging.archiveConfirm')}

@@ -1,7 +1,12 @@
 import {
+    Badge,
+    Button,
     Cascade,
+    compareText,
+    cx,
     EmptyState,
     ErrorState,
+    FigureChips,
     Heading,
     Icon,
     Inline,
@@ -9,7 +14,6 @@ import {
     Skeleton,
     Stack,
     Text,
-    cx,
     useContentWidth,
     useToast,
 } from '@healthy360/design-system';
@@ -28,10 +32,7 @@ import {
 } from '../../../data/business-hooks.ts';
 import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
 import { useSession } from '../../../session/session-provider.tsx';
-import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
-import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
-import { CountPill, Panel, StatTile } from '../../kitchen-admin/hub-parts.tsx';
-import { compareText } from '../../kitchen-admin/catalogue/use-column-controls.tsx';
+import { Panel } from '../../kitchen-admin/hub-parts.tsx';
 import { formatMoney } from '../../marketplace/format.ts';
 import { AcceptQuotationDialog, DeclineQuotationDialog } from '../accept-quotation-dialog.tsx';
 import {
@@ -122,11 +123,15 @@ export function CorporateDashboardScreen() {
                     <Text tone="secondary" testID="corporate-dashboard-date">
                         {dateLine}
                     </Text>
-                    <Heading level={1} className="!text-3xl" testID="corporate-dashboard-title">
+                    <Heading
+                        level={1}
+                        className="!text-role-title"
+                        testID="corporate-dashboard-title"
+                    >
                         {t('business:overview.title')}
                     </Heading>
                 </Stack>
-                <DeskButton
+                <Button
                     testID="corporate-dashboard-new-quotation"
                     variant="secondary"
                     size="lg"
@@ -136,42 +141,46 @@ export function CorporateDashboardScreen() {
                 />
             </Inline>
 
-            <View testID="corporate-dashboard-stats" className="flex-row flex-wrap gap-3">
-                <StatTile
-                    testID="corporate-dashboard-stats-awaiting"
-                    label={t('business:overview.kpiAwaiting')}
-                    value={formatter.formatNumber(awaiting.length)}
-                    pending={quotations.isPending}
-                    tone={awaiting.length > 0 ? 'warning' : 'neutral'}
-                    onPress={go(`${CORPORATE_QUOTATIONS_HREF}?state=quoted`)}
-                />
-                <StatTile
-                    testID="corporate-dashboard-stats-open"
-                    label={t('business:overview.kpiOpen')}
-                    value={formatter.formatNumber(open)}
-                    pending={quotations.isPending}
-                    tone="neutral"
-                    onPress={go(`${CORPORATE_QUOTATIONS_HREF}?state=open`)}
-                />
-                <StatTile
-                    testID="corporate-dashboard-stats-accepted"
-                    label={t('business:overview.kpiAccepted')}
-                    value={formatter.formatNumber(accepted)}
-                    pending={quotations.isPending}
-                    tone="neutral"
-                    onPress={go(`${CORPORATE_QUOTATIONS_HREF}?state=closed`)}
-                />
-                <StatTile
-                    testID="corporate-dashboard-stats-programmes"
-                    label={t('business:overview.kpiProgrammes')}
-                    value={formatter.formatNumber(running)}
-                    pending={programmes.isPending}
-                    tone="neutral"
-                    {...(first === undefined
-                        ? {}
-                        : { onPress: go(corporateCatalogueHref(String(first.id))) })}
-                />
-            </View>
+            <FigureChips
+                testID="corporate-dashboard-stats"
+                fill
+                figures={[
+                    {
+                        key: 'awaiting',
+                        label: t('business:overview.kpiAwaiting'),
+                        value: quotations.isPending ? null : awaiting.length,
+                        display: formatter.formatNumber(awaiting.length),
+                        tone: awaiting.length > 0 ? 'warning' : 'neutral',
+                        onPress: go(`${CORPORATE_QUOTATIONS_HREF}?state=quoted`),
+                    },
+                    {
+                        key: 'open',
+                        label: t('business:overview.kpiOpen'),
+                        value: quotations.isPending ? null : open,
+                        display: formatter.formatNumber(open),
+                        tone: 'neutral',
+                        onPress: go(`${CORPORATE_QUOTATIONS_HREF}?state=open`),
+                    },
+                    {
+                        key: 'accepted',
+                        label: t('business:overview.kpiAccepted'),
+                        value: quotations.isPending ? null : accepted,
+                        display: formatter.formatNumber(accepted),
+                        tone: 'neutral',
+                        onPress: go(`${CORPORATE_QUOTATIONS_HREF}?state=closed`),
+                    },
+                    {
+                        key: 'programmes',
+                        label: t('business:overview.kpiProgrammes'),
+                        value: programmes.isPending ? null : running,
+                        display: formatter.formatNumber(running),
+                        tone: 'neutral',
+                        ...(first === undefined
+                            ? {}
+                            : { onPress: go(corporateCatalogueHref(String(first.id))) }),
+                    },
+                ]}
+            />
 
             <View className={wide ? 'flex-row items-start gap-3' : 'gap-3'}>
                 <View className={cx('min-w-0 gap-3', wide ? 'flex-[1.3]' : '')}>
@@ -179,10 +188,10 @@ export function CorporateDashboardScreen() {
                         testID="corporate-waiting"
                         title={t('business:overview.waitingTitle')}
                         count={
-                            <CountPill
+                            <Badge
                                 testID="corporate-waiting-count"
-                                value={String(awaiting.length)}
-                                tone={awaiting.length > 0 ? 'warning' : 'ok'}
+                                label={String(awaiting.length)}
+                                tone={awaiting.length > 0 ? 'warning' : 'success'}
                             />
                         }
                         link={{
@@ -236,14 +245,14 @@ export function CorporateDashboardScreen() {
                                             }
                                         />
                                         <Total row={row} />
-                                        <DeskButton
+                                        <Button
                                             testID={`corporate-waiting-${row.reference}-view`}
                                             variant="secondary"
                                             size="sm"
                                             label={t('business:overview.view')}
                                             onPress={view(row)}
                                         />
-                                        <DeskButton
+                                        <Button
                                             testID={`corporate-waiting-${row.reference}-decline`}
                                             variant="quiet"
                                             size="sm"
@@ -252,7 +261,7 @@ export function CorporateDashboardScreen() {
                                                 setDeciding({ quotation: row, kind: 'decline' });
                                             }}
                                         />
-                                        <DeskButton
+                                        <Button
                                             testID={`corporate-waiting-${row.reference}-accept`}
                                             size="sm"
                                             label={t('business:overview.accept')}
@@ -278,7 +287,7 @@ export function CorporateDashboardScreen() {
                                                 lines: linesText(row),
                                             })}
                                         />
-                                        <DeskChip
+                                        <Badge
                                             tone="info"
                                             label={t('business:overview.awaitingPrice')}
                                         />
@@ -323,7 +332,7 @@ export function CorporateDashboardScreen() {
                                             }),
                                         })}
                                     />
-                                    <DeskChip
+                                    <Badge
                                         tone={quotationTone(row.state)}
                                         label={t(quotationStateKey(row.state))}
                                     />
@@ -442,7 +451,7 @@ function Total({ row }: { readonly row: Quotation }) {
                     ? undefined
                     : contractPriceTestId(`overview-total-${row.reference}`)
             }
-            className="font-display text-base font-bold tabular-nums"
+            className="font-display text-role-section font-bold tabular-nums"
         >
             {row.requestedTotal === null ? '—' : formatMoney(formatter, row.requestedTotal)}
         </Text>
@@ -464,7 +473,7 @@ function ProgrammeCard({ programme }: { readonly programme: CorporateProgramme }
             testID={`corporate-programme-${id}`}
             title={t('business:overview.programmeTitle')}
             count={
-                <DeskChip
+                <Badge
                     testID={`corporate-programme-${id}-state`}
                     tone={programme.isActive ? 'success' : 'neutral'}
                     label={
@@ -485,7 +494,7 @@ function ProgrammeCard({ programme }: { readonly programme: CorporateProgramme }
                 <Heading
                     level={3}
                     testID={`corporate-programme-${id}-name`}
-                    className="!text-[22px] !leading-7"
+                    className="!text-role-title !leading-7"
                 >
                     {programme.name}
                 </Heading>
@@ -560,7 +569,7 @@ function LookupCard() {
                     onSubmitEditing={openLookup}
                     className="min-w-0 flex-1"
                 />
-                <DeskButton
+                <Button
                     testID="corporate-lookup-open"
                     variant="secondary"
                     size="sm"

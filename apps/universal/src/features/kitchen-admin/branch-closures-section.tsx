@@ -1,10 +1,14 @@
 import type { BranchClosure } from '@healthy360/api-client/contracts';
 import {
-    DataList,
-    DateField,
+    Badge,
+    Button,
+    DataTable,
+    DatePicker,
     Dialog,
     ErrorState,
+    FailureToast,
     FormSection,
+    RowMenu,
     Text,
     TextInputField,
     useToast,
@@ -21,11 +25,6 @@ import {
     useRemoveBranchClosureMutation,
 } from '../../data/kitchen-ops-hooks.ts';
 import { toFailure } from '../../data/hooks.ts';
-
-import { DeskButton } from './desk-kit/desk-button.tsx';
-import { DeskChip } from './desk-kit/desk-chip.tsx';
-import { DeskRowMenu } from './desk-kit/desk-row-menu.tsx';
-import { FailureToast } from './failure-toast.tsx';
 
 /**
  * Holidays: dates this branch is shut on top of its week. Saves on its own, as the service timings
@@ -175,7 +174,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                       sortable: false,
                       filterable: false,
                       render: (closure) => (
-                          <DeskRowMenu
+                          <RowMenu
                               testID={`kitchen-branch-closures-row-${closure.id}-menu`}
                               label={t('kitchen:branchClosures.rowMenu', {
                                   dates: rangeOf(closure),
@@ -207,7 +206,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
             title={t('kitchen:branchClosures.title')}
             description={t('kitchen:branchClosures.description')}
             aside={
-                <DeskChip
+                <Badge
                     testID="kitchen-branch-closures-scope"
                     tone="neutral"
                     label={t('kitchen:branchHours.scopeBranch')}
@@ -215,7 +214,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
             }
             actions={
                 canManage ? (
-                    <DeskButton
+                    <Button
                         testID="kitchen-branch-closures-add"
                         size="sm"
                         variant="secondary"
@@ -230,7 +229,8 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                     {t('kitchen:branchClosures.empty')}
                 </Text>
             ) : (
-                <DataList<BranchClosure>
+                <DataTable<BranchClosure>
+                    lines
                     testID="kitchen-branch-closures-list"
                     label={t('kitchen:branchClosures.title')}
                     columns={columns}
@@ -250,7 +250,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                 title={t('kitchen:branchClosures.add')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-branch-closures-add-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -258,7 +258,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                                 setAdding(false);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-branch-closures-add-save"
                             label={t('kitchen:branchClosures.add')}
                             loading={add.isPending}
@@ -277,24 +277,24 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                 {/* Two equal columns: a `FormGrid` track sized for a page squeezed them in the pop-up. */}
                 <View className="z-auto flex-row gap-3" testID="kitchen-branch-closures-form">
                     <View className="z-auto min-w-0 flex-1">
-                        <DateField
+                        <DatePicker
                             testID="kitchen-branch-closures-from"
                             label={t('kitchen:branchClosures.fromLabel')}
                             required
                             value={from}
                             onChange={(next) => {
-                                setFrom(next ?? '');
+                                setFrom(next);
                             }}
                         />
                     </View>
                     <View className="z-auto min-w-0 flex-1">
-                        <DateField
+                        <DatePicker
                             testID="kitchen-branch-closures-to"
                             label={t('kitchen:branchClosures.toLabel')}
                             hint={t('kitchen:branchClosures.toHint')}
                             value={to}
                             onChange={(next) => {
-                                setTo(next ?? '');
+                                setTo(next);
                             }}
                         />
                     </View>
@@ -319,7 +319,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                 title={t('kitchen:branchClosures.removeTitle')}
                 actions={
                     <>
-                        <DeskButton
+                        <Button
                             testID="kitchen-branch-closures-remove-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -327,7 +327,7 @@ export function BranchClosuresSection({ canManage }: { readonly canManage: boole
                                 setRemoving(null);
                             }}
                         />
-                        <DeskButton
+                        <Button
                             testID="kitchen-branch-closures-remove-confirm"
                             variant="danger"
                             label={t('kitchen:branchClosures.removeAction')}

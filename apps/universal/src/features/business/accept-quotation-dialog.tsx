@@ -1,4 +1,12 @@
-import { Callout, Dialog, Select, Text, TextInputField } from '@healthy360/design-system';
+import {
+    Button,
+    Callout,
+    ChoiceChips,
+    Dialog,
+    Select,
+    Text,
+    TextInputField,
+} from '@healthy360/design-system';
 import type { Kitchen, Quotation } from '@healthy360/api-client/contracts';
 import type { KitchenId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -19,8 +27,6 @@ import { useKitchenQuery } from '../../data/marketplace-hooks.ts';
 import { addDays, earliestStartDate, isoWeekday } from '../commerce/dates.ts';
 import { defaultSlotCode, deliverySlotsForKitchen } from '../commerce/delivery.ts';
 import type { DeliverySlotOption } from '../commerce/delivery.ts';
-import { DeskButton } from '../kitchen-admin/desk-kit/desk-button.tsx';
-import { DeskChoiceChips } from '../kitchen-admin/desk-kit/desk-choice-chips.tsx';
 import { formatMoney } from '../marketplace/format.ts';
 import { contractPriceTestId } from './format.ts';
 
@@ -198,13 +204,13 @@ export function AcceptQuotationDialog({
                                     window: slotLabel(t, slot),
                                 })}
                     </Text>
-                    <DeskButton
+                    <Button
                         testID="quotation-accept-cancel"
                         variant="quiet"
                         label={t('business:builder.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="quotation-accept-confirm"
                         label={t('business:accept.confirm')}
                         loading={accept.isPending}
@@ -225,7 +231,7 @@ export function AcceptQuotationDialog({
                         <View testID={contractPriceTestId(`accept-${quotation.reference}`)}>
                             <RNText
                                 testID="quotation-accept-total"
-                                className="font-display text-2xl font-bold tabular-nums text-content-on-brand-subtle"
+                                className="font-display text-role-title font-bold tabular-nums text-content-on-brand-subtle"
                             >
                                 {formatMoney(formatter, quotation.requestedTotal)}
                             </RNText>
@@ -237,7 +243,7 @@ export function AcceptQuotationDialog({
                     {days.length === 0 ? (
                         <Text tone="secondary">{t('business:accept.noDays')}</Text>
                     ) : (
-                        <DeskChoiceChips
+                        <ChoiceChips
                             testID="quotation-accept-date"
                             label={t('business:accept.date')}
                             items={days.map((date) => ({
@@ -251,7 +257,7 @@ export function AcceptQuotationDialog({
                 </Field>
 
                 <Field label={t('business:accept.window')}>
-                    <DeskChoiceChips
+                    <ChoiceChips
                         testID="quotation-accept-window"
                         label={t('business:accept.window')}
                         items={slots.map((entry) => ({
@@ -371,13 +377,13 @@ export function DeclineQuotationDialog({
             title={t('business:decline.title', { reference: quotation.reference })}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="quotation-decline-cancel"
                         variant="quiet"
                         label={t('business:builder.cancel')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="quotation-decline-confirm"
                         variant="danger"
                         label={t('business:decline.confirm')}

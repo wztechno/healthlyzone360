@@ -195,11 +195,17 @@ export type {
     PickedFile,
 } from './forms/file-upload-field.tsx';
 export { Checkbox } from './forms/checkbox.tsx';
+export { ChoiceChips } from './forms/choice-chips.tsx';
+export type { ChoiceChip } from './forms/choice-chips.tsx';
+export { ChoiceRow, initialsOf } from './forms/choice-row.tsx';
 
 export { Switch } from './forms/switch.tsx';
 export type { SwitchProps } from './forms/switch.tsx';
 export type { CheckboxProps } from './forms/checkbox.tsx';
 export { Select } from './forms/select';
+export { SEARCH_THRESHOLD } from './forms/select-shared.ts';
+export { AreaLookScope, useAreaLook } from './hooks/area-look.tsx';
+export type { AreaLook } from './hooks/area-look.tsx';
 export type { SelectOption, SelectProps } from './forms/select-shared.ts';
 export { NumberStepper, clampToStep } from './forms/number-stepper.tsx';
 export type { NumberStepperProps } from './forms/number-stepper.tsx';
@@ -234,14 +240,16 @@ export { PickerField } from './forms/picker-field';
 export type { PickerFieldProps } from './forms/picker-field';
 export { PICKER_FORMAT, PICKER_KINDS, PICKER_WIDTH } from './forms/picker-field-shared.ts';
 export type { PickerKind } from './forms/picker-field-shared.ts';
-export { DatePickerButton } from './forms/date-picker-button.tsx';
-export type { DatePickerButtonProps } from './forms/date-picker-button.tsx';
+export { DatePicker } from './forms/date-picker.tsx';
+export type { DatePickerProps } from './forms/date-picker.tsx';
 export { TIME_FIELD_WIDTH, TimeField } from './forms/time-field.tsx';
 export type { TimeFieldProps } from './forms/time-field.tsx';
 export { parseTypedTime } from './forms/time-field-shared.ts';
 
 export { CARD_PADDINGS, CARD_TONES, Card } from './content/card.tsx';
 export type { CardPadding, CardProps, CardTone } from './content/card.tsx';
+export { PageHeader } from './content/page-header.tsx';
+export type { PageHeaderProps } from './content/page-header.tsx';
 export { DerivedChipPanel } from './content/derived-chip-panel.tsx';
 export type { DerivedChipPanelProps } from './content/derived-chip-panel.tsx';
 export { ListSummaryCards, SUMMARY_CARD_TONES } from './content/list-summary-cards.tsx';
@@ -261,11 +269,23 @@ export {
     growWeights,
     spreadColumns,
 } from './content/data-list.tsx';
-export type { DataListColumn, DataListProps } from './content/data-list.tsx';
+export type { DataListColumn, DataListProps, DataListRowTone } from './content/data-list.tsx';
 export { RECORD_STATUSES, STATUS_TONE, StatusBadge } from './content/status-badge.tsx';
 export type { RecordStatus, StatusBadgeProps } from './content/status-badge.tsx';
-export { BADGE_TONES, BADGE_VARIANTS, Badge, NUTRITION_LEVELS } from './content/badge.tsx';
-export type { BadgeProps, BadgeTone, BadgeVariant, NutritionLevel } from './content/badge.tsx';
+export {
+    BADGE_SIZES,
+    BADGE_TONES,
+    BADGE_VARIANTS,
+    Badge,
+    NUTRITION_LEVELS,
+} from './content/badge.tsx';
+export type {
+    BadgeProps,
+    BadgeSize,
+    BadgeTone,
+    BadgeVariant,
+    NutritionLevel,
+} from './content/badge.tsx';
 export { CHIP_TONES, Chip, FilterChip } from './content/chip.tsx';
 export type { ChipProps, ChipTone, FilterChipProps } from './content/chip.tsx';
 export { TAG_TONES, Tag, TagRow } from './content/tag.tsx';
@@ -290,6 +310,8 @@ export type {
 } from './content/avatar.tsx';
 
 export { SegmentedControl, TABS_VARIANTS, Tabs } from './navigation/tabs.tsx';
+export { StatusSteps } from './navigation/status-steps.tsx';
+export type { StatusStep, StatusStepState, StatusStepsProps } from './navigation/status-steps.tsx';
 export type { SegmentedControlProps, TabItem, TabsProps, TabsVariant } from './navigation/tabs.tsx';
 export { Stepper } from './navigation/stepper.tsx';
 export { StepProgress } from './navigation/step-progress.tsx';
@@ -305,6 +327,77 @@ export type {
 } from './navigation/breadcrumbs.tsx';
 export { Pagination, paginationSlots } from './navigation/pagination.tsx';
 export type { PaginationProps } from './navigation/pagination.tsx';
+
+export { DataTable } from './data/data-table.tsx';
+export type { DataTableProps } from './data/data-table.tsx';
+export { DATA_TABLE_ROW_ICONS, DataTableItem } from './data/data-table-item.tsx';
+export type { DataTableItemProps } from './data/data-table-item.tsx';
+export {
+    DATA_TABLE_COLUMN_ROLES,
+    DATA_TABLE_PRIORITY,
+    columnFloor,
+    columnForRole,
+    missingLast,
+} from './data/data-table-columns.ts';
+export type {
+    DataTableColumn,
+    DataTableColumnRole,
+    DataTableThumbnailShape,
+} from './data/data-table-columns.ts';
+export { DataTableBody } from './data/data-table-body.tsx';
+export type { DataTableBodyProps, DataTableBodyState } from './data/data-table-body.tsx';
+export { TABLE_PAGE_SIZE, TablePager } from './data/table-pager.tsx';
+export type { TablePagerProps } from './data/table-pager.tsx';
+export { useTablePort } from './data/table-port.ts';
+export type { TablePort } from './data/table-port.ts';
+export { FigureChips, LensBar, LensFigureCell } from './data/lens-bar.tsx';
+export type {
+    FigureChipsProps,
+    LensBarProps,
+    LensFigure,
+    LensMixPart,
+    LensTone,
+    LensToken,
+} from './data/lens-bar.tsx';
+export { PeriodScope, periodOf, periodWindows } from './forms/period-scope.tsx';
+export type { Period, PeriodUnit, PeriodWindow } from './forms/period-scope.tsx';
+export { ROW_ACTIONS_WIDTH, RowMenu } from './data/row-menu.tsx';
+export {
+    ColumnPicker,
+    MAX_VISIBLE_COLUMNS,
+    WithColumnPicker,
+    forgetColumnChoice,
+    rememberColumnChoice,
+    useColumnVisibility,
+} from './data/column-picker.tsx';
+export type {
+    ColumnPickerOption,
+    ColumnPickerProps,
+    ColumnVisibility,
+    ColumnVisibilityOptions,
+} from './data/column-picker.tsx';
+export { ColumnHeader } from './data/column-header.tsx';
+export type { ColumnHeaderProps } from './data/column-header.tsx';
+export {
+    compareAmount,
+    compareDisplayed,
+    compareNumber,
+    compareText,
+    leadingNumber,
+    useColumnControls,
+} from './data/use-column-controls.tsx';
+export type {
+    ColumnComparator,
+    ColumnControl,
+    ColumnControls,
+    ColumnControlsOptions,
+    ColumnFilter,
+    ColumnFilterValue,
+    ControlledColumn,
+    ExternalSort,
+    SortDirection,
+} from './data/use-column-controls.tsx';
+export { MENU_MAX_HEIGHT, PillTrigger } from './actions/pill-trigger.tsx';
 
 export { Table } from './data/table.tsx';
 export type {
@@ -384,15 +477,70 @@ export { Dialog } from './overlays/dialog.tsx';
 export type { DialogProps, DialogSize } from './overlays/dialog.tsx';
 export { Notice } from './overlays/notice.tsx';
 export type { NoticeAction, NoticeProps, NoticeTone } from './overlays/notice.tsx';
-export { RECORD_DIALOG_WIDTH, RecordDialog } from './overlays/record-dialog.tsx';
-export type { RecordDialogAction, RecordDialogProps } from './overlays/record-dialog.tsx';
-export { RecordWindow, RecordWindowFieldGrid } from './overlays/record-window.tsx';
-export type { RecordWindowField, RecordWindowProps } from './overlays/record-window.tsx';
+export {
+    InRecordPopup,
+    RECORD_POPUP_SPLIT_MIN,
+    RECORD_SPLIT_MIN,
+    useRecordSplit,
+} from './content/record-split.ts';
+export {
+    RecordFigures,
+    RecordSheetHead,
+    SheetCard,
+    SheetColumns,
+    SheetFacts,
+    SheetTagRows,
+    SheetText,
+} from './content/record-sheet.tsx';
+export type {
+    RecordSheetHeadProps,
+    SheetCardProps,
+    SheetChanged,
+    SheetChip,
+    SheetFact,
+    SheetFigure,
+    SheetTagRow,
+} from './content/record-sheet.tsx';
+export { RecordTile, RecordTileRow, TileEmpty, TileFacts } from './content/record-tiles.tsx';
+export type {
+    RecordTileProps,
+    RecordTileRowProps,
+    RecordTileTone,
+    TileFact,
+} from './content/record-tiles.tsx';
+export { RecordSummaryAside } from './content/record-summary-aside.tsx';
+export type {
+    RecordSummaryAsideProps,
+    RecordSummaryListItem,
+    RecordSummaryRow,
+} from './content/record-summary-aside.tsx';
+export {
+    RecordPopupField,
+    RecordPopupSection,
+    RecordPopupWindow,
+} from './overlays/record-popup-window.tsx';
+export type {
+    RecordPopupAction,
+    RecordPopupFact,
+    RecordPopupNav,
+    RecordPopupWindowProps,
+} from './overlays/record-popup-window.tsx';
+export { RecordWindowFieldGrid } from './overlays/record-window.tsx';
+export type { RecordWindowField } from './overlays/record-window.tsx';
 export { DRAWER_PLACEMENTS, Drawer } from './overlays/drawer.tsx';
 export type { DrawerPlacement, DrawerProps } from './overlays/drawer.tsx';
 export { ACTION_TONES, ActionSheet } from './overlays/action-sheet.tsx';
 export type { ActionSheetAction, ActionSheetProps, ActionTone } from './overlays/action-sheet.tsx';
 export { InfoTip } from './overlays/info-tip.tsx';
+export { BilingualField } from './forms/bilingual-field.tsx';
+export type { BilingualDirection, BilingualFieldProps } from './forms/bilingual-field.tsx';
+export { UnsavedMark } from './status/unsaved-mark.tsx';
+export { InlineChecksButton } from './forms/checks-button.tsx';
+export { FailureToast } from './overlays/failure-toast.tsx';
+export { ConflictDialog, LeaveDialog } from './overlays/guard-dialogs.tsx';
+export type { LeaveGuard } from './overlays/guard-dialogs.tsx';
+export { UndoBar } from './status/undo-bar.tsx';
+export type { UndoBarProps } from './status/undo-bar.tsx';
 export type { InfoTipProps } from './overlays/info-tip.tsx';
 export {
     POPOVER_ALIGNS,

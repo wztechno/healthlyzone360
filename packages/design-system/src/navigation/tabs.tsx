@@ -1,6 +1,6 @@
 import { useIsRtl } from '@healthy360/i18n';
-import { Text as RNText, View } from 'react-native';
-import { Pressable } from 'react-native';
+import type { ReactNode } from 'react';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { useDensity } from '../hooks/use-density.tsx';
 import type { Density } from '../hooks/use-density.tsx';
@@ -55,6 +55,15 @@ export interface TabItem<T extends string = string> {
         | undefined;
     readonly disabled?: boolean | undefined;
     readonly testID?: string | undefined;
+    /**
+     * `pills` only: a second line under the name saying what the step holds right now — "Market
+     * purchase", "4 to post, 1 left out" (the old `ProcessSteps`). Its id is `{testID}-caption`.
+     */
+    readonly detail?: string | undefined;
+    /** `warning` when the second line is itself something to act on. */
+    readonly detailTone?: 'warning' | undefined;
+    /** `pills` only: walked with nothing left on it — a tick in place of the number. */
+    readonly done?: boolean | undefined;
 }
 
 export interface TabsProps<T extends string = string> {
@@ -66,6 +75,24 @@ export interface TabsProps<T extends string = string> {
     readonly variant?: TabsVariant | undefined;
     /** Stretch the tabs to fill the row — the usual choice for a two- or three-way segmented set. */
     readonly block?: boolean | undefined;
+    /**
+     * A value picked rather than a view shown — a payment method, a refund kind, a day's Open /
+     * Closed (the old `DeskTabs radio`). Announced as a radio group, and the chosen segment is the
+     * brand's soft green with a brand edge instead of the raised white of a tab. On `segmented`
+     * the segments grow to two lines so a longer choice is never cut.
+     */
+    readonly radio?: boolean | undefined;
+    /**
+     * Draws each item's `icon` alone — the list / cards switch beside a search. The label stays as
+     * the accessible name, and the pointer's hover names it.
+     */
+    readonly labelHidden?: boolean | undefined;
+    /**
+     * `pills` only: where the reader is, not a way to move — New order's 1 Customer · 2 Meals ·
+     * 3 Checkout, walked by the page's own buttons (the old `SaleSteps`). A list whose items cannot
+     * be pressed; the steps before `value` are ticked.
+     */
+    readonly readOnly?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -184,6 +211,9 @@ export function Tabs<T extends string = string>({
     onChange,
     variant = 'underline',
     block = false,
+    radio = false,
+    labelHidden = false,
+    readOnly = false,
     className,
     testID,
 }: TabsProps<T>) {
@@ -233,15 +263,31 @@ export function Tabs<T extends string = string>({
     return (
         <View
             testID={testID}
-            role="tablist"
-            accessibilityRole="tablist"
+            role={readOnly ? 'list' : radio ? 'radiogroup' : 'tablist'}
+            accessibilityRole={readOnly ? 'list' : radio ? 'radiogroup' : 'tablist'}
             aria-label={label}
             accessibilityLabel={label}
-            aria-orientation="horizontal"
-            className={cx(LIST_VARIANT[density][variant], className)}
+            {...(radio || readOnly ? {} : { 'aria-orientation': 'horizontal' as const })}
+            className={cx(
+                // A value picked is one row, never two: Open / Closed in a narrow cell squeezes its
+                // segments rather than stacking them.
+                radio
+                    ? // …and fills the space it is given: Open / Closed in a 160px cell shares the cell
+                      // instead of overflowing it.
+                      LIST_VARIANT[density][variant]
+                          .replace('flex-wrap', 'flex-nowrap')
+                          .replace('self-start', 'self-stretch')
+                    : LIST_VARIANT[density][variant],
+                className,
+            )}
         >
             {items.map((item, index) => {
                 const selected = item.value === value;
+                // A read-only track ticks the steps behind the one in hand.
+                const walked =
+                    item.done === true ||
+                    (readOnly && index < items.findIndex((entry) => entry.value === value));
+                const detail = variant === 'pills' ? item.detail : undefined;
                 const disabled = item.disabled === true;
                 const pills = variant === 'pills';
                 const steps = variant === 'steps' || pills;
@@ -249,36 +295,33 @@ export function Tabs<T extends string = string>({
                     steps && item.issues !== undefined && item.issues.count > 0
                         ? item.issues
                         : null;
-                return (
-                    <Pressable
-                        key={item.value}
-                        testID={item.testID}
-                        role="tab"
-                        accessibilityRole="tab"
-                        accessibilityLabel={
-                            issues === null ? item.label : `${item.label}, ${issues.label}`
-                        }
-                        aria-selected={selected}
-                        accessibilityState={{ selected, disabled }}
-                        aria-disabled={disabled}
-                        disabled={disabled}
-                        // Roving tab stop: the list is one stop, arrows move within it.
-                        focusable={selected && !disabled}
-                        {...keyDownProps(onKeyDown)}
-                        onPress={() => {
-                            onChange(item.value);
-                        }}
-                        className={cx(
-                            TAB_VARIANT[density][variant],
-                            selected
-                                ? density === 'compact' && variant === 'segmented'
-                                    ? 'border border-transparent bg-surface-raised shadow-elevation-1'
-                                    : TAB_SELECTED[variant]
-                                : TAB_UNSELECTED[variant],
-                            block || steps ? 'flex-1' : null,
-                            disabled ? 'opacity-50' : null,
-                        )}
-                    >
+                const tabClassName = cx(
+                    radio && variant === 'segmented' && density === 'compact'
+                        ? 'min-h-9 flex-row items-center justify-center gap-control-sm rounded-[9px] px-2 py-1'
+                        : radio
+                          ? // A picked value's segments share the row, so they take the
+                            // slimmer inset rather than a view tab's 18px.
+                            TAB_VARIANT[density][variant].replace('px-[18px]', 'px-3')
+                          : TAB_VARIANT[density][variant],
+                    labelHidden ? '!px-2' : null,
+                    detail === undefined ? null : '!h-[46px]',
+                    selected
+                        ? radio
+                            ? 'border border-brand-500 bg-surface-brand-subtle'
+                            : density === 'compact' && variant === 'segmented'
+                              ? 'border border-transparent bg-surface-raised shadow-elevation-1'
+                              : TAB_SELECTED[variant]
+                        : TAB_UNSELECTED[variant],
+                    // A picked value's segments grow to share the row but never shrink below their word.
+                    readOnly || (radio && !block)
+                        ? 'grow shrink-0'
+                        : block || steps
+                          ? 'flex-1'
+                          : null,
+                    disabled ? 'opacity-50' : null,
+                );
+                const content = (
+                    <>
                         {!steps ? null : (
                             <View
                                 aria-hidden
@@ -286,23 +329,31 @@ export function Tabs<T extends string = string>({
                                 importantForAccessibility="no-hide-descendants"
                                 className={cx(
                                     'h-5 w-5 shrink-0 items-center justify-center rounded-full border',
-                                    selected
+                                    selected || walked
                                         ? 'border-transparent bg-surface-brand'
                                         : pills
                                           ? 'border-transparent bg-surface-sunken'
                                           : 'border-stroke-subtle bg-surface-raised',
                                 )}
                             >
-                                <RNText
-                                    className={cx(
-                                        'tabular-nums text-role-micro',
-                                        selected
-                                            ? 'text-content-on-brand'
-                                            : 'text-content-secondary',
-                                    )}
-                                >
-                                    {String(index + 1)}
-                                </RNText>
+                                {walked ? (
+                                    <Icon
+                                        name="check"
+                                        size="sm"
+                                        className="text-content-on-brand"
+                                    />
+                                ) : (
+                                    <RNText
+                                        className={cx(
+                                            'tabular-nums text-role-micro',
+                                            selected
+                                                ? 'text-content-on-brand'
+                                                : 'text-content-secondary',
+                                        )}
+                                    >
+                                        {String(index + 1)}
+                                    </RNText>
+                                )}
                             </View>
                         )}
                         {item.icon === undefined ? null : (
@@ -311,37 +362,64 @@ export function Tabs<T extends string = string>({
                                 size="sm"
                                 className={
                                     selected
-                                        ? variant === 'segmented'
+                                        ? radio || variant === 'segmented'
                                             ? 'text-content-on-brand-subtle'
                                             : 'text-content-primary'
                                         : 'text-content-secondary'
                                 }
                             />
                         )}
-                        <RNText
-                            numberOfLines={1}
-                            className={cx(
-                                pills
-                                    ? 'shrink text-center'
-                                    : steps
-                                      ? 'min-w-0 flex-1 text-start'
-                                      : 'text-center',
-                                pills
-                                    ? 'text-sm font-semibold'
-                                    : density === 'compact'
-                                      ? variant === 'segmented' || variant === 'strip'
-                                          ? 'text-[13px] font-semibold'
-                                          : 'text-role-label'
-                                      : 'text-sm',
-                                selected
-                                    ? variant === 'segmented' || pills
-                                        ? 'font-semibold text-content-on-brand-subtle'
-                                        : 'font-semibold text-content-primary'
-                                    : 'text-content-secondary',
-                            )}
-                        >
-                            {item.label}
-                        </RNText>
+                        {labelHidden ? null : (
+                            <LabelStack stacked={detail !== undefined}>
+                                <RNText
+                                    numberOfLines={radio && variant === 'segmented' ? 2 : 1}
+                                    className={cx(
+                                        pills
+                                            ? 'shrink text-center'
+                                            : steps
+                                              ? 'min-w-0 flex-1 text-start'
+                                              : 'text-center',
+                                        density === 'compact'
+                                            ? pills ||
+                                              variant === 'segmented' ||
+                                              variant === 'strip'
+                                                ? 'text-role-label font-semibold'
+                                                : 'text-role-label'
+                                            : pills
+                                              ? 'text-sm font-semibold'
+                                              : 'text-sm',
+                                        radio && variant === 'segmented' ? 'leading-4' : null,
+                                        selected
+                                            ? radio || pills || variant === 'segmented'
+                                                ? 'font-semibold text-content-on-brand-subtle'
+                                                : 'font-semibold text-content-primary'
+                                            : 'text-content-secondary',
+                                    )}
+                                >
+                                    {item.label}
+                                </RNText>
+                                {detail === undefined ? null : (
+                                    <RNText
+                                        numberOfLines={1}
+                                        testID={
+                                            item.testID === undefined
+                                                ? undefined
+                                                : `${item.testID}-caption`
+                                        }
+                                        className={cx(
+                                            'mt-px text-[11px] leading-4 tabular-nums',
+                                            item.detailTone === 'warning'
+                                                ? 'font-bold text-warning-on-subtle'
+                                                : selected
+                                                  ? 'font-medium text-content-on-brand-subtle'
+                                                  : 'font-medium text-content-secondary',
+                                        )}
+                                    >
+                                        {detail}
+                                    </RNText>
+                                )}
+                            </LabelStack>
+                        )}
                         {item.count === undefined ||
                         (variant === 'strip' && item.count === 0) ? null : variant === 'strip' ? (
                             <View className="h-5 min-w-5 items-center justify-center rounded-full bg-warning-subtle px-1.5">
@@ -412,10 +490,68 @@ export function Tabs<T extends string = string>({
                                 </RNText>
                             </View>
                         )}
+                    </>
+                );
+                if (readOnly) {
+                    return (
+                        <View
+                            key={item.value}
+                            testID={item.testID}
+                            role="listitem"
+                            accessibilityLabel={item.label}
+                            aria-current={selected ? 'step' : undefined}
+                            className={tabClassName}
+                        >
+                            {content}
+                        </View>
+                    );
+                }
+                return (
+                    <Pressable
+                        key={item.value}
+                        testID={item.testID}
+                        role={radio ? 'radio' : 'tab'}
+                        accessibilityRole={radio ? 'radio' : 'tab'}
+                        accessibilityLabel={
+                            issues === null ? item.label : `${item.label}, ${issues.label}`
+                        }
+                        {...(radio ? { 'aria-checked': selected } : { 'aria-selected': selected })}
+                        accessibilityState={
+                            radio ? { checked: selected, disabled } : { selected, disabled }
+                        }
+                        aria-disabled={disabled}
+                        disabled={disabled}
+                        // Roving tab stop: the list is one stop, arrows move within it.
+                        focusable={selected && !disabled}
+                        {...keyDownProps(onKeyDown)}
+                        onPress={() => {
+                            onChange(item.value);
+                        }}
+                        className={tabClassName}
+                    >
+                        {content}
                     </Pressable>
                 );
             })}
         </View>
+    );
+}
+
+/**
+ * The label and its second line stacked in a column — only when there is a second line, so a
+ * one-line tab keeps its label as a direct child of the row (a wrapper would stop it flexing).
+ */
+function LabelStack({
+    stacked,
+    children,
+}: {
+    readonly stacked: boolean;
+    readonly children: ReactNode;
+}) {
+    return stacked ? (
+        <View className="min-w-0 shrink items-start">{children}</View>
+    ) : (
+        <>{children}</>
     );
 }
 

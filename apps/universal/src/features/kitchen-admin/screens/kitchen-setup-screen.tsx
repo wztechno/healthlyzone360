@@ -1,12 +1,14 @@
 import type { KitchenSetupStep } from '@healthy360/api-client/contracts';
 import {
+    Button,
     Cascade,
+    cx,
     ErrorState,
+    FailureToast,
     FormSkeleton,
     Icon,
     InfoTip,
     Text,
-    cx,
     useBreakpoint,
     useToast,
 } from '@healthy360/design-system';
@@ -22,10 +24,8 @@ import { GO_LIVE_PERMISSION, KITCHEN_SETUP_PERMISSION } from '../entity-registry
 import { SETUP_STEP_ICONS, SetupRoad, canDrawRoad } from '../setup/setup-road.tsx';
 import { SetupStep } from './wholesale-setup-screen.tsx';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
 import { withReturnTo } from '../../../navigation/return-to.ts';
 import { useCurrentHref } from '../../../navigation/use-return-to.ts';
-import { FailureToast } from '../failure-toast.tsx';
 const PAGE = 'kitchen-setup';
 
 /** Where each step is finished. */
@@ -122,7 +122,11 @@ function KitchenSetup() {
                         {t('kitchen:families.setup.name')}
                     </Text>
                     <View className="z-auto mt-1 flex-row items-center gap-2">
-                        <Text variant="display" className="!text-3xl" testID={`${PAGE}-state`}>
+                        <Text
+                            variant="display"
+                            className="!text-role-title"
+                            testID={`${PAGE}-state`}
+                        >
                             {headline}
                         </Text>
                         <InfoTip
@@ -143,7 +147,10 @@ function KitchenSetup() {
                         total: required.length,
                     })}
                 >
-                    <Text variant="display" className="!text-4xl text-content-on-brand-subtle">
+                    <Text
+                        variant="display"
+                        className="!text-role-title text-content-on-brand-subtle"
+                    >
                         {formatter.formatNumber(doneCount)}
                     </Text>
                     <Text tone="secondary">
@@ -166,7 +173,7 @@ function KitchenSetup() {
                         done={step.done}
                         body={t(`kitchen:setup.step.${step.key}.body`)}
                         action={
-                            <DeskButton
+                            <Button
                                 testID={`${PAGE}-${step.key}-open`}
                                 variant="secondary"
                                 size="sm"
@@ -225,7 +232,7 @@ function KitchenSetup() {
                         </View>
                     </View>
                     {next === undefined ? null : (
-                        <DeskButton
+                        <Button
                             testID={`${PAGE}-focus-open`}
                             label={t('kitchen:setup.open')}
                             onPress={() => {
@@ -234,7 +241,7 @@ function KitchenSetup() {
                         />
                     )}
                     {ready && canGoLive ? (
-                        <DeskButton
+                        <Button
                             testID={`${PAGE}-go-live`}
                             label={t('kitchen:setup.goLive')}
                             loading={goLive.isPending}
@@ -265,7 +272,7 @@ function KitchenSetup() {
                                 {t(`kitchen:setup.step.${step.key}.title`)}
                             </Text>
                         </View>
-                        <DeskButton
+                        <Button
                             testID={`${PAGE}-${step.key}-open`}
                             variant="secondary"
                             size="sm"

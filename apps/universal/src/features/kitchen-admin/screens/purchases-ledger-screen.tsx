@@ -8,16 +8,35 @@ import { RECEIPT_COST_STATUSES } from '@healthy360/api-client/contracts';
 import {
     Badge,
     Cascade,
+    ColumnPicker,
+    compareAmount,
+    compareNumber,
+    compareText,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
+    DatePicker,
     EmptyState,
     ErrorState,
     InfoTip,
     Inline,
+    LensBar,
     SegmentedControl,
     Stack,
+    TABLE_PAGE_SIZE,
+    TablePager,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { BadgeTone, MenuItem } from '@healthy360/design-system';
+import type {
+    BadgeTone,
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensMixPart,
+    LensToken,
+    MenuItem,
+} from '@healthy360/design-system';
 import { StockItemId, SupplierId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
@@ -33,24 +52,10 @@ import {
     useStockItemsQuery,
     useSuppliersQuery,
 } from '../../../data/kitchen-ops-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import { CATALOGUE_PAGE_SIZE, CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart, LensToken } from '../catalogue/lens-bar.tsx';
-import {
-    compareAmount,
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { displayName } from '../format.ts';
 import { receiptCostStatusKey } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { ReceiptOrderRef, useReceiptOpenOrderActions } from '../receipt-order-ref.tsx';
 import {
     useListMemory,
@@ -62,8 +67,6 @@ import {
 } from '../list-memory.ts';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/purchases-ledger` — the browsable record behind the monthly spend figure (INV1.1), and
  * since SUP6 the weekly and monthly check over the same rows (§3.7, §7).
@@ -237,7 +240,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
             ...shared,
             ...(costStatus === null ? {} : { costStatus }),
             ...(cursor === undefined ? {} : { cursor }),
-            limit: CATALOGUE_PAGE_SIZE,
+            limit: TABLE_PAGE_SIZE,
         }),
         [shared, costStatus, cursor],
     );
@@ -343,7 +346,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
 
     const columns: readonly ControlledColumn<
         PurchaseLedgerLine,
-        CatalogueColumn<PurchaseLedgerLine>
+        DataTableColumn<PurchaseLedgerLine>
     >[] = [
         {
             key: 'item',
@@ -567,7 +570,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                 },
             },
             render: (row) => (
-                <DeskChip
+                <Badge
                     testID={`kitchen-ledger-${row.id}-state`}
                     tone={LINE_STATE_TONES[ledgerLineState(row)]}
                     label={t(LINE_STATE_KEYS[ledgerLineState(row)])}
@@ -680,7 +683,6 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
         viewing === null || viewingState === null ? null : (
             <RecordViewPage
                 testID="kitchen-purchases-ledger-view"
-                look="sheet"
                 figureKeys={['quantity', 'unitPrice', 'lineTotal', 'variance']}
                 eyebrow={t('kitchen:recordView.eyebrowLedger')}
                 onBack={() => {
@@ -792,7 +794,6 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-ledger-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     {...lens}
@@ -845,7 +846,8 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                             />
                             <View aria-hidden className="mx-1 h-5 w-px bg-brand-100" />
                             <View className="flex-row items-center gap-tight">
-                                <DeskDateButton
+                                <DatePicker
+                                    trigger="pill"
                                     testID="kitchen-ledger-filter-from"
                                     label={t('kitchen:ops.ledger.filterFrom')}
                                     value={from}
@@ -866,7 +868,8 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                                 <Text variant="caption" tone="secondary" aria-hidden>
                                     {t('kitchen:ops.requirements.windowTo')}
                                 </Text>
-                                <DeskDateButton
+                                <DatePicker
+                                    trigger="pill"
                                     testID="kitchen-ledger-filter-to"
                                     label={t('kitchen:ops.ledger.filterTo')}
                                     value={to}
@@ -910,7 +913,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                     />
                 ) : isDetail ? (
                     controls.rows.length === 0 ? (
-                        <CatalogueList
+                        <DataTable
                             testID="kitchen-purchases-ledger-empty-list"
                             label={t('kitchen:lens.label')}
                             columns={controls.columns}
@@ -931,7 +934,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                         />
                     ) : (
                         <Stack space="sm">
-                            <CatalogueList<PurchaseLedgerLine>
+                            <DataTable<PurchaseLedgerLine>
                                 testID="kitchen-purchases-ledger-table"
                                 joined
                                 label={t('kitchen:ops.ledger.title')}
@@ -947,7 +950,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                                     {
                                         key: 'view',
                                         label: t('kitchen:list.view'),
-                                        icon: CATALOGUE_ROW_ICONS.view,
+                                        icon: DATA_TABLE_ROW_ICONS.view,
                                         testID: `kitchen-ledger-${row.id}-view`,
                                         onSelect: () => {
                                             openView(row);
@@ -955,7 +958,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                                     },
                                 ]}
                             />
-                            <CataloguePager
+                            <TablePager
                                 testID="kitchen-purchases-ledger-pagination"
                                 page={page}
                                 totalPages={cursors.length}
@@ -968,7 +971,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                         </Stack>
                     )
                 ) : periods.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-purchases-ledger-summary-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={summaryControls.columns}
@@ -987,7 +990,7 @@ function PurchasesLedger({ supplier, item, mode, view }: PurchasesLedgerScreenPr
                         }
                     />
                 ) : (
-                    <CatalogueList<SpendSummaryPeriod>
+                    <DataTable<SpendSummaryPeriod>
                         testID="kitchen-purchases-ledger-summary"
                         joined
                         label={t(
@@ -1231,7 +1234,7 @@ function periodColumns(
     periods: readonly SpendSummaryPeriod[],
     t: TFunction,
     formatter: Formatter,
-): readonly ControlledColumn<SpendSummaryPeriod, CatalogueColumn<SpendSummaryPeriod>>[] {
+): readonly ControlledColumn<SpendSummaryPeriod, DataTableColumn<SpendSummaryPeriod>>[] {
     const largest = new Map<string, number>();
     for (const entry of periods) {
         for (const totals of entry.totalsByCurrency) {
@@ -1267,7 +1270,7 @@ function periodColumns(
         key: string,
         labelKey: string,
         amount: (totals: SpendSummaryCurrencyTotals) => string,
-    ): ControlledColumn<SpendSummaryPeriod, CatalogueColumn<SpendSummaryPeriod>> => ({
+    ): ControlledColumn<SpendSummaryPeriod, DataTableColumn<SpendSummaryPeriod>> => ({
         key,
         label: t(labelKey),
         width: 120,
@@ -1385,7 +1388,7 @@ function PeriodStatusCell({ period }: { readonly period: SpendSummaryPeriod }) {
 
     if (period.isComplete) {
         return (
-            <DeskChip
+            <Badge
                 testID={`${testID}-state`}
                 tone="success"
                 label={t('kitchen:ops.ledger.completeBadge')}
@@ -1407,14 +1410,14 @@ function PeriodStatusCell({ period }: { readonly period: SpendSummaryPeriod }) {
     return (
         <Inline space="xs" align="center" wrap={false} testID={`${testID}-state`}>
             {unpriced > 0 ? (
-                <DeskChip
+                <Badge
                     testID={`${testID}-unpriced`}
                     tone="warning"
                     label={t('kitchen:ops.ledger.unpricedBadge', { count: unpriced })}
                 />
             ) : null}
             {pendingFx > 0 ? (
-                <DeskChip
+                <Badge
                     testID={`${testID}-pending-fx`}
                     tone="info"
                     label={t('kitchen:ops.ledger.pendingFxBadge', { count: pendingFx })}

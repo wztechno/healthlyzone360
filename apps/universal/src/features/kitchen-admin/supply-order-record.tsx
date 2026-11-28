@@ -1,21 +1,20 @@
 import type { PurchaseOrder } from '@healthy360/api-client/contracts';
-import type { BadgeTone } from '@healthy360/design-system';
+import type { BadgeTone, StatusStep } from '@healthy360/design-system';
+import {
+    RecordFigures,
+    RecordSheetHead,
+    SheetCard,
+    SheetColumns,
+    SheetFacts,
+    SheetText,
+    StatusSteps,
+    TileEmpty,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Text as RNText, View } from 'react-native';
 
-import {
-    RecordFigures,
-    RecordSheetHead,
-    RecordSteps,
-    SheetCard,
-    SheetColumns,
-    SheetFacts,
-    SheetText,
-} from './catalogue/record-sheet.tsx';
-import type { SheetStep } from './catalogue/record-sheet.tsx';
-import { TileEmpty } from './catalogue/record-tiles.tsx';
 import { unitCodeLabel } from './format.ts';
 import { purchaseOrderStatusKey } from './ops-format.ts';
 
@@ -99,7 +98,7 @@ export function SupplyOrderRecord({
               });
     const receivedAt = date(order.receivedAt ?? order.closedAt);
     const closedShort = order.status === 'received' && order.closeShortReason !== null;
-    const steps: SheetStep[] = [
+    const steps: StatusStep[] = [
         {
             key: 'draft',
             label: t(purchaseOrderStatusKey('draft')),
@@ -193,7 +192,7 @@ export function SupplyOrderRecord({
             {order.status === 'cancelled' ? (
                 <SheetText text={t('kitchen:ops.supplyOrders.cancelledNoticeTitle')} empty />
             ) : closed && toCome.length > 0 ? (
-                <RNText className="text-base font-semibold text-warning-strong text-start">
+                <RNText className="text-role-section font-semibold text-warning-strong text-start">
                     {t('kitchen:ops.supplyOrders.closedShortTitle')}
                 </RNText>
             ) : toCome.length === 0 ? (
@@ -246,7 +245,7 @@ export function SupplyOrderRecord({
             title={t('kitchen:ops.supplyOrders.columnSupplier')}
             trailing={
                 snapshot === null ? undefined : (
-                    <RNText className="text-xs text-content-secondary">
+                    <RNText className="text-role-caption text-content-secondary">
                         {t('kitchen:ops.supplyOrders.view.asIssued')}
                     </RNText>
                 )
@@ -255,12 +254,12 @@ export function SupplyOrderRecord({
             <View className="flex-col">
                 <RNText
                     testID="kitchen-supply-order-detail-summary-supplier"
-                    className="text-base font-semibold text-content-primary text-start"
+                    className="text-role-section font-semibold text-content-primary text-start"
                 >
                     {supplierName}
                 </RNText>
                 {supplierLine.length === 0 ? null : (
-                    <RNText className="text-sm text-content-secondary text-start">
+                    <RNText className="text-role-body text-content-secondary text-start">
                         {supplierLine.join(separator)}
                     </RNText>
                 )}
@@ -329,7 +328,7 @@ export function SupplyOrderRecord({
                 }
             />
 
-            <RecordSteps
+            <StatusSteps
                 testID="kitchen-supply-order-detail-history"
                 label={t('kitchen:ops.supplyOrders.view.historyLabel')}
                 noValue={dash}

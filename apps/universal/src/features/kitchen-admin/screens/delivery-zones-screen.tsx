@@ -5,15 +5,31 @@ import type {
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     Stack,
+    TablePager,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+    SortDirection,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -33,21 +49,9 @@ import {
     useAdminZoneQuery,
 } from '../../../data/kitchen-admin-hooks.ts';
 import { formatMoney, weekdayKey } from '../../marketplace/format.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import type { StatusLensSource } from '../catalogue/lens-status.ts';
 import { statusTally, withoutStatuses } from '../catalogue/use-catalogue-filters.ts';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
 import { assignedWindows, summariseWindows } from '../delivery-model.ts';
 import type { WindowCoverage } from '../delivery-model.ts';
 import { CATALOGUE_MANAGE_PERMISSION, CATALOGUE_VIEW_PERMISSION } from '../entity-registry.ts';
@@ -60,7 +64,6 @@ import {
     zoneRowTestId,
 } from '../format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import {
     useListMemory,
     useRememberedFilter,
@@ -72,9 +75,6 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** The zone `?view=` names, read on its own when the loaded page does not hold it. */
 function useZoneById(id: string | null) {
     const parsed = DeliveryZoneId.safeParse(id);
@@ -186,7 +186,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
 
     const columns: readonly ControlledColumn<
         DeliveryZoneAdmin,
-        CatalogueColumn<DeliveryZoneAdmin>
+        DataTableColumn<DeliveryZoneAdmin>
     >[] = [
         {
             key: 'name',
@@ -210,7 +210,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                             {name.value}
                         </Text>
                         {name.isFallback ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-missing-arabic`}
                                 tone="warning"
                                 label={t('kitchen:list.missingArabic')}
@@ -368,7 +368,8 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                 },
             },
             render: (row) => (
-                <DeskStatusDot
+                <Badge
+                    variant="dot"
                     testID={`${zoneRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
                     label={t(statusShortKey(row.meta.status))}
@@ -402,7 +403,6 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-zones-view"
-                look="sheet"
                 figureKeys={['fee', 'minimum', 'estimated', 'windows']}
                 eyebrow={t('kitchen:recordView.eyebrowZones')}
                 onBack={() => {
@@ -485,7 +485,6 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-zones-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={figures}
@@ -524,7 +523,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canManage ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-zones-toolbar-create"
                                 label={t('kitchen:zones.create')}
                                 iconStart={<Icon name="plus" size="sm" />}
@@ -563,7 +562,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<DeliveryZoneAdmin>
+                        <DataTable<DeliveryZoneAdmin>
                             testID="kitchen-zones-table"
                             joined
                             label={t('kitchen:zones.caption')}
@@ -581,7 +580,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                                 {
                                     key: 'view',
                                     label: t('kitchen:list.view'),
-                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    icon: DATA_TABLE_ROW_ICONS.view,
                                     testID: `${zoneRowTestId(String(row.id))}-view`,
                                     onSelect: () => {
                                         rememberOpened(String(row.id));
@@ -591,7 +590,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                                 {
                                     key: 'edit',
                                     label: t('kitchen:catalogue.edit'),
-                                    icon: CATALOGUE_ROW_ICONS.edit,
+                                    icon: DATA_TABLE_ROW_ICONS.edit,
                                     testID: `${zoneRowTestId(String(row.id))}-open`,
                                     onSelect: () => {
                                         openEditor(row);
@@ -599,7 +598,7 @@ function DeliveryZonesList({ view }: { readonly view?: string | undefined }) {
                                 },
                             ]}
                         />
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-zones-pagination"
                             page={page}
                             totalPages={totalPages}

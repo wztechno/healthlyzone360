@@ -1,5 +1,18 @@
 import type { OrderDeskCalendarDay, OrderDeskPlanMeal } from '@healthy360/api-client/contracts';
-import { ErrorState, Icon, Skeleton, Text, useBreakpoint } from '@healthy360/design-system';
+import {
+    Badge,
+    Button,
+    ErrorState,
+    Icon,
+    IconButton,
+    LensBar,
+    Select,
+    Skeleton,
+    Tabs,
+    Text,
+    useBreakpoint,
+} from '@healthy360/design-system';
+import type { LensFigure } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
@@ -13,9 +26,6 @@ import {
 } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { addDays, dateInstant, mondayOf, weekDates } from '../../planner/format.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import { DeskButton, DeskChip, DeskIconButton, DeskSelect, DeskTabs } from '../desk-kit/index.ts';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { kitchenOrderFulfilmentTypeKey, kitchenOrderRowTestId } from '../ops-format.ts';
 import { windowCodesOfMeal } from '../order-desk-calendar.ts';
 import type { CalendarMeal } from '../order-desk-calendar.ts';
@@ -199,7 +209,6 @@ export function CalendarTab({
         <View className="z-auto flex-col gap-4">
             <LensBar
                 testID="kitchen-orders-calendar-toolbar"
-                layout="split"
                 compactSearch
                 label={t('kitchen:orders.calendar.label')}
                 figures={figures}
@@ -207,7 +216,8 @@ export function CalendarTab({
                 scope={
                     <>
                         <View className="flex-row items-center gap-1">
-                            <DeskIconButton
+                            <IconButton
+                                variant="secondary"
                                 testID="kitchen-orders-calendar-previous"
                                 label={t(
                                     mode === 'month'
@@ -224,12 +234,13 @@ export function CalendarTab({
                             <Text
                                 variant="strong"
                                 align="center"
-                                className="min-w-[170px] font-display !text-[17px] !font-bold"
+                                className="min-w-[170px] font-display !text-role-section !font-bold"
                                 testID="kitchen-orders-calendar-title"
                             >
                                 {title}
                             </Text>
-                            <DeskIconButton
+                            <IconButton
+                                variant="secondary"
                                 testID="kitchen-orders-calendar-next"
                                 label={t(
                                     mode === 'month'
@@ -244,9 +255,9 @@ export function CalendarTab({
                                 }}
                             />
                         </View>
-                        <DeskTabs<CalendarMode>
+                        <Tabs<CalendarMode>
+                            variant="segmented"
                             testID="kitchen-orders-calendar-mode"
-                            size="sm"
                             label={t('kitchen:orders.calendar.modeLabel')}
                             value={mode}
                             onChange={(next) => {
@@ -388,7 +399,8 @@ export function SlotScope({
 }) {
     const { t } = useTranslation();
     return (
-        <DeskSelect<SlotFilter>
+        <Select<SlotFilter>
+            trigger="pill"
             testID={testID}
             label={t('kitchen:orders.filter.slot')}
             value={value}
@@ -439,7 +451,7 @@ function MonthGrid({
                         <Text
                             variant="micro"
                             tone="secondary"
-                            className="!text-[11px] font-bold uppercase tracking-wider"
+                            className="!text-role-caption font-bold uppercase tracking-wider"
                         >
                             {formatter.formatDate(dateInstant(day), { weekday: 'short' })}
                         </Text>
@@ -482,7 +494,7 @@ function MonthGrid({
                                 >
                                     <Text
                                         variant="strong"
-                                        className={`!text-sm !font-bold tabular-nums ${day === today ? '!text-content-on-brand' : ''}`}
+                                        className={`!text-role-body !font-bold tabular-nums ${day === today ? '!text-content-on-brand' : ''}`}
                                         tone={count === 0 ? 'secondary' : 'primary'}
                                     >
                                         {formatter.formatNumber(Number(day.slice(8, 10)))}
@@ -493,7 +505,7 @@ function MonthGrid({
                                 ) : count === 0 ? null : (
                                     <Text
                                         variant="label"
-                                        className="font-display !text-[15px] !font-bold tabular-nums"
+                                        className="font-display !text-role-section !font-bold tabular-nums"
                                         testID={`kitchen-orders-calendar-day-${day}-orders`}
                                     >
                                         {t('kitchen:orders.count', { count })}
@@ -503,7 +515,7 @@ function MonthGrid({
                                     <Text
                                         variant="label"
                                         tone="secondary"
-                                        className="!text-xs"
+                                        className="!text-role-caption"
                                         testID={`kitchen-orders-calendar-day-${day}-plan`}
                                     >
                                         {t(
@@ -516,7 +528,7 @@ function MonthGrid({
                                 )}
                                 <View className="mt-auto flex-row flex-wrap gap-[3px]">
                                     {mark === undefined || mark.confirm === 0 ? null : (
-                                        <DeskChip
+                                        <Badge
                                             testID={`kitchen-orders-calendar-day-${day}-confirm`}
                                             tone="warning"
                                             size="sm"
@@ -526,7 +538,7 @@ function MonthGrid({
                                         />
                                     )}
                                     {mark === undefined || mark.late === 0 ? null : (
-                                        <DeskChip
+                                        <Badge
                                             testID={`kitchen-orders-calendar-day-${day}-late`}
                                             tone="danger"
                                             size="sm"
@@ -624,7 +636,7 @@ function WeekColumns({
                         >
                             <Text
                                 variant="strong"
-                                className="!text-sm !font-bold"
+                                className="!text-role-body !font-bold"
                                 tone={day === today ? 'brand' : 'primary'}
                             >
                                 {shortDay(day, formatter)}
@@ -654,7 +666,7 @@ function WeekColumns({
                                     <Text
                                         variant="micro"
                                         tone="secondary"
-                                        className="px-2 pt-1 !text-[10px] font-bold uppercase tracking-wider"
+                                        className="px-2 pt-1 !text-role-micro font-bold uppercase tracking-wider"
                                     >
                                         {slotName(group.key)}
                                     </Text>
@@ -693,13 +705,13 @@ function WeekColumns({
                                                 <Text
                                                     variant="caption"
                                                     numberOfLines={1}
-                                                    className="min-w-0 flex-1 !text-xs font-medium"
+                                                    className="min-w-0 flex-1 !text-role-caption font-medium"
                                                 >
                                                     {row.customer?.displayName ?? row.orderNumber}
                                                 </Text>
                                                 <Text
                                                     variant="caption"
-                                                    className="!text-xs font-bold tabular-nums"
+                                                    className="!text-role-caption font-bold tabular-nums"
                                                 >
                                                     {formatMoney(formatter, {
                                                         amount: row.totalMinor,
@@ -829,14 +841,14 @@ function DayPanel({
                 <Text
                     variant="micro"
                     tone="secondary"
-                    className="!text-xs font-bold uppercase tracking-widest"
+                    className="!text-role-caption font-bold uppercase tracking-widest"
                     testID="kitchen-orders-day-panel-eyebrow"
                 >
                     {eyebrow}
                 </Text>
                 <Text
                     variant="section"
-                    className="mt-0.5 font-display !text-[22px] !font-bold !leading-7"
+                    className="mt-0.5 font-display !text-role-title !font-bold !leading-7"
                     testID="kitchen-orders-day-panel-title"
                 >
                     {longDay(day, formatter)}
@@ -870,14 +882,14 @@ function DayPanel({
             {confirm + late === 0 ? null : (
                 <View className="flex-row flex-wrap gap-1.5">
                     {confirm === 0 ? null : (
-                        <DeskChip
+                        <Badge
                             tone="warning"
                             size="lg"
                             label={t('kitchen:orders.calendar.toConfirm', { count: confirm })}
                         />
                     )}
                     {late === 0 ? null : (
-                        <DeskChip
+                        <Badge
                             tone="danger"
                             size="lg"
                             label={t('kitchen:orders.calendar.late', { count: late })}
@@ -909,7 +921,7 @@ function DayPanel({
                             className="flex-col gap-0.5"
                         >
                             <View className="min-h-8 flex-row items-center gap-2 px-1">
-                                <Text variant="strong" className="!text-sm !font-bold">
+                                <Text variant="strong" className="!text-role-body !font-bold">
                                     {slotName(group.key)}
                                 </Text>
                                 {slotHours(group.key) === null ? null : (
@@ -955,7 +967,7 @@ function DayPanel({
                                             <Text
                                                 variant="strong"
                                                 numberOfLines={1}
-                                                className="!text-sm"
+                                                className="!text-role-body"
                                             >
                                                 {row.customer?.displayName ?? EM_DASH}
                                             </Text>
@@ -968,7 +980,7 @@ function DayPanel({
                                                 {`${row.orderNumber} · ${t(kitchenOrderFulfilmentTypeKey(row.fulfilmentType))}`}
                                             </Text>
                                         </View>
-                                        <DeskChip
+                                        <Badge
                                             tone={isLate ? 'danger' : orderStatusTone(row)}
                                             label={
                                                 isLate
@@ -998,7 +1010,7 @@ function DayPanel({
                             className="flex-col gap-0.5"
                         >
                             <View className="min-h-8 flex-row items-center gap-2 px-1">
-                                <Text variant="strong" className="!text-sm !font-bold">
+                                <Text variant="strong" className="!text-role-body !font-bold">
                                     {t('kitchen:orders.panel.planTitle')}
                                 </Text>
                                 <Text
@@ -1024,7 +1036,7 @@ function DayPanel({
 
             <View className="flex-row flex-wrap gap-2 border-t border-stroke-subtle pt-1.5">
                 {offset < 0 ? null : (
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-day-panel-new"
                         block
                         variant="secondary"
@@ -1034,7 +1046,7 @@ function DayPanel({
                         }}
                     />
                 )}
-                <DeskButton
+                <Button
                     testID="kitchen-orders-day-panel-open"
                     variant="primary"
                     block
@@ -1070,7 +1082,7 @@ function PlanRow({ entry }: { readonly entry: OrderDeskPlanMeal }) {
             className="min-h-[46px] flex-row items-center gap-2.5 rounded-xl px-2 py-1.5"
         >
             <View className="min-w-0 flex-1 flex-col">
-                <Text variant="strong" numberOfLines={1} className="!text-sm">
+                <Text variant="strong" numberOfLines={1} className="!text-role-body">
                     {title}
                 </Text>
                 {entry.customer === undefined ? null : (
@@ -1086,7 +1098,7 @@ function PlanRow({ entry }: { readonly entry: OrderDeskPlanMeal }) {
                           : `${dishes} · ${t('kitchen:orders.panel.planMoreNotChosen', { count: unchosen })}`}
                 </Text>
             </View>
-            <DeskChip
+            <Badge
                 tone={entry.basis === 'scheduled' ? 'info' : 'neutral'}
                 label={t(
                     entry.basis === 'scheduled'
@@ -1117,7 +1129,7 @@ function PanelFigure({
             ) : (
                 <Text
                     variant="title"
-                    className="mt-0.5 font-display !text-xl !font-bold tabular-nums"
+                    className="mt-0.5 font-display !text-role-title !font-bold tabular-nums"
                     testID={testID}
                 >
                     {value}

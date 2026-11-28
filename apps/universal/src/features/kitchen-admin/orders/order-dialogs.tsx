@@ -14,16 +14,21 @@ import {
     KITCHEN_ORDER_PICKABLE_CANCELLATION_REASONS,
 } from '@healthy360/api-client/contracts';
 import {
+    Button,
     Callout,
+    ChoiceRow,
+    DatePicker,
     Dialog,
     EmptyState,
     ErrorState,
     FilterChip,
     Icon,
+    initialsOf,
     Inline,
     Select,
     Skeleton,
     Stack,
+    Tabs,
     Text,
     TextInputField,
     useToast,
@@ -49,7 +54,6 @@ import {
     useOrderDeskDriversQuery,
 } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
-import { ChoiceRow, DeskButton, DeskTabs, initialsOf } from '../desk-kit/index.ts';
 import {
     ORDER_CREATE_ON_BEHALF_PERMISSION,
     ORDER_SUPERVISE_PERMISSION,
@@ -64,7 +68,6 @@ import {
 } from '../ops-format.ts';
 import { serverFieldErrors } from '../server-field-errors.ts';
 
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 /**
  * The Orders page's dialogs — one copy each, opened from a row's next step or from the order's
  * pop-up. They were the order desk's and the order book's; their behaviour is unchanged.
@@ -144,13 +147,13 @@ export function AssignDriverDialog({
             description={t('kitchen:desk.assign.description', { number: orderNumber })}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-assign-back"
                         variant="secondary"
                         label={t('kitchen:common.back')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-assign-confirm"
                         label={
                             chosenDriver?.displayName == null
@@ -185,7 +188,7 @@ export function AssignDriverDialog({
                     )}
                     actions={
                         lostRace ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-orders-assign-conflict-refresh"
                                 variant="secondary"
                                 label={t('kitchen:ops.orders.conflictRefresh')}
@@ -277,7 +280,7 @@ export function AssignDriverDialog({
 
             {onCourier === undefined ? null : (
                 <View className="border-t border-stroke-subtle pt-2">
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-assign-courier"
                         variant="quiet"
                         label={t('kitchen:desk.assign.courierInstead')}
@@ -344,13 +347,13 @@ export function HandToCourierDialog({
             description={t('kitchen:desk.courier.description', { number: order.orderNumber })}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-courier-back"
                         variant="secondary"
                         label={t('kitchen:common.back')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-courier-confirm"
                         label={t('kitchen:desk.courier.confirm')}
                         loading={hand.isPending}
@@ -498,13 +501,13 @@ export function RecordPaymentDialog({
             })}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-payment-back"
                         variant="secondary"
                         label={t('kitchen:common.back')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-payment-confirm"
                         label={t('kitchen:desk.recordPayment.confirm')}
                         loading={record.isPending}
@@ -531,7 +534,7 @@ export function RecordPaymentDialog({
                     )}
                     actions={
                         stale ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-orders-payment-conflict-refresh"
                                 variant="secondary"
                                 label={t('kitchen:ops.orders.conflictRefresh')}
@@ -554,9 +557,9 @@ export function RecordPaymentDialog({
                 <Text variant="label" tone="secondary" className="!font-semibold">
                     {t('kitchen:desk.recordPayment.methodLabel')}
                 </Text>
-                <DeskTabs<KitchenOrderPaymentMethod>
+                <Tabs<KitchenOrderPaymentMethod>
+                    variant="segmented"
                     testID="kitchen-orders-payment-method"
-                    size="sm"
                     radio
                     block
                     label={t('kitchen:desk.recordPayment.methodLabel')}
@@ -658,13 +661,13 @@ export function MarkDeliveredDialog({
             description={t('kitchen:ops.orders.markDeliveredBody')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-mark-delivered-back"
                         variant="secondary"
                         label={t('kitchen:common.back')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-mark-delivered-confirm"
                         label={t('kitchen:ops.orders.markDelivered')}
                         loading={pending}
@@ -724,13 +727,13 @@ export function CancelOrderDialog({
             description={t('kitchen:ops.orders.cancelBody')}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-cancel-dismiss"
                         variant="secondary"
                         label={t('kitchen:ops.orders.cancelDismiss')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-cancel-confirm"
                         variant="danger"
                         label={t('kitchen:ops.orders.cancelConfirm')}
@@ -888,13 +891,13 @@ export function DeliveryActionDialog({
             description={t(`kitchen:ops.orders.deliveryAction.${action}Body`)}
             actions={
                 <>
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-delivery-back"
                         variant="secondary"
                         label={t('kitchen:common.back')}
                         onPress={onClose}
                     />
-                    <DeskButton
+                    <Button
                         testID="kitchen-orders-delivery-confirm"
                         {...(action === 'redeliver' ? {} : { variant: 'danger' as const })}
                         label={t(`kitchen:ops.orders.deliveryAction.${action}Confirm`)}
@@ -935,7 +938,8 @@ export function DeliveryActionDialog({
                 )}
                 {action !== 'redeliver' ? null : (
                     <>
-                        <DeskDateButton
+                        <DatePicker
+                            trigger="pill"
                             testID="kitchen-orders-delivery-date"
                             label={t('kitchen:ops.orders.deliveryAction.dateLabel')}
                             labelVisible

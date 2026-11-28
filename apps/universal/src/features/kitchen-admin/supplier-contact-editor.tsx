@@ -1,12 +1,10 @@
 import type { SupplierContact, SupplierContactInput } from '@healthy360/api-client/contracts';
-import { DataList, Stack, Text, TextInputField } from '@healthy360/design-system';
+import { Badge, DataTable, RowMenu, Stack, Text, TextInputField } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import type { SupplierContactId } from '@healthy360/domain-types';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
-import { DeskChip } from './desk-kit/desk-chip.tsx';
-import { DeskRowMenu } from './desk-kit/desk-row-menu.tsx';
 import { supplierContactRowTestId } from './ops-format.ts';
 /**
  * The supplier contact editor (SUP1) — a set of contacts edited together and saved once.
@@ -266,7 +264,7 @@ export function SupplierContactRows({
                         // one line tall.
                         trailing={
                             field === 'name' && draft.isPrimary ? (
-                                <DeskChip
+                                <Badge
                                     testID={`${supplierContactRowTestId(draft.key)}-primary-badge`}
                                     tone="success"
                                     size="sm"
@@ -305,7 +303,7 @@ export function SupplierContactRows({
                       render: (draft: SupplierContactDraft) => {
                           const id = supplierContactRowTestId(draft.key);
                           return (
-                              <DeskRowMenu
+                              <RowMenu
                                   testID={`${id}-menu`}
                                   label={t('kitchen:list.rowActions')}
                                   actions={[
@@ -342,7 +340,8 @@ export function SupplierContactRows({
     ];
 
     return (
-        <DataList<SupplierContactDraft>
+        <DataTable<SupplierContactDraft>
+            lines
             testID={testID}
             label={t('kitchen:ops.suppliers.sectionContacts')}
             columns={columns}

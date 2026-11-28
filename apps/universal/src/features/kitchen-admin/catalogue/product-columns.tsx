@@ -1,5 +1,6 @@
 import type { ProductAdmin } from '@healthy360/api-client/contracts';
-import { Inline, Text } from '@healthy360/design-system';
+import { Badge, DATA_TABLE_PRIORITY, Inline, Text } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { View } from 'react-native';
@@ -15,11 +16,8 @@ import {
     unitShortKey,
 } from '../format.ts';
 import { AssessmentBadges } from './allergen-assessment.tsx';
-import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
-import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
+import { RowThumbnail } from './row-thumbnail.tsx';
 /**
  * Products — and, unchanged, sauces and dressings — as an array.
  *
@@ -92,7 +90,7 @@ export function productColumns({
     locale,
     formatter,
     categoryName,
-}: ProductColumnDeps): readonly CatalogueColumn<ProductAdmin>[] {
+}: ProductColumnDeps): readonly DataTableColumn<ProductAdmin>[] {
     const dash = t('kitchen:list.noValue');
 
     const packLabel = (row: ProductAdmin): string => {
@@ -127,7 +125,7 @@ export function productColumns({
             label: t('kitchen:list.columnReference'),
             width: 96,
             min: 84,
-            priority: CATALOGUE_PRIORITY.reference,
+            priority: DATA_TABLE_PRIORITY.reference,
             role: 'meta',
             mono: true,
             sortable: true,
@@ -148,13 +146,14 @@ export function productColumns({
             label: t('kitchen:products.columnName'),
             width: 200,
             min: 150,
-            priority: CATALOGUE_PRIORITY.designation,
+            priority: DATA_TABLE_PRIORITY.designation,
             role: 'title',
             sortable: true,
             sortType: 'text',
             value: (row) => displayName(row.name, locale).value,
-            thumbnail: (row) => row.imagePlaceholderId,
-            thumbnailUrl: (row) => row.photoUrl,
+            thumbnail: (row, shape) => (
+                <RowThumbnail {...shape} assetId={row.imagePlaceholderId} photoUrl={row.photoUrl} />
+            ),
             render: (row) => {
                 const name = displayName(row.name, locale);
                 return (
@@ -169,7 +168,7 @@ export function productColumns({
                          * publish. The Missing Arabic stat card counts them.
                          */}
                         {name.isFallback ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${productRowTestId(String(row.id))}-missing-arabic`}
                                 tone="warning"
                                 label={t('kitchen:list.missingArabic')}
@@ -189,7 +188,7 @@ export function productColumns({
             label: t('kitchen:products.columnCategory'),
             width: 160,
             min: 112,
-            priority: CATALOGUE_PRIORITY.category,
+            priority: DATA_TABLE_PRIORITY.category,
             role: 'meta',
             sortable: true,
             sortType: 'text',
@@ -213,7 +212,7 @@ export function productColumns({
             label: t('kitchen:products.columnPacks'),
             width: 160,
             min: 118,
-            priority: CATALOGUE_PRIORITY.metric,
+            priority: DATA_TABLE_PRIORITY.metric,
             role: 'metric',
             value: packLabel,
             render: (row) => {
@@ -257,7 +256,7 @@ export function productColumns({
             label: t('kitchen:products.columnChannels'),
             width: 150,
             min: 110,
-            priority: CATALOGUE_PRIORITY.unit,
+            priority: DATA_TABLE_PRIORITY.unit,
             role: 'meta',
             value: channelLabel,
             render: (row) => {
@@ -278,7 +277,7 @@ export function productColumns({
             label: t('kitchen:products.columnFlags'),
             width: 132,
             min: 96,
-            priority: CATALOGUE_PRIORITY.allergens,
+            priority: DATA_TABLE_PRIORITY.allergens,
             value: (row) => {
                 const notes = [
                     ...(row.isMarketPriced ? [t('kitchen:products.marketPricedShort')] : []),
@@ -305,21 +304,21 @@ export function productColumns({
                 return (
                     <Inline space="xs" align="center">
                         {row.isMarketPriced ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-market-priced`}
                                 tone="warning"
                                 label={t('kitchen:products.marketPricedShort')}
                             />
                         ) : null}
                         {row.isAssorted ? (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-assorted`}
                                 tone="neutral"
                                 label={t('kitchen:products.assortedShort')}
                             />
                         ) : null}
                         {row.dataQualityFlags.length === 0 ? null : (
-                            <DeskChip
+                            <Badge
                                 testID={`${testID}-data-quality`}
                                 tone="warning"
                                 label={String(row.dataQualityFlags.length)}
@@ -334,14 +333,15 @@ export function productColumns({
             label: t('kitchen:list.columnStatus'),
             width: 110,
             min: 78,
-            priority: CATALOGUE_PRIORITY.status,
+            priority: DATA_TABLE_PRIORITY.status,
             role: 'status',
             badge: true,
             sortable: true,
             sortType: 'text',
             value: (row) => t(statusShortKey(row.meta.status)),
             render: (row) => (
-                <DeskStatusDot
+                <Badge
+                    variant="dot"
                     testID={`${productRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
                     label={t(statusShortKey(row.meta.status))}

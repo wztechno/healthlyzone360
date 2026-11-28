@@ -7,10 +7,13 @@ import { useDensity } from '../hooks/use-density.tsx';
 import type { Density } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
 import { LoadingSweep } from '../motion/loading-sweep.tsx';
+import { useAreaLook } from '../hooks/area-look.tsx';
 import {
     BUTTON_SIZES,
     BUTTON_VARIANTS,
     CONTAINER_VARIANT,
+    DESK_CONTAINER_VARIANT,
+    DESK_LABEL_VARIANT,
     LABEL_VARIANT,
 } from './button-shared.ts';
 import type { ButtonSize, ButtonVariant } from './button-shared.ts';
@@ -106,7 +109,30 @@ const SWEEP_TINT: Readonly<Record<ButtonVariant, string>> = {
     ghost: 'bg-surface-brand opacity-20',
     danger: 'bg-surface-raised opacity-40',
     sidebar: 'bg-surface-raised opacity-40',
+    next: 'bg-surface-brand opacity-20',
+    dangerOutline: 'bg-danger opacity-20',
+    inverse: 'bg-surface-raised opacity-40',
+    inverseOutline: 'bg-surface-raised opacity-20',
 };
+
+/**
+ * The desk's heights and insets, by variant: a toolbar pill (34px) at `sm` and `md`, the 44px pill
+ * a panel ends in at `lg`, `next` at 32px so a two-line row stays two lines, and the link-weight
+ * `quiet` / `ghost` on the control ladder with the field's 8px corner.
+ */
+function deskContainerSize(variant: ButtonVariant, size: ButtonSize): string {
+    if (size === 'lg') return 'h-11 shrink-0 px-5 rounded-full';
+    if (variant === 'quiet' || variant === 'ghost') return 'h-control-sm px-2 rounded';
+    if (variant === 'next') return 'h-8 px-3 rounded-full';
+    if (variant === 'secondary' || variant === 'dangerOutline' || variant === 'inverseOutline') {
+        return 'h-desk-toolbar px-3 rounded-full';
+    }
+    return 'h-desk-toolbar px-4 rounded-full';
+}
+
+/** A filled desk pill that cannot be pressed yet: sunken and grey, not a faded fill. */
+const DESK_FILLED: ReadonlySet<ButtonVariant> = new Set(['primary', 'danger']);
+const DESK_FILLED_OFF = '!border-stroke-subtle !bg-surface-sunken !shadow-none';
 
 export interface ButtonProps extends Omit<
     PressableProps,
@@ -150,15 +176,29 @@ export function Button({
     onHoverIn,
     onHoverOut,
     accessibilityLabel,
+    accessibilityState,
     testID,
     ...rest
 }: ButtonProps) {
     const density = useDensity();
+    // Under the admin's look the canvas draws every button (`AreaLookScope look="desk"`).
+    const desk = useAreaLook() === 'desk';
     // A loading button is not merely styled as busy — it must not fire again, or a double tap
     // submits the form twice while the first request is still in flight.
     const inert = disabled || loading;
     // Faded white on the sidebar's green reads as a hover state, and its words barely read at all.
     const outlinedWhenInert = disabled && !loading && variant === 'sidebar';
+    // A desk primary or danger that cannot be pressed yet is drawn sunken and grey: "not yet" never
+    // reads as a faded, broken green.
+    const deskFilledOff = desk && disabled && !loading && DESK_FILLED.has(variant);
+    const deskInk = deskFilledOff ? 'text-content-disabled' : DESK_LABEL_VARIANT[variant];
+    /** On the desk a glyph takes the label's ink unless it names its own. */
+    const glyph = (node: ReactNode) =>
+        node === undefined || node === null ? null : desk ? (
+            <View className={deskInk}>{node}</View>
+        ) : (
+            node
+        );
 
     const floating = useRef<FloatingLabel | null>(null);
     const hideHint = useCallback(() => {
@@ -184,7 +224,7 @@ export function Button({
             role="button"
             accessibilityRole="button"
             accessibilityLabel={accessibilityLabel ?? label}
-            accessibilityState={{ disabled: inert, busy: loading }}
+            accessibilityState={{ ...accessibilityState, disabled: inert, busy: loading }}
             aria-disabled={inert}
             aria-busy={loading}
             disabled={inert}
@@ -208,13 +248,31 @@ export function Button({
             className={cx(
                 'relative flex-row items-center justify-center',
                 loading ? 'overflow-hidden' : null,
-                outlinedWhenInert
-                    ? 'border border-content-on-sidebar/60 bg-transparent'
-                    : CONTAINER_VARIANT[variant],
-                CONTAINER_SIZE[density][size],
-                block ? 'self-stretch' : 'self-start',
+                desk
+                    ? cx(
+                          'gap-1.5 web:transition-colors',
+                          DESK_CONTAINER_VARIANT[variant],
+                          deskContainerSize(variant, size),
+                      )
+                    : cx(
+                          outlinedWhenInert
+                              ? 'border border-content-on-sidebar/60 bg-transparent'
+                              : CONTAINER_VARIANT[variant],
+                          CONTAINER_SIZE[density][size],
+                      ),
+                // On the desk a block button shares its row (`flex-1`), except the 44px pill a
+                // column ends in, which would squeeze.
+                block
+                    ? desk && size !== 'lg'
+                        ? 'flex-1 self-stretch'
+                        : 'self-stretch'
+                    : 'self-start',
                 // A loading button keeps its full colour: it is busy, not off.
-                disabled && !loading && !outlinedWhenInert ? 'opacity-50' : null,
+                deskFilledOff
+                    ? DESK_FILLED_OFF
+                    : disabled && !loading && !outlinedWhenInert
+                      ? 'opacity-50'
+                      : null,
                 className,
             )}
         >
@@ -225,23 +283,31 @@ export function Button({
                     testID={testID === undefined ? undefined : `${testID}-loading`}
                 />
             ) : null}
-            {iconStart}
+            {glyph(iconStart)}
             <RNText
                 // No family class: there is one Latin family, set on `html` per script. This used
                 // to add `ADMIN_FONT_CLASS` on the compact branch, which is now an empty string —
                 // a concatenation that costs a branch and says nothing.
-                className={cx(
-                    outlinedWhenInert
-                        ? 'font-semibold text-content-on-sidebar'
-                        : LABEL_VARIANT[variant],
-                    LABEL_SIZE[density][size],
-                    'text-center',
-                )}
+                className={
+                    desk
+                        ? cx(
+                              size === 'lg' ? 'text-base font-bold' : 'text-role-strong',
+                              'text-center',
+                              deskInk,
+                          )
+                        : cx(
+                              outlinedWhenInert
+                                  ? 'font-semibold text-content-on-sidebar'
+                                  : LABEL_VARIANT[variant],
+                              LABEL_SIZE[density][size],
+                              'text-center',
+                          )
+                }
                 numberOfLines={1}
             >
                 {label}
             </RNText>
-            {iconEnd}
+            {glyph(iconEnd)}
         </Pressable>
     );
 

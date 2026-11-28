@@ -1,15 +1,31 @@
 import {
+    Badge,
+    Button,
     Cascade,
+    ColumnPicker,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
+    DataTableBody,
     Dialog,
     Icon,
     Inline,
     IssueTrayFrame,
+    LensBar,
     Menu,
+    Select,
     Stack,
+    Tabs,
     Text,
+    useColumnControls,
     useToast,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ColumnControl,
+    DataTableColumn,
+    LensFigure,
+    LensToken,
+    MenuItem,
+} from '@healthy360/design-system';
 import { RECIPE_KINDS } from '@healthy360/api-client/contracts';
 import type {
     PublishableStatus,
@@ -43,21 +59,13 @@ import {
     RECIPE_MANAGE_PERMISSION,
     RECIPE_VIEW_PERMISSION,
 } from '../entity-registry.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { RecipeCardGrid } from '../catalogue/recipe-card-grid.tsx';
-import { CatalogueListBody } from '../catalogue/catalogue-list-body.tsx';
-import type { ColumnControl } from '../catalogue/use-column-controls.tsx';
-import { useColumnControls } from '../catalogue/use-column-controls.tsx';
-import { LensBar, LensScope, LensViewSwitch } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensToken } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField, RecordViewSection } from '../catalogue/record-view-page.tsx';
 import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-actions.tsx';
 import { RECIPE_IMPORT_GUIDE } from '../catalogue/import-guides.ts';
 import { TECHNICAL_SHEETS_MAX, listPrintJob, useListPrint } from '../catalogue/list-print.ts';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import {
     identifierFragment,
     kindsLabel,
@@ -81,11 +89,8 @@ import {
     statusShortKey,
     statusTone,
 } from '../format.ts';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { useListMemory, useRememberedFilter } from '../list-memory.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/recipes` — the recipe book: everything this kitchen cooks, on one list.
  *
@@ -292,7 +297,7 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
         [t, locale, formatter, kitchenName, list.sells],
     );
 
-    const controls = useColumnControls<RecipeAdminSummary, CatalogueColumn<RecipeAdminSummary>>(
+    const controls = useColumnControls<RecipeAdminSummary, DataTableColumn<RecipeAdminSummary>>(
         list.rows,
         columns.map((column) => ({
             ...column,
@@ -353,7 +358,6 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
         viewed === null ? null : (
             <RecordViewPage
                 testID="kitchen-recipes-view"
-                look="sheet"
                 eyebrow={t('kitchen:recordView.eyebrowRecipes')}
                 photo={{
                     assetId: recipePhotoId(viewed),
@@ -431,7 +435,6 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                 <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                     <LensBar
                         testID="kitchen-recipes-toolbar"
-                        layout="split"
                         joined={joined}
                         label={t('kitchen:lens.label')}
                         figures={lensFigures(list, t)}
@@ -490,12 +493,15 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                             ];
                             return (
                                 <Inline space="xs" align="center">
-                                    <LensViewSwitch<RecipeLayout>
+                                    <Tabs<RecipeLayout>
+                                        variant="segmented"
+                                        radio
+                                        labelHidden
                                         testID="kitchen-recipes-layout"
                                         label={t('kitchen:list.layoutLabel')}
                                         value={layout}
                                         onChange={setLayout}
-                                        options={layoutOptions}
+                                        items={layoutOptions}
                                     />
                                     {/* Columns are a table's question; a card draws every field it has. */}
                                     {layout === 'table' ? (
@@ -559,7 +565,7 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                         }
                     />
 
-                    <CatalogueListBody
+                    <DataTableBody
                         testID="kitchen-recipes"
                         list={list}
                         empty={{
@@ -605,7 +611,7 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                                 }
                             />
                         ) : (
-                            <CatalogueList
+                            <DataTable
                                 testID="kitchen-recipes-table"
                                 joined
                                 label={t('kitchen:recipes.caption')}
@@ -632,7 +638,7 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                                 }
                             />
                         )}
-                    </CatalogueListBody>
+                    </DataTableBody>
                 </View>
 
                 {/*
@@ -650,13 +656,13 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                     description={t('kitchen:recipes.archiveBody')}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-recipes-archive-cancel"
                                 variant="quiet"
                                 label={t('kitchen:common.cancel')}
                                 onPress={list.cancelArchive}
                             />
-                            <DeskButton
+                            <Button
                                 testID="kitchen-recipes-archive-confirm"
                                 variant="danger"
                                 label={t('kitchen:recipes.archiveConfirm')}
@@ -695,13 +701,13 @@ function RecipesList({ view }: { readonly view?: string | undefined }) {
                     description={t('kitchen:recipes.withdrawBody')}
                     actions={
                         <>
-                            <DeskButton
+                            <Button
                                 testID="kitchen-recipes-withdraw-cancel"
                                 variant="quiet"
                                 label={t('kitchen:common.cancel')}
                                 onPress={list.cancelWithdraw}
                             />
-                            <DeskButton
+                            <Button
                                 testID="kitchen-recipes-withdraw-confirm"
                                 variant="danger"
                                 label={t('kitchen:meals.retireConfirm')}
@@ -760,7 +766,8 @@ function RecipeKindScope({
               }, 0);
 
     return (
-        <LensScope<RecipeKind | 'all'>
+        <Select<RecipeKind | 'all'>
+            trigger="pill"
             testID="kitchen-recipes-kind"
             label={t('kitchen:recipes.columnKind')}
             value={value ?? 'all'}
@@ -804,7 +811,7 @@ function RecipeCreateControl({
 
     if (kind !== null) {
         return mayCreate(kind) ? (
-            <DeskButton
+            <Button
                 testID="kitchen-recipes-toolbar-create"
                 label={t(CREATE_LABEL_KEYS[kind])}
                 iconStart={<Icon name="plus" size="sm" />}
@@ -838,7 +845,7 @@ function RecipeCreateControl({
                 },
             ]}
             trigger={({ triggerProps, toggle }) => (
-                <DeskButton
+                <Button
                     {...triggerProps}
                     testID="kitchen-recipes-toolbar-create"
                     label={t('kitchen:toolbar.createRecipe')}
@@ -882,7 +889,7 @@ function rowActions(
         {
             key: 'view',
             label: t('kitchen:list.view'),
-            icon: CATALOGUE_ROW_ICONS.view,
+            icon: DATA_TABLE_ROW_ICONS.view,
             testID: `${testID}-view`,
             onSelect: () => {
                 list.openView(row);
@@ -891,7 +898,7 @@ function rowActions(
         {
             key: 'edit',
             label: t('kitchen:catalogue.edit'),
-            icon: CATALOGUE_ROW_ICONS.edit,
+            icon: DATA_TABLE_ROW_ICONS.edit,
             testID: `${testID}-open`,
             onSelect: () => {
                 list.openEditor(String(row.id));
@@ -961,7 +968,7 @@ function rowActions(
                   {
                       key: 'archive',
                       label: t('kitchen:recipes.archive'),
-                      icon: CATALOGUE_ROW_ICONS.archive,
+                      icon: DATA_TABLE_ROW_ICONS.archive,
                       tone: 'danger' as const,
                       testID: `${testID}-archive`,
                       onSelect: () => {
@@ -1106,7 +1113,7 @@ function frozenLabelSection(
             ) : (
                 <Inline space="xs">
                     {codes.map((code) => (
-                        <DeskChip
+                        <Badge
                             key={String(code)}
                             testID={`kitchen-recipes-view-frozen-allergen-${String(code)}`}
                             tone="danger"
@@ -1131,7 +1138,7 @@ function channelSection(row: RecipeAdminSummary, t: TFunction): RecordViewSectio
                 ) : (
                     <Inline space="xs">
                         {channels.map((channel) => (
-                            <DeskChip
+                            <Badge
                                 key={channel}
                                 testID={`kitchen-recipes-view-channel-${channel}`}
                                 tone="info"

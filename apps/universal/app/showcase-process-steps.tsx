@@ -1,3 +1,4 @@
+import { AreaLookScope } from '@healthy360/design-system';
 import { Redirect } from 'expo-router';
 
 import { appConfig } from '../src/config.ts';
@@ -26,7 +27,9 @@ export default function ProcessStepsShowcase() {
             title="Process steps"
             testID="process-steps-showcase-shell"
         >
-            <ProcessStepsShowcaseScreen />
+            <AreaLookScope look="desk">
+                <ProcessStepsShowcaseScreen />
+            </AreaLookScope>
         </AreaShell>
     );
 }

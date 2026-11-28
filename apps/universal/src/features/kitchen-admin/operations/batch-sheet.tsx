@@ -5,7 +5,15 @@ import type {
     RecipePackagingLine,
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
-import { Inline, Text } from '@healthy360/design-system';
+import {
+    Badge,
+    compareAmount,
+    compareNumber,
+    compareText,
+    Inline,
+    Text,
+} from '@healthy360/design-system';
+import type { ColumnFilter, ControlledColumn, DataTableColumn } from '@healthy360/design-system';
 import type { IngredientId } from '@healthy360/domain-types';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { MeasureUnit } from '@healthy360/nutrition';
@@ -16,14 +24,10 @@ import { useCan } from '../../../access/gate.tsx';
 import { useIngredientsByIds } from '../../../data/kitchen-admin-hooks.ts';
 import { useStockItemsQuery, useStockLevelsQuery } from '../../../data/kitchen-ops-hooks.ts';
 import { displayQuantity, scaleLine, scalePackaging, withWaste } from '../batch-scaling.ts';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import type { ColumnFilter, ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import { compareAmount, compareNumber, compareText } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
 import { displayName, unitShortKey } from '../format.ts';
 import { ProductionTable } from '../production-desk/production-table.tsx';
 
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * The batch sheet (Operations handoff `edProduction`) — what one version, scaled, will consume, set
  * against this branch's shelves: the production editor's, for the batch being started. The batch
@@ -205,7 +209,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
         );
     };
 
-    const shelfLineColumns: readonly ControlledColumn<RecipeLine, CatalogueColumn<RecipeLine>>[] = [
+    const shelfLineColumns: readonly ControlledColumn<RecipeLine, DataTableColumn<RecipeLine>>[] = [
         {
             key: 'item',
             role: 'title',
@@ -225,7 +229,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
                         {nameOf(line.ingredientId)}
                     </Text>
                     {line.isOptional ? (
-                        <DeskChip
+                        <Badge
                             testID={`kitchen-batch-row-${String(line.ingredientId)}-optional`}
                             tone="neutral"
                             label={t('kitchen:ops.batch.optionalBadge')}
@@ -319,7 +323,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
                 const figure = shortOf(line).short;
                 if (figure === null) return <Text tone="secondary">{dash}</Text>;
                 return (
-                    <DeskChip
+                    <Badge
                         testID={`kitchen-batch-row-${String(line.ingredientId)}-position`}
                         tone={figure > 0 ? 'danger' : 'success'}
                         label={position(line)}
@@ -331,7 +335,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
 
     const packagingColumns: readonly ControlledColumn<
         RecipePackagingLine,
-        CatalogueColumn<RecipePackagingLine>
+        DataTableColumn<RecipePackagingLine>
     >[] = [
         {
             key: 'item',
@@ -435,7 +439,7 @@ export function BatchSheet({ version, factor, ingredients, availability, first }
                 sectionTestID="kitchen-batch-consume"
                 title={t('kitchen:ops.batch.consumeHeading')}
                 description={t('kitchen:ops.batch.consumeBody')}
-                aside={<DeskChip tone="info" label={t('kitchen:ops.batch.fromDatabase')} />}
+                aside={<Badge tone="info" label={t('kitchen:ops.batch.fromDatabase')} />}
                 rows={version.lines}
                 columns={shelfLineColumns}
                 rowKey={(line) => String(line.ingredientId)}

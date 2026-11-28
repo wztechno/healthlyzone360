@@ -1,14 +1,29 @@
 import type { OrderDeskRequirement } from '@healthy360/api-client/contracts';
 import {
+    Button,
     Callout,
     Cascade,
+    ColumnPicker,
+    compareNumber,
+    compareText,
+    DataTable,
+    DatePicker,
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
+    PeriodScope,
+    Select,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useMemo, useState } from 'react';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -21,28 +36,16 @@ import { useOrderDeskRequirementsQuery } from '../../../data/order-desk-hooks.ts
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { useAccessState } from '../../../session/session-provider.tsx';
 import { addDays, todayIso } from '../../commerce/dates.ts';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
-import {
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
 import {
     INVENTORY_ORDER_SUPPLIES_PERMISSION,
     INVENTORY_VIEW_PERMISSION,
 } from '../entity-registry.ts';
 import { unitCodeLabel } from '../format.ts';
-import { PeriodScope } from '../catalogue/period-scope.tsx';
 import { pathnameOf } from '../../../navigation/return-to.ts';
 import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { PageBackPill, useAreaTrailDrawn } from '../../../shell/area-trail.tsx';
-import { LensBar } from '../catalogue/lens-bar.tsx';
 import { ORDERS_HREF } from '../orders/orders-url.ts';
 import { shortDay } from '../orders/order-columns.tsx';
-import { DeskButton, DeskColumnPicker, DeskSelect, MiniMonthPicker } from '../desk-kit/index.ts';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
 
 /**
  * `/kitchen/order-desk/requirements` — what this branch must buy to cook the days ahead.
@@ -234,7 +237,7 @@ function OrderDeskRequirements() {
 
     const columns: readonly ControlledColumn<
         OrderDeskRequirement,
-        CatalogueColumn<OrderDeskRequirement>
+        DataTableColumn<OrderDeskRequirement>
     >[] = [
         {
             key: 'ingredient',
@@ -471,7 +474,6 @@ function OrderDeskRequirements() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-order-desk-requirements-toolbar"
-                    layout="split"
                     compactSearch
                     joined={joined}
                     label={t('kitchen:lens.label')}
@@ -530,7 +532,6 @@ function OrderDeskRequirements() {
                     scope={
                         <>
                             <PeriodScope
-                                look="desk"
                                 unit="ahead"
                                 testID="kitchen-order-desk-requirements-period"
                                 today={today}
@@ -541,7 +542,8 @@ function OrderDeskRequirements() {
                                     setToDay(next.to);
                                 }}
                             />
-                            <MiniMonthPicker
+                            <DatePicker
+                                trigger="pill"
                                 testID="kitchen-order-desk-requirements-from"
                                 label={t('kitchen:ops.requirements.filterFrom')}
                                 value={isIsoDate(from) ? from : today}
@@ -552,7 +554,8 @@ function OrderDeskRequirements() {
                             <Text variant="caption" tone="secondary" aria-hidden>
                                 {t('kitchen:ops.requirements.windowTo')}
                             </Text>
-                            <MiniMonthPicker
+                            <DatePicker
+                                trigger="pill"
                                 testID="kitchen-order-desk-requirements-to"
                                 label={t('kitchen:ops.requirements.filterTo')}
                                 value={isIsoDate(to) ? to : today}
@@ -560,7 +563,8 @@ function OrderDeskRequirements() {
                                 today={today}
                                 onChange={setTo}
                             />
-                            <DeskSelect<ShowFilter>
+                            <Select<ShowFilter>
+                                trigger="pill"
                                 testID="kitchen-order-desk-requirements-show"
                                 label={t('kitchen:ops.requirements.showLabel')}
                                 value={show}
@@ -582,7 +586,8 @@ function OrderDeskRequirements() {
                                     },
                                 ]}
                             />
-                            <DeskSelect<string>
+                            <Select<string>
+                                trigger="pill"
                                 testID="kitchen-order-desk-requirements-unit"
                                 label={t('kitchen:ops.requirements.columnUnit')}
                                 value={unit}
@@ -625,11 +630,11 @@ function OrderDeskRequirements() {
                               },
                           }
                         : {})}
-                    trailing={<DeskColumnPicker {...controls.picker} />}
+                    trailing={<ColumnPicker {...controls.picker} />}
                     {...(canOrder && shortCount > 0
                         ? {
                               actions: (
-                                  <DeskButton
+                                  <Button
                                       testID="kitchen-order-desk-requirements-create-order"
                                       label={t('kitchen:ops.requirements.createOrder')}
                                       iconStart={
@@ -675,7 +680,7 @@ function OrderDeskRequirements() {
                 ) : (
                     <View className="flex-col gap-snug">
                         {rows.length === 0 ? (
-                            <CatalogueList<OrderDeskRequirement>
+                            <DataTable<OrderDeskRequirement>
                                 testID="kitchen-order-desk-requirements-table"
                                 label={t('kitchen:ops.requirements.title')}
                                 columns={controls.columns}
@@ -695,7 +700,7 @@ function OrderDeskRequirements() {
                                 }
                             />
                         ) : (
-                            <CatalogueList<OrderDeskRequirement>
+                            <DataTable<OrderDeskRequirement>
                                 testID="kitchen-order-desk-requirements-table"
                                 label={t('kitchen:ops.requirements.title')}
                                 columns={controls.columns}
@@ -703,7 +708,6 @@ function OrderDeskRequirements() {
                                 rowKey={(row) => row.stockItemId}
                                 rowActions={rowActions}
                                 rowActionsLabel={t('kitchen:list.rowActions')}
-                                rowActionsLook="desk"
                                 joined
                             />
                         )}

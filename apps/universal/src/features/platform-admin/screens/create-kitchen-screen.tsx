@@ -1,11 +1,15 @@
 import type { LocalisedText } from '@healthy360/api-client/contracts';
 import {
+    BilingualField,
+    Button,
     Callout,
     Cascade,
+    cx,
     FormSection,
+    LeaveDialog,
+    PageHeader,
     Text,
     TextInputField,
-    cx,
     useContentWidth,
     useToast,
 } from '@healthy360/design-system';
@@ -18,12 +22,8 @@ import { Gate } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useCreateKitchenMutation } from '../../../data/platform-admin-hooks.ts';
 import { useUnsavedGuardFor } from '../../../navigation/use-unsaved-guard.ts';
-import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
 import { SendChecklist } from '../../business/corporate-parts.tsx';
 import type { SendCheck } from '../../business/corporate-parts.tsx';
-import { BilingualField } from '../../kitchen-admin/bilingual-field.tsx';
-import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
-import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
 import { PLATFORM_KITCHENS_HREF, platformKitchenHref } from '../platform-admin-chrome.tsx';
 
 /**
@@ -134,7 +134,7 @@ function CreateKitchenForm() {
     };
 
     const createButton = (testID: string, block: boolean) => (
-        <DeskButton
+        <Button
             testID={testID}
             label={t('platformAdmin:create.submit')}
             block={block}
@@ -378,8 +378,7 @@ function CreateKitchenForm() {
 
     return (
         <Cascade space="md" testID="platform-admin-create-screen">
-            <CataloguePageHeader
-                titleLook="board"
+            <PageHeader
                 testID="platform-admin-create-header"
                 titleTestID="platform-admin-create-title"
                 title={t('platformAdmin:create.title')}
@@ -396,9 +395,9 @@ function CreateKitchenForm() {
                         </View>
                     ) : undefined
                 }
-                primaryAction={
+                actions={
                     <View className="flex-row flex-wrap items-center justify-end gap-2">
-                        <DeskButton
+                        <Button
                             testID="platform-admin-create-cancel"
                             variant="secondary"
                             size="sm"
@@ -416,7 +415,7 @@ function CreateKitchenForm() {
                 {form}
                 {aside}
             </View>
-            <UnsavedChangesDialog guard={guard} testID="platform-admin-create-unsaved" />
+            <LeaveDialog guard={guard} testID="platform-admin-create" />
         </Cascade>
     );
 }

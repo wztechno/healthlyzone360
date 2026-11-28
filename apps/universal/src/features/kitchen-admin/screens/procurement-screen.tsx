@@ -1,15 +1,35 @@
 import type { GoodsReceipt, ReceiptCostStatus } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Cascade,
+    ColumnPicker,
+    compareAmount,
+    compareNumber,
+    compareText,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
+    DatePicker,
     EmptyState,
     ErrorState,
     Icon,
     Inline,
+    LensBar,
+    PeriodScope,
     Stack,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    LensMixPart,
+    LensToken,
+    MenuItem,
+    PeriodWindow,
+} from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -20,21 +40,7 @@ import { View } from 'react-native';
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useGoodsReceiptsQuery, useStockItemsQuery } from '../../../data/kitchen-ops-hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { LensBar } from '../catalogue/lens-bar.tsx';
-import type { LensFigure, LensMixPart, LensToken } from '../catalogue/lens-bar.tsx';
-import { PeriodScope } from '../catalogue/period-scope.tsx';
-import type { PeriodWindow } from '../catalogue/period-scope.tsx';
 import { todayIso } from '../../commerce/dates.ts';
-import {
-    compareAmount,
-    compareNumber,
-    compareText,
-    useColumnControls,
-} from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
     INVENTORY_MANAGE_PERMISSION,
     INVENTORY_VIEW_COSTS_PERMISSION,
@@ -46,14 +52,10 @@ import {
     receiptCostStatusTone,
 } from '../ops-format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { AwaitingDeliveries } from '../awaiting-deliveries.tsx';
 import { ReceiptOrderRef, useReceiptOpenOrderActions } from '../receipt-order-ref.tsx';
 import { useViewedRecord } from '../use-viewed-record.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskDateButton } from '../desk-kit/mini-month.tsx';
-import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/procurement` — the receipts book, and the direct-purchase path (O2, SUP5).
  *
@@ -64,7 +66,7 @@ import { DeskChip } from '../desk-kit/desk-chip.tsx';
  * ```
  *
  * The Operations handoff's list on the Catalogue parts: the Lens bar, whose price-completeness
- * figures are counted over the receipts in hand and filter them, `CatalogueList`, and the
+ * figures are counted over the receipts in hand and filter them, `DataTable`, and the
  * `RecordWindow` behind View. `listGoodsReceipts` takes no filter and publishes no page, so search and
  * the figures narrow the rows already loaded and there is no pager. A posted receipt is immutable,
  * so View is the only row action.
@@ -182,7 +184,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                   maximumFractionDigits: 2,
               })} ${row.currencyCode}`;
 
-    const columns: readonly ControlledColumn<GoodsReceipt, CatalogueColumn<GoodsReceipt>>[] = [
+    const columns: readonly ControlledColumn<GoodsReceipt, DataTableColumn<GoodsReceipt>>[] = [
         {
             key: 'receivedAt',
             role: 'title',
@@ -319,7 +321,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
             },
             render: (row) => (
                 <View className="min-w-0 flex-row flex-wrap items-center gap-1.5">
-                    <DeskChip
+                    <Badge
                         tone={receiptCostStatusTone(row.costStatus)}
                         testID={`${goodsReceiptRowTestId(String(row.id))}-cost-status`}
                         label={t(receiptCostStatusKey(row.costStatus))}
@@ -420,7 +422,6 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
         viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-procurement-view"
-                look="sheet"
                 figureKeys={['total', 'order']}
                 eyebrow={t('kitchen:recordView.eyebrowProcurement')}
                 onBack={() => {
@@ -514,7 +515,6 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-procurement-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lens.figures}
@@ -530,7 +530,8 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 onChange={pickWindow}
                             />
                             <View className="z-auto flex-row items-center gap-tight">
-                                <DeskDateButton
+                                <DatePicker
+                                    trigger="pill"
                                     testID="kitchen-procurement-filter-from"
                                     label={t('kitchen:ops.ledger.filterFrom')}
                                     value={from}
@@ -546,7 +547,8 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 <Text variant="caption" tone="secondary" aria-hidden>
                                     {t('kitchen:ops.requirements.windowTo')}
                                 </Text>
-                                <DeskDateButton
+                                <DatePicker
+                                    trigger="pill"
                                     testID="kitchen-procurement-filter-to"
                                     label={t('kitchen:ops.ledger.filterTo')}
                                     value={to}
@@ -611,7 +613,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                              * holder's; both stay one press from the receipts book, beside the one primary.
                              * Pills like Ingredients' Import and Export, never bare text links.
                              */}
-                            <DeskButton
+                            <Button
                                 testID="kitchen-procurement-manage-suppliers"
                                 variant="secondary"
                                 label={t('kitchen:ops.procurement.manageSuppliers')}
@@ -620,7 +622,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 }}
                             />
                             {canViewCosts ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-procurement-unpriced-link"
                                     variant="secondary"
                                     label={t('kitchen:ops.procurement.unpricedReceipts')}
@@ -632,7 +634,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 />
                             ) : null}
                             {canManage ? (
-                                <DeskButton
+                                <Button
                                     testID="kitchen-procurement-post-receipt"
                                     label={t('kitchen:ops.procurement.postReceipt')}
                                     iconStart={<Icon name="plus" size="sm" />}
@@ -660,7 +662,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                         retrying={receipts.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-procurement-receipts-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -689,7 +691,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<GoodsReceipt>
+                        <DataTable<GoodsReceipt>
                             testID="kitchen-procurement-receipts-table"
                             joined
                             label={t('kitchen:ops.procurement.receiptsTitle')}
@@ -705,7 +707,7 @@ function Procurement({ view }: { readonly view?: string | undefined }) {
                                 {
                                     key: 'view',
                                     label: t('kitchen:list.view'),
-                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    icon: DATA_TABLE_ROW_ICONS.view,
                                     testID: `${goodsReceiptRowTestId(String(row.id))}-view`,
                                     onSelect: () => {
                                         setViewing(row);

@@ -251,6 +251,15 @@ describe('Badge', () => {
         expect(screen.queryByTestId('tag-mark')).toBeNull();
     });
 
+    it('draws a list status as a dot and the word, the dot skipped by assistive technology', async () => {
+        await renderWithI18n(
+            <Badge testID="status" variant="dot" tone="success" label="Published" />,
+        );
+        expect(screen.getByTestId('status').props.accessibilityLabel).toBe('Published');
+        expect(screen.getByTestId('status-mark').props['aria-hidden']).toBe(true);
+        expect(screen.getByText('Published')).toBeTruthy();
+    });
+
     it('draws a passed icon in the dot’s place', async () => {
         await renderWithI18n(<Badge testID="shaped" label="Late" tone="danger" icon="circleX" />);
         expect(screen.getByTestId('shaped-icon')).toBeTruthy();

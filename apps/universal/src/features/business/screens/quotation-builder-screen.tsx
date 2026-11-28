@@ -1,19 +1,25 @@
 import {
+    Badge,
     Button,
     Callout,
     Cascade,
-    DatePickerButton,
+    cx,
+    DataTable,
+    DatePicker,
     FormSection,
+    Heading,
     Icon,
     InfoTip,
+    LeaveDialog,
+    PageHeader,
+    Select,
     Switch,
     Text,
     TextInputField,
-    cx,
-    Heading,
     useContentWidth,
     useToast,
 } from '@healthy360/design-system';
+import type { DataTableColumn } from '@healthy360/design-system';
 import type { CatalogueItem, Quotation } from '@healthy360/api-client/contracts';
 import { CorporateProgrammeId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
@@ -33,14 +39,7 @@ import { EntityImage } from '../../../media/entity-image.tsx';
 import { useUnsavedGuardFor } from '../../../navigation/use-unsaved-guard.ts';
 import { useValidationTranslate } from '../../../screens/form-helpers.ts';
 import { useSession } from '../../../session/session-provider.tsx';
-import { UnsavedChangesDialog } from '../../../ui/unsaved-changes-dialog.tsx';
 import { earliestStartDate } from '../../commerce/dates.ts';
-import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
-import { CataloguePageHeader } from '../../kitchen-admin/catalogue/catalogue-page-header.tsx';
-import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
-import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
-import { DeskPicker } from '../../kitchen-admin/desk-kit/desk-picker.tsx';
 import { focusField } from '../../kitchen-admin/field-focus.ts';
 import { serverFieldErrors } from '../../kitchen-admin/server-field-errors.ts';
 import type { ServerFieldTarget } from '../../kitchen-admin/server-field-errors.ts';
@@ -241,20 +240,19 @@ export function QuotationBuilderScreen({
     if (submitted !== null) {
         return (
             <Cascade space="md" testID="quotation-builder-screen">
-                <CataloguePageHeader
-                    titleLook="board"
+                <PageHeader
                     testID="quotation-builder-header"
                     titleTestID="quotation-builder-title"
                     title={t('business:nav.newQuotation')}
                     titleAside={
-                        <DeskChip
+                        <Badge
                             tone="info"
                             size="lg"
                             label={t('business:quotationStates.submitted')}
                         />
                     }
-                    primaryAction={
-                        <DeskButton
+                    actions={
+                        <Button
                             testID="quotation-builder-back"
                             variant="secondary"
                             size="sm"
@@ -361,7 +359,7 @@ export function QuotationBuilderScreen({
     ];
 
     const sendButton = (testID: string, block: boolean) => (
-        <DeskButton
+        <Button
             testID={testID}
             label={t('business:builder.submit')}
             block={block}
@@ -371,7 +369,7 @@ export function QuotationBuilderScreen({
         />
     );
 
-    const lineColumns: readonly CatalogueColumn<CatalogueItem>[] = [
+    const lineColumns: readonly DataTableColumn<CatalogueItem>[] = [
         {
             key: 'name',
             role: 'title',
@@ -499,7 +497,7 @@ export function QuotationBuilderScreen({
                 testID="quotation-builder-lines-section"
                 title={t('business:quotations.linesTitle')}
                 aside={
-                    <DeskChip
+                    <Badge
                         testID="quotation-builder-count"
                         tone="neutral"
                         label={formatter.formatNumber(chosen.length)}
@@ -507,7 +505,9 @@ export function QuotationBuilderScreen({
                 }
             >
                 <View className="z-auto flex-col gap-3">
-                    <DeskPicker
+                    <Select
+                        trigger="pill"
+                        value={null}
                         testID="quotation-builder-picker"
                         label={t('business:builder.pickerLabel')}
                         placeholder={t('business:builder.pickerPlaceholder')}
@@ -548,7 +548,7 @@ export function QuotationBuilderScreen({
                             </Text>
                         </View>
                     ) : (
-                        <CatalogueList<CatalogueItem>
+                        <DataTable<CatalogueItem>
                             testID="quotation-builder-request-lines"
                             label={t('business:quotations.linesTitle')}
                             columns={lineColumns}
@@ -587,7 +587,8 @@ export function QuotationBuilderScreen({
             >
                 <View className="z-auto flex-col gap-1.5">
                     <View className="z-auto w-full md:w-1/2">
-                        <DatePickerButton
+                        <DatePicker
+                            trigger="pill"
                             testID="quotation-builder-delivery-date"
                             label={t('business:builder.deliveryDate')}
                             labelVisible
@@ -742,7 +743,7 @@ export function QuotationBuilderScreen({
                                 totals.map((total) => (
                                     <Text
                                         key={total.currency}
-                                        className="font-display text-xl font-bold tabular-nums"
+                                        className="font-display text-role-title font-bold tabular-nums"
                                         testID={contractPriceTestId(
                                             `draft-total-${total.currency}`,
                                         )}
@@ -763,8 +764,7 @@ export function QuotationBuilderScreen({
     return (
         <Cascade space="md" testID="quotation-builder-screen">
             <View className="flex-col gap-1">
-                <CataloguePageHeader
-                    titleLook="board"
+                <PageHeader
                     testID="quotation-builder-header"
                     titleTestID="quotation-builder-title"
                     title={t('business:nav.newQuotation')}
@@ -787,9 +787,9 @@ export function QuotationBuilderScreen({
                             </View>
                         ) : undefined
                     }
-                    primaryAction={
+                    actions={
                         <View className="flex-row flex-wrap items-center justify-end gap-2">
-                            <DeskButton
+                            <Button
                                 testID="quotation-builder-cancel"
                                 variant="secondary"
                                 size="sm"
@@ -813,7 +813,7 @@ export function QuotationBuilderScreen({
                 {form}
                 {aside}
             </View>
-            <UnsavedChangesDialog guard={guard} testID="quotation-builder-unsaved" />
+            <LeaveDialog guard={guard} testID="quotation-builder" />
         </Cascade>
     );
 }
@@ -867,13 +867,13 @@ export function SentBox({
                     <Icon name="check" size="lg" className="text-content-on-brand" />
                 </View>
             </View>
-            <Heading level={2} align="center" className="mt-7 !text-[30px] !leading-9">
+            <Heading level={2} align="center" className="mt-7 !text-role-title !leading-9">
                 {t('business:builder.successTitle')}
             </Heading>
             <View className="mt-2.5 h-8 flex-row items-center rounded-full bg-surface-sunken px-3">
                 <RNText
                     testID="quotation-builder-reference"
-                    className="text-sm font-bold tabular-nums text-content-secondary"
+                    className="text-role-body font-bold tabular-nums text-content-secondary"
                 >
                     {reference}
                 </RNText>
@@ -893,7 +893,7 @@ export function SentBox({
                     >
                         <RNText
                             className={cx(
-                                'text-xs font-semibold',
+                                'text-role-caption font-semibold',
                                 step.tone === 'done'
                                     ? 'text-content-on-brand-subtle'
                                     : step.tone === 'now'
@@ -907,14 +907,14 @@ export function SentBox({
                 ))}
             </View>
             <View className="mt-6 flex-row flex-wrap justify-center gap-2">
-                <DeskButton
+                <Button
                     testID="quotation-builder-open-list"
                     variant="secondary"
                     size="sm"
                     label={t('business:builder.openList')}
                     onPress={onList}
                 />
-                <DeskButton
+                <Button
                     testID="quotation-builder-another"
                     size="sm"
                     label={t('business:builder.another')}

@@ -1,11 +1,8 @@
-import { Stack, Text } from '@healthy360/design-system';
+import { Badge, Button, Stack, Tabs, Text } from '@healthy360/design-system';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { DeskButton } from '../features/kitchen-admin/desk-kit/desk-button.tsx';
-import { DeskChip } from '../features/kitchen-admin/desk-kit/desk-chip.tsx';
-import { CountPill, ReviewBox, StepCard } from '../features/kitchen-admin/process-parts.tsx';
-import { ProcessSteps } from '../features/kitchen-admin/process-steps.tsx';
+import { ReviewBox, StepCard } from '../features/kitchen-admin/process-parts.tsx';
 
 type Step = 'order' | 'delivery' | 'lines' | 'check';
 
@@ -21,31 +18,31 @@ export function ProcessStepsShowcaseScreen() {
         <View className="mx-auto w-full max-w-5xl p-6">
             <Stack space="lg">
                 <Text variant="title">Step track — walked, open, with problems</Text>
-                <ProcessSteps<Step>
+                <Tabs<Step>
+                    variant="pills"
                     testID="showcase-steps"
                     label="Steps"
                     value={step}
                     onChange={setStep}
-                    steps={[
-                        { key: 'order', label: 'Order', caption: 'PO-2611-0035', done: true },
+                    items={[
+                        { value: 'order', label: 'Order', detail: 'PO-2611-0035', done: true },
                         {
-                            key: 'delivery',
+                            value: 'delivery',
                             label: 'Delivery',
-                            caption: 'Paperwork and charges',
+                            detail: 'Paperwork and charges',
                             done: true,
                         },
                         {
-                            key: 'lines',
+                            value: 'lines',
                             label: 'What arrived',
-                            caption: '4 to post, 1 left out',
-                            issues: 2,
-                            issuesLabel: '2 to fix',
+                            detail: '4 to post, 1 left out',
+                            issues: { count: 2, tone: 'warning', label: '2 to fix' },
                         },
                         {
-                            key: 'check',
+                            value: 'check',
                             label: 'Check and post',
-                            caption: 'Over-receipt',
-                            captionTone: 'warning',
+                            detail: 'Over-receipt',
+                            detailTone: 'warning',
                         },
                     ]}
                 />
@@ -55,9 +52,7 @@ export function ProcessStepsShowcaseScreen() {
                     testID="showcase-step-card"
                     title="What arrived"
                     count="4 to post, 1 left out"
-                    actions={
-                        <DeskButton size="sm" variant="secondary" label="Add invoice charges" />
-                    }
+                    actions={<Button size="sm" variant="secondary" label="Add invoice charges" />}
                 >
                     <Text tone="secondary">The step's fields sit here.</Text>
                 </StepCard>
@@ -68,14 +63,14 @@ export function ProcessStepsShowcaseScreen() {
                         <ReviewBox
                             testID="showcase-review"
                             title="This delivery"
-                            trailing={<DeskChip tone="warning" label="Over-receipt" />}
+                            trailing={<Badge tone="warning" label="Over-receipt" />}
                         >
                             <Text tone="secondary">Stock rises immediately for 4 lines.</Text>
                         </ReviewBox>
                     </View>
                     <View className="min-w-[260px] flex-1">
                         <ReviewBox testID="showcase-fixes" title="To fix">
-                            <CountPill label="2" />
+                            <Badge tone="brand" label="2" />
                         </ReviewBox>
                     </View>
                 </View>

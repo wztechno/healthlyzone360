@@ -1,17 +1,31 @@
 import type { StaffInvitation, TeamMemberSummary } from '@healthy360/api-client/contracts';
 import { isWorkingMember } from '@healthy360/api-client/contracts';
 import {
+    Badge,
+    Button,
     Cascade,
-    Chip,
+    ColumnPicker,
+    compareText,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Heading,
     Icon,
+    LensBar,
+    Select,
     Stack,
+    TablePager,
     TableSkeleton,
     Text,
+    useColumnControls,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type {
+    ControlledColumn,
+    DataTableColumn,
+    LensFigure,
+    MenuItem,
+} from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
@@ -27,15 +41,6 @@ import {
     useTeamWholeSetQuery,
 } from '../../../data/access-admin-hooks.ts';
 import { toFailure } from '../../../data/hooks.ts';
-import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import { CataloguePager } from '../catalogue/catalogue-pager.tsx';
-import { ColumnPicker } from '../catalogue/column-picker.tsx';
-import { LensBar, LensScope } from '../catalogue/lens-bar.tsx';
-import type { LensFigure } from '../catalogue/lens-bar.tsx';
-import { compareText, useColumnControls } from '../catalogue/use-column-controls.tsx';
-import type { ControlledColumn } from '../catalogue/use-column-controls.tsx';
 import {
     MEMBERSHIP_END_PERMISSION,
     MEMBERSHIP_INVITE_PERMISSION,
@@ -51,8 +56,6 @@ import {
     useRestoredPageFallback,
 } from '../list-memory.ts';
 
-import { DeskButton } from '../desk-kit/desk-button.tsx';
-import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * `/kitchen/team` — everybody who can sign in to this kitchen (AA1), on the Catalogue list.
  *
@@ -138,7 +141,7 @@ function StatusBadge({ member }: { readonly member: TeamMemberSummary }) {
           ? 'neutral'
           : 'warning';
 
-    return <DeskStatusDot testID={testID} tone={tone} label={statusText(member, t)} />;
+    return <Badge variant="dot" testID={testID} tone={tone} label={statusText(member, t)} />;
 }
 
 function PendingInvitations({ invitations }: { readonly invitations: readonly StaffInvitation[] }) {
@@ -154,7 +157,7 @@ function PendingInvitations({ invitations }: { readonly invitations: readonly St
     const roleName = (row: StaffInvitation) =>
         t(`accessAdmin:codes.${row.roleCode}.name` as never, { defaultValue: row.roleCode });
 
-    const columns: readonly CatalogueColumn<StaffInvitation>[] = [
+    const columns: readonly DataTableColumn<StaffInvitation>[] = [
         {
             key: 'email',
             role: 'title',
@@ -180,7 +183,11 @@ function PendingInvitations({ invitations }: { readonly invitations: readonly St
             priority: 80,
             value: roleName,
             render: (row) => (
-                <Chip testID={`kitchen-team-invitation-${row.id}-role`} label={roleName(row)} />
+                <Badge
+                    tone="neutral"
+                    testID={`kitchen-team-invitation-${row.id}-role`}
+                    label={roleName(row)}
+                />
             ),
         },
         {
@@ -206,7 +213,7 @@ function PendingInvitations({ invitations }: { readonly invitations: readonly St
                       priority: 99,
                       align: 'end' as const,
                       render: (row: StaffInvitation) => (
-                          <DeskButton
+                          <Button
                               testID={`kitchen-team-invitation-${row.id}-revoke`}
                               variant="ghost"
                               size="sm"
@@ -231,7 +238,7 @@ function PendingInvitations({ invitations }: { readonly invitations: readonly St
                 </Text>
             </Stack>
 
-            <CatalogueList<StaffInvitation>
+            <DataTable<StaffInvitation>
                 testID="kitchen-team-invitations-table"
                 label={t('accessAdmin:team.invitations.caption')}
                 columns={columns}
@@ -305,7 +312,7 @@ function TeamList() {
 
     const columns: readonly ControlledColumn<
         TeamMemberSummary,
-        CatalogueColumn<TeamMemberSummary>
+        DataTableColumn<TeamMemberSummary>
     >[] = [
         {
             key: 'person',
@@ -393,7 +400,8 @@ function TeamList() {
                     >
                         {first === undefined ? null : (
                             <View className="min-w-0 shrink">
-                                <Chip
+                                <Badge
+                                    tone="neutral"
                                     testID={`${testID}-role-${first.code}`}
                                     label={locale.startsWith('ar') ? first.nameAr : first.nameEn}
                                 />
@@ -480,7 +488,6 @@ function TeamList() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="kitchen-team-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={lensFigures({
@@ -492,7 +499,8 @@ function TeamList() {
                     scope={
                         // Not figures: on Working the whole set is asked for active people only, so
                         // there is no count of Everyone to draw beside it.
-                        <LensScope<TeamSegment>
+                        <Select<TeamSegment>
+                            trigger="pill"
                             testID="kitchen-team-toolbar-status"
                             label={t('accessAdmin:team.segmentLabel')}
                             value={segment}
@@ -541,7 +549,7 @@ function TeamList() {
                     trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                     actions={
                         canAdd ? (
-                            <DeskButton
+                            <Button
                                 testID="kitchen-team-add"
                                 label={t('accessAdmin:team.add')}
                                 iconStart={<Icon name="plus" size="sm" />}
@@ -563,7 +571,7 @@ function TeamList() {
                         retrying={team.isFetching}
                     />
                 ) : controls.rows.length === 0 ? (
-                    <CatalogueList
+                    <DataTable
                         testID="kitchen-team-empty-list"
                         label={t('kitchen:lens.label')}
                         columns={controls.columns}
@@ -592,7 +600,7 @@ function TeamList() {
                     />
                 ) : (
                     <Stack space="sm">
-                        <CatalogueList<TeamMemberSummary>
+                        <DataTable<TeamMemberSummary>
                             testID="kitchen-team-table"
                             joined
                             label={t('accessAdmin:team.caption')}
@@ -607,7 +615,7 @@ function TeamList() {
                                 {
                                     key: 'open',
                                     label: t('accessAdmin:team.open'),
-                                    icon: CATALOGUE_ROW_ICONS.edit,
+                                    icon: DATA_TABLE_ROW_ICONS.edit,
                                     testID: `${teamRowTestId(String(row.membershipId))}-open`,
                                     onSelect: () => {
                                         openMember(row);
@@ -616,7 +624,7 @@ function TeamList() {
                             ]}
                         />
 
-                        <CataloguePager
+                        <TablePager
                             testID="kitchen-team-pagination"
                             page={page}
                             totalPages={totalPages}

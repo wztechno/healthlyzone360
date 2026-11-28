@@ -536,3 +536,98 @@ describe('Pagination', () => {
         assertSubtreeIsLogical(screen.getByTestId('pager'));
     });
 });
+
+describe('Tabs — a value picked (radio) and icons only', () => {
+    const methods: readonly TabItem[] = [
+        { value: 'cash', label: 'Cash on delivery', testID: 'm-cash' },
+        { value: 'card', label: 'Card at the door', testID: 'm-card' },
+    ];
+
+    it('announces a radio group whose chosen item is checked, not selected', async () => {
+        const onChange = jest.fn();
+        await renderWithI18n(
+            <Tabs
+                testID="m"
+                label="Payment method"
+                variant="segmented"
+                radio
+                items={methods}
+                value="cash"
+                onChange={onChange}
+            />,
+        );
+        expect(screen.getByTestId('m').props.accessibilityRole).toBe('radiogroup');
+        expect(screen.getByTestId('m-cash').props.accessibilityRole).toBe('radio');
+        expect(screen.getByTestId('m-cash').props.accessibilityState).toMatchObject({
+            checked: true,
+        });
+        expect(String(screen.getByTestId('m-cash').props.className)).toContain(
+            'bg-surface-brand-subtle',
+        );
+        fireEvent.press(screen.getByTestId('m-card'));
+        expect(onChange).toHaveBeenCalledWith('card');
+    });
+
+    it('draws only the glyph and keeps the label as the name', async () => {
+        await renderWithI18n(
+            <Tabs
+                label="Layout"
+                variant="segmented"
+                radio
+                labelHidden
+                items={[{ value: 'table', label: 'Table', icon: 'list', testID: 'l-table' }]}
+                value="table"
+                onChange={jest.fn()}
+            />,
+        );
+        expect(screen.queryByText('Table')).toBeNull();
+        expect(screen.getByTestId('l-table').props.accessibilityLabel).toBe('Table');
+    });
+});
+
+describe('Tabs — pills with a second line, and read-only', () => {
+    it('draws the detail under the name and a tick on a done step', async () => {
+        await renderWithI18n(
+            <Tabs
+                label="Post a receipt"
+                variant="pills"
+                items={[
+                    {
+                        value: 'arrival',
+                        label: 'What arrived',
+                        detail: 'Market purchase',
+                        done: true,
+                        testID: 's-arrival',
+                    },
+                    { value: 'lines', label: 'Lines', detail: '1 line', testID: 's-lines' },
+                ]}
+                value="lines"
+                onChange={jest.fn()}
+            />,
+        );
+        expect(screen.getByTestId('s-arrival-caption')).toHaveTextContent('Market purchase');
+        expect(screen.getByTestId('s-lines').props.accessibilityState).toMatchObject({
+            selected: true,
+        });
+    });
+
+    it('is a list whose items cannot be pressed when read-only', async () => {
+        await renderWithI18n(
+            <Tabs
+                testID="r"
+                label="Steps"
+                variant="pills"
+                readOnly
+                items={[
+                    { value: 'customer', label: 'Customer', testID: 'r-customer' },
+                    { value: 'meals', label: 'Meals', testID: 'r-meals' },
+                ]}
+                value="meals"
+                onChange={jest.fn()}
+            />,
+        );
+        expect(screen.getByTestId('r').props.accessibilityRole).toBe('list');
+        expect(screen.getByTestId('r-customer').props.role).toBe('listitem');
+        expect(screen.getByTestId('r-customer').props.onPress).toBeUndefined();
+    });
+});

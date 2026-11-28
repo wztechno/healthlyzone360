@@ -5,16 +5,20 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { isReactivatable, isTradingStatus } from '@healthy360/api-client/contracts';
 import {
+    Badge,
     Button,
     Callout,
     Cascade,
+    DATA_TABLE_ROW_ICONS,
+    DataTable,
     EmptyState,
     ErrorState,
     Icon,
+    LensBar,
     TableSkeleton,
     Text,
 } from '@healthy360/design-system';
-import type { MenuItem } from '@healthy360/design-system';
+import type { DataTableColumn, LensFigure, LensTone, MenuItem } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -28,14 +32,7 @@ import {
     usePlatformKitchensQuery,
 } from '../../../data/platform-admin-hooks.ts';
 import { useTrailLeaf } from '../../../shell/area-trail.tsx';
-import { CATALOGUE_ROW_ICONS } from '../../kitchen-admin/catalogue/catalogue-list-item.tsx';
-import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
-import { LensBar } from '../../kitchen-admin/catalogue/lens-bar.tsx';
-import type { LensFigure, LensTone } from '../../kitchen-admin/catalogue/lens-bar.tsx';
 import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.tsx';
-import { DeskButton } from '../../kitchen-admin/desk-kit/desk-button.tsx';
-import { DeskChip } from '../../kitchen-admin/desk-kit/desk-chip.tsx';
 import { kitchenRowTestId, ownerRowTestId, tenantStatusKey, tenantStatusTone } from '../format.ts';
 import {
     EndMembershipDialog,
@@ -161,7 +158,7 @@ function KitchensList() {
         },
     }));
 
-    const columns: readonly CatalogueColumn<PlatformKitchenSummary>[] = [
+    const columns: readonly DataTableColumn<PlatformKitchenSummary>[] = [
         {
             key: 'kitchen',
             role: 'title',
@@ -194,7 +191,7 @@ function KitchensList() {
             priority: 90,
             value: (row) => t(tenantStatusKey(row.status)),
             render: (row) => (
-                <DeskChip
+                <Badge
                     testID={`${kitchenRowTestId(row.id)}-status`}
                     tone={tenantStatusTone(row.status)}
                     label={t(tenantStatusKey(row.status))}
@@ -213,7 +210,7 @@ function KitchensList() {
                     : t('platformAdmin:kitchens.ownerCount', { count: row.ownerCount }),
             render: (row) =>
                 row.ownerCount === 0 ? (
-                    <DeskChip
+                    <Badge
                         testID={`${kitchenRowTestId(row.id)}-no-owner`}
                         tone="warning"
                         label={t('platformAdmin:kitchens.noOwner')}
@@ -266,12 +263,11 @@ function KitchensList() {
             <View className={joined ? 'z-10' : 'z-10 gap-4'}>
                 <LensBar
                     testID="platform-admin-kitchens-toolbar"
-                    layout="split"
                     joined={joined}
                     label={t('kitchen:lens.label')}
                     figures={figures}
                     actions={
-                        <DeskButton
+                        <Button
                             testID="platform-admin-kitchens-create"
                             size="sm"
                             label={t('platformAdmin:kitchens.create')}
@@ -345,7 +341,7 @@ function KitchensList() {
                               })}
                     />
                 ) : (
-                    <CatalogueList<PlatformKitchenSummary>
+                    <DataTable<PlatformKitchenSummary>
                         testID="platform-admin-kitchens-table"
                         joined
                         label={t('platformAdmin:kitchens.caption')}
@@ -357,12 +353,11 @@ function KitchensList() {
                             open(row.slug);
                         }}
                         rowActionsLabel={t('platformAdmin:kitchens.rowActions')}
-                        rowActionsLook="desk"
                         rowActions={(row): readonly MenuItem[] => [
                             {
                                 key: 'view',
                                 label: t('platformAdmin:kitchens.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
+                                icon: DATA_TABLE_ROW_ICONS.view,
                                 testID: `${kitchenRowTestId(row.id)}-view`,
                                 onSelect: () => {
                                     open(row.slug);
@@ -494,7 +489,7 @@ function KitchenSheet({
     const target = targetOf(record);
     const owners = record.owners;
 
-    const ownerColumns: readonly CatalogueColumn<PlatformKitchenOwner>[] = [
+    const ownerColumns: readonly DataTableColumn<PlatformKitchenOwner>[] = [
         {
             key: 'person',
             role: 'title',
@@ -539,7 +534,7 @@ function KitchenSheet({
             priority: 80,
             value: (owner) => t(`platformAdmin:owners.status.${owner.status}`, owner.status),
             render: (owner) => (
-                <DeskChip
+                <Badge
                     testID={`${ownerRowTestId(owner.membershipId)}-status`}
                     tone="success"
                     label={t(`platformAdmin:owners.status.${owner.status}`, owner.status)}
@@ -548,7 +543,7 @@ function KitchenSheet({
         },
     ];
 
-    const branchColumns: readonly CatalogueColumn<(typeof record.branches)[number]>[] = [
+    const branchColumns: readonly DataTableColumn<(typeof record.branches)[number]>[] = [
         {
             key: 'name',
             role: 'title',
@@ -582,7 +577,7 @@ function KitchenSheet({
             priority: 90,
             value: (branch) => t(`platformAdmin:detail.branchStatus.${branch.status}`),
             render: (branch) => (
-                <DeskChip
+                <Badge
                     tone={branch.status === 'active' ? 'success' : 'neutral'}
                     label={t(`platformAdmin:detail.branchStatus.${branch.status}`)}
                 />
@@ -598,7 +593,6 @@ function KitchenSheet({
 
     return (
         <RecordViewPage
-            look="sheet"
             testID={testID}
             onBack={onClose}
             eyebrow={t('platformAdmin:detail.kind')}
@@ -682,7 +676,7 @@ function KitchenSheet({
                         title={t('platformAdmin:owners.emptyTitle')}
                         body={t('platformAdmin:owners.emptyBody')}
                         actions={
-                            <DeskButton
+                            <Button
                                 testID={`${testID}-owners-invite`}
                                 size="sm"
                                 label={t('platformAdmin:invite.title')}
@@ -694,7 +688,7 @@ function KitchenSheet({
                     />
                 ) : (
                     <View className="overflow-hidden rounded-[14px] border border-stroke-subtle">
-                        <CatalogueList<PlatformKitchenOwner>
+                        <DataTable<PlatformKitchenOwner>
                             testID={`${testID}-owners-table`}
                             label={t('platformAdmin:owners.title')}
                             columns={ownerColumns}
@@ -704,7 +698,6 @@ function KitchenSheet({
                             rowEntrance={false}
                             joined
                             rowActionsLabel={t('platformAdmin:kitchens.rowActions')}
-                            rowActionsLook="desk"
                             rowActions={(owner): readonly MenuItem[] => [
                                 {
                                     key: 'revoke',
@@ -732,7 +725,7 @@ function KitchenSheet({
                     title: t('platformAdmin:detail.branchesTitle'),
                     content: (
                         <View className="overflow-hidden rounded-[14px] border border-stroke-subtle">
-                            <CatalogueList
+                            <DataTable
                                 testID={`${testID}-branches-table`}
                                 label={t('platformAdmin:detail.branchesTitle')}
                                 columns={branchColumns}

@@ -1,9 +1,7 @@
-import { Card, Icon, Inline, Stack, Text } from '@healthy360/design-system';
+import { Button, Card, Inline, Stack, Text } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText, View } from 'react-native';
 
-import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * The chrome every ordered-row editor in this workspace shares.
  *
@@ -80,7 +78,7 @@ export function RowShell({
                         <Inline space="xs" wrap justify="end">
                             {onMove === undefined ? null : (
                                 <>
-                                    <DeskButton
+                                    <Button
                                         testID={`${testID}-move-up`}
                                         size="sm"
                                         variant="ghost"
@@ -90,7 +88,7 @@ export function RowShell({
                                             onMove(position - 2);
                                         }}
                                     />
-                                    <DeskButton
+                                    <Button
                                         testID={`${testID}-move-down`}
                                         size="sm"
                                         variant="ghost"
@@ -102,7 +100,7 @@ export function RowShell({
                                     />
                                 </>
                             )}
-                            <DeskButton
+                            <Button
                                 testID={`${testID}-remove`}
                                 size="sm"
                                 variant="ghost"
@@ -131,41 +129,5 @@ export function RowAnnouncer({
         <Text testID={testID} role="status" aria-live="polite" variant="caption" tone="secondary">
             {message}
         </Text>
-    );
-}
-
-export interface UndoBarProps {
-    /** What was removed, already worded by the caller — the row's own name is in it. */
-    readonly label: string;
-    readonly onUndo: () => void;
-    readonly testID: string;
-}
-
-export function UndoBar({ label, onUndo, testID }: UndoBarProps) {
-    const { t } = useTranslation();
-
-    // The undo toast's dark ink, kept in place beside the rows rather than floating off: the
-    // removal happened here, and here is where the reader looks for the way back.
-    return (
-        <View className="flex-row items-center gap-2.5 self-start rounded-xl bg-surface-inverse py-1.5 pe-1.5 ps-3">
-            <Icon name="rotateCw" size="sm" className="text-content-inverse" />
-            <RNText
-                testID={`${testID}-removed`}
-                className="text-sm font-semibold text-content-inverse"
-            >
-                {label}
-            </RNText>
-            <Pressable
-                testID={`${testID}-undo`}
-                role="button"
-                accessibilityRole="button"
-                onPress={onUndo}
-                className="h-7 justify-center rounded-full px-2.5 hover:bg-content-inverse/15"
-            >
-                <RNText className="text-sm font-bold text-stage-green">
-                    {t('kitchen:common.undo')}
-                </RNText>
-            </Pressable>
-        </View>
     );
 }

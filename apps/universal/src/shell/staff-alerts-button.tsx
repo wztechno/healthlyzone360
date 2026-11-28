@@ -1,5 +1,5 @@
 import type { StaffAlert, StaffAlertType } from '@healthy360/api-client/contracts';
-import { DensityProvider, Icon, useToast } from '@healthy360/design-system';
+import { Badge, Button, DensityProvider, Icon, useToast } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { usePathname, useRouter } from 'expo-router';
@@ -15,8 +15,6 @@ import {
     useStaffAlertsQuery,
 } from '../data/staff-alerts-hooks.ts';
 import { playAlertTone } from '../features/kds/alert-tone.ts';
-import { DeskButton } from '../features/kitchen-admin/desk-kit/desk-button.tsx';
-import { DeskChip } from '../features/kitchen-admin/desk-kit/desk-chip.tsx';
 import { ORDER_SUPERVISE_PERMISSION } from '../features/kitchen-admin/entity-registry.ts';
 import { withReturnTo } from '../navigation/return-to.ts';
 import { useCurrentHref } from '../navigation/use-return-to.ts';
@@ -208,7 +206,7 @@ function AlertRow({
                 <View className="flex-row items-start gap-2">
                     <RNText
                         numberOfLines={2}
-                        className={`min-w-0 flex-1 text-sm text-content-primary text-start ${
+                        className={`min-w-0 flex-1 text-role-body text-content-primary text-start ${
                             unread ? 'font-semibold' : ''
                         }`}
                     >
@@ -221,11 +219,14 @@ function AlertRow({
                         />
                     ) : null}
                 </View>
-                <RNText numberOfLines={1} className="text-xs text-content-secondary text-start">
+                <RNText
+                    numberOfLines={1}
+                    className="text-role-caption text-content-secondary text-start"
+                >
                     {unread ? t('kitchen:alerts.unreadDetail', { when }) : when}
                 </RNText>
                 <View className="flex-row pt-1">
-                    <DeskButton
+                    <Button
                         testID="staff-alerts-panel-open"
                         variant={unread ? 'primary' : 'quiet'}
                         label={t('kitchen:alerts.open')}
@@ -350,7 +351,7 @@ function AlertsBell() {
                         <View className="absolute -end-1 -top-1 h-5 min-w-5 items-center justify-center rounded-full border-2 border-surface-raised bg-danger-strong px-1">
                             <RNText
                                 testID="staff-alerts-count"
-                                className="text-xs font-bold tabular-nums text-danger-on-strong"
+                                className="text-role-caption font-bold tabular-nums text-danger-on-strong"
                             >
                                 {unreadCount}
                             </RNText>
@@ -368,12 +369,12 @@ function AlertsBell() {
                             <RNText
                                 accessibilityRole="header"
                                 numberOfLines={1}
-                                className="min-w-0 shrink font-display text-lg font-bold text-content-primary text-start"
+                                className="min-w-0 shrink font-display text-role-section font-bold text-content-primary text-start"
                             >
                                 {t('kitchen:alerts.title')}
                             </RNText>
                             {unreadCount === 0 ? null : (
-                                <DeskChip
+                                <Badge
                                     testID="staff-alerts-new"
                                     tone="danger"
                                     label={t('kitchen:alerts.newCount', { n: unreadCount })}
@@ -381,7 +382,7 @@ function AlertsBell() {
                             )}
                             <View className="flex-1" />
                             {unreadCount === 0 ? null : (
-                                <DeskButton
+                                <Button
                                     testID="staff-alerts-mark-all"
                                     variant="quiet"
                                     label={t('kitchen:alerts.markAllRead')}
@@ -405,7 +406,7 @@ function AlertsBell() {
                                 )}
                                 <RNText
                                     testID="staff-alerts-panel-empty"
-                                    className="text-center text-sm font-semibold text-content-primary"
+                                    className="text-center text-role-body font-semibold text-content-primary"
                                 >
                                     {t(
                                         alerts.isError

@@ -1,14 +1,12 @@
 import type { KitchenQuotationLine } from '@healthy360/api-client/contracts';
-import { Text, TextInputField } from '@healthy360/design-system';
+import { compareNumber, compareText, Text, TextInputField } from '@healthy360/design-system';
+import type { ControlledColumn, DataTableColumn, SortDirection } from '@healthy360/design-system';
 import type { CurrencyCode } from '@healthy360/domain-types';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { View } from 'react-native';
 
 import { formatMoney } from '../../marketplace/format.ts';
-import { compareNumber, compareText } from '../catalogue/use-column-controls.tsx';
-import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
-import type { ControlledColumn, SortDirection } from '../catalogue/use-column-controls.tsx';
 import { displayName, parseMinorAmount } from '../format.ts';
 
 /**
@@ -65,7 +63,7 @@ export function quotationLineColumns({
     onPrice,
 }: QuotationLineColumnDeps): readonly ControlledColumn<
     KitchenQuotationLine,
-    CatalogueColumn<KitchenQuotationLine>
+    DataTableColumn<KitchenQuotationLine>
 >[] {
     const editing = prices !== undefined;
 
