@@ -399,9 +399,10 @@ function StaffCreateForm() {
                   ),
               ]
             : []),
-        // An invitation is an offer of a role; a login made here may be given one later.
-        ...(mode === 'invite' && roleIds.size === 0
-            ? [required('role', t('accessAdmin:add.role'), 'kitchen-staff-create-role', 'role')]
+        // Both ways need a role: an invitation is an offer of one, and a login with none can do
+        // nothing, so a commit pressed before the Role step opens it instead of saving.
+        ...(roleIds.size === 0
+            ? [required('role', roleTarget.label, 'kitchen-staff-create-role', 'role')]
             : []),
     ];
     const shownIssues = attempted ? issues : issues.filter((issue) => !issue.required);

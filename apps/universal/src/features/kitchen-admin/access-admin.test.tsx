@@ -769,6 +769,10 @@ describe('adding a member of staff', () => {
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-staff-create-tabs-tab-role'));
         });
+        await untilVisible('kitchen-staff-create-role-evening_counter');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-staff-create-role-evening_counter'));
+        });
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-staff-create-submit'));
         });

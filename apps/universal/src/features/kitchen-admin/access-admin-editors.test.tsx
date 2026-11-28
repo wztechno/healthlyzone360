@@ -316,6 +316,7 @@ describe('adding a member of staff leads the reader', () => {
         await type('kitchen-staff-create-family-name-input', 'Haddad');
         // Committed from the last step: the refused field is one step back.
         await press('kitchen-staff-create-tabs-tab-role');
+        await press('kitchen-staff-create-role-evening_counter');
         await press('kitchen-staff-create-submit');
 
         await untilVisible('kitchen-staff-create-given-name-error');
@@ -353,6 +354,8 @@ describe('adding a member of staff leads the reader', () => {
         await press('kitchen-staff-create-tabs-tab-person');
         await type('kitchen-staff-create-given-name-input', 'Ahmad');
         await type('kitchen-staff-create-family-name-input', 'Haddad');
+        await press('kitchen-staff-create-tabs-tab-role');
+        await press('kitchen-staff-create-role-evening_counter');
         await press('kitchen-staff-create-submit');
 
         await untilVisible('kitchen-staff-create-confirm-password-input');
@@ -383,6 +386,27 @@ describe('adding a member of staff leads the reader', () => {
         expect(screen.getByTestId('kitchen-staff-create-role-section')).toBeTruthy();
         expect(pill('kitchen-staff-create-tabs-tab-role')).toHaveTextContent('1');
         expect(inviteStaff).not.toHaveBeenCalled();
+    });
+
+    it('opens the Role step instead of making a login with no role', async () => {
+        const createStaffAccount = jest.fn();
+        await renderStubScreen(<StaffCreateScreen />, {
+            session: permissionsAdministratorSession(),
+            repositories: staffRepositories({ createStaffAccount }),
+        });
+        await press('kitchen-staff-create-mode-option-create');
+        await type('kitchen-staff-create-local-part-input', 'ahmad');
+        await press('kitchen-staff-create-generate');
+        await press('kitchen-staff-create-tabs-tab-person');
+        await type('kitchen-staff-create-given-name-input', 'Ahmad');
+        await type('kitchen-staff-create-family-name-input', 'Haddad');
+        // Committed from Person, with every field but the role filled in.
+        await press('kitchen-staff-create-submit');
+
+        await untilVisible('kitchen-staff-create-role-error');
+        expect(screen.getByTestId('kitchen-staff-create-role-section')).toBeTruthy();
+        expect(pill('kitchen-staff-create-tabs-tab-role')).toHaveTextContent('1');
+        expect(createStaffAccount).not.toHaveBeenCalled();
     });
 
     it('goes back a step on Cancel instead of opening a fresh list', async () => {
