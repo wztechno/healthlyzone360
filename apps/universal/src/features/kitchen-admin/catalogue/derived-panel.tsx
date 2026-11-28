@@ -111,7 +111,11 @@ export interface DerivedPanelProps {
      * a short number and a two-letter unit do not need 200px each, and a fixed width only opened a
      * gap between the figure and its unit.
      */
-    readonly variant?: 'sunken' | 'outline' | undefined;
+    /**
+     * `tiles` is the Ingredient edit board's: four to a line on the sunken fill, the first tinted
+     * brand — energy, the figure the rest are read against.
+     */
+    readonly variant?: 'sunken' | 'outline' | 'tiles' | undefined;
     readonly testID: string;
 }
 
@@ -140,9 +144,55 @@ export function DerivedPanel({
                  * `repeat(4, 200px)` and wraps
                  * to three-plus-one on a narrow port instead of squeezing four.
                  */
-                <View testID={`${testID}-figures`} className="flex-row flex-wrap gap-tight">
-                    {figures.map((figure) =>
-                        variant === 'outline' ? (
+                <View
+                    testID={`${testID}-figures`}
+                    className={
+                        variant === 'outline'
+                            ? 'flex-row flex-wrap gap-2.5'
+                            : 'flex-row flex-wrap gap-tight'
+                    }
+                >
+                    {figures.map((figure, index) =>
+                        variant === 'tiles' ? (
+                            <View
+                                key={figure.key}
+                                testID={`${testID}-figure-${figure.key}`}
+                                className={`min-w-[120px] rounded-[14px] px-3 py-2.5 ${
+                                    index === 0 ? 'bg-surface-brand-subtle' : 'bg-surface-sunken'
+                                }`}
+                                // eslint-disable-next-line no-restricted-syntax -- a tile in a wrapping grid, not a control: four to a line share it.
+                                style={{ flexBasis: '22%', flexGrow: 1 }}
+                            >
+                                <RNText
+                                    className={`text-role-label font-semibold text-start ${
+                                        index === 0
+                                            ? 'text-content-on-brand-subtle'
+                                            : 'text-content-secondary'
+                                    }`}
+                                >
+                                    {figure.label}
+                                </RNText>
+                                <View className="flex-row items-baseline gap-1">
+                                    <RNText
+                                        testID={`${testID}-figure-${figure.key}-value`}
+                                        className={`font-display text-lg font-bold tabular-nums text-start ${
+                                            index === 0
+                                                ? 'text-content-on-brand-subtle'
+                                                : figure.value === null
+                                                  ? 'text-content-secondary'
+                                                  : 'text-content-primary'
+                                        }`}
+                                    >
+                                        {figure.value ?? emptyValue}
+                                    </RNText>
+                                    {figure.value === null ? null : (
+                                        <Text variant="caption" tone="secondary">
+                                            {figure.unit}
+                                        </Text>
+                                    )}
+                                </View>
+                            </View>
+                        ) : variant === 'outline' ? (
                             <OutlineTile
                                 key={figure.key}
                                 figure={figure}
@@ -190,7 +240,10 @@ export function DerivedPanel({
     );
 }
 
-/** One `outline` card: the label over the figure, the unit right beside the figure. */
+/**
+ * One `outline` card, on one line: the label at the start, the figure and its unit at the end, all
+ * at one size (board v2) — a figure here is read across, like a line of a nutrition label.
+ */
 function OutlineTile({
     figure,
     emptyValue,
@@ -203,32 +256,36 @@ function OutlineTile({
     return (
         <View
             testID={testID}
-            className="flex-col gap-hair rounded-md border border-stroke-subtle bg-surface-raised px-snug py-tight"
+            // The board's `.nut` tile: four to a row, sunken, a 14px corner, no edge.
+            style={OUTLINE_TILE_WIDTH}
+            className="flex-row items-baseline justify-between gap-tight rounded-xl bg-surface-sunken px-4 py-3"
         >
-            <Text variant="micro" tone="secondary">
+            <RNText
+                numberOfLines={1}
+                className="shrink text-role-section text-content-secondary text-start"
+            >
                 {figure.label}
-            </Text>
+            </RNText>
             <View className="flex-row items-baseline gap-hair">
-                {/*
-                 * The figure and its unit are one quantity, so they share one size — the section
-                 * title's step, the `100 g` in "Nutrition · 100 g" above them. React Native's `Text`
-                 * for both, for the reason the header gives: a step plus fixed-advance digits cannot
-                 * come through `Text`'s variant without a stylesheet-order coin toss.
-                 */}
                 <RNText
                     testID={`${testID}-value`}
                     className={
                         figure.value === null
                             ? 'text-role-section tabular-nums text-content-secondary text-start'
-                            : 'text-role-section tabular-nums text-content-primary text-start'
+                            : 'text-role-section font-bold tabular-nums text-content-primary text-start'
                     }
                 >
                     {figure.value ?? emptyValue}
                 </RNText>
-                <RNText className="text-role-section text-content-secondary text-start">
-                    {figure.unit}
-                </RNText>
+                {figure.value === null ? null : (
+                    <RNText className="text-role-section text-content-secondary text-start">
+                        {figure.unit}
+                    </RNText>
+                )}
             </View>
         </View>
     );
 }
+
+/** Four to a row, as the board's `repeat(4, 1fr)`, and never so narrow a figure wraps. */
+const OUTLINE_TILE_WIDTH = { width: '23.5%', minWidth: 160 } as const;

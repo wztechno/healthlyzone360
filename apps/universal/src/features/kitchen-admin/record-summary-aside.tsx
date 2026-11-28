@@ -31,6 +31,8 @@ export interface RecordSummaryListItem {
 }
 
 export interface RecordSummaryAsideProps {
+    /** `panel` is the flat card a page's board draws. */
+    readonly variant?: 'card' | 'panel' | undefined;
     /**
      * The aside's root. The card is `${testID}-card`, each head row `${testID}-${row.key}` and the
      * total `${testID}-total`; the list carries its own ids because it is the part tests read.
@@ -85,6 +87,7 @@ export function RecordSummaryAside({
     total,
     list,
     note,
+    variant = 'card',
 }: RecordSummaryAsideProps) {
     /*
      * Sticky, and a sticky box taller than the screen never shows its own bottom — the note, often
@@ -102,9 +105,12 @@ export function RecordSummaryAside({
             role="complementary"
             aria-label={title}
             style={width === null ? undefined : { width }}
-            className="z-auto self-start web:sticky web:top-0"
+            // Under the form (no width) it runs the full width, as the prop says.
+            className={
+                width === null ? 'z-auto self-stretch' : 'z-auto self-start web:sticky web:top-0'
+            }
         >
-            <FormSection first variant="card" testID={`${testID}-card`} title={title}>
+            <FormSection first variant={variant} testID={`${testID}-card`} title={title}>
                 <View className="flex-col gap-base">
                     <View className="flex-col gap-snug">
                         {rows.map((row) => (

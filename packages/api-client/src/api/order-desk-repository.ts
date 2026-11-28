@@ -38,6 +38,7 @@ import type {
     WeeklyStockCheck,
     PlaceOrderDeskSaleRequest,
     UpdateOrderDeskCustomerRequest,
+    OrderDeskPlanMeal,
 } from '../contracts/order-desk.ts';
 import type {
     AdminDeliveryArea,
@@ -71,6 +72,7 @@ import type {
     DishOption as WireDishOption,
     DishPortion as WireDishPortion,
     KitchenDishOption as WireKitchenDishOption,
+    OrderDeskPlanMealsEnvelope,
 } from '../generated/types.ts';
 import { generateRequestId } from './config.ts';
 import { mapServiceAreaFromDeliveryArea } from './kitchen-admin-mappers.ts';
@@ -338,6 +340,41 @@ export function createApiOrderDeskRepository(transport: Transport): OrderDeskRep
                 days: payload.data.days.map(mapCalendarDay),
                 meta: mapCalendarMeta(payload.meta as OrderDeskCalendarEnvelope['meta']),
             };
+        },
+
+        async listPlanMeals(
+            day: string,
+            branchId?: BranchId,
+        ): Promise<readonly OrderDeskPlanMeal[]> {
+            const query = new URLSearchParams({ date: day });
+            if (branchId !== undefined) query.set('branch_id', branchId);
+            const envelope = await transport.requestEnvelope<OrderDeskPlanMealsEnvelope['data']>({
+                method: 'GET',
+                path: `/catalogue/order-desk/plan-meals?${query.toString()}`,
+            });
+
+            return envelope.data.map((wire) => ({
+                subscriptionId: wire.subscription_id,
+                basis: wire.basis,
+                plan: { nameEn: wire.plan.name_en ?? null, nameAr: wire.plan.name_ar ?? null },
+                mealsPerDay: wire.meals_per_day ?? null,
+                snacksPerDay: wire.snacks_per_day ?? null,
+                meals: wire.meals.map((meal) => ({
+                    slot: meal.slot,
+                    sequence: meal.sequence,
+                    catalogueItemId: meal.catalogue_item_id,
+                    nameEn: meal.name_en ?? null,
+                    nameAr: meal.name_ar ?? null,
+                })),
+                ...(wire.customer === undefined
+                    ? {}
+                    : {
+                          customer: {
+                              displayName: wire.customer.display_name ?? null,
+                              phone: wire.customer.phone ?? null,
+                          },
+                      }),
+            }));
         },
 
         async listRequirements(

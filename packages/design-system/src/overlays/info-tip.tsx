@@ -76,7 +76,7 @@ export function InfoTip({ label, text, icon = 'infoCircle', testID }: InfoTipPro
                     from ?? target.current,
                     text,
                     `${base}-bubble`,
-                    'below',
+                    'above',
                     { wrap: true },
                 );
             }

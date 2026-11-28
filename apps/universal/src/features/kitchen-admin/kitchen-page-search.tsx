@@ -2,15 +2,19 @@ import {
     CommandPalette,
     Icon,
     commandShortcutLabel,
+    cx,
     useBreakpoint,
     useCommandShortcut,
 } from '@healthy360/design-system';
 import type { CommandPaletteItem, NavigationItem } from '@healthy360/design-system';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pressable, Text as RNText } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { ENTITY_FAMILIES } from './entity-registry.ts';
+
+/** Below this much room the pill's words and Ctrl K chip no longer fit: the round glyph instead. */
+const SEARCH_PILL_MIN = 220;
 
 /**
  * The kitchen area's page search — the box in the top bar, Ctrl K anywhere, and the palette both
@@ -23,8 +27,9 @@ import { ENTITY_FAMILIES } from './entity-registry.ts';
  * adds the words it answers to beyond its name, so "sauces" still finds the recipe book.
  *
  * The box is a button that looks like a field, not a field: typing happens in the palette, which
- * has the room to show the results. Below `md` it narrows to its glyph, because the top bar there
- * is holding the breadcrumb trail as well.
+ * has the room to show the results. In the admin frame's bar it is a wide sunken pill after the
+ * trail, up to 460px, with the shortcut in a chip at its end; below `md` it narrows to a round
+ * glyph, because the bar there is holding the trail as well.
  */
 export function KitchenPageSearch({
     navigation,
@@ -59,10 +64,21 @@ export function KitchenPageSearch({
     );
 
     const label = t('kitchen:search.label');
-    const wide = atLeast('md');
+    /*
+     * The pill needs room for its words and the Ctrl K chip. It is decided by the room the bar
+     * actually leaves it — a long trail on a laptop — not by the window alone; below that it is the
+     * round glyph, never a squeezed "S…".
+     */
+    const [room, setRoom] = useState<number | null>(null);
+    const wide = atLeast('md') && (room === null || room >= SEARCH_PILL_MIN);
 
     return (
-        <>
+        <View
+            className="min-w-0 flex-1 flex-row items-center"
+            onLayout={(event) => {
+                setRoom(event.nativeEvent.layout.width);
+            }}
+        >
             <Pressable
                 testID="kitchen-page-search-trigger"
                 role="button"
@@ -74,20 +90,25 @@ export function KitchenPageSearch({
                 onPress={() => {
                     setOpen(true);
                 }}
-                className="h-8 flex-row items-center gap-2 rounded-lg border border-brand-100 bg-surface-raised px-2.5 shadow-elevation-card web:cursor-text"
+                className={cx(
+                    'flex-row items-center rounded-full bg-surface-sunken transition-colors duration-fast ease-standard web:cursor-text',
+                    wide
+                        ? 'h-11 min-w-0 max-w-[460px] flex-1 gap-2.5 border border-transparent pe-2 ps-4 hover:border-stroke-default'
+                        : 'h-10 w-10 justify-center',
+                )}
             >
-                <Icon name="searchLens" size="sm" className="text-content-secondary" />
+                <Icon name="searchLens" className="text-content-secondary" />
                 {wide ? (
                     <>
                         <RNText
                             numberOfLines={1}
-                            className="w-[152px] text-sm text-content-secondary text-start"
+                            className="min-w-0 flex-1 text-sm font-medium text-content-secondary text-start"
                         >
                             {t('kitchen:search.trigger')}
                         </RNText>
                         <RNText
                             testID="kitchen-page-search-shortcut"
-                            className="rounded border border-stroke-subtle bg-surface-raised px-1.5 py-0.5 text-xs text-content-secondary"
+                            className="rounded-lg border border-stroke-subtle bg-surface-raised px-2 py-1 text-xs font-semibold text-content-secondary"
                         >
                             {commandShortcutLabel()}
                         </RNText>
@@ -112,6 +133,6 @@ export function KitchenPageSearch({
                     close: t('kitchen:search.hintClose'),
                 }}
             />
-        </>
+        </View>
     );
 }

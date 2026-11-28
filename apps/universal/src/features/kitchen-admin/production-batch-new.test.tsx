@@ -282,6 +282,39 @@ describe('planning a batch', () => {
         });
     });
 
+    it('opens filled in from the batch planner, as the planned yield', async () => {
+        mockParams.current = { recipe: String(RECIPE_ID), yield: '50' };
+        const { repositories } = await renderStubScreen(<ProductionBatchNewScreen />, {
+            session: kitchenManagerSession(),
+            repositories: repositoriesFor(recipe()),
+        });
+
+        // The yield the planner showed is typed in, on the yield scale: 50 L of a 20 L output is
+        // two and a half runs.
+        await waitFor(
+            () => {
+                expect(
+                    screen.getByTestId('kitchen-production-batch-new-summary-runs'),
+                ).toHaveTextContent('×2.5');
+            },
+            { timeout: 10_000 },
+        );
+        expect(screen.getByTestId('kitchen-production-batch-new-amount-input')).toHaveProp(
+            'value',
+            '50',
+        );
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-production-batch-new-submit'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenOps.createProductionOrder).toHaveBeenCalledWith(
+                expect.objectContaining({ recipeVersionId: PUBLISHED_VERSION, plannedYield: 50 }),
+            );
+        });
+    });
+
     it('previews the batch and sums it up before anything is created', async () => {
         const { repositories } = await renderStubScreen(<ProductionBatchNewScreen />, {
             session: kitchenManagerSession(),

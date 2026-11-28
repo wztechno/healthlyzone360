@@ -4,6 +4,7 @@ import {
     ShellDock,
     cx,
     useBreakpoint,
+    LoadingSweep,
 } from '@healthy360/design-system';
 import type {
     Cart,
@@ -19,7 +20,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { useAccountChecklistQuery, useAddressesQuery } from '../../../data/account-hooks.ts';
 import { useMealQuery } from '../../../data/catalogue-hooks.ts';
@@ -1656,35 +1657,27 @@ function ArrowAction({
             disabled={off}
             onPress={onPress}
             className={cx(
-                'h-14 min-w-0 flex-1 flex-row items-center rounded-2xl px-5',
-                loading ? 'justify-center' : 'justify-between',
+                'relative h-14 min-w-0 flex-1 flex-row items-center justify-between overflow-hidden rounded-2xl px-5',
                 disabled ? 'bg-stroke-subtle' : 'bg-surface-brand hover:bg-surface-canopy',
             )}
         >
-            {loading ? (
-                <ActivityIndicator size="small" />
-            ) : (
-                <>
-                    <RNText
-                        numberOfLines={1}
-                        className={cx(
-                            'shrink text-base font-bold',
-                            disabled ? 'text-content-secondary' : 'text-content-on-brand',
-                        )}
-                    >
-                        {label}
-                    </RNText>
-                    <View className="h-8 w-8 items-center justify-center rounded-full bg-content-on-brand/20">
-                        <Icon
-                            name="chevronForward"
-                            size="sm"
-                            className={
-                                disabled ? 'text-content-secondary' : 'text-content-on-brand'
-                            }
-                        />
-                    </View>
-                </>
-            )}
+            {loading ? <LoadingSweep tint="bg-surface-raised opacity-40" /> : null}
+            <RNText
+                numberOfLines={1}
+                className={cx(
+                    'shrink text-base font-bold',
+                    disabled ? 'text-content-secondary' : 'text-content-on-brand',
+                )}
+            >
+                {label}
+            </RNText>
+            <View className="h-8 w-8 items-center justify-center rounded-full bg-content-on-brand/20">
+                <Icon
+                    name="chevronForward"
+                    size="sm"
+                    className={disabled ? 'text-content-secondary' : 'text-content-on-brand'}
+                />
+            </View>
         </Pressable>
     );
 }

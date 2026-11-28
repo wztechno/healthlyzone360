@@ -88,19 +88,19 @@ describe('Button', () => {
     });
 
     describe('loading', () => {
-        it('announces busy, shows a spinner and refuses a second press', async () => {
+        it('announces busy, sweeps and refuses a second press', async () => {
             const onPress = jest.fn();
             await renderWithI18n(<Button testID="busy" label="Save" loading onPress={onPress} />);
             const node = screen.getByTestId('busy');
 
             expect(node.props.accessibilityState).toMatchObject({ busy: true, disabled: true });
-            expect(screen.getByTestId('busy-spinner')).toBeTruthy();
+            expect(screen.getByTestId('busy-loading')).toBeTruthy();
 
             await fireEvent.press(node);
             expect(onPress).not.toHaveBeenCalled();
         });
 
-        it('replaces the leading icon rather than rendering both', async () => {
+        it('keeps its icon, label and full colour while the sweep runs behind them', async () => {
             await renderWithI18n(
                 <Button
                     testID="busy"
@@ -110,7 +110,12 @@ describe('Button', () => {
                     onPress={jest.fn()}
                 />,
             );
-            expect(screen.queryByTestId('lead')).toBeNull();
+            expect(screen.getByTestId('lead')).toBeTruthy();
+            expect(screen.getByTestId('busy')).toHaveTextContent(/Save/);
+            // Busy, not off: only a disabled button fades.
+            expect(String(screen.getByTestId('busy').props.className)).not.toContain('opacity-50');
+            // The band goes first, so the label paints over it.
+            expect(screen.getByTestId('busy').children[0]).toBe(screen.getByTestId('busy-loading'));
         });
     });
 

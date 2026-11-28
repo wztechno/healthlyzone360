@@ -108,6 +108,13 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
             <path d="m9 9 6 6" />
         </>
     ),
+    printer: (
+        <>
+            <path d="M6 9V3h12v6" />
+            <rect x="3" y="9" width="18" height="8" rx="2" />
+            <path d="M7 14h10v7H7z" />
+        </>
+    ),
     truck: (
         <>
             <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
@@ -811,6 +818,27 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
         </>
     ),
     // The guest order page's reference chip. Lucide.
+    /** The workspace frame's Workspaces control — nine dots, Lucide's `grip`. */
+    gridDots: (
+        <>
+            <circle cx="5" cy="5" r="1.5" />
+            <circle cx="12" cy="5" r="1.5" />
+            <circle cx="19" cy="5" r="1.5" />
+            <circle cx="5" cy="12" r="1.5" />
+            <circle cx="12" cy="12" r="1.5" />
+            <circle cx="19" cy="12" r="1.5" />
+            <circle cx="5" cy="19" r="1.5" />
+            <circle cx="12" cy="19" r="1.5" />
+            <circle cx="19" cy="19" r="1.5" />
+        </>
+    ),
+    /** The page panel's close — Lucide's `chevrons-left`, turned round in Arabic. */
+    chevronsBackward: (
+        <>
+            <path d="m11 17-5-5 5-5" />
+            <path d="m18 17-5-5 5-5" />
+        </>
+    ),
     copy: (
         <>
             <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
@@ -835,7 +863,11 @@ const GRID_24_DRAWINGS: Partial<Record<IconName, ReactElement>> = {
 };
 
 /** Drawings that point along the line of reading, and so face the other way in Arabic. */
-const MIRRORED_IN_RTL: ReadonlySet<IconName> = new Set(['signOut', 'arrowForward']);
+const MIRRORED_IN_RTL: ReadonlySet<IconName> = new Set([
+    'signOut',
+    'arrowForward',
+    'chevronsBackward',
+]);
 
 /** 13px at `sm` is `iconSize.sm` in `control.ts` — the row-action size the handoff names. */
 const PIXELS: Readonly<Record<IconSize, number>> = { sm: 13, md: 16, lg: 20 };

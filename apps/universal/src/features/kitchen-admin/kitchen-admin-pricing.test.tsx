@@ -1506,9 +1506,7 @@ describe('publishing a price list', () => {
             repositories: editorReads(() => UNPRICED_LIST),
         });
         await openEntriesStep();
-        await withDeskWidth(async () => {
-            await untilVisible('kitchen-price-list-draft-note');
-        });
+        await untilVisible('kitchen-price-list-add-entry');
 
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-price-list-add-entry'));

@@ -1,7 +1,5 @@
 import type { ServiceArea } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Callout,
     Checkbox,
     cx,
@@ -43,6 +41,9 @@ import type {
 import { ISO_WEEKDAYS, displayName } from './format.ts';
 import { RowAnnouncer, UndoBar } from './row-editor-shell.tsx';
 
+import { DeskButton, DeskIconButton } from './desk-kit/desk-button.tsx';
+import { DeskChip } from './desk-kit/desk-chip.tsx';
+import { DeskTabs } from './desk-kit/desk-tabs.tsx';
 /**
  * The three repeated editors of the delivery slice (K1.7).
  *
@@ -404,7 +405,7 @@ export function DeliveryWindowRows({
                               if (onArchive === undefined) return null;
                               const label = displayName(row.label, locale).value;
                               return (
-                                  <Button
+                                  <DeskButton
                                       testID={`${rowTestId}-archive`}
                                       size="sm"
                                       variant="quiet"
@@ -461,7 +462,7 @@ export function DeliveryWindowRows({
 
             <Inline space="sm" wrap align="center">
                 {canManage ? (
-                    <Button
+                    <DeskButton
                         testID={`${testID}-add`}
                         size="sm"
                         variant="secondary"
@@ -544,7 +545,7 @@ export function DayToggle({
 
 /** The time tracks: wide enough for a 12-hour value with its clock glyph. */
 const TIME_TRACK = 120;
-const CUT_OFF_TRACK = 148;
+const CUT_OFF_TRACK = 172;
 
 export interface OperatingWeekRowsProps {
     readonly rows: readonly OperatingDayDraft[];
@@ -568,9 +569,9 @@ type Trading = 'open' | 'closed';
  * small density — the supply-order rows' shape, with `sm` controls rather than full-height fields.
  *
  * ```
- * Day             Trading     Opens        Closes       Last same-day order
- * Monday          [Open ▾]    [08:00 ◷]    [22:00 ◷]    [20:30 ◷]             Copy to every open day
- * Sunday CLOSED   [Closed ▾]  [--:-- ◷]    [--:-- ◷]    [--:-- ◷]
+ * Day             Trading           Opens        Closes       Last same-day order
+ * Monday          ⟦Open│Closed⟧     [08:00 ◷]    [22:00 ◷]    [20:30 ◷]             (⧉)
+ * Sunday CLOSED   ⟦Open│Closed⟧     [--:-- ◷]    [--:-- ◷]    [--:-- ◷]
  * ```
  *
  * Each day's id is `${testID}-day-${weekday}`, on its name cell, and its fields hang off that.
@@ -633,6 +634,7 @@ export function OperatingWeekRows({
         label,
         width,
         priority,
+        grow: false,
         render: (day) => {
             const issue = issues.get(day.weekday);
             return (
@@ -669,6 +671,7 @@ export function OperatingWeekRows({
             label: t('kitchen:branchHours.columnDay'),
             width: 128,
             priority: 100,
+            grow: false,
             render: (day) => {
                 const dayID = `${testID}-day-${String(day.weekday)}`;
                 return (
@@ -677,7 +680,7 @@ export function OperatingWeekRows({
                             {t(weekdayKey(day.weekday))}
                         </Text>
                         {day.isClosed ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${dayID}-closed-badge`}
                                 tone="neutral"
                                 label={t('kitchen:branchHours.closedBadge')}
@@ -690,31 +693,56 @@ export function OperatingWeekRows({
         {
             key: 'trading',
             label: t('kitchen:branchHours.columnTrading'),
-            width: 112,
+            width: 176,
             priority: 95,
+            grow: false,
+            /*
+             * Open | Closed as a two-segment switch (Opening hours option A, 2026-11-23): one press
+             * instead of a dropdown, and both answers are on screen. A reader who may not edit sees
+             * the answer as words, since a switch they cannot press would look broken.
+             */
             render: (day) => {
                 const dayID = `${testID}-day-${String(day.weekday)}`;
+                const trading: Trading = day.isClosed ? 'closed' : 'open';
+                const error = serverError?.(day.weekday, 'weekday');
                 return (
                     <View className="z-auto min-w-0 flex-1">
-                        <Select<Trading>
-                            testID={`${dayID}-trading`}
-                            id={`${dayID}-trading`}
-                            label={t('kitchen:branchHours.tradingLabel', {
-                                day: t(weekdayKey(day.weekday)),
-                            })}
-                            labelHidden
-                            size="sm"
-                            disabled={!canManage}
-                            error={serverError?.(day.weekday, 'weekday')}
-                            value={day.isClosed ? 'closed' : 'open'}
-                            options={[
-                                { value: 'open', label: t('kitchen:branchHours.tradingOpen') },
-                                { value: 'closed', label: t('kitchen:branchHours.closedLabel') },
-                            ]}
-                            onChange={(next) => {
-                                update(withDayClosed(day, next === 'closed'));
-                            }}
-                        />
+                        {canManage ? (
+                            <DeskTabs<Trading>
+                                testID={`${dayID}-trading`}
+                                radio
+                                label={t('kitchen:branchHours.tradingLabel', {
+                                    day: t(weekdayKey(day.weekday)),
+                                })}
+                                value={trading}
+                                items={[
+                                    {
+                                        value: 'open',
+                                        label: t('kitchen:branchHours.tradingOpen'),
+                                        testID: `${dayID}-trading-open`,
+                                    },
+                                    {
+                                        value: 'closed',
+                                        label: t('kitchen:branchHours.closedLabel'),
+                                        testID: `${dayID}-trading-closed`,
+                                    },
+                                ]}
+                                onChange={(next) => {
+                                    update(withDayClosed(day, next === 'closed'));
+                                }}
+                            />
+                        ) : (
+                            <Text testID={`${dayID}-trading`}>
+                                {trading === 'open'
+                                    ? t('kitchen:branchHours.tradingOpen')
+                                    : t('kitchen:branchHours.closedLabel')}
+                            </Text>
+                        )}
+                        {error === undefined ? null : (
+                            <Text variant="caption" tone="danger" testID={`${dayID}-trading-error`}>
+                                {error}
+                            </Text>
+                        )}
                     </View>
                 );
             },
@@ -755,20 +783,24 @@ export function OperatingWeekRows({
                   {
                       key: 'copy',
                       label: t('kitchen:list.actionHeader'),
-                      width: 168,
+                      width: 56,
                       priority: 80,
-                      grow: false,
-                      align: 'end',
                       sortable: false,
                       filterable: false,
-                      // Only on an open day: a closed day has no times to copy.
+                      // Only on an open day: a closed day has no times to copy. A glyph with its
+                      // words as the name and tooltip, so the column stays narrow (option A).
                       render: (day) =>
                           day.isClosed ? null : (
-                              <Button
+                              <DeskIconButton
                                   testID={`${testID}-day-${String(day.weekday)}-copy`}
-                                  size="sm"
-                                  variant="ghost"
-                                  label={t('kitchen:branchHours.copyShort')}
+                                  label={t('kitchen:branchHours.copyToOpenDays')}
+                                  icon={
+                                      <Icon
+                                          name="copy"
+                                          size="sm"
+                                          className="text-content-secondary"
+                                      />
+                                  }
                                   onPress={() => {
                                       onCopyToOpenDays(day.weekday);
                                   }}

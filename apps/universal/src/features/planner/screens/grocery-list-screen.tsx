@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 
 import { useGroceryListQuery, usePantryQuery } from '../../../data/planner-hooks.ts';
 import { PrototypeButton } from '../../../prototype/index.ts';
+import { unitShortKey } from '../../kitchen-admin/format.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { QueryStates } from '../../marketplace/query-states.tsx';
 import { addDays, dateInstant, groupByAisle, isPlannerDate, mondayOf } from '../format.ts';
@@ -208,7 +209,7 @@ export function GroceryListScreen({ week }: GroceryListScreenProps) {
                                                 label={item.name}
                                                 description={t('planner:grocery.quantity', {
                                                     quantity: formatter.formatNumber(item.quantity),
-                                                    unit: item.unit,
+                                                    unit: t(unitShortKey(item.unit)),
                                                 })}
                                                 checked={ticked.includes(id)}
                                                 onChange={(next) => {
@@ -290,7 +291,7 @@ export function GroceryListScreen({ week }: GroceryListScreenProps) {
                                     <Text variant="caption" tone="secondary">
                                         {t('planner:grocery.quantity', {
                                             quantity: formatter.formatNumber(item.quantity),
-                                            unit: item.unit,
+                                            unit: t(unitShortKey(item.unit)),
                                         })}
                                     </Text>
                                     {item.bestBefore === null ? null : (

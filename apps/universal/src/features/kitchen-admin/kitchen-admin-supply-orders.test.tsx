@@ -869,7 +869,7 @@ describe('supply order builder', () => {
             repositories: builderOverrides([LOW_ONLY]),
         });
 
-        await untilVisible('kitchen-supply-order-add-select');
+        await untilVisible('kitchen-supply-order-add-select-trigger');
 
         // Items are named, never coded: the catalogue code is a slug of the name beside it.
         expect(screen.queryByText(LOW_ONLY.itemCode)).toBeNull();
@@ -1102,7 +1102,7 @@ describe('purchase order detail', () => {
         expect(
             screen.queryByTestId(`${purchaseOrderLineTestId(String(itemId(1)))}-quantity-input`),
         ).toBeNull();
-        expect(screen.queryByTestId('kitchen-supply-order-detail-add-line')).toBeNull();
+        expect(screen.queryByTestId('kitchen-supply-order-detail-add-line-trigger')).toBeNull();
         expect(screen.queryByTestId('kitchen-supply-order-detail-issue')).toBeNull();
         expect(screen.getByTestId('kitchen-supply-order-detail-cancel')).toBeTruthy();
     });
@@ -1201,5 +1201,46 @@ describe('purchase order detail', () => {
 
         // Nothing was fetched: a hand-typed link is a client-side answer, not a round trip.
         expect(screen.queryByTestId('kitchen-supply-order-detail-lines-table')).toBeNull();
+    });
+});
+
+describe('supply order builder — a new supplier made in place', () => {
+    it('adds the supplier without leaving, and chooses it on the rows still waiting for one', async () => {
+        const unlinked = proposalRow(5, { itemNameEn: 'Dill', unassignedReason: 'noSupplier' });
+        const createSupplier = jest.fn(async () => supplierRecord(8));
+
+        const { repositories } = await renderStubScreen(<SupplyOrderBuilderScreen />, {
+            session: kitchenManagerSession(),
+            repositories: builderOverrides([unlinked], { createSupplier }),
+        });
+
+        await openBuilderStep('unlinked');
+        await untilVisible('kitchen-supply-order-unlinked');
+
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supply-order-add-supplier'));
+        });
+        // A pop-up on this page — going to the Suppliers page would lose the order in progress.
+        expect(routerMock.__push).not.toHaveBeenCalled();
+        await act(async () => {
+            fireEvent.changeText(
+                screen.getByTestId('kitchen-supply-order-new-supplier-name'),
+                'Supplier 8',
+            );
+        });
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supply-order-new-supplier-confirm'));
+        });
+
+        await waitFor(() => {
+            expect(repositories.kitchenOps.createSupplier).toHaveBeenCalledTimes(1);
+        });
+        expect(
+            await screen.findByTestId('kitchen-supply-order-supplier-added-toast'),
+        ).toHaveTextContent(/Supplier 8 added and chosen for 1 item/);
+        // Still here, on the same order.
+        expect(routerMock.__push).not.toHaveBeenCalled();
+        expect(routerMock.__replace).not.toHaveBeenCalled();
+        expect(screen.getByTestId('kitchen-supply-order-unlinked')).toBeTruthy();
     });
 });

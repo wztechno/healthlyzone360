@@ -46,8 +46,8 @@ use Illuminate\Support\Collection;
  *
  * It reads ingredients, inventory and recipes together, and `ingredients` is the layer the other
  * two depend on — putting it there would make the lowest module import from the ones above it.
- * `kitchens` is where the commands that operate across a whole kitchen already live, alongside
- * `PriceRecipesFromCatalogueCommand`, which crosses the same boundaries for the same reason.
+ * `kitchens` is where the commands that operate across a whole kitchen already live, and it
+ * crosses the same module boundaries they do, for the same reason.
  *
  * ## Read-only, and deliberately so
  *

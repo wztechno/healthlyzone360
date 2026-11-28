@@ -774,7 +774,7 @@ class MarketplaceKitchensSeeder extends Seeder
             // in-memory model is stale about the rows just written beneath it.
             $meal->refresh();
 
-            $reasons = $readiness->reasons($meal);
+            $reasons = $readiness->reasons($meal, applySellingRule: false);
 
             if ($reasons !== []) {
                 throw new RuntimeException(sprintf(

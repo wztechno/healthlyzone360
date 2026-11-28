@@ -1,16 +1,8 @@
-import {
-    DataList,
-    Icon,
-    IconButton,
-    Inline,
-    Text,
-    fitColumns,
-    useBreakpoint,
-} from '@healthy360/design-system';
+import { DataList, Inline, Text, fitColumns, useBreakpoint } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import type { RowDensity } from '@healthy360/design-tokens';
 import type { ReactNode, RefObject } from 'react';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
@@ -19,6 +11,8 @@ import { CATALOGUE_PRIORITY, columnFloor, columnForRole } from './catalogue-colu
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 import { useCataloguePort } from './catalogue-nav.tsx';
 import { CATALOGUE_PAGE_SIZE, CataloguePager } from './catalogue-pager.tsx';
+import { ROW_ACTIONS_WIDTH, RowActionsMenu } from './row-actions-menu.tsx';
+import { DeskRowMenu } from '../desk-kit/desk-row-menu.tsx';
 import { RowThumbnail } from './row-thumbnail.tsx';
 
 /**
@@ -26,8 +20,13 @@ import { RowThumbnail } from './row-thumbnail.tsx';
  * rows read as one object on the page rather than lines drawn straight onto the ground. Only drawn
  * around rows: an empty state is the caller's own block and brings its own layout.
  */
-const FRAME_CLASS =
-    'flex-col rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card';
+const FRAME_CLASS = 'flex-col rounded-panel border border-stroke-subtle bg-surface-raised';
+
+/**
+ * The panel's lower half, under a split Lens bar's query row (`LensBar` `layout="split"`): the bar
+ * draws the top corners and the side rules down to here, so the toolbar and the rows read as one card.
+ */
+const JOINED_FRAME_CLASS = 'flex-col rounded-b-panel border border-stroke-subtle bg-surface-raised';
 
 /**
  * Part five (§4.1): the list.
@@ -99,6 +98,8 @@ export interface CatalogueListProps<Row> {
     readonly rowActions?: ((row: Row) => readonly MenuItem[]) | undefined;
     /** Accessible name for the overflow trigger. */
     readonly rowActionsLabel: string;
+    /** `desk`: the desk kit's `⋯` and dropdown card (`DeskRowMenu`) — the desk pages' look. */
+    readonly rowActionsLook?: 'list' | 'desk' | undefined;
     readonly emptyState?: ReactNode | undefined;
     /**
      * Rows cascade in as they mount — `DataList`'s `rowEntrance`. On by default: every admin list
@@ -122,6 +123,12 @@ export interface CatalogueListProps<Row> {
     readonly initialPage?: number | undefined;
     /** Told when the reader pages a list this component pages itself — for the list's memory. */
     readonly onPageChange?: ((page: number) => void) | undefined;
+    /** Closes the card a split Lens bar opens above it, instead of drawing a panel of its own. */
+    readonly joined?: boolean | undefined;
+    /** Keeps the frame when empty: for an `emptyState` drawn in the table's `table` or `row` shape. */
+    readonly frameEmpty?: boolean | undefined;
+    /** A heading row before a row — `DataList`'s `sectionHeader`, at both widths. */
+    readonly sectionHeader?: ((row: Row, previous: Row | undefined) => ReactNode) | undefined;
     readonly testID: string;
 }
 
@@ -188,11 +195,17 @@ function CatalogueTable<Row>({
     onRowPress,
     rowActions,
     rowActionsLabel,
+    rowActionsLook = 'desk',
     emptyState,
     rowEntrance = true,
     highlightedId,
+    joined = false,
+    frameEmpty = false,
+    sectionHeader,
     testID,
 }: CatalogueListProps<Row>) {
+    const { t } = useTranslation();
+    const frameClass = joined ? JOINED_FRAME_CLASS : FRAME_CLASS;
     const { atLeast } = useBreakpoint();
     const port = useCataloguePort();
     const wide = atLeast('md');
@@ -217,31 +230,36 @@ function CatalogueTable<Row>({
                 role="list"
                 aria-label={label}
                 accessibilityLabel={label}
-                className={rows.length === 0 ? 'flex-col' : FRAME_CLASS}
+                className={rows.length === 0 ? 'flex-col' : frameClass}
             >
                 {rows.length === 0
                     ? emptyState
                     : rows.map((row, index) => (
-                          <CatalogueListItem
-                              key={rowKey(row)}
-                              title={cellText(columnForRole(columns, 'title'), row)}
-                              media={narrowThumbnail(columns, row, rowKey, testID)}
-                              status={renderRole(columns, 'status', row)}
-                              metric={renderRole(columns, 'metric', row)}
-                              meta={metaEntries(columns, row)}
-                              actions={rowActions?.(row)}
-                              actionsLabel={rowActionsLabel}
-                              onPress={
-                                  onRowPress === undefined
-                                      ? undefined
-                                      : () => {
-                                            onRowPress(row);
-                                        }
-                              }
-                              divider={index < rows.length - 1}
-                              highlighted={row === highlighted}
-                              testID={`${testID}-row-${rowKey(row)}`}
-                          />
+                          <Fragment key={rowKey(row)}>
+                              {sectionHeader === undefined ? null : (
+                                  <NarrowSection heading={sectionHeader(row, rows[index - 1])} />
+                              )}
+                              <CatalogueListItem
+                                  key={rowKey(row)}
+                                  title={cellText(columnForRole(columns, 'title'), row)}
+                                  media={narrowThumbnail(columns, row, rowKey, testID)}
+                                  status={renderRole(columns, 'status', row)}
+                                  metric={renderRole(columns, 'metric', row)}
+                                  meta={metaEntries(columns, row)}
+                                  actions={rowActions?.(row)}
+                                  actionsLabel={rowActionsLabel}
+                                  onPress={
+                                      onRowPress === undefined
+                                          ? undefined
+                                          : () => {
+                                                onRowPress(row);
+                                            }
+                                  }
+                                  divider={index < rows.length - 1}
+                                  highlighted={row === highlighted}
+                                  testID={`${testID}-row-${rowKey(row)}`}
+                              />
+                          </Fragment>
                       ))}
             </View>
         );
@@ -256,7 +274,17 @@ function CatalogueTable<Row>({
     const withActions =
         rowActions === undefined
             ? drawn
-            : [...drawn, actionColumn<Row>(rowActions, rows, rowActionsLabel, rowKey, testID)];
+            : [
+                  ...drawn,
+                  actionColumn<Row>(
+                      rowActions,
+                      rowActionsLabel,
+                      t('kitchen:list.actionHeader'),
+                      rowKey,
+                      testID,
+                      rowActionsLook,
+                  ),
+              ];
 
     // `columnFloor` is the fitting currency; the tracks `DataList` draws are still `width`. Fitting
     // on a floor and drawing on a width is the whole reason the spec carries both.
@@ -274,7 +302,7 @@ function CatalogueTable<Row>({
          * `getBoundingClientRect`, which includes a border, so a frame on the measured box would
          * fit tracks two pixels wider than the space inside it.
          */
-        <View ref={frame} className={rows.length === 0 ? 'flex-col' : FRAME_CLASS}>
+        <View ref={frame} className={rows.length === 0 && !frameEmpty ? 'flex-col' : frameClass}>
             <View
                 testID={`${testID}-port`}
                 // Both measurement paths, and each is inert on the other's platform: `onLayout` never
@@ -309,8 +337,10 @@ function CatalogueTable<Row>({
                     density={density}
                     onRowPress={onRowPress}
                     emptyState={emptyState}
-                    framed={rows.length > 0}
+                    framed={rows.length > 0 || frameEmpty}
+                    flushTop={joined}
                     rowEntrance={rowEntrance}
+                    sectionHeader={sectionHeader}
                     testID={testID}
                 />
             </View>
@@ -362,6 +392,12 @@ function useRevealRow(
             row.style.backgroundColor = '';
         };
     });
+}
+
+/** The heading row of the two-line list, which brings its own ground. Nothing when there is none. */
+function NarrowSection({ heading }: { readonly heading: ReactNode }) {
+    if (heading === null || heading === undefined || heading === false) return null;
+    return <View>{heading}</View>;
 }
 
 function cellText<Row>(column: CatalogueColumn<Row> | undefined, row: Row): string {
@@ -467,123 +503,43 @@ function metaEntries<Row>(
 }
 
 /**
- * The row-action column — the three controls drawn flat, at the priority that keeps them reachable.
+ * The row-action column: one `⋯` holding whatever the caller's `MenuItem[]` says, at every width, so
+ * a row reads as its data and its actions appear when asked for (the admin canvas, 2026-11-09).
  *
- * ## Three buttons, not one `⋯`
- *
- * §4.1 specified a single overflow menu holding View · Edit · Archive, and that is the right shape
- * on a phone, where a row has space for exactly one affordance — which is why
- * {@link CatalogueListItem} still draws it that way below `md`. It is the wrong shape on a desk.
- * Three named actions behind a menu is two presses and a mouse round-trip for the thing a user came
- * to do, on a surface with a pointer and 100px to spare, and it hides Archive — the one action
- * worth being able to *see* is guarded — behind a control that reveals nothing until you open it.
- *
- * So the wide row spends the width: the same `MenuItem[]` the caller already supplies is rendered
- * as one `IconButton` per action, in order, tone included. The caller's API does not change, and
- * the narrow row keeps the menu, so one array feeds both shapes exactly as the column spec does.
- *
- * ## The track is measured, not assumed
- *
- * It used to be the sum for exactly three buttons, which was true of the one caller there was and
- * silently clipped the fourth as soon as there were two. `actionTrack` charges the widest row on
- * the page instead: the ingredient list still returns three and still gets the same 108px, and a
- * recipe row that adds New draft against an immutable version gets the width to draw it. Measured
- * per page rather than per row because a column has one track — a row that offers three actions
- * inside a page whose widest offers four leaves 32px of end padding, which is the correct answer to
- * a ragged set.
- *
- * ## The buttons must swallow their own click on the web
- *
- * The row is itself a `Pressable` that opens the editor. On the web a nested `<button>`'s click
- * bubbles, so pressing Archive would run the archive *and* navigate away from the list behind the
- * dialog. React Native's responder system hands the touch to the innermost target and never
- * bubbles, so the stop is `Platform.OS === 'web'` only — spread rather than declared, because
- * `onClick` is a DOM prop React Native does not type. Same technique, same reason, as
- * `GRID_CONTENT_ATTR` above.
- *
- * `sortable` is left off deliberately: §4.3 says a column with nothing to sort or filter renders a
- * plain, non-interactive header, because emitting the focusable wrapper anyway leaves a keyboard
- * user tabbing onto a target that does nothing.
+ * `sortable` is left off deliberately: a column with nothing to sort or filter renders a plain,
+ * non-interactive header.
  */
 function actionColumn<Row>(
     rowActions: (row: Row) => readonly MenuItem[],
-    rows: readonly Row[],
     label: string,
+    header: string,
     rowKey: (row: Row) => string,
     testID: string,
+    look: 'list' | 'desk' = 'list',
 ): CatalogueColumn<Row> {
-    const track = actionTrack(rowActions, rows);
-
     return {
         key: 'actions',
-        // Blank, which is what the design draws over this track — a box holding the header row's
-        // height and no text. "Row actions" set in 10px caps does not fit the track, so it wrapped
-        // to two lines and clipped mid-word ("ROW ACTIO / NS") while saying nothing the buttons
-        // below it do not. The names are not lost: each button carries its own.
-        label: '',
-        width: track,
-        min: track,
+        label: header,
+        width: ROW_ACTIONS_WIDTH,
+        min: ROW_ACTIONS_WIDTH,
         priority: CATALOGUE_PRIORITY.actions,
         align: 'end',
         // The one column whose width is its content. `DataList` shares the port's leftover width
-        // out over the other tracks so the row fills the page; giving this one a share of it would
-        // only push the buttons off the edge they are anchored to and spend on padding the width
-        // the designation column needs to finish its words.
+        // out over the other tracks; a share here would only spend it on padding.
         grow: false,
         role: 'actions',
-        render: (row) => (
-            <View
-                accessibilityLabel={label}
-                aria-label={label}
-                className="flex-row items-center gap-hair"
-                {...(Platform.OS === 'web'
-                    ? {
-                          onClick: (event: { stopPropagation: () => void }) => {
-                              event.stopPropagation();
-                          },
-                      }
-                    : {})}
-            >
-                {rowActions(row).map((action) => (
-                    <IconButton
-                        key={action.key}
-                        label={action.label}
-                        variant="ghost"
-                        size="sm"
-                        {...(action.tone === undefined ? {} : { tone: action.tone })}
-                        {...(action.disabled === undefined ? {} : { disabled: action.disabled })}
-                        icon={<Icon name={action.icon ?? 'more'} size="sm" />}
-                        onPress={action.onSelect}
-                        // The item's own id where it has one, so a spec that used to click the
-                        // menu entry clicks the button instead and nothing else has to change.
-                        testID={
-                            action.testID ?? `${testID}-row-${rowKey(row)}-action-${action.key}`
-                        }
-                    />
-                ))}
-            </View>
-        ),
+        render: (row) => {
+            const actions = rowActions(row).map((action) => ({
+                ...action,
+                // The item's own id where it has one, else one derived from the row.
+                testID: action.testID ?? `${testID}-row-${rowKey(row)}-action-${action.key}`,
+            }));
+            const menuTestID = `${testID}-row-${rowKey(row)}-actions`;
+            return look === 'desk' ? (
+                <DeskRowMenu actions={actions} label={label} testID={menuTestID} />
+            ) : (
+                <RowActionsMenu actions={actions} label={label} testID={menuTestID} />
+            );
+        },
     };
-}
-
-/**
- * The action column's track: as many 28px buttons as the busiest row on the page needs.
- *
- * `MIN_ACTION_SLOTS` is three — the View / Edit / Archive set every Catalogue list starts from —
- * so a page whose rows all happen to hide Archive does not draw a narrower column than the page
- * before it and shuffle every other track sideways. Empty pages take the same floor for the same
- * reason.
- *
- * Stated as the sum — buttons, the gaps between them, the cell's own inset — rather than a round
- * number, so the track cannot silently stop fitting its contents when the control ladder moves.
- */
-const MIN_ACTION_SLOTS = 3;
-
-function actionTrack<Row>(
-    rowActions: (row: Row) => readonly MenuItem[],
-    rows: readonly Row[],
-): number {
-    let slots = MIN_ACTION_SLOTS;
-    for (const row of rows) slots = Math.max(slots, rowActions(row).length);
-    return slots * 28 + (slots - 1) * 4 + 2 * 8;
 }

@@ -292,7 +292,12 @@ it('serves the technical sheet to a caller who may see costs, and audits the rea
 
         // Both bases are always present as keys, so a client never has to
         // guess whether a missing key means "none" or "not asked for".
-        ->assertJsonPath('data.snapshots.as_recorded', null);
+        ->assertJsonPath('data.snapshots.as_recorded', null)
+
+        // A saved sheet knows nothing of packs: only a draft preview states them.
+        ->assertJsonPath('data.computed.packs', []);
+
+    expect($response->json('data.weekly'))->not->toHaveKey('packs');
 
     $audit = AuditLog::query()->where('action', 'catalogue.technical_sheet_viewed')->sole();
 

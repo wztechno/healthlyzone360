@@ -105,6 +105,7 @@ export function themeColourVariables(): readonly ThemeColourVariable[] {
     for (const name of TINT_NAMES) {
         variables.push(variable(`tint-${name}`, light.tint[name].surface, dark.tint[name].surface));
         variables.push(variable(`tint-${name}-on`, light.tint[name].on, dark.tint[name].on));
+        variables.push(variable(`tint-${name}-fill`, light.tint[name].fill, dark.tint[name].fill));
     }
     // The same in both themes: the canopy they are drawn on is dark in both.
     for (const name of STAGE_INK_NAMES) {

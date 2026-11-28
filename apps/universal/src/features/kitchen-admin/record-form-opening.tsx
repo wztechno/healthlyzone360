@@ -1,9 +1,8 @@
 import {
-    Badge,
-    Button,
     Dialog,
     FormIssueBanner,
     Inline,
+    IssueUnanchored,
     Stack,
     Tabs,
     Text,
@@ -22,6 +21,17 @@ import type { ServerFieldTarget } from './server-field-errors.ts';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { UnsavedMark } from './unsaved-mark.tsx';
+
+/** The editor's commit, drawn last among the header's actions. */
+export interface RecordFormSave {
+    readonly label: string;
+    readonly onPress: () => void;
+    readonly testID: string;
+    readonly loading?: boolean | undefined;
+    readonly disabled?: boolean | undefined;
+}
 /**
  * The opening of a Catalogue Forms record page, for the forms that do not draw their own.
  *
@@ -62,8 +72,14 @@ export interface RecordFormOpeningProps<Step extends string> {
      * kitchen and channels. Facts of the record rather than fields of the form.
      */
     readonly details?: ReactNode | undefined;
-    /** At the inline end — Cancel, then any lifecycle act, then the commit. */
+    /** At the inline end — Cancel, then any lifecycle act. The commit goes in `save`. */
     readonly actions?: ReactNode | undefined;
+    /** The commit, drawn last among the header's actions. */
+    readonly save?: RecordFormSave | undefined;
+    /** A record never saved. Kept for the callers; the header no longer draws anything for it. */
+    readonly creating?: boolean | undefined;
+    /** Kept for the callers: the commit is always in the header since the save bar went (2026-11-23). */
+    readonly saveInHeader?: boolean | undefined;
     readonly errors?:
         { readonly summary: string; readonly items: readonly FormIssueItem[] } | undefined;
     readonly warnings?:
@@ -86,6 +102,7 @@ export function RecordFormOpening<Step extends string>({
     dirty,
     details,
     actions,
+    save,
     errors,
     warnings,
     steps,
@@ -125,25 +142,18 @@ export function RecordFormOpening<Step extends string>({
     return (
         <Stack space="sm">
             <CataloguePageHeader
+                titleLook="board"
                 testID={`${testID}-header`}
                 titleTestID={`${testID}-title`}
                 title={title}
                 titleAside={
                     <Inline space="xs" align="center" wrap testID={`${testID}-meta`}>
                         {badges}
-                        {dirty ? (
-                            <Badge
-                                variant="label"
-                                testID={`${testID}-dirty`}
-                                tone="warning"
-                                icon="warning"
-                                label={t('kitchen:editor.unsaved')}
-                            />
-                        ) : null}
+                        {dirty ? <UnsavedMark testID={`${testID}-dirty`} /> : null}
                     </Inline>
                 }
                 primaryAction={
-                    actions === undefined ? undefined : (
+                    actions === undefined && save === undefined ? undefined : (
                         <Inline
                             space="xs"
                             align="center"
@@ -152,12 +162,24 @@ export function RecordFormOpening<Step extends string>({
                             testID={`${testID}-actions`}
                         >
                             {actions}
+                            {save === undefined ? null : (
+                                <DeskButton
+                                    testID={save.testID}
+                                    label={save.label}
+                                    loading={save.loading}
+                                    disabled={save.disabled}
+                                    onPress={save.onPress}
+                                />
+                            )}
                         </Inline>
                     )
                 }
             />
 
             {details === undefined ? null : <View testID={`${testID}-details`}>{details}</View>}
+
+            {/* Inside an inline tray: what is wrong, as chips, only while something is. */}
+            <IssueUnanchored testID={`${testID}-issues-loose`} />
 
             {/*
              * Only outside a tray. One strip above the other, each the full width: side by side
@@ -193,7 +215,7 @@ export function RecordFormOpening<Step extends string>({
                     items={steps.items}
                     value={steps.value}
                     onChange={steps.onChange}
-                    variant="steps"
+                    variant="pills"
                 />
             )}
         </Stack>
@@ -220,6 +242,7 @@ export function UnsavedDialog({
 
     return (
         <Dialog
+            look="card"
             testID={`${testID}-unsaved-dialog`}
             open={guard.isPrompting}
             onClose={guard.cancelDiscard}
@@ -227,20 +250,20 @@ export function UnsavedDialog({
             description={t(keepable ? 'kitchen:unsaved.keepableBody' : 'kitchen:unsaved.body')}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID={`${testID}-unsaved-keep`}
                         variant="quiet"
                         label={t(keepable ? 'kitchen:unsaved.stay' : 'kitchen:unsaved.keepEditing')}
                         onPress={guard.cancelDiscard}
                     />
-                    <Button
+                    <DeskButton
                         testID={`${testID}-unsaved-discard`}
                         variant="danger"
                         label={t('kitchen:unsaved.discard')}
                         onPress={guard.confirmDiscard}
                     />
                     {keepable ? (
-                        <Button
+                        <DeskButton
                             testID={`${testID}-unsaved-keep-for-later`}
                             variant="primary"
                             label={t('kitchen:unsaved.keepForLater')}
@@ -275,6 +298,7 @@ export function EditorGuardDialogs({
 
             {concurrency === undefined ? null : (
                 <Dialog
+                    look="card"
                     testID={`${testID}-conflict-dialog`}
                     open={concurrency.conflict !== null}
                     onClose={concurrency.keepEditing}
@@ -283,13 +307,13 @@ export function EditorGuardDialogs({
                     description={t('kitchen:conflict.body')}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID={`${testID}-conflict-keep`}
                                 variant="quiet"
                                 label={t('kitchen:conflict.keepEditing')}
                                 onPress={concurrency.keepEditing}
                             />
-                            <Button
+                            <DeskButton
                                 testID={`${testID}-conflict-reload`}
                                 variant="danger"
                                 label={t('kitchen:conflict.reload')}

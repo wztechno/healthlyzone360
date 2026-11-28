@@ -17,6 +17,12 @@
  */
 export const RECORD_SPLIT_MIN = 880;
 
+/**
+ * The same two columns inside a record pop-up (`RecordDialog`), measured against the window's own
+ * inner width — 848 at the design's 880. Main column ~500, the 300 rail, the gap, scrollbar slack.
+ */
+export const RECORD_POPUP_SPLIT_MIN = 820;
+
 /** The record rail's floor beside the main column. Narrower and its status lines wrap per word. */
 export const RECORD_RAIL_MIN = 300;
 

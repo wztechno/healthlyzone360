@@ -133,13 +133,23 @@ describe('createApiKitchenOrdersRepository — getDisplay', () => {
     });
 });
 
+/** A row of the book: the order, plus what has been paid and its run. */
+function wireBookRow(overrides: Record<string, unknown> = {}) {
+    return {
+        ...wireOrder(),
+        payment: { method: 'cash_on_delivery', received_minor: 0, receipted: false },
+        delivery_job: null,
+        ...overrides,
+    };
+}
+
 describe('createApiKitchenOrdersRepository — listOrders', () => {
     it('unwraps a bare array from data and the cursor from meta', async () => {
         const { repository, calls } = harness([
             {
                 status: 200,
                 body: {
-                    data: [wireOrder(), wireOrder({ id: ORDER_UUID })],
+                    data: [wireBookRow(), wireBookRow({ id: ORDER_UUID })],
                     meta: { count: 2, next_cursor: 'cursor-2', has_more: true },
                 },
             },
@@ -193,6 +203,77 @@ describe('createApiKitchenOrdersRepository — listOrders', () => {
         expect(query.get('query')).toBe('0148');
         expect(query.get('cursor')).toBe('cursor-1');
         expect(query.get('limit')).toBe('10');
+    });
+
+    it('sends the span, the slots as a bracketed set, and the way of leaving', async () => {
+        const { repository, calls } = harness([
+            {
+                status: 200,
+                body: { data: [], meta: { count: 0, next_cursor: null, has_more: false } },
+            },
+        ]);
+
+        await repository.listOrders({
+            from: '2026-08-08',
+            to: '2026-08-14',
+            deliveryWindowCodes: ['midday', 'lunch'],
+            fulfilmentType: 'delivery',
+        });
+
+        const query = new URLSearchParams(calls[0]?.path.split('?')[1] ?? '');
+        expect(query.get('from')).toBe('2026-08-08');
+        expect(query.get('to')).toBe('2026-08-14');
+        expect(query.getAll('delivery_window_code[]')).toEqual(['midday', 'lunch']);
+        expect(query.get('fulfilment_type')).toBe('delivery');
+    });
+
+    it('maps what has been paid, the run, and the customer only when it was sent', async () => {
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: [
+                        wireBookRow({
+                            payment: { method: 'wish', received_minor: 1200, receipted: false },
+                            delivery_job: {
+                                id: 'job-1',
+                                status: 'pending',
+                                tracking_status: 'awaiting_assignment',
+                                driver_user_id: null,
+                                assigned_at: null,
+                                lock_version: 4,
+                            },
+                            customer: { display_name: 'Rania Haddad', phone: '+96170214380' },
+                        }),
+                        wireBookRow(),
+                    ],
+                    meta: { count: 2, next_cursor: null, has_more: false },
+                },
+            },
+        ]);
+
+        const page = await repository.listOrders();
+
+        expect(page.items[0]?.payment).toEqual({
+            method: 'wish',
+            receivedMinor: 1200,
+            receipted: false,
+        });
+        expect(page.items[0]?.deliveryJob).toEqual({
+            id: 'job-1',
+            status: 'pending',
+            trackingStatus: 'awaiting_assignment',
+            driverUserId: null,
+            assignedAt: null,
+            lockVersion: 4,
+        });
+        expect(page.items[0]?.customer).toEqual({
+            displayName: 'Rania Haddad',
+            phone: '+96170214380',
+        });
+        // Absent means the reader may not see contacts — the key is not there at all.
+        expect(page.items[1] === undefined ? false : 'customer' in page.items[1]).toBe(false);
+        expect(page.items[1]?.deliveryJob).toBeNull();
     });
 });
 

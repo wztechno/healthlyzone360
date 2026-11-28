@@ -1,5 +1,4 @@
 import {
-    Button,
     DataList,
     Icon,
     IconButton,
@@ -18,6 +17,7 @@ import { View } from 'react-native';
 import { traceInput } from './receive-delivery-model.ts';
 import type { ScanTrace } from './receive-delivery-model.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * One draft row in a repeatable stock-item-and-quantity list — a goods receipt line. `key` is a
  * client-only identity for React's list reconciliation; it never reaches the wire
@@ -129,6 +129,8 @@ export interface StockItemLineEditorProps {
      * them short: the slot is one line of the cell's width.
      */
     readonly issues?: ReadonlyMap<string, Partial<Record<StockItemLineField, string>>> | undefined;
+    /** Drawn under a row across the table — a receipt line's lots and dates. */
+    readonly rowNote?: ((line: StockItemLineDraft) => ReactNode) | undefined;
 }
 
 /**
@@ -185,6 +187,7 @@ export function StockItemLineEditor({
     formatMoney,
     priceNoteFor,
     issues,
+    rowNote,
 }: StockItemLineEditorProps) {
     const { t } = useTranslation();
 
@@ -283,6 +286,7 @@ export function StockItemLineEditor({
                         label={rowFieldLabel(itemLabel, position(line))}
                         labelHidden
                         size="xs"
+                        className="w-full"
                         options={stockItemOptions}
                         value={line.stockItemId}
                         disabled={locked(line)}
@@ -454,11 +458,12 @@ export function StockItemLineEditor({
                     rows={lines}
                     rowKey={(line) => line.key}
                     density="sm"
+                    rowNote={rowNote}
                 />
             )}
             {/* Add under the rows it adds to, and the receipt's total at the end of the same line. */}
             <View className="flex-row flex-wrap items-center justify-between gap-tight">
-                <Button
+                <DeskButton
                     testID={`${testID}-add`}
                     variant="secondary"
                     size="sm"

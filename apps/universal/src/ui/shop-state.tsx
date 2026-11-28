@@ -1,9 +1,9 @@
-import { FAILURE_MESSAGE_KEYS, Icon, cx } from '@healthy360/design-system';
+import { FAILURE_MESSAGE_KEYS, Icon, cx, LoadingSweep } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type { ApiFailure } from '@healthy360/api-client';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 /**
  * The shop's empty, not-found and error states — the "Shop states" boards, now spread over the
@@ -143,11 +143,7 @@ export function ShopStateButton({
 }: ShopStateButtonProps) {
     const brand = kind === 'brand';
     const ink = brand ? 'text-content-on-brand' : 'text-content-primary';
-    const glyph = busy ? (
-        <ActivityIndicator size="small" />
-    ) : icon === undefined ? null : (
-        <Icon name={icon} size="md" className={ink} />
-    );
+    const glyph = icon === undefined ? null : <Icon name={icon} size="md" className={ink} />;
     return (
         <Pressable
             testID={testID}
@@ -158,12 +154,17 @@ export function ShopStateButton({
             disabled={busy}
             onPress={onPress}
             className={cx(
-                'h-[50px] flex-1 flex-row items-center justify-center gap-2 rounded-[15px] px-[22px] sm:flex-none',
+                'relative h-[50px] flex-1 flex-row items-center justify-center gap-2 overflow-hidden rounded-[15px] px-[22px] sm:flex-none',
                 brand
                     ? 'bg-surface-brand hover:opacity-90'
                     : 'border border-stroke bg-surface-raised hover:bg-surface-sunken',
             )}
         >
+            {busy ? (
+                <LoadingSweep
+                    tint={brand ? 'bg-surface-raised opacity-40' : 'bg-surface-brand opacity-20'}
+                />
+            ) : null}
             {iconAfter ? null : glyph}
             <RNText className={cx('text-base font-bold', ink)}>{label}</RNText>
             {iconAfter ? glyph : null}

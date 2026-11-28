@@ -52,7 +52,7 @@ enum CatalogueItemType: string
      * so each channel's price states the size it buys. Every reader already
      * falls back from a pack to the item-level row (`PriceResolver`'s variant
      * rule, `LineProbe::offeredPack()`), so a meal with no pack sells exactly
-     * as it did before. Readiness still does not demand a pack of a meal.
+     * as it did before. Publication does demand one (`SellingReadiness`, S3).
      */
     public function variantType(): VariantType
     {

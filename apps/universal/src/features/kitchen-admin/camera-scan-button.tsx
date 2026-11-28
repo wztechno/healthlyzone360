@@ -40,6 +40,7 @@ export function CameraScanButton({ onScan, testID }: CameraScanButtonProps) {
                 }}
             />
             <Dialog
+                look="card"
                 testID={`${testID}-dialog`}
                 open={open}
                 onClose={() => {

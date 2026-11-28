@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Ingredients\Http\Controllers;
 
+use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Presenters\IngredientPresenter;
 use Healthy360\Ingredients\Services\AllergenMappingService;
@@ -45,6 +46,7 @@ final class IngredientIndexController
         private readonly IngredientPresenter $presenter,
         private readonly AllergenMappingService $mappings,
         private readonly IngredientListQuery $list,
+        private readonly IngredientUsageRegistry $usage,
     ) {}
 
     /**
@@ -109,16 +111,18 @@ final class IngredientIndexController
      */
     private function present(Collection $rows): array
     {
-        $mappings = $this->mappings->mappingsForMany(
-            array_values($rows->map(fn (Ingredient $ingredient): string => (string) $ingredient->getKey())->all()),
-            $this->mappings->callerLayer(),
-        );
+        $ids = array_values($rows->map(fn (Ingredient $ingredient): string => (string) $ingredient->getKey())->all());
+        $mappings = $this->mappings->mappingsForMany($ids, $this->mappings->callerLayer());
+
+        // Which recipe makes each row, for the page in one query: a preparation is told apart
+        // from something bought in, and its line can send a cook to the recipe behind it.
+        $producers = $this->usage->producedByRecipes($ids);
 
         return array_values($rows
             ->map(fn (Ingredient $ingredient): array => $this->presenter->ingredient(
                 $ingredient,
                 $mappings[(string) $ingredient->getKey()] ?? [],
-            ))
+            ) + ['produced_by_recipe' => $producers[(string) $ingredient->getKey()] ?? null])
             ->all());
     }
 }

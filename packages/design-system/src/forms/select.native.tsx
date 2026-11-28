@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { Fragment, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal, Pressable, ScrollView, Text as RNText, View } from 'react-native';
 
@@ -11,8 +11,8 @@ import { FadeIn } from '../motion/fade-in.tsx';
 import { REQUIRED_MARK } from './form-field.tsx';
 import { TextInputField, inputFrameClassName } from './text-input.tsx';
 import { InfoTip } from '../overlays/info-tip.tsx';
-import { optionMatches } from './select-shared.ts';
-import type { SelectProps } from './select-shared.ts';
+import { optionMatches, sectionRuns } from './select-shared.ts';
+import type { SelectOption, SelectProps } from './select-shared.ts';
 
 export type { SelectOption, SelectProps } from './select-shared.ts';
 
@@ -308,63 +308,25 @@ export function Select<T extends string = string>({
                                         {noResultsAction(query.trim(), close)}
                                     </View>
                                 )}
-                                {visible.map((option) => {
-                                    const isSelected = option.value === value;
-                                    return (
-                                        <Pressable
-                                            key={option.value}
-                                            testID={
-                                                testID === undefined
-                                                    ? undefined
-                                                    : `${testID}-option-${option.value}`
-                                            }
-                                            role="radio"
-                                            accessibilityRole="radio"
-                                            accessibilityLabel={option.label}
-                                            aria-label={option.label}
-                                            aria-checked={isSelected}
-                                            accessibilityState={{
-                                                checked: isSelected,
-                                                disabled: option.disabled === true,
-                                            }}
-                                            aria-disabled={option.disabled === true}
-                                            focusable={option.disabled !== true}
-                                            disabled={option.disabled === true}
-                                            onPress={() => {
-                                                onChange(option.value);
-                                                close();
-                                            }}
-                                            className={cx(
-                                                'flex-row items-center gap-3 border-b border-stroke-subtle px-4 py-3 min-h-touch',
-                                                option.disabled === true ? 'opacity-50' : null,
-                                            )}
-                                        >
-                                            <View className="w-5">
-                                                {isSelected ? (
-                                                    <Icon
-                                                        name="check"
-                                                        className="text-content-on-brand-subtle"
-                                                    />
-                                                ) : null}
-                                            </View>
-                                            {/* One line, as on the web: the context at the end. */}
+                                {sectionRuns(visible).map((run, runIndex) => (
+                                    <Fragment key={`run-${String(runIndex)}`}>
+                                        {run.section === undefined ? null : (
+                                            // A heading between radios, not one of them.
                                             <RNText
-                                                numberOfLines={1}
-                                                className="min-w-0 flex-1 text-base text-content-primary text-start"
+                                                testID={
+                                                    testID === undefined
+                                                        ? undefined
+                                                        : `${testID}-section-${String(runIndex)}`
+                                                }
+                                                accessibilityRole="header"
+                                                className="border-b border-stroke-subtle px-4 pb-1 pt-3 text-role-micro text-content-secondary text-start"
                                             >
-                                                {option.label}
+                                                {run.section}
                                             </RNText>
-                                            {option.description === undefined ? null : (
-                                                <RNText
-                                                    numberOfLines={1}
-                                                    className="shrink-0 text-xs text-content-secondary text-end"
-                                                >
-                                                    {option.description}
-                                                </RNText>
-                                            )}
-                                        </Pressable>
-                                    );
-                                })}
+                                        )}
+                                        {run.options.map(optionRow)}
+                                    </Fragment>
+                                ))}
                             </ScrollView>
                         </View>
                     </FadeIn>
@@ -372,4 +334,55 @@ export function Select<T extends string = string>({
             </Modal>
         </View>
     );
+
+    function optionRow(option: SelectOption<T>) {
+        const isSelected = option.value === value;
+        return (
+            <Pressable
+                key={option.value}
+                testID={testID === undefined ? undefined : `${testID}-option-${option.value}`}
+                role="radio"
+                accessibilityRole="radio"
+                accessibilityLabel={option.label}
+                aria-label={option.label}
+                aria-checked={isSelected}
+                accessibilityState={{
+                    checked: isSelected,
+                    disabled: option.disabled === true,
+                }}
+                aria-disabled={option.disabled === true}
+                focusable={option.disabled !== true}
+                disabled={option.disabled === true}
+                onPress={() => {
+                    onChange(option.value);
+                    close();
+                }}
+                className={cx(
+                    'flex-row items-center gap-3 border-b border-stroke-subtle px-4 py-3 min-h-touch',
+                    option.disabled === true ? 'opacity-50' : null,
+                )}
+            >
+                <View className="w-5">
+                    {isSelected ? (
+                        <Icon name="check" className="text-content-on-brand-subtle" />
+                    ) : null}
+                </View>
+                {/* One line, as on the web: the context at the end. */}
+                <RNText
+                    numberOfLines={1}
+                    className="min-w-0 flex-1 text-base text-content-primary text-start"
+                >
+                    {option.label}
+                </RNText>
+                {option.description === undefined ? null : (
+                    <RNText
+                        numberOfLines={1}
+                        className="shrink-0 text-xs text-content-secondary text-end"
+                    >
+                        {option.description}
+                    </RNText>
+                )}
+            </Pressable>
+        );
+    }
 }

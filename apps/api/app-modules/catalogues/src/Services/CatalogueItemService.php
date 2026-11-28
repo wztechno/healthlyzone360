@@ -24,6 +24,7 @@ use Healthy360\Inventory\Services\StockItemDerivationService;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersionOutput;
+use Healthy360\Recipes\Services\RecipeTwinOutputs;
 use Healthy360\ReferenceData\Models\DietClassification;
 use Healthy360\ReferenceData\Models\MeasurementUnit;
 use Healthy360\Support\Api\ErrorCode;
@@ -240,6 +241,8 @@ final readonly class CatalogueItemService
             $item->updated_by = $this->context->userId();
             $item->save();
 
+            $this->followRecipeYield($item);
+
             $this->audit->record(
                 'catalogue.item_created',
                 actorUserId: $this->context->userId(),
@@ -409,7 +412,34 @@ final readonly class CatalogueItemService
             ],
         );
 
+        if (array_key_exists('recipe_id', $changes) || array_key_exists('ingredient_id', $changes)) {
+            $this->followRecipeYield($item);
+        }
+
         return $item;
+    }
+
+    /**
+     * A sauce or dressing linked to a recipe is what that recipe makes: each draft of it states its
+     * yield as an output of the item's twin, so a yield saved before the item existed — the
+     * new-sauce flow creates the recipe first — is stated now (plan slice F).
+     *
+     * `RecipeTwinOutputs` is resolved here rather than injected: it asks `RecipeUsageRegistry`,
+     * whose catalogue answer reaches pricing's `ItemPacksService` through `SellingReadiness`, and
+     * `ItemPacksService` holds this class. A constructor edge would close that loop.
+     */
+    private function followRecipeYield(CatalogueItem $item): void
+    {
+        if ($item->recipe_id === null || $item->ingredient_id === null
+            || ! in_array($item->item_type, [CatalogueItemType::Sauce, CatalogueItemType::Dressing], true)) {
+            return;
+        }
+
+        $recipe = Recipe::withoutTenancy()->whereKey($item->recipe_id)->first();
+
+        if ($recipe instanceof Recipe) {
+            app(RecipeTwinOutputs::class)->followYieldOf($recipe);
+        }
     }
 
     /**

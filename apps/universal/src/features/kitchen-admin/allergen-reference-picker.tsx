@@ -4,7 +4,6 @@ import type {
     AllergenReferenceSelection,
 } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Checkbox,
     Inline,
@@ -23,6 +22,7 @@ import { Linking, View } from 'react-native';
 import { useAllergenReferenceSearch } from '../../data/kitchen-admin-hooks.ts';
 import { containmentKey, displayName } from './format.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 const ODBL_URL = 'https://opendatacommons.org/licenses/odbl/1-0/';
 
 /**
@@ -191,7 +191,7 @@ export function AllergenReferencePicker({
                     {/* `Button` holds itself to the top (`self-start`); the wrapper is what the row
                         lines up with the input box. */}
                     <View>
-                        <Button
+                        <DeskButton
                             testID="allergen-reference-search"
                             variant="secondary"
                             label={t('kitchen:nutritionLookup.search')}
@@ -266,7 +266,7 @@ export function AllergenReferencePicker({
                                     }
                                     trailing={
                                         selected ? (
-                                            <Button
+                                            <DeskButton
                                                 testID="allergen-reference-change"
                                                 size="sm"
                                                 variant="ghost"
@@ -274,7 +274,7 @@ export function AllergenReferencePicker({
                                                 onPress={() => onChange(undefined)}
                                             />
                                         ) : (
-                                            <Button
+                                            <DeskButton
                                                 testID={`allergen-reference-select-${candidate.ref}`}
                                                 size="sm"
                                                 variant="secondary"

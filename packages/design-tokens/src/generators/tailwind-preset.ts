@@ -4,6 +4,7 @@ import {
     cardWidth,
     controlGap,
     controlHeight,
+    deskHeight,
     controlPaddingX,
     fieldWidth,
     iconSize,
@@ -121,11 +122,12 @@ function colours(): Record<string, unknown> {
         STAGE_INK_NAMES.map((name) => [name, variableReference(`stage-${name}`)]),
     );
 
-    // `bg-tint-blue` for the fill, `text-tint-blue-on` for the ink on it.
+    // `bg-tint-blue` for the fill, `text-tint-blue-on` for the ink on it, `bg-tint-blue-fill` for a bar.
     result['tint'] = Object.fromEntries(
         TINT_NAMES.flatMap((name) => [
             [name, variableReference(`tint-${name}`)],
             [`${name}-on`, variableReference(`tint-${name}-on`)],
+            [`${name}-fill`, variableReference(`tint-${name}-fill`)],
         ]),
     );
 
@@ -270,10 +272,15 @@ export function renderTailwindPreset(): string {
                     ...Object.fromEntries(
                         Object.entries(iconSize).map(([k, v]) => [`icon-${k}`, px(v)]),
                     ),
+                    ...Object.fromEntries(
+                        Object.entries(deskHeight).map(([k, v]) => [`desk-${k}`, px(v)]),
+                    ),
                 },
                 width: {
                     // `w-field` is the no-stretch rule's one fixed width.
                     field: px(fieldWidth),
+                    'desk-step-mark': px(deskHeight['step-mark']),
+                    'desk-tile-mark': px(deskHeight['tile-mark']),
                     ...Object.fromEntries(
                         Object.entries(iconSize).map(([k, v]) => [`icon-${k}`, px(v)]),
                     ),

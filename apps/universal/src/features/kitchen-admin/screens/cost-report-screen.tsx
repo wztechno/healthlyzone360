@@ -1,13 +1,5 @@
 import type { MonthlyCostReportRow } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Cascade,
-    DatePickerButton,
-    EmptyState,
-    ErrorState,
-    TableSkeleton,
-    Text,
-} from '@healthy360/design-system';
+import { Cascade, EmptyState, ErrorState, TableSkeleton, Text } from '@healthy360/design-system';
 import { useFormatter } from '@healthy360/i18n';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
@@ -28,12 +20,16 @@ import {
     useColumnControls,
 } from '../catalogue/use-column-controls.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
-import { WorkbenchSectionHeading } from '../workbench-parts.tsx';
+import { RecordTile } from '../catalogue/record-tiles.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { PeriodScope, periodWindows } from '../catalogue/period-scope.tsx';
+import { DeskDateButton } from '../desk-kit/mini-month.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { withReturnTo } from '../../../navigation/return-to.ts';
+import { useCurrentHref } from '../../../navigation/use-return-to.ts';
 /**
  * `/kitchen/cost-report` — the monthly cost report (INV1.4), as `Workbench.dc.html` draws it (§3.4).
  *
@@ -106,6 +102,7 @@ function CostReport() {
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    const here = useCurrentHref();
     const params = useLocalSearchParams<{ from?: string; to?: string; month?: string }>();
     // This month by default — the Period shortcut's first.
     const [today] = useState(() => todayIso());
@@ -185,14 +182,14 @@ function CostReport() {
                         {row.month}
                     </Text>
                     {row.hasDataQualityFlag ? (
-                        <Badge
+                        <DeskChip
                             testID={`kitchen-cost-report-${row.month}-flag`}
                             tone="warning"
                             label={t('kitchen:ops.costReport.flagged')}
                         />
                     ) : null}
                     {row.isMarginWithheld ? (
-                        <Badge
+                        <DeskChip
                             testID={`kitchen-cost-report-${row.month}-withheld`}
                             tone="warning"
                             label={t('kitchen:ops.costReport.marginWithheld')}
@@ -343,10 +340,13 @@ function CostReport() {
             share: Math.max(0, value) / total,
         }));
     })();
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-cost-report-window"
+                look="sheet"
+                figureKeys={['spend', 'cogs', 'revenue', 'margin', 'marginPercent']}
+                eyebrow={t('kitchen:recordView.eyebrowCostReport')}
                 onBack={() => {
                     setViewing(null);
                 }}
@@ -430,12 +430,11 @@ function CostReport() {
                     icon: null,
                     // The month stays open behind it, so Back from the ledger returns to it.
                     onPress: () => {
-                        router.push('/kitchen/purchases-ledger' as never);
+                        router.push(withReturnTo('/kitchen/purchases-ledger', here) as never);
                     },
                 }}
             />
         );
-    }
 
     const showsReport =
         !report.isPending && failure === null && currencyRows.length > 0 && latest !== null;
@@ -450,6 +449,7 @@ function CostReport() {
     const lensBar = (
         <LensBar
             testID="kitchen-cost-report-toolbar"
+            layout="split"
             label={t('kitchen:lens.label')}
             figures={(
                 [
@@ -485,7 +485,7 @@ function CostReport() {
                         }}
                     />
                     <View className="z-auto flex-row items-center gap-tight">
-                        <DatePickerButton
+                        <DeskDateButton
                             testID="kitchen-cost-report-filter-from"
                             label={t('kitchen:ops.costReport.filterFrom')}
                             value={fromDate}
@@ -497,7 +497,7 @@ function CostReport() {
                         <Text variant="caption" tone="secondary" aria-hidden>
                             {t('kitchen:ops.requirements.windowTo')}
                         </Text>
-                        <DatePickerButton
+                        <DeskDateButton
                             testID="kitchen-cost-report-filter-to"
                             label={t('kitchen:ops.costReport.filterTo')}
                             value={toDate}
@@ -520,7 +520,7 @@ function CostReport() {
             clearLabel={t('kitchen:lens.clear')}
             {...(controls.filtered ? { onClear: controls.clearFilters } : {})}
             // Always the labelled button, "Columns 6 of 6", as on the other lists.
-            trailing={showsReport ? <ColumnPicker {...controls.picker} /> : undefined}
+            trailing={showsReport ? <ColumnPicker {...controls.picker} compact /> : undefined}
         />
     );
 
@@ -552,35 +552,43 @@ function CostReport() {
                  */
                 <Cascade space="md">
                     <View className="flex-row flex-wrap gap-4">
-                        <View className="min-w-[300px] flex-1 flex-col gap-snug">
-                            <WorkbenchSectionHeading
+                        <View className="min-w-[300px] flex-1 flex-col">
+                            <RecordTile
+                                testID="kitchen-cost-report-tile-revenue-cogs"
                                 title={t('kitchen:ops.costReport.chartRevenueCogs')}
-                            />
-                            <PairedBars
-                                testID="kitchen-cost-report-chart-revenue-cogs"
-                                aLabel={t('kitchen:ops.costReport.columnRevenue')}
-                                bLabel={t('kitchen:ops.costReport.columnCogs')}
-                                series={chronological.map((row) => ({
-                                    tick: row.month.slice(5),
-                                    a: Number(row.revenueAmount),
-                                    b: Number(row.cogsAmount),
-                                    aTitle: `${row.month} · ${t('kitchen:ops.costReport.columnRevenue')} ${withCode(row.revenueAmount)}`,
-                                    bTitle: `${row.month} · ${t('kitchen:ops.costReport.columnCogs')} ${withCode(row.cogsAmount)}`,
-                                }))}
-                            />
+                            >
+                                <PairedBars
+                                    testID="kitchen-cost-report-chart-revenue-cogs"
+                                    aLabel={t('kitchen:ops.costReport.columnRevenue')}
+                                    bLabel={t('kitchen:ops.costReport.columnCogs')}
+                                    series={chronological.map((row) => ({
+                                        tick: row.month.slice(5),
+                                        a: Number(row.revenueAmount),
+                                        b: Number(row.cogsAmount),
+                                        aTitle: `${row.month} · ${t('kitchen:ops.costReport.columnRevenue')} ${withCode(row.revenueAmount)}`,
+                                        bTitle: `${row.month} · ${t('kitchen:ops.costReport.columnCogs')} ${withCode(row.cogsAmount)}`,
+                                    }))}
+                                />
+                            </RecordTile>
                         </View>
                         {mixRows.length === 0 ? null : (
-                            <View className="min-w-[300px] flex-1 flex-col gap-snug">
-                                <WorkbenchSectionHeading
+                            <View className="min-w-[300px] flex-1 flex-col">
+                                <RecordTile
+                                    testID="kitchen-cost-report-tile-mix"
                                     title={t('kitchen:ops.costReport.chartRevenueMixTitle')}
-                                    aside={latest.month}
-                                />
-                                <RatioBars
-                                    testID="kitchen-cost-report-chart-mix"
-                                    labelWidth={88}
-                                    valueWidth={84}
-                                    rows={mixRows}
-                                />
+                                    trailing={
+                                        <Text variant="caption" tone="secondary">
+                                            {latest.month}
+                                        </Text>
+                                    }
+                                >
+                                    <RatioBars
+                                        testID="kitchen-cost-report-chart-mix"
+                                        labelWidth={88}
+                                        valueWidth={84}
+                                        rows={mixRows}
+                                    />
+                                </RecordTile>
                             </View>
                         )}
                     </View>
@@ -595,6 +603,8 @@ function CostReport() {
                     />
                 </Cascade>
             )}
+
+            {viewPopup}
         </Cascade>
     );
 }

@@ -1,4 +1,4 @@
-import { Icon, cx, useBreakpoint } from '@healthy360/design-system';
+import { Icon, cx, useBreakpoint, LoadingSweep } from '@healthy360/design-system';
 import type {
     PlanVariant,
     SubscriptionPlan,
@@ -7,7 +7,7 @@ import type {
 import { useFormatter } from '@healthy360/i18n';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 import type { DimensionValue } from 'react-native';
 
 import { effectiveDayPrice } from '../catalogue/plan-balance.ts';
@@ -127,7 +127,7 @@ export function PlanSetupSummary({
                 disabled={actionDisabled || actionLoading}
                 onPress={onAction}
                 className={cx(
-                    'h-[52px] min-w-0 flex-1 flex-row items-center justify-between gap-3 rounded-2xl px-5 transition duration-normal ease-standard',
+                    'relative h-[52px] min-w-0 flex-1 flex-row items-center justify-between gap-3 overflow-hidden rounded-2xl px-5 transition duration-normal ease-standard',
                     actionDisabled
                         ? 'bg-stroke-subtle'
                         : 'bg-surface-brand hover:bg-surface-canopy',
@@ -143,17 +143,22 @@ export function PlanSetupSummary({
                     {actionLabel}
                 </RNText>
                 {actionLoading ? (
-                    <ActivityIndicator size="small" />
-                ) : (
-                    <RNText
-                        className={cx(
-                            'font-display text-base font-bold tabular-nums',
-                            actionDisabled ? 'text-content-secondary' : 'text-content-on-brand',
-                        )}
-                    >
-                        {actionTail === 'total' ? totalText : '→'}
-                    </RNText>
-                )}
+                    <LoadingSweep
+                        tint={
+                            actionDisabled
+                                ? 'bg-surface-brand opacity-20'
+                                : 'bg-surface-raised opacity-40'
+                        }
+                    />
+                ) : null}
+                <RNText
+                    className={cx(
+                        'font-display text-base font-bold tabular-nums',
+                        actionDisabled ? 'text-content-secondary' : 'text-content-on-brand',
+                    )}
+                >
+                    {actionTail === 'total' ? totalText : '→'}
+                </RNText>
             </Pressable>
         </View>
     );

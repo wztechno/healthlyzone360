@@ -42,4 +42,13 @@ final class NullIngredientUsageRegistry implements IngredientUsageRegistry
     {
         return [];
     }
+
+    /**
+     * @param  list<string>  $ingredientIds
+     * @return array<string, array{id: string, name_en: string, name_ar: string, is_published: bool}>
+     */
+    public function producedByRecipes(array $ingredientIds): array
+    {
+        return [];
+    }
 }

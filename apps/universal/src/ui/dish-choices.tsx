@@ -168,7 +168,7 @@ export function DishChoiceFields({
  * then what it contains and, worded apart, what it may contain, or that nobody has assessed it. A
  * choice that declares nothing is just its name; the badges below say so once it is chosen.
  */
-function choiceLabel(option: DishOption, name: string, t: TFunction): string {
+export function choiceLabel(option: DishOption, name: string, t: TFunction): string {
     const separator = t('catalogue:dishOptions.separator');
     const allergens = option.allergens;
     if (allergens === null || allergens === undefined) {

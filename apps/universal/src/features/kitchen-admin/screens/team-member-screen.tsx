@@ -6,12 +6,12 @@ import {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
     Dialog,
     ErrorState,
     FormGrid,
+    FormSection,
     FormSkeleton,
     IssueTrayFrame,
     Select,
@@ -57,6 +57,7 @@ import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 import { memberDisplayName } from './team-screen.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/team/{membership}` — one person, what they may do, and whether they may still do it.
  *
@@ -274,7 +275,7 @@ function TeamMemberEditor() {
                 title={t('accessAdmin:member.notFoundTitle')}
                 body={t('accessAdmin:member.notFoundBody')}
                 actions={
-                    <Button
+                    <DeskButton
                         testID="kitchen-team-member-missing-back"
                         variant="quiet"
                         label={t('accessAdmin:member.backToList')}
@@ -485,6 +486,7 @@ function TeamMemberEditor() {
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-team-member-tray',
+        placement: 'inline',
         groups: [
             {
                 key: 'save',
@@ -522,13 +524,25 @@ function TeamMemberEditor() {
                     testID="kitchen-team-member"
                     title={name}
                     dirty={guard.isDirty}
+                    save={
+                        canAssignRoles
+                            ? {
+                                  testID: 'kitchen-team-member-save',
+                                  label: t('accessAdmin:member.save'),
+                                  // Both halves of the chain: a scope write still running is a
+                                  // save still running.
+                                  loading: scopeWrite.isPending || setRoles.isPending,
+                                  disabled: scopeWrite.isPending || setRoles.isPending,
+                                  onPress: save,
+                              }
+                            : undefined
+                    }
                     badges={
                         <>
                             <Badge
                                 variant="label"
                                 testID="kitchen-team-member-status"
                                 tone={isWorkingMember(record.status) ? 'success' : 'warning'}
-                                icon={null}
                                 label={t(`accessAdmin:status.${record.status}` as never, {
                                     defaultValue: record.status,
                                 })}
@@ -544,7 +558,7 @@ function TeamMemberEditor() {
                     }
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-team-member-back"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -553,7 +567,7 @@ function TeamMemberEditor() {
                                 }}
                             />
                             {canUpdate && isWorkingMember(record.status) ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-team-member-suspend"
                                     variant="secondary"
                                     label={t('accessAdmin:member.suspend')}
@@ -564,7 +578,7 @@ function TeamMemberEditor() {
                                 />
                             ) : null}
                             {canUpdate && isReactivatableMember(record.status) ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-team-member-reactivate"
                                     variant="secondary"
                                     label={t('accessAdmin:member.reactivate')}
@@ -575,30 +589,13 @@ function TeamMemberEditor() {
                                 />
                             ) : null}
                             {canEnd && record.status !== 'ended' ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-team-member-end"
                                     variant="quiet"
                                     label={t('accessAdmin:member.end')}
                                     onPress={() => {
                                         setConfirmingEnd(true);
                                     }}
-                                />
-                            ) : null}
-                            {/*
-                             * Save, last, on every step. Hidden rather than disabled for somebody
-                             * who may not assign roles: the whole record is theirs to read, and a
-                             * Save that could never work is noise.
-                             */}
-                            {canAssignRoles ? (
-                                <Button
-                                    testID="kitchen-team-member-save"
-                                    label={t('accessAdmin:member.save')}
-                                    // Both halves of the chain: a scope write still running is a
-                                    // save still running, and a button that came back to life
-                                    // between the two would take a second press.
-                                    loading={scopeWrite.isPending || setRoles.isPending}
-                                    disabled={scopeWrite.isPending || setRoles.isPending}
-                                    onPress={save}
                                 />
                             ) : null}
                         </>
@@ -618,115 +615,131 @@ function TeamMemberEditor() {
                 {/* `z-auto` down the column: see `FormSection` on why a View would trap a dropdown. */}
                 <View className="z-auto flex-col">
                     {step !== 'roles' ? null : (
-                        <Stack space="sm">
-                            <Text variant="caption" tone="secondary">
-                                {t('accessAdmin:member.rolesHint')}
-                            </Text>
-                            <RoleChoiceList
-                                testID="kitchen-team-member-roles"
-                                itemTestID="kitchen-team-member-role"
-                                id="kitchen-team-member-roles"
-                                {...(server.errorFor('roles') === undefined
-                                    ? server.flag('roles.*.role_id')
-                                    : server.flag('roles'))}
-                                label={stepLabels.roles}
-                                roles={roles.data ?? []}
-                                mode="multiple"
-                                selected={held}
-                                disabled={!canAssignRoles}
-                                noteFor={(roleId) => {
-                                    const note = assignmentNote(assignments.get(roleId));
-                                    return note === null
-                                        ? null
-                                        : t(
-                                              note === 'scheduled'
-                                                  ? 'accessAdmin:member.assignmentScheduled'
-                                                  : 'accessAdmin:member.assignmentExpired',
-                                          );
-                                }}
-                                onChange={(next) => {
-                                    setSelected(next);
-                                    guard.markDirty();
-                                }}
-                            />
-                        </Stack>
+                        <FormSection
+                            first
+                            variant="panel"
+                            title={stepLabels.roles}
+                            description={t('accessAdmin:member.rolesHint')}
+                        >
+                            <Stack space="sm">
+                                <RoleChoiceList
+                                    testID="kitchen-team-member-roles"
+                                    itemTestID="kitchen-team-member-role"
+                                    id="kitchen-team-member-roles"
+                                    {...(server.errorFor('roles') === undefined
+                                        ? server.flag('roles.*.role_id')
+                                        : server.flag('roles'))}
+                                    label={stepLabels.roles}
+                                    roles={roles.data ?? []}
+                                    mode="multiple"
+                                    selected={held}
+                                    disabled={!canAssignRoles}
+                                    noteFor={(roleId) => {
+                                        const note = assignmentNote(assignments.get(roleId));
+                                        return note === null
+                                            ? null
+                                            : t(
+                                                  note === 'scheduled'
+                                                      ? 'accessAdmin:member.assignmentScheduled'
+                                                      : 'accessAdmin:member.assignmentExpired',
+                                              );
+                                    }}
+                                    onChange={(next) => {
+                                        setSelected(next);
+                                        guard.markDirty();
+                                    }}
+                                />
+                            </Stack>
+                        </FormSection>
                     )}
 
                     {step !== 'scope' ? null : (
-                        <Stack space="sm" testID="kitchen-team-member-scope">
-                            <Text variant="caption" tone="secondary">
-                                {t('accessAdmin:member.scopeHint')}
-                            </Text>
-                            {/*
-                             * The vocabulary comes from `meta.branches` on the membership read and
-                             * from nowhere else: the kitchen workspace cannot list its own branches,
-                             * and the session is no help because an organisation-wide membership has
-                             * no branches of its own. With no options there is no decision, so the
-                             * step says so rather than drawing an empty picker.
-                             */}
-                            {branches.length === 0 ? (
-                                <Text tone="secondary" testID="kitchen-team-member-scope-single">
-                                    {t('accessAdmin:member.scopeSingleBranch')}
-                                </Text>
-                            ) : (
-                                <FormGrid testID="kitchen-team-member-scope-grid">
-                                    <Select
-                                        testID="kitchen-team-member-scope-select"
-                                        id="kitchen-team-member-scope-select"
-                                        {...server.flag('branch_id')}
-                                        label={stepLabels.scope}
-                                        disabled={!canUpdate}
-                                        options={[
-                                            // A branch-bound administrator may place people in
-                                            // their own branch only; the server refuses the rest.
-                                            ...(branchBound
-                                                ? []
-                                                : [
-                                                      {
-                                                          value: WHOLE_KITCHEN,
-                                                          label: t(
-                                                              'accessAdmin:member.scopeWholeKitchen',
-                                                          ),
-                                                      },
-                                                  ]),
-                                            ...branches.map((branch) => ({
-                                                value: String(branch.id),
-                                                label: branch.name,
-                                            })),
-                                        ]}
-                                        value={chosenScope ?? WHOLE_KITCHEN}
-                                        onChange={(next) => {
-                                            setScope(next === WHOLE_KITCHEN ? null : next);
-                                            guard.markDirty();
-                                        }}
-                                    />
-                                </FormGrid>
-                            )}
-                        </Stack>
+                        <FormSection
+                            first
+                            variant="panel"
+                            testID="kitchen-team-member-scope"
+                            title={stepLabels.scope}
+                            description={t('accessAdmin:member.scopeHint')}
+                        >
+                            <Stack space="sm">
+                                {/*
+                                 * The vocabulary comes from `meta.branches` on the membership read and
+                                 * from nowhere else: the kitchen workspace cannot list its own branches,
+                                 * and the session is no help because an organisation-wide membership has
+                                 * no branches of its own. With no options there is no decision, so the
+                                 * step says so rather than drawing an empty picker.
+                                 */}
+                                {branches.length === 0 ? (
+                                    <Text
+                                        tone="secondary"
+                                        testID="kitchen-team-member-scope-single"
+                                    >
+                                        {t('accessAdmin:member.scopeSingleBranch')}
+                                    </Text>
+                                ) : (
+                                    <FormGrid testID="kitchen-team-member-scope-grid">
+                                        <Select
+                                            testID="kitchen-team-member-scope-select"
+                                            id="kitchen-team-member-scope-select"
+                                            {...server.flag('branch_id')}
+                                            label={stepLabels.scope}
+                                            disabled={!canUpdate}
+                                            options={[
+                                                // A branch-bound administrator may place people in
+                                                // their own branch only; the server refuses the rest.
+                                                ...(branchBound
+                                                    ? []
+                                                    : [
+                                                          {
+                                                              value: WHOLE_KITCHEN,
+                                                              label: t(
+                                                                  'accessAdmin:member.scopeWholeKitchen',
+                                                              ),
+                                                          },
+                                                      ]),
+                                                ...branches.map((branch) => ({
+                                                    value: String(branch.id),
+                                                    label: branch.name,
+                                                })),
+                                            ]}
+                                            value={chosenScope ?? WHOLE_KITCHEN}
+                                            onChange={(next) => {
+                                                setScope(next === WHOLE_KITCHEN ? null : next);
+                                                guard.markDirty();
+                                            }}
+                                        />
+                                    </FormGrid>
+                                )}
+                            </Stack>
+                        </FormSection>
                     )}
 
                     {step !== 'permissions' ? null : (
-                        <Stack space="sm">
-                            <Text variant="caption" tone="secondary">
-                                {t('accessAdmin:member.permissionsHint')}
-                            </Text>
-                            {record.permissions.length === 0 ? (
-                                <Text
-                                    tone="secondary"
-                                    testID="kitchen-team-member-permissions-none"
-                                >
-                                    {t('accessAdmin:member.permissionsNone')}
-                                </Text>
-                            ) : (
-                                <RolePermissionsTab
-                                    testID="kitchen-team-member-permissions"
-                                    domains={permissionDomains}
-                                    codes={new Set(record.permissions)}
-                                    readOnly
-                                    onChange={() => undefined}
-                                />
-                            )}
-                        </Stack>
+                        <FormSection
+                            first
+                            variant="panel"
+                            title={stepLabels.permissions}
+                            description={t('accessAdmin:member.permissionsHint')}
+                        >
+                            <Stack space="sm">
+                                {record.permissions.length === 0 ? (
+                                    <Text
+                                        tone="secondary"
+                                        testID="kitchen-team-member-permissions-none"
+                                    >
+                                        {t('accessAdmin:member.permissionsNone')}
+                                    </Text>
+                                ) : (
+                                    <RolePermissionsTab
+                                        testID="kitchen-team-member-permissions"
+                                        domains={permissionDomains}
+                                        codes={new Set(record.permissions)}
+                                        readOnly
+                                        onChange={() => undefined}
+                                    />
+                                )}
+                            </Stack>
+                        </FormSection>
                     )}
                 </View>
             </Cascade>
@@ -738,6 +751,7 @@ function TeamMemberEditor() {
             />
 
             <Dialog
+                look="card"
                 testID="kitchen-team-member-end-dialog"
                 open={confirmingEnd}
                 onClose={() => {
@@ -747,7 +761,7 @@ function TeamMemberEditor() {
                 description={t('accessAdmin:member.endBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-team-member-end-cancel"
                             variant="secondary"
                             label={t('accessAdmin:member.cancel')}
@@ -755,7 +769,7 @@ function TeamMemberEditor() {
                                 setConfirmingEnd(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-team-member-end-confirm"
                             variant="danger"
                             label={t('accessAdmin:member.endConfirm')}

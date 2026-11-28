@@ -1,14 +1,8 @@
 import { formatGtin } from '@healthy360/api-client/contracts';
-import {
-    Checkbox,
-    DateField,
-    Inline,
-    Stack,
-    Text,
-    TextInputField,
-} from '@healthy360/design-system';
+import { Checkbox, Inline, Stack, Text, TextInputField } from '@healthy360/design-system';
 import { useTranslation } from 'react-i18next';
 
+import { DeskDateField } from './desk-kit/desk-date-field.tsx';
 import { lotCheckPending, lotIsReadable } from './receive-delivery-model.ts';
 import type { ScanTrace } from './receive-delivery-model.ts';
 
@@ -55,16 +49,20 @@ export function ReceiveLineTrace({ testID, trace, onChange, title }: ReceiveLine
                         onChange({ supplierLot: next, lotUnverified: false });
                     }}
                 />
-                <DateField
+                <DeskDateField
                     testID={`${testID}-expires`}
+                    clearable
+                    className="w-[180px]"
                     label={t('kitchen:barcodes.expiresLabel')}
                     value={trace.expiresOn ?? ''}
                     onChange={(next) => {
                         onChange({ expiresOn: next ?? '' });
                     }}
                 />
-                <DateField
+                <DeskDateField
                     testID={`${testID}-best-before`}
+                    clearable
+                    className="w-[180px]"
                     label={t('kitchen:barcodes.bestBeforeLabel')}
                     value={trace.bestBeforeOn ?? ''}
                     onChange={(next) => {

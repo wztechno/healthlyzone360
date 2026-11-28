@@ -1,6 +1,5 @@
 import type { CreateStaffAccountRequest } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Cascade,
     Dialog,
     FormGrid,
@@ -40,6 +39,7 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/team/new` — letting somebody in, two ways (AA1).
  *
@@ -496,6 +496,7 @@ function StaffCreateForm() {
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-staff-create-tray',
+        placement: 'inline',
         groups: [{ key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards }],
     };
 
@@ -508,7 +509,7 @@ function StaffCreateForm() {
                     dirty={guard.isDirty}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-staff-create-cancel"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -517,7 +518,7 @@ function StaffCreateForm() {
                                 }}
                             />
                             {/* The commit, last, on every step. */}
-                            <Button
+                            <DeskButton
                                 testID="kitchen-staff-create-submit"
                                 label={t(
                                     mode === 'invite'
@@ -563,7 +564,7 @@ function StaffCreateForm() {
                     {step !== 'signIn' ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-staff-create-access"
                             title={stepLabels.signIn}
                             description={t(
@@ -702,7 +703,7 @@ function StaffCreateForm() {
                     {step !== 'person' || mode !== 'create' ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-staff-create-person"
                             title={stepLabels.person}
                         >
@@ -738,7 +739,7 @@ function StaffCreateForm() {
                     {step !== 'role' ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-staff-create-role-section"
                             title={stepLabels.role}
                         >
@@ -773,6 +774,7 @@ function StaffCreateForm() {
             <EditorGuardDialogs testID="kitchen-staff-create" guard={guard} />
 
             <Dialog
+                look="card"
                 testID="kitchen-staff-create-password-dialog"
                 open={issued !== null}
                 // No backdrop dismissal: this is the only time the password exists, and losing it to
@@ -785,7 +787,7 @@ function StaffCreateForm() {
                 title={t('accessAdmin:add.passwordTitle')}
                 description={t('accessAdmin:add.passwordBody', { name: issued?.name ?? '' })}
                 actions={
-                    <Button
+                    <DeskButton
                         testID="kitchen-staff-create-password-acknowledge"
                         label={t('accessAdmin:add.passwordAcknowledge')}
                         onPress={() => {

@@ -1,12 +1,14 @@
-import { Button, Text } from '@healthy360/design-system';
+import { Text } from '@healthy360/design-system';
 import type { PurchaseOrderId } from '@healthy360/domain-types';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Platform, Pressable, View } from 'react-native';
 
 import { useCan } from '../../access/gate.tsx';
+import type { RecordAction } from './catalogue/record-popup.tsx';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from './entity-registry.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
 /**
  * The order a receipt row was delivered against: its number, or a dash for a market purchase.
  *
@@ -75,7 +77,7 @@ export function ReceiptOpenOrder({
     if (orderId === null || !canOpenOrder) return null;
 
     return (
-        <Button
+        <DeskButton
             testID={testID}
             size="sm"
             variant="secondary"
@@ -85,4 +87,30 @@ export function ReceiptOpenOrder({
             }}
         />
     );
+}
+
+/**
+ * The same way to the order, as an entry in a record pop-up's ⋯ menu — none where there is no
+ * order or the reader may not open one.
+ */
+export function useReceiptOpenOrderActions(
+    orderId: PurchaseOrderId | null,
+    testID: string,
+): RecordAction[] {
+    const { t } = useTranslation();
+    const router = useRouter();
+    const canOpenOrder = useCan(INVENTORY_ORDER_SUPPLIES_PERMISSION);
+
+    if (orderId === null || !canOpenOrder) return [];
+    return [
+        {
+            key: 'open-order',
+            label: t('kitchen:ops.procurement.openOrder'),
+            icon: 'clipboardList',
+            testID,
+            onSelect: () => {
+                router.push(`/kitchen/supply-orders/${String(orderId)}` as never);
+            },
+        },
+    ];
 }

@@ -1,10 +1,7 @@
 import type { Payable } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
-    Callout,
     Cascade,
-    DatePickerButton,
     Dialog,
     EmptyState,
     ErrorState,
@@ -34,6 +31,9 @@ import {
     INVENTORY_VIEW_COSTS_PERMISSION,
 } from '../entity-registry.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskDateButton } from '../desk-kit/mini-month.tsx';
+import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/supplier-bills?tab=bills` — what is owed for deliveries.
  *
@@ -142,6 +142,7 @@ function Payables() {
         {
             key: 'amount',
             role: 'metric',
+            align: 'end',
             label: t('kitchen:ops.payables.columnAmount'),
             width: 150,
             priority: 95,
@@ -180,6 +181,7 @@ function Payables() {
         },
         {
             key: 'action',
+            align: 'end',
             label: t('kitchen:ops.payables.columnAction'),
             width: 130,
             priority: 99,
@@ -187,7 +189,7 @@ function Payables() {
                 !canAct ? (
                     <Text tone="secondary">{EM_DASH}</Text>
                 ) : row.priceApprovalStatus === 'pending' ? (
-                    <Button
+                    <DeskButton
                         testID={`kitchen-payable-${row.id}-review`}
                         variant="secondary"
                         size="sm"
@@ -199,7 +201,7 @@ function Payables() {
                 ) : row.amount === null ? (
                     <Text tone="secondary">{EM_DASH}</Text>
                 ) : (
-                    <Button
+                    <DeskButton
                         testID={`kitchen-payable-${row.id}-pay`}
                         variant="secondary"
                         size="sm"
@@ -225,6 +227,7 @@ function Payables() {
         {
             key: 'amount',
             role: 'metric',
+            align: 'end',
             label: t('kitchen:ops.payables.columnAmount'),
             width: 150,
             priority: 95,
@@ -274,16 +277,18 @@ function Payables() {
                 />
             ) : data === undefined ? null : (
                 <View className="flex-col gap-loose">
-                    <Text variant="section" accessibilityRole="header">
-                        {t('kitchen:ops.payables.owedHeading')}
-                    </Text>
-                    {data.totals.length === 0 ? null : (
-                        <Text variant="caption" tone="secondary" testID="kitchen-payables-totals">
-                            {`${t('kitchen:ops.payables.totalsLabel')}: ${data.totals
-                                .map((total) => names.money(total.amount, total.currencyCode))
-                                .join(' · ')}`}
+                    <View className="flex-row flex-wrap items-baseline gap-x-snug">
+                        <Text accessibilityRole="header" variant="title" className="font-display">
+                            {t('kitchen:ops.payables.owedHeading')}
                         </Text>
-                    )}
+                        {data.totals.length === 0 ? null : (
+                            <Text tone="secondary" testID="kitchen-payables-totals">
+                                {`${t('kitchen:ops.payables.totalsLabel')}: ${data.totals
+                                    .map((total) => names.money(total.amount, total.currencyCode))
+                                    .join(' · ')}`}
+                            </Text>
+                        )}
+                    </View>
                     {data.unpaid.length === 0 ? (
                         <EmptyState
                             testID="kitchen-payables-owed-empty"
@@ -300,7 +305,7 @@ function Payables() {
                         />
                     )}
 
-                    <Text variant="section" accessibilityRole="header">
+                    <Text accessibilityRole="header" variant="title" className="font-display">
                         {t('kitchen:ops.payables.paidHeading')}
                     </Text>
                     {data.paid.length === 0 ? (
@@ -350,6 +355,7 @@ function ReviewDialog({ row, onClose }: { readonly row: Payable; readonly onClos
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-payable-review-dialog"
             open
             onClose={onClose}
@@ -357,13 +363,13 @@ function ReviewDialog({ row, onClose }: { readonly row: Payable; readonly onClos
             description={t('kitchen:ops.payables.reviewBody')}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID="kitchen-payable-review-dismiss"
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <Button
+                    <DeskButton
                         testID="kitchen-payable-review-confirm"
                         label={t('kitchen:ops.payables.approve')}
                         loading={approve.isPending}
@@ -397,14 +403,12 @@ function ReviewDialog({ row, onClose }: { readonly row: Payable; readonly onClos
                         </Text>
                     ))}
                 </Stack>
-                {failure === null ? null : (
-                    <Callout
-                        testID="kitchen-payable-review-error"
-                        tone="danger"
-                        title={t('kitchen:ops.payables.saveError')}
-                        body={failure.message}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID="kitchen-payable-review-error"
+                    title={t('kitchen:ops.payables.saveError')}
+                    body={failure?.message}
+                />
             </Stack>
         </Dialog>
     );
@@ -422,6 +426,7 @@ function PayDialog({ row, onClose }: { readonly row: Payable; readonly onClose: 
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-payable-pay-dialog"
             open
             onClose={onClose}
@@ -429,13 +434,13 @@ function PayDialog({ row, onClose }: { readonly row: Payable; readonly onClose: 
             description={t('kitchen:ops.payables.payBody')}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID="kitchen-payable-pay-dismiss"
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <Button
+                    <DeskButton
                         testID="kitchen-payable-pay-confirm"
                         label={t('kitchen:ops.payables.confirmPay')}
                         loading={pay.isPending}
@@ -460,7 +465,7 @@ function PayDialog({ row, onClose }: { readonly row: Payable; readonly onClose: 
             }
         >
             <Stack space="sm">
-                <DatePickerButton
+                <DeskDateButton
                     testID="kitchen-payable-due"
                     label={t('kitchen:ops.payables.dueLabel')}
                     labelVisible
@@ -493,14 +498,12 @@ function PayDialog({ row, onClose }: { readonly row: Payable; readonly onClose: 
                     maxLength={120}
                     autoCorrect={false}
                 />
-                {failure === null ? null : (
-                    <Callout
-                        testID="kitchen-payable-pay-error"
-                        tone="danger"
-                        title={t('kitchen:ops.payables.saveError')}
-                        body={failure.message}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID="kitchen-payable-pay-error"
+                    title={t('kitchen:ops.payables.saveError')}
+                    body={failure?.message}
+                />
             </Stack>
         </Dialog>
     );

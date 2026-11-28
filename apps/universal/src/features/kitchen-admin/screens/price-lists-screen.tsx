@@ -4,8 +4,6 @@ import type {
     PublishableStatus,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
     EmptyState,
     ErrorState,
@@ -23,6 +21,7 @@ import { useRouter } from 'expo-router';
 import type { TFunction } from 'i18next';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -71,6 +70,9 @@ import {
 import { RECORD_NOT_FOUND, useViewedRecord } from '../use-viewed-record.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /** Until the index has counted: every figure reads as pending. */
 const NO_FIGURES: PriceListFigures = {
     statusCounts: { draft: 0, review_required: 0, published: 0, retired: 0 },
@@ -212,19 +214,27 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                     // `Inline`, as every other list's name cell: in a table cell it stays on one
                     // line and lets the name give way to an ellipsis (whole on hover), so a badge
                     // never runs into the next column.
-                    <Inline testID={testID} space="xs" align="center">
+                    <Inline
+                        testID={testID}
+                        space="xs"
+                        align="center"
+                        wrap={false}
+                        // The cell stacks its content at the start, so the row is sized on the
+                        // cross axis: `max-w-full` is what caps it to the column for the ellipsis.
+                        className="min-w-0 max-w-full shrink"
+                    >
                         <Text variant="strong" numberOfLines={1} testID={`${testID}-name`}>
                             {name.value}
                         </Text>
                         {name.isFallback ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${testID}-missing-arabic`}
                                 tone="warning"
                                 label={t('kitchen:list.missingArabic')}
                             />
                         ) : null}
                         {isAgreementPriced(row.channels) ? (
-                            <Badge
+                            <DeskChip
                                 testID={`${testID}-agreement`}
                                 tone="warning"
                                 label={t('kitchen:priceLists.agreementBadge')}
@@ -238,12 +248,12 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
             key: 'currency',
             role: 'meta',
             label: t('kitchen:priceLists.columnCurrency'),
-            width: 80,
+            width: 110,
             priority: 70,
             value: (row) => row.currency,
             sort: (left, right, direction) => compareText(left.currency, right.currency, direction),
             render: (row) => (
-                <Text variant="mono" testID={`${priceListRowTestId(String(row.id))}-currency`}>
+                <Text tone="secondary" testID={`${priceListRowTestId(String(row.id))}-currency`}>
                     {row.currency}
                 </Text>
             ),
@@ -301,7 +311,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                     <Inline space="xs" align="center">
                         <Text testID={`${testID}-entries`}>{entriesText(row, t)}</Text>
                         {summary.inconsistent === 0 ? null : (
-                            <Badge
+                            <DeskChip
                                 testID={`${testID}-entries-inconsistent`}
                                 tone="danger"
                                 label={t('kitchen:priceLists.inconsistentCount', {
@@ -320,6 +330,12 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
             width: 96,
             priority: 80,
             value: (row) => t(statusShortKey(row.meta.status)),
+            sort: (left, right, direction) =>
+                compareText(
+                    t(statusShortKey(left.meta.status)),
+                    t(statusShortKey(right.meta.status)),
+                    direction,
+                ),
             filter: {
                 values: () =>
                     PRICE_LIST_STATUS_FILTERS.map((value) => ({
@@ -335,7 +351,7 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                 },
             },
             render: (row) => (
-                <Badge
+                <DeskStatusDot
                     testID={`${priceListRowTestId(String(row.id))}-status`}
                     tone={statusTone(row.meta.status)}
                     label={t(statusShortKey(row.meta.status))}
@@ -379,10 +395,13 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
         },
     };
 
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-price-lists-view"
+                look="sheet"
+                figureKeys={['currency', 'entries', 'pending']}
+                eyebrow={t('kitchen:recordView.eyebrowPriceLists')}
                 onBack={() => {
                     setViewing(null);
                 }}
@@ -404,7 +423,9 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
                 }}
             />
         );
-    }
+
+    // The table closes the toolbar's card only when it is drawn.
+    const joined = !priceLists.isPending && controls.rows.length > 0;
 
     return (
         <Cascade space="md" testID="kitchen-price-lists-screen">
@@ -412,139 +433,150 @@ function PriceListsList({ view }: { readonly view?: string | undefined }) {
              * The Lens bar — figures, mix, query row and actions as one object directly over the
              * list it narrows (`lens-bar.tsx`), as on the product list.
              */}
-            <LensBar
-                testID="kitchen-price-lists-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={lensFigures(lens, figures, t)}
-                {...statusLensMix(lens, t)}
-                search={query}
-                onSearchChange={(next) => {
-                    setQuery(next);
-                    setViewing(null);
-                }}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:priceLists.searchPlaceholder')}
-                tokens={statusLensTokens(lens, t)}
-                result={
-                    total === null
-                        ? null
-                        : t('kitchen:lens.result', {
-                              shown: Math.min(page * KITCHEN_PAGE_SIZE, total),
-                              total,
-                          })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(unfiltered
-                    ? {}
-                    : {
-                          onClear: () => {
-                              setQuery('');
-                              setStatus('all');
-                              setChannel(null);
-                              setViewing(null);
-                          },
-                      })}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-                actions={
-                    canManage ? (
-                        <Button
-                            testID="kitchen-price-lists-toolbar-create"
-                            label={t('kitchen:priceLists.create')}
-                            iconStart={<Icon name="plus" size="sm" />}
-                            onPress={() => {
-                                setCreating(true);
-                            }}
-                        />
-                    ) : undefined
-                }
-            />
-
-            {creating ? (
-                <NewPriceListDialog
-                    testID="kitchen-price-lists-create"
-                    knownCurrency={rows[0]?.currency ?? null}
-                    onClose={() => {
-                        setCreating(false);
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-price-lists-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures(lens, figures, t)}
+                    {...statusLensMix(lens, t)}
+                    search={query}
+                    onSearchChange={(next) => {
+                        setQuery(next);
+                        setViewing(null);
                     }}
-                />
-            ) : null}
-
-            {priceLists.isPending ? (
-                <TableSkeleton
-                    testID="kitchen-price-lists-loading"
-                    partTestID="kitchen-price-lists"
-                />
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-price-lists-error"
-                    failure={failure}
-                    onRetry={() => {
-                        void priceLists.refetch();
-                    }}
-                    retrying={priceLists.isFetching}
-                />
-            ) : controls.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-price-lists-empty"
-                    title={
-                        unfiltered
-                            ? t('kitchen:priceLists.emptyTitle')
-                            : t('kitchen:priceLists.filteredEmptyTitle')
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:priceLists.searchPlaceholder')}
+                    tokens={statusLensTokens(lens, t)}
+                    result={
+                        total === null
+                            ? null
+                            : t('kitchen:lens.result', {
+                                  shown: Math.min(page * KITCHEN_PAGE_SIZE, total),
+                                  total,
+                              })
                     }
-                    body={
-                        unfiltered
-                            ? t('kitchen:priceLists.emptyBody')
-                            : t('kitchen:priceLists.filteredEmptyBody')
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(unfiltered
+                        ? {}
+                        : {
+                              onClear: () => {
+                                  setQuery('');
+                                  setStatus('all');
+                                  setChannel(null);
+                                  setViewing(null);
+                              },
+                          })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canManage ? (
+                            <DeskButton
+                                testID="kitchen-price-lists-toolbar-create"
+                                label={t('kitchen:priceLists.create')}
+                                iconStart={<Icon name="plus" size="sm" />}
+                                onPress={() => {
+                                    setCreating(true);
+                                }}
+                            />
+                        ) : undefined
                     }
                 />
-            ) : (
-                <Stack space="sm">
-                    <CatalogueList<PriceListAdmin>
-                        testID="kitchen-price-lists-table"
-                        label={t('kitchen:priceLists.caption')}
-                        columns={controls.columns}
-                        rows={controls.rows}
-                        rowKey={(row) => String(row.id)}
-                        density="sm"
-                        highlightedId={lastOpenedId}
-                        onRowPress={openEditor}
-                        rowActionsLabel={t('kitchen:list.rowActions')}
-                        // View and Edit. No Archive: the contract publishes no retire (§6.1).
-                        rowActions={(row): readonly MenuItem[] => [
-                            {
-                                key: 'view',
-                                label: t('kitchen:list.view'),
-                                icon: CATALOGUE_ROW_ICONS.view,
-                                testID: `${priceListRowTestId(String(row.id))}-view`,
-                                onSelect: () => {
-                                    rememberOpened(String(row.id));
-                                    setViewing(row);
-                                },
-                            },
-                            {
-                                key: 'edit',
-                                label: t('kitchen:catalogue.edit'),
-                                icon: CATALOGUE_ROW_ICONS.edit,
-                                testID: `${priceListRowTestId(String(row.id))}-open`,
-                                onSelect: () => {
-                                    openEditor(row);
-                                },
-                            },
-                        ]}
-                    />
 
-                    <CataloguePager
-                        testID="kitchen-price-lists-pagination"
-                        page={page}
-                        totalPages={totalPages}
-                        onPageChange={(next) => {
-                            setPage(next);
-                            setViewing(null);
+                {creating ? (
+                    <NewPriceListDialog
+                        testID="kitchen-price-lists-create"
+                        knownCurrency={rows[0]?.currency ?? null}
+                        onClose={() => {
+                            setCreating(false);
                         }}
-                        label={t('kitchen:catalogue.pagerLabel')}
                     />
-                </Stack>
-            )}
+                ) : null}
+
+                {priceLists.isPending ? (
+                    <TableSkeleton
+                        testID="kitchen-price-lists-loading"
+                        partTestID="kitchen-price-lists"
+                    />
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-price-lists-error"
+                        failure={failure}
+                        onRetry={() => {
+                            void priceLists.refetch();
+                        }}
+                        retrying={priceLists.isFetching}
+                    />
+                ) : controls.rows.length === 0 ? (
+                    <EmptyState
+                        testID="kitchen-price-lists-empty"
+                        title={
+                            unfiltered
+                                ? t('kitchen:priceLists.emptyTitle')
+                                : t('kitchen:priceLists.filteredEmptyTitle')
+                        }
+                        body={
+                            unfiltered
+                                ? t('kitchen:priceLists.emptyBody')
+                                : t('kitchen:priceLists.filteredEmptyBody')
+                        }
+                    />
+                ) : (
+                    <Stack space="sm">
+                        <CatalogueList<PriceListAdmin>
+                            testID="kitchen-price-lists-table"
+                            joined
+                            label={t('kitchen:priceLists.caption')}
+                            columns={controls.columns}
+                            rows={controls.rows}
+                            rowKey={(row) => String(row.id)}
+                            density="sm"
+                            highlightedId={lastOpenedId}
+                            onRowPress={(row) => {
+                                rememberOpened(String(row.id));
+                                setViewing(row);
+                            }}
+                            rowActionsLabel={t('kitchen:list.rowActions')}
+                            // View and Edit. No Archive: the contract publishes no retire (§6.1).
+                            rowActions={(row): readonly MenuItem[] => [
+                                {
+                                    key: 'view',
+                                    label: t('kitchen:list.view'),
+                                    icon: CATALOGUE_ROW_ICONS.view,
+                                    testID: `${priceListRowTestId(String(row.id))}-view`,
+                                    onSelect: () => {
+                                        rememberOpened(String(row.id));
+                                        setViewing(row);
+                                    },
+                                },
+                                {
+                                    key: 'edit',
+                                    label: t('kitchen:catalogue.edit'),
+                                    icon: CATALOGUE_ROW_ICONS.edit,
+                                    testID: `${priceListRowTestId(String(row.id))}-open`,
+                                    onSelect: () => {
+                                        openEditor(row);
+                                    },
+                                },
+                            ]}
+                        />
+
+                        <CataloguePager
+                            testID="kitchen-price-lists-pagination"
+                            page={page}
+                            totalPages={totalPages}
+                            onPageChange={(next) => {
+                                setPage(next);
+                                setViewing(null);
+                            }}
+                            label={t('kitchen:catalogue.pagerLabel')}
+                        />
+                    </Stack>
+                )}
+            </View>
+
+            {viewPopup}
         </Cascade>
     );
 }

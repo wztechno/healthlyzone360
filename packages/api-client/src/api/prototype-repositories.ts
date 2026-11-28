@@ -112,7 +112,9 @@ import type {
     CreateDeliveryWindowRequest,
     DeliveryWindow,
     ItemChannelPrices,
+    ItemPacks,
     SetItemChannelPricesRequest,
+    SetItemPacksRequest,
     SetIngredientAllergensRequest,
     SetMealAvailabilityRequest,
     SetPlanCombinationsRequest,
@@ -923,6 +925,12 @@ export const apiKitchenAdminRepository: KitchenAdminRepository = {
         _request: SetItemChannelPricesRequest,
     ): Promise<ItemChannelPrices> {
         return notImplemented(`PUT ${BASE}/catalogue/items/{item}/channel-prices`);
+    },
+    getItemPacks(_itemId: ProductId | MealId): Promise<ItemPacks> {
+        return notImplemented(`GET ${BASE}/catalogue/items/{item}/packs`);
+    },
+    setItemPacks(_itemId: ProductId | MealId, _request: SetItemPacksRequest): Promise<ItemPacks> {
+        return notImplemented(`PUT ${BASE}/catalogue/items/{item}/packs`);
     },
 
     listPriceLists(_filter?: PriceListAdminFilter): Promise<CursorPage<PriceListAdmin>> {

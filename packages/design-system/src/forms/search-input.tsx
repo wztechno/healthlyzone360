@@ -39,6 +39,8 @@ export interface SearchInputProps extends Omit<
     readonly label?: string | undefined;
     readonly size?: InputSize | undefined;
     readonly disabled?: boolean | undefined;
+    /** The drawn magnifier at 16px — the page search's own — in place of the compact glyph. */
+    readonly lens?: boolean | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -49,6 +51,7 @@ export function SearchInput({
     label,
     size = 'sm',
     disabled = false,
+    lens = false,
     className,
     testID,
     onFocus,
@@ -69,8 +72,8 @@ export function SearchInput({
             )}
         >
             <Icon
-                name="search"
-                size="sm"
+                name={lens ? 'searchLens' : 'search'}
+                size={lens ? 'md' : 'sm'}
                 // Decorative: the input already announces its own name and role, and a screen
                 // reader that also reads the glyph says "search search".
                 aria-hidden

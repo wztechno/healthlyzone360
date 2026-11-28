@@ -321,6 +321,9 @@ export const nutritionDark: Readonly<Record<NutritionLevel, NutritionStop>> = {
  * Tints — the soft fills behind the shop's colour-coded cards (Discover's "Picked for today" and
  * the menu's shelves), each with the ink that reads on it. The pairs are the accepted shop design's,
  * and every one is contrast-tested in both themes like any surface and its text.
+ *
+ * `fill` is the family's bright colour, for a bar or other mark beside a number that says the same
+ * thing. It never carries text and never stands alone, so it is not in the contrast test.
  */
 export const TINT_NAMES = ['green', 'blue', 'orange', 'yellow', 'pink', 'violet', 'teal'] as const;
 export type TintName = (typeof TINT_NAMES)[number];
@@ -328,26 +331,27 @@ export type TintName = (typeof TINT_NAMES)[number];
 export interface TintPair {
     readonly surface: string;
     readonly on: string;
+    readonly fill: string;
 }
 
 export const tintLight: Readonly<Record<TintName, TintPair>> = {
-    green: { surface: '#dcfce7', on: '#14532d' },
-    blue: { surface: '#dbeafe', on: '#1e3a8a' },
-    orange: { surface: '#ffedd5', on: '#7c2d12' },
-    yellow: { surface: '#fef9c3', on: '#713f12' },
-    pink: { surface: '#fce7f3', on: '#831843' },
-    violet: { surface: '#ede9fe', on: '#4c1d95' },
-    teal: { surface: '#ccfbf1', on: '#134e4a' },
+    green: { surface: '#dcfce7', on: '#14532d', fill: '#16a34a' },
+    blue: { surface: '#dbeafe', on: '#1e3a8a', fill: '#3b82f6' },
+    orange: { surface: '#ffedd5', on: '#7c2d12', fill: '#f97316' },
+    yellow: { surface: '#fef9c3', on: '#713f12', fill: '#eab308' },
+    pink: { surface: '#fce7f3', on: '#831843', fill: '#ec4899' },
+    violet: { surface: '#ede9fe', on: '#4c1d95', fill: '#8b5cf6' },
+    teal: { surface: '#ccfbf1', on: '#134e4a', fill: '#14b8a6' },
 };
 
 export const tintDark: Readonly<Record<TintName, TintPair>> = {
-    green: { surface: '#153a26', on: '#bbf7d0' },
-    blue: { surface: '#172554', on: '#bfdbfe' },
-    orange: { surface: '#431407', on: '#fed7aa' },
-    yellow: { surface: '#3f2a06', on: '#fef08a' },
-    pink: { surface: '#4a0d2b', on: '#fbcfe8' },
-    violet: { surface: '#2e1065', on: '#ddd6fe' },
-    teal: { surface: '#042f2e', on: '#99f6e4' },
+    green: { surface: '#153a26', on: '#bbf7d0', fill: '#4ade80' },
+    blue: { surface: '#172554', on: '#bfdbfe', fill: '#60a5fa' },
+    orange: { surface: '#431407', on: '#fed7aa', fill: '#fb923c' },
+    yellow: { surface: '#3f2a06', on: '#fef08a', fill: '#facc15' },
+    pink: { surface: '#4a0d2b', on: '#fbcfe8', fill: '#f472b6' },
+    violet: { surface: '#2e1065', on: '#ddd6fe', fill: '#a78bfa' },
+    teal: { surface: '#042f2e', on: '#99f6e4', fill: '#2dd4bf' },
 };
 
 /**

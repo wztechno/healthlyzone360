@@ -1,4 +1,4 @@
-import { Button, Callout, Heading, Inline, Stack, Text } from '@healthy360/design-system';
+import { Callout, Heading, Inline, Stack, Text } from '@healthy360/design-system';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -8,7 +8,9 @@ import { useListPrint } from '../catalogue/list-print.ts';
 import type { PrintResource } from '../catalogue/list-print.ts';
 import { ListPrintSheet } from '../catalogue/list-print-sheet.tsx';
 import { usePrintSheet } from '../print-sheet.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/{ingredients|recipes|stock}/print` — the list the reader was looking at, as a page
  * (Export → PDF — table).
@@ -31,9 +33,8 @@ export function ListPrintScreen({ resource }: ListPrintScreenProps) {
     const [job] = useState(() => read(resource));
 
     const backButton = (
-        <Button
+        <BackPill
             testID="kitchen-list-print-back"
-            variant="secondary"
             label={t('kitchen:common.back')}
             onPress={back}
         />
@@ -58,26 +59,28 @@ export function ListPrintScreen({ resource }: ListPrintScreenProps) {
         <Stack space="lg" testID="kitchen-list-print-screen">
             {/* Screen-only: the print block hides it by test id. */}
             <Stack space="sm" testID="kitchen-list-print-toolbar">
-                <Heading level={1} testID="kitchen-list-print-title">
-                    {job.title}
-                </Heading>
-
-                <Inline space="sm" align="center" justify="between" wrap>
-                    <Text tone="secondary" testID="kitchen-list-print-count">
-                        {t('kitchen:transfer.print.rowCount', { count: job.rows.length })}
-                    </Text>
+                {/* The board's one bar: the title and its row count, then Back and Print. */}
+                <View className="z-auto flex-row flex-wrap items-end justify-between gap-snug rounded-panel border border-stroke-subtle bg-surface-raised p-snug">
+                    <View className="flex-col">
+                        <Heading level={2} testID="kitchen-list-print-title">
+                            {job.title}
+                        </Heading>
+                        <Text tone="secondary" testID="kitchen-list-print-count">
+                            {t('kitchen:transfer.print.rowCount', { count: job.rows.length })}
+                        </Text>
+                    </View>
 
                     <Inline space="sm" align="center" wrap>
                         {backButton}
                         {sheet.mode === 'browser' ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-list-print-action"
                                 label={t('kitchen:transfer.print.action')}
                                 onPress={sheet.print}
                             />
                         ) : null}
                     </Inline>
-                </Inline>
+                </View>
 
                 {sheet.mode === 'browser' ? null : (
                     <Callout

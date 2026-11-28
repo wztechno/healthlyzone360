@@ -47,6 +47,10 @@ class StoreRecipeRequest extends FormRequest
             'confidentiality' => ['nullable', new Enum(RecipeConfidentiality::class)],
             'notes' => ['nullable', 'string', 'max:2000'],
             'shelf_life_days' => ['nullable', 'integer', 'between:0,3650'],
+
+            // A preparation — made to be used inside other recipes — gets its own ingredient twin
+            // on create. Explicit and off by default: a sold recipe's twin is its listing's.
+            'produces_ingredient' => ['sometimes', 'boolean'],
         ];
     }
 }

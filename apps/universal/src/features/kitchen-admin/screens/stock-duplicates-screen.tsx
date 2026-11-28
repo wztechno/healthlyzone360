@@ -1,6 +1,5 @@
 import type { DuplicateStockGroup } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Cascade,
     Dialog,
     EmptyState,
@@ -13,6 +12,7 @@ import type { MenuItem } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
@@ -26,7 +26,9 @@ import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { INVENTORY_MANAGE_PERMISSION, INVENTORY_VIEW_PERMISSION } from '../entity-registry.ts';
+import { unitCodeLabel } from '../format.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 type Shelf = DuplicateStockGroup['shelves'][number];
 
 /**
@@ -185,7 +187,7 @@ function StockDuplicatesList() {
                 t('kitchen:stockDuplicates.shelf', {
                     code: shelf.code,
                     quantity: Number(shelf.quantity),
-                    unit: shelf.unitCode,
+                    unit: unitCodeLabel(shelf.unitCode, t),
                 }),
             )
             .join(' · ');
@@ -207,6 +209,14 @@ function StockDuplicatesList() {
             width: 320,
             priority: 90,
             value: (row) => t(`kitchen:stockDuplicates.reason.${row.reason}`),
+            // The reason is what the reader decides on, so it wraps rather than ending in an ellipsis.
+            render: (row) => (
+                <View className="min-w-0 flex-1 py-1">
+                    <Text numberOfLines={3}>
+                        {t(`kitchen:stockDuplicates.reason.${row.reason}`)}
+                    </Text>
+                </View>
+            ),
         },
         {
             key: 'shelves',
@@ -215,6 +225,13 @@ function StockDuplicatesList() {
             width: 320,
             priority: 80,
             value: shelvesOf,
+            render: (row) => (
+                <View className="min-w-0 flex-1 py-1">
+                    <Text tone="secondary" numberOfLines={3}>
+                        {shelvesOf(row)}
+                    </Text>
+                </View>
+            ),
         },
     ];
 
@@ -247,13 +264,13 @@ function StockDuplicatesList() {
                     columns={columns}
                     rows={rows}
                     rowKey={(row) => row.name}
-                    density="sm"
                     rowActionsLabel={t('kitchen:list.rowActions')}
                     rowActions={canManage ? rowActions : undefined}
                 />
             )}
 
             <Dialog
+                look="card"
                 testID="kitchen-stock-duplicates-merge-dialog"
                 open={merging !== null}
                 onClose={() => {
@@ -269,7 +286,7 @@ function StockDuplicatesList() {
                 })}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-stock-duplicates-merge-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
@@ -277,7 +294,7 @@ function StockDuplicatesList() {
                                 setMerging(null);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-stock-duplicates-merge-confirm"
                             variant="danger"
                             label={t('kitchen:stockDuplicates.mergeConfirm')}

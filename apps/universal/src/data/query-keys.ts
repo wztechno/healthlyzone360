@@ -378,6 +378,7 @@ export const queryKeys = {
         itemChannelPrices: (itemId: string) =>
             ['kitchenAdmin', 'itemChannelPrices', itemId] as const,
         sellableChannels: () => ['kitchenAdmin', 'sellableChannels'] as const,
+        itemPacks: (itemId: string) => ['kitchenAdmin', 'itemPacks', itemId] as const,
 
         priceLists: (filter?: QueryScope) =>
             ['kitchenAdmin', 'price-lists', scope(filter)] as const,
@@ -663,6 +664,7 @@ export const queryKeys = {
          * week stay in cache while somebody arrows back and forth over a month.
          */
         calendar: (filter?: QueryScope) => ['orderDesk', 'calendar', scope(filter)] as const,
+        planMeals: (day: string) => ['orderDesk', 'planMeals', day] as const,
         /**
          * What one branch must buy for a window. Keyed on the whole filter (shape rule 3): the
          * range and the **branch** together are the view, and the branch in particular is not a

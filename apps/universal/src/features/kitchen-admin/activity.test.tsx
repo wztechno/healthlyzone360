@@ -20,6 +20,9 @@ afterAll(() => {
 });
 jest.mock('expo-router', () => ({
     __esModule: true,
+    useSegments: () => [],
+    useGlobalSearchParams: () => ({}),
+    useNavigation: () => ({}),
     useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
     usePathname: () => '/kitchen/activity',
     useLocalSearchParams: () => ({}),

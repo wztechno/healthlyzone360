@@ -1,8 +1,8 @@
-import { Icon, cx } from '@healthy360/design-system';
+import { Icon, cx, LoadingSweep } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { B2B_STEP_COUNT, B2B_STEP_SLUGS } from './sections.ts';
 import type { B2BStepSlug } from './sections.ts';
@@ -46,17 +46,11 @@ export function CanopyButton({
             aria-busy={busy}
             accessibilityState={{ disabled: busy, busy }}
             onPress={onPress}
-            className="relative h-14 flex-row items-center gap-2.5 rounded-2xl bg-stage-green px-6 transition duration-normal ease-standard hover:-translate-y-0.5 active:opacity-85"
+            className="relative h-14 flex-row items-center gap-2.5 overflow-hidden rounded-2xl bg-stage-green px-6 transition duration-normal ease-standard hover:-translate-y-0.5 active:opacity-85"
         >
-            <View className={cx('flex-row items-center gap-2.5', busy ? 'opacity-0' : '')}>
-                <RNText className="text-base font-bold text-surface-canopy">{label}</RNText>
-                <Icon name="arrowForward" size="md" className="text-surface-canopy" />
-            </View>
-            {busy ? (
-                <View className="absolute inset-0 items-center justify-center">
-                    <ActivityIndicator size="small" />
-                </View>
-            ) : null}
+            {busy ? <LoadingSweep tint="bg-surface-raised opacity-40" /> : null}
+            <RNText className="text-base font-bold text-surface-canopy">{label}</RNText>
+            <Icon name="arrowForward" size="md" className="text-surface-canopy" />
         </Pressable>
     );
 }

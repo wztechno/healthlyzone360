@@ -1,6 +1,5 @@
 import type { RecipeSheetBundle } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Card,
     ErrorState,
@@ -27,6 +26,7 @@ import { displayName } from '../format.ts';
 import { usePrintSheet } from '../print-sheet.tsx';
 import { TechnicalSheetPanel } from '../technical-sheet-panel.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/recipes/sheets?recipes=a,b,c` — technical sheets, one per page (Export → PDF —
  * technical sheets).
@@ -94,7 +94,7 @@ function RecipeSheetsPrint({ recipes }: RecipeSheetsPrintScreenProps) {
     });
 
     const backButton = (
-        <Button
+        <DeskButton
             testID="kitchen-recipe-sheets-print-back"
             variant="secondary"
             label={t('kitchen:common.back')}
@@ -167,7 +167,7 @@ function RecipeSheetsPrint({ recipes }: RecipeSheetsPrintScreenProps) {
                     <Inline space="sm" align="center" wrap>
                         {backButton}
                         {sheet.mode === 'browser' && bundles.length > 0 ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-recipe-sheets-print-action"
                                 label={t('kitchen:transfer.print.action')}
                                 onPress={sheet.print}
@@ -214,11 +214,9 @@ function RecipeSheetsPrint({ recipes }: RecipeSheetsPrintScreenProps) {
                     return (
                         <View key={id} testID={`kitchen-recipe-sheets-print-sheet-${id}`}>
                             <Stack space="sm">
-                                <Heading level={2}>
-                                    {displayName(bundle.recipe.name, locale).value}
-                                </Heading>
                                 <TechnicalSheetPanel
                                     testID={`kitchen-recipe-sheets-print-panel-${id}`}
+                                    headline={displayName(bundle.recipe.name, locale).value}
                                     recipe={bundle.recipe}
                                     version={bundle.recipe.currentVersion}
                                     sheet={bundle.sheet}

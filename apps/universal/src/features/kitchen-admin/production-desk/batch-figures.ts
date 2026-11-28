@@ -1,7 +1,7 @@
 import type { ProductionOrder, ProductionOrderStatus } from '@healthy360/api-client/contracts';
 import { isMeasureUnit } from '@healthy360/nutrition';
 
-import { unitDimension } from '../format.ts';
+import { unitCodeLabel, unitDimension } from '../format.ts';
 
 /**
  * The pure arithmetic behind the production desk (PROD1), out of the screens so the interesting
@@ -66,12 +66,13 @@ export function countExpired(orders: readonly ProductionOrder[], hasMore: boolea
  * away and that is the case worth seeing. Where nothing was rejected the two are the same number and
  * saying it twice is noise.
  */
-export function yieldSummary(order: ProductionOrder): string | null {
+export function yieldSummary(order: ProductionOrder, t: (key: string) => string): string | null {
     const produced = order.producedQuantity;
     if (produced === null) return null;
 
     const usable = order.usableYieldQuantity;
-    const unit = order.plannedYieldUnitCode ?? '';
+    const code = order.plannedYieldUnitCode;
+    const unit = code === null ? '' : unitCodeLabel(code, t);
 
     if (usable === null || Number(usable) === Number(produced)) {
         return `${produced} ${unit}`.trim();

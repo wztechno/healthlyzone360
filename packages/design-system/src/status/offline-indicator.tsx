@@ -47,6 +47,12 @@ const PRESENTATION: Readonly<Record<Exclude<ConnectivityState, 'online'>, StateP
 
 export interface OfflineIndicatorProps {
     readonly state: ConnectivityState;
+    /**
+     * `bar`: the desk's system bar (Toasts / pop-ups / banners canvas, 2026-11-11) — one dark
+     * 32px line under the top bar, a coloured dot and the state in a sentence. Only ever for the
+     * app's own state, never one page's news.
+     */
+    readonly look?: 'strip' | 'bar' | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -63,11 +69,47 @@ export interface OfflineIndicatorProps {
  * `navigator.onLine` on the web) is the application's concern, which keeps the design system free
  * of a native module dependency.
  */
-export function OfflineIndicator({ state, className, testID }: OfflineIndicatorProps) {
+export function OfflineIndicator({
+    state,
+    look = 'strip',
+    className,
+    testID,
+}: OfflineIndicatorProps) {
     const { t } = useTranslation();
     if (state === 'online') return null;
 
     const presentation = PRESENTATION[state];
+
+    if (look === 'bar') {
+        return (
+            <View
+                testID={testID}
+                role="status"
+                accessibilityRole="alert"
+                aria-live={presentation.assertive ? 'assertive' : 'polite'}
+                accessibilityLiveRegion={presentation.assertive ? 'assertive' : 'polite'}
+                className={cx(
+                    'min-h-8 flex-row items-center justify-center gap-2 bg-surface-inverse px-4 py-1.5',
+                    className,
+                )}
+            >
+                <View
+                    aria-hidden
+                    className={cx(
+                        'h-2 w-2 rounded-full',
+                        state === 'offline' ? 'bg-warning-strong' : 'bg-stage-green',
+                    )}
+                />
+                <RNText
+                    testID={testID === undefined ? undefined : `${testID}-title`}
+                    className="text-xs font-semibold text-content-inverse text-start"
+                >
+                    {t(presentation.titleKey)}
+                    {presentation.bodyKey === null ? null : ` — ${t(presentation.bodyKey)}`}
+                </RNText>
+            </View>
+        );
+    }
 
     return (
         <View

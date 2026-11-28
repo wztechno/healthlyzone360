@@ -9,15 +9,19 @@ import type {
 } from '@healthy360/api-client/contracts';
 import { IngredientId, KitchenId, RecipeId } from '@healthy360/domain-types';
 import type { RecipeVersionId } from '@healthy360/domain-types';
+import { FormSection } from '@healthy360/design-system';
 import { act, fireEvent, screen, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { Dimensions } from 'react-native';
 
 import { readActiveProcess, startProcess } from '../../navigation/active-process.ts';
 import { TEST_ORGANISATION_ID, kitchenManagerSession } from '../../testing/session-fixtures.ts';
+import { withDeskWidth } from '../../testing/desk-width.ts';
 import { page } from '../../testing/stub-repositories.ts';
 import { renderStubScreen } from '../../testing/stub-screen.tsx';
 import { focusField } from './field-focus.ts';
+import { EMPTY_PACKS_DRAFT, EMPTY_PACKS_REPORT, packsIssuesOf } from './packs-prices-section.tsx';
+import type { PacksDraft, PacksTab } from './packs-prices-section.tsx';
 import {
     parseStockGapFix,
     stockGapFieldId,
@@ -51,6 +55,9 @@ jest.mock('expo-router', () => {
     const canGoBack = jest.fn(() => true);
     return {
         __esModule: true,
+        useSegments: () => [],
+        useGlobalSearchParams: () => ({}),
+        useNavigation: () => ({}),
         useRouter: () => ({
             push,
             replace,
@@ -543,7 +550,7 @@ describe('a recipe opened from a stock gap', () => {
         expect(routerMock.__push).not.toHaveBeenCalled();
     });
 
-    it('offers the way back once published, telling Stock gaps the gap was fixed', async () => {
+    it('goes back once published, telling Stock gaps the gap was fixed', async () => {
         // Sent here by Stock gaps: the fix is the process the top bar's Continue keeps.
         startProcess({
             kind: 'stockGapFix',
@@ -613,29 +620,25 @@ describe('a recipe opened from a stock gap', () => {
             expect(repositories.kitchenAdmin.publishRecipe).toHaveBeenCalledTimes(1);
         });
 
-        // The card ticks and goes; the tray says it is done and offers the way back.
+        // The card ticks and goes.
         await waitFor(
             () => {
-                expect(screen.getByTestId('kitchen-recipe-tray-clear')).toHaveTextContent(
-                    /Fixed and published\. Retry the stock gap next\./,
-                );
+                expect(screen.queryByTestId('kitchen-recipe-stock-gap')).toBeNull();
             },
             { timeout: 5000 },
         );
-        expect(screen.queryByTestId('kitchen-recipe-stock-gap')).toBeNull();
         // Published: nothing is left to lose, so Continue has nothing to keep.
         expect(readActiveProcess()).toBeNull();
-        // The toast offers the same way back.
-        await untilVisible('kitchen-recipe-published-back');
         expect(screen.queryByTestId('kitchen-recipe-yield-pieces-error')).toBeNull();
-
-        await press('kitchen-recipe-stock-gap-back');
+        // Publishing is what it was opened for, so it goes back to Stock gaps by itself, saying
+        // the gap was fixed — and the toast offers the other way, opening the recipe again.
         expect(routerMock.__dismissTo).toHaveBeenCalledWith(
             '/kitchen/consumption-exceptions?reason=unquantified_recipe_line&page=2&fixed=1',
         );
+        await untilVisible('kitchen-recipe-published-toast-reopen');
     });
 
-    it('opens a draft from a published version, from the card', async () => {
+    it('opens a draft once a published version is changed, from the card', async () => {
         const published = version({
             status: 'published',
             publishedAt: '2026-08-03T09:00:00.000Z',
@@ -650,9 +653,14 @@ describe('a recipe opened from a stock gap', () => {
             { createRecipeVersion: async () => stored },
         );
 
-        await untilVisible('kitchen-recipe-stock-gap-new-draft');
+        // A published version opens editable (board v2): the card takes the reader to the field,
+        // and the first change opens the next draft from the live one.
+        await untilVisible('kitchen-recipe-stock-gap-field');
+        expect(screen.queryByTestId('kitchen-recipe-stock-gap-new-draft')).toBeNull();
         expect(screen.queryByTestId('kitchen-recipe-stock-gap-publish')).toBeNull();
-        await press('kitchen-recipe-stock-gap-new-draft');
+        await press('kitchen-recipe-stock-gap-field');
+        expect(isSelected('production')).toBe(true);
+        await type('kitchen-recipe-yield-pieces-input', '12');
         await waitFor(() => {
             expect(repositories.kitchenAdmin.createRecipeVersion).toHaveBeenCalledWith(
                 RECIPE_ID,
@@ -668,9 +676,8 @@ describe('a recipe opened from a stock gap', () => {
         expect(isSelected('description')).toBe(true);
         expect(screen.queryByTestId('kitchen-recipe-stock-gap')).toBeNull();
 
-        // Cancel still goes back to where it came from.
-        await press('kitchen-recipe-editor-screen-discard');
-        expect(routerMock.__dismissTo).toHaveBeenCalledWith(RETURN_TO);
+        // Nothing to throw away, so no Discard; the trail is the way back.
+        expect(screen.queryByTestId('kitchen-recipe-editor-screen-discard')).toBeNull();
     });
 
     it('takes a refused optional field’s card to its tab, from any other', async () => {
@@ -723,13 +730,24 @@ describe('leaving the recipe with unsaved work', () => {
         );
     });
 
-    it('keeps nothing once the reader discards it with Cancel', async () => {
+    it('keeps nothing once the reader leaves and discards it', async () => {
         const stored = recipe();
-        const first = await renderEditor({ returnTo: RETURN_TO }, () => stored);
+        const first = await renderEditor(
+            {
+                returnTo: RETURN_TO,
+                stockGapFix: { reason: 'no_yield_piece_count', ingredientId: null },
+            },
+            () => stored,
+        );
 
+        // Opened from a stock gap, it starts on Production; the name is on the first tab.
+        await untilVisible('kitchen-recipe-tab-description');
+        await press('kitchen-recipe-tab-description');
         await untilVisible('kitchen-recipe-name-en-input');
         await type('kitchen-recipe-name-en-input', 'Burghul salad, extra lemon');
-        await press('kitchen-recipe-editor-screen-discard');
+        // No Discard beside Save: the way back asks, and its Discard drops the work.
+        expect(screen.queryByTestId('kitchen-recipe-editor-screen-discard')).toBeNull();
+        await press('kitchen-recipe-stock-gap-back');
         await untilVisible('kitchen-recipe-editor-screen-unsaved-dialog');
         await press('kitchen-recipe-editor-screen-unsaved-discard');
         await act(async () => {
@@ -742,5 +760,133 @@ describe('leaving the recipe with unsaved work', () => {
         expect(screen.getByTestId('kitchen-recipe-name-en-input').props.value).not.toBe(
             'Burghul salad, extra lemon',
         );
+    });
+});
+
+/* ------------------------------------------------------------------------------------------------
+ * A sold recipe's Packs & prices blockers
+ * ---------------------------------------------------------------------------------------------- */
+
+/**
+ * The tab as a host hands it over, with the section itself left out: what is under test is how the
+ * editor counts, explains and leads to the three blockers the server's `SellingReadiness` names.
+ */
+function packsTab(draft: PacksDraft): PacksTab {
+    return {
+        report: { ...EMPTY_PACKS_REPORT, draft, issues: packsIssuesOf(draft) },
+        save: async () => true,
+        // The two sections the inline checks sit beside, and nothing else of the real section.
+        render: () => (
+            <>
+                <FormSection testID="kitchen-packs-places" title="Where it sells">
+                    {null}
+                </FormSection>
+                <FormSection testID="kitchen-packs-packs" title="Packs">
+                    {null}
+                </FormSection>
+            </>
+        ),
+    };
+}
+
+const ONE_PACK: PacksDraft['packs'][number] = {
+    key: 'pack-1',
+    id: 'pack-1',
+    code: 'BTL300',
+    name: null,
+    fill: '0.3',
+    fillUnit: 'kg',
+    components: [],
+    prices: { home: '', business: '' },
+    inherited: { home: false, business: false },
+};
+
+describe('a sold recipe’s Packs & prices blockers', () => {
+    it('says no pack and no place, and each Fix lands on Packs & prices', async () => {
+        await withDeskWidth(async () => {
+            await renderEditor({ packs: packsTab(EMPTY_PACKS_DRAFT) }, () => recipe());
+
+            await untilVisible('kitchen-recipe-issues-publish-packs-no_pack');
+            expect(
+                screen.getByTestId('kitchen-recipe-issues-publish-packs-no_pack'),
+            ).toHaveTextContent(/Add a pack/);
+            expect(
+                screen.getByTestId('kitchen-recipe-issues-publish-packs-no_selling_place'),
+            ).toHaveTextContent(/Tick where it sells/);
+            // Counted on the tab's pill, as every publish blocker is on its own tab.
+            expect(String(tabLabel('packaging'))).toMatch(/2/);
+
+            // Publish over them explains rather than opening the dialog.
+            await press('kitchen-recipe-publish');
+            expect(screen.queryByTestId('kitchen-recipe-publish-consequence')).toBeNull();
+
+            focusMock.mockClear();
+            await press('kitchen-recipe-issues-publish-packs-no_pack-fix');
+            expect(isSelected('packaging')).toBe(true);
+            await waitFor(() => {
+                expect(focusMock).toHaveBeenCalledWith('kitchen-packs-add');
+            });
+        });
+    });
+
+    it('asks a price for each ticked place, Counter priced by the Home shop', async () => {
+        await withDeskWidth(async () => {
+            // Counter alone is ticked: it charges the Home shop's price, so that is the one owed.
+            await renderEditor(
+                {
+                    packs: packsTab({
+                        places: { home: false, business: false, counter: true },
+                        packs: [ONE_PACK],
+                    }),
+                },
+                () => recipe(),
+            );
+
+            await untilVisible('kitchen-recipe-issues-publish-packs-place_unpriced-home');
+            expect(
+                screen.queryByTestId('kitchen-recipe-issues-publish-packs-place_unpriced-business'),
+            ).toBeNull();
+            expect(screen.queryByTestId('kitchen-recipe-issues-publish-packs-no_pack')).toBeNull();
+
+            focusMock.mockClear();
+            await press('kitchen-recipe-issues-publish-packs-place_unpriced-home-fix');
+            await waitFor(() => {
+                expect(focusMock).toHaveBeenCalledWith('kitchen-packs-pack-1-price-home');
+            });
+        });
+    });
+
+    it('puts a publish the server refused for an unpriced place on the same card', async () => {
+        await withDeskWidth(async () => {
+            // Priced on the draft, so the card comes from the refusal alone.
+            const priced: PacksDraft = {
+                places: { home: true, business: true, counter: false },
+                packs: [{ ...ONE_PACK, prices: { home: '3.00', business: '9.00' } }],
+            };
+            await renderEditor({ packs: packsTab(priced) }, () => recipe(), {
+                publishRecipe: async () =>
+                    throwFailure(
+                        validationFailure({
+                            form: ['This catalogue item is not ready to be published.'],
+                            'reasons.place_unpriced.business': [
+                                'This catalogue item is not ready to be published.',
+                            ],
+                        }),
+                    ),
+            });
+
+            await untilVisible('kitchen-recipe-publish');
+            expect(
+                screen.queryByTestId('kitchen-recipe-issues-publish-packs-place_unpriced-business'),
+            ).toBeNull();
+            await press('kitchen-recipe-publish');
+            await untilVisible('kitchen-recipe-publish-confirm');
+            await press('kitchen-recipe-publish-confirm');
+
+            await untilVisible('kitchen-recipe-issues-publish-packs-place_unpriced-business');
+            expect(
+                screen.getByTestId('kitchen-recipe-issues-publish-packs-place_unpriced-business'),
+            ).toHaveTextContent(/Price a pack for Business/);
+        });
     });
 });

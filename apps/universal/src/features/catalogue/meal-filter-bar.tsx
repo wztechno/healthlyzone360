@@ -1,10 +1,18 @@
-import { Button, Drawer, Icon, cx, useBreakpoint } from '@healthy360/design-system';
+import {
+    AnchoredLayer,
+    Button,
+    Drawer,
+    Icon,
+    PANEL_IS_LIFTED,
+    cx,
+    useBreakpoint,
+} from '@healthy360/design-system';
 import type { IconName, RangeValue } from '@healthy360/design-system';
 import type { MarketplaceMeal } from '@healthy360/api-client/contracts';
 import type { CurrencyCode, DietClassification } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, Text as RNText, View } from 'react-native';
@@ -301,7 +309,8 @@ function FilterMenu({
     const close = useCallback(() => {
         setOpen(false);
     }, []);
-    const root = useOutsideDismiss(open && wide, close);
+    const panel = useRef<View>(null);
+    const root = useOutsideDismiss(open && wide, close, panel);
     const text = count === 0 ? label : t('catalogue:filters.menuCount', { label, n: count });
     const { tint, icon } = FILTER_LOOKS[look];
 
@@ -376,33 +385,43 @@ function FilterMenu({
             <View ref={root} className="relative z-auto">
                 {trigger}
                 {open ? (
-                    <View
-                        testID={`${testID}-panel`}
-                        role="dialog"
-                        aria-label={label}
-                        className={cx(
-                            'absolute top-full z-tooltip mt-2 rounded-2xl border border-stroke-subtle bg-surface-raised px-3.5 py-3 shadow-elevation-3',
-                            align === 'end' ? 'end-0' : 'start-0',
-                            roomy ? 'w-[380px]' : 'w-[320px]',
-                        )}
-                    >
-                        {heading}
-                        <View className="mt-3 flex-col">{children}</View>
-                        <View className="mt-3 flex-row items-center gap-3 border-t border-stroke-subtle pt-2.5">
-                            <RNText
-                                numberOfLines={2}
-                                className="me-auto min-w-0 shrink text-sm text-content-secondary text-start"
-                            >
-                                {summary}
-                            </RNText>
-                            <Button
-                                testID={`${testID}-done`}
-                                size="sm"
-                                label={t('catalogue:filters.showDishes')}
-                                onPress={close}
-                            />
+                    // Lifted onto `body` on the web: in place, the footer and anything else drawn
+                    // after the bar painted over the panel whenever the list above it was short.
+                    <AnchoredLayer anchorRef={root} align={align}>
+                        <View
+                            ref={panel}
+                            testID={`${testID}-panel`}
+                            role="dialog"
+                            aria-label={label}
+                            className={cx(
+                                'rounded-2xl border border-stroke-subtle bg-surface-raised px-3.5 py-3 shadow-elevation-3',
+                                PANEL_IS_LIFTED
+                                    ? 'my-1'
+                                    : cx(
+                                          'absolute top-full z-tooltip mt-2',
+                                          align === 'end' ? 'end-0' : 'start-0',
+                                      ),
+                                roomy ? 'w-[380px]' : 'w-[320px]',
+                            )}
+                        >
+                            {heading}
+                            <View className="mt-3 flex-col">{children}</View>
+                            <View className="mt-3 flex-row items-center gap-3 border-t border-stroke-subtle pt-2.5">
+                                <RNText
+                                    numberOfLines={2}
+                                    className="me-auto min-w-0 shrink text-sm text-content-secondary text-start"
+                                >
+                                    {summary}
+                                </RNText>
+                                <Button
+                                    testID={`${testID}-done`}
+                                    size="sm"
+                                    label={t('catalogue:filters.showDishes')}
+                                    onPress={close}
+                                />
+                            </View>
                         </View>
-                    </View>
+                    </AnchoredLayer>
                 ) : null}
             </View>
         );

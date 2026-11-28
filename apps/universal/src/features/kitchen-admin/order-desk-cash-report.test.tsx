@@ -210,7 +210,8 @@ describe('order desk cash report — the ladder', () => {
             { timeout: 5000 },
         );
         // No table and no totals block: there is nothing to total.
-        expect(screen.queryByTestId('kitchen-order-desk-cash-report-table')).toBeNull();
+        // The header stays, so the page keeps its shape.
+        expect(screen.getByTestId('kitchen-order-desk-cash-report-table')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-order-desk-cash-report-totals')).toBeNull();
     });
 
@@ -259,8 +260,8 @@ describe('order desk cash report — the ladder', () => {
             });
         });
 
-        // A scope menu stays open after a pick (its items are checkable), so the next pick is
-        // made from the same open menu.
+        // The desk's dropdown closes on a pick, so the next pick opens it again.
+        fireEvent.press(screen.getByTestId('kitchen-order-desk-cash-report-period-trigger'));
         fireEvent.press(await screen.findByTestId('kitchen-order-desk-cash-report-period-week'));
         // Monday of this week through today.
         const monday = addDays(today, 1 - (isoWeekday(today) ?? 1));

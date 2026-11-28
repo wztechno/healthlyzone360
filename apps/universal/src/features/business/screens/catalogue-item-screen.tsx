@@ -3,73 +3,71 @@ import {
     Cascade,
     EmptyState,
     ErrorState,
-    Inline,
     RecordSkeleton,
-    Stack,
     Text,
-    useToast,
 } from '@healthy360/design-system';
-import type { CatalogueItem, VolumeTier } from '@healthy360/api-client/contracts';
-import { MealId } from '@healthy360/domain-types';
+import { CorporateProgrammeId } from '@healthy360/domain-types';
 import { useFormatter } from '@healthy360/i18n';
-import type { Formatter } from '@healthy360/i18n';
-import type { TFunction } from 'i18next';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import {
     toFailure,
     useCatalogueItemQuery,
-    useB2bAddCatalogueItemMutation,
-    B2B_CART_CHANNEL_CODE,
+    useCorporateProgrammesQuery,
 } from '../../../data/business-hooks.ts';
-import { useFailureMessage } from '../../../screens/form-helpers.ts';
-import { CatalogueList } from '../../kitchen-admin/catalogue/catalogue-list.tsx';
-import type { CatalogueColumn } from '../../kitchen-admin/catalogue/catalogue-column-spec.ts';
+import { useKitchenQuery } from '../../../data/marketplace-hooks.ts';
+import { EntityImage } from '../../../media/entity-image.tsx';
 import { RecordViewPage } from '../../kitchen-admin/catalogue/record-view-page.tsx';
-import { formatMoney, formatPackSize, weekdayKey } from '../../marketplace/format.ts';
+import { formatMoney } from '../../marketplace/format.ts';
+import { KIND_TONE, packText } from '../catalogue-columns.tsx';
 import { CORPORATE_HOME_HREF, corporateCatalogueHref } from '../corporate-chrome.tsx';
-import { catalogueKindKey, contractPriceTestId, salesChannelKey } from '../format.ts';
+import { PackStepper } from '../corporate-parts.tsx';
+import { catalogueKindKey, contractPriceTestId } from '../format.ts';
+import { CorporateCatalogueScreen, quotationBuilderHref } from './corporate-catalogue-screen.tsx';
 
 /**
- * `/corporate/items/{item}` — one negotiated line, with its volume tiers, as an admin record page
- * (`RecordViewPage`): the facts in the field grid, the tier ladder as its own card, and the buying
- * actions in the status rail. The trail names the line and its middle crumb returns to the
- * programme's catalogue.
+ * `/corporate/items/{item}` — one negotiated line, as the record sheet over its programme's
+ * catalogue. From the corporate canvas's Catalogue line pop-up (redrawn without the green band,
+ * 2026-11-22):
  *
- * ## The tiers are the point of the screen
+ * - **The head:** the line's photo and name, its kind chip, and "programme · kitchen".
+ * - **Two figures:** your rate and the pack it buys.
+ * - **Details** (kind, programme, kitchen, the line's code), **Ask for a price** — how many packs,
+ *   and what they come to at your rate — and the **Photo**.
+ * - **Add to a quotation** at the foot, carrying the packs into a new quotation.
  *
- * A contract price on its own is a headline; what a buyer plans against is the *ladder* — how much
- * cheaper 250 units are than 40, and how many more days the cheaper rate takes to deliver. Both
- * facts are on `VolumeTier` and both are shown together, because a rate quoted without its lead time
- * is half an answer.
+ * There is no basket: a corporate buyer asks for a price. The board's shelf and minimum order are
+ * not drawn — the API sends neither.
  *
- * Every price on this screen — the headline and every tier — carries the `contract-price-` marker
- * (`../format.ts`), which the privacy sweep asserts appears on no consumer route.
- *
- * ## Recurring ordering is a genuine gap
- *
- * `CatalogueItem.supportsRecurringOrder` says a line *may* be ordered on a standing schedule, and
- * `BusinessRepository` publishes nothing that would set one up — no recurring-order resource, no
- * schedule request. `catalogueScheduleRequest` in `src/features/availability.ts` records that gap and
- * no control offers it. Requesting a quotation, by contrast, is a real mutation and is offered.
+ * Every price here carries the `contract-price-` marker (`../format.ts`).
  */
 
 export interface CatalogueItemScreenProps {
     readonly itemId: string | undefined;
+    /** The programme whose catalogue the line was opened from. */
+    readonly programmeId?: string | undefined;
 }
 
-export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
+export function CatalogueItemScreen({ itemId, programmeId }: CatalogueItemScreenProps) {
     const { t } = useTranslation();
     const router = useRouter();
     const formatter = useFormatter();
-    const toast = useToast();
-    const failureMessage = useFailureMessage();
+    const [packs, setPacks] = useState(1);
 
     const query = useCatalogueItemQuery(itemId ?? null);
+    const programmes = useCorporateProgrammesQuery();
     const item = query.data;
-    const addToCart = useB2bAddCatalogueItemMutation();
     const failure = toFailure(query.error);
+
+    // The programme behind the pop-up: the one the line was opened from, else the first.
+    const parsed = programmeId === undefined ? null : CorporateProgrammeId.safeParse(programmeId);
+    const programme =
+        (programmes.data ?? []).find((candidate) => candidate.id === parsed) ??
+        (programmes.data ?? [])[0];
+    const kitchen = useKitchenQuery(programme?.kitchenIds[0] ?? null);
 
     if (query.isPending && query.fetchStatus !== 'idle') {
         return <RecordSkeleton testID="catalogue-item-loading" />;
@@ -112,235 +110,127 @@ export function CatalogueItemScreen({ itemId }: CatalogueItemScreenProps) {
         );
     }
 
-    const onAddToCart = (onSuccess?: () => void) => {
-        const mealId = item.mealId ?? MealId.unsafe(item.id);
-        addToCart.mutate(
-            { mealId, quantity: item.minimumOrderQuantity },
-            {
-                onSuccess: (cart) => {
-                    toast.show({
-                        testID: 'catalogue-item-added',
-                        tone: 'success',
-                        message: t('business:item.addedToCart', { items: cart.itemCount }),
-                    });
-                    onSuccess?.();
-                },
-                onError: (error) => {
-                    toast.show({
-                        testID: 'catalogue-item-add-failed',
-                        tone: 'danger',
-                        message: t('catalogue:meal.addFailed', {
-                            reason: failureMessage(toFailure(error)) ?? t('errors:generic.body'),
-                        }),
-                    });
-                },
-            },
-        );
-    };
-
-    const orderable = item.mealId !== null || item.kind === 'meal';
-    const separator = t('business:common.listSeparator');
-
-    return (
-        <RecordViewPage
-            testID="catalogue-item-screen"
-            title={item.name}
-            kind={t(catalogueKindKey(item.kind))}
-            reference={item.id}
-            onBack={() => {
-                router.push(corporateCatalogueHref(String(item.programmeId)) as never);
-            }}
-            fields={[
-                {
-                    key: 'description',
-                    label: t('business:item.fieldDescription'),
-                    value: item.description,
-                },
-                {
-                    key: 'minimum',
-                    label: t('business:catalogue.columnMinimum'),
-                    value: formatter.formatNumber(item.minimumOrderQuantity),
-                    mono: true,
-                },
-                {
-                    key: 'lead-time',
-                    label: t('business:catalogue.columnLeadTime'),
-                    value: t('business:catalogue.days', { count: item.leadTimeDays }),
-                    mono: true,
-                },
-                {
-                    key: 'weekdays',
-                    label: t('business:catalogue.columnWeekdays'),
-                    value:
-                        item.deliveryWeekdays.length === 0
-                            ? t('business:catalogue.noWeekdaysShort')
-                            : item.deliveryWeekdays
-                                  .map((weekday) => t(weekdayKey(weekday)))
-                                  .join(separator),
-                },
-                {
-                    key: 'recurring',
-                    label: t('business:catalogue.columnRecurring'),
-                    value: item.supportsRecurringOrder
-                        ? t('business:catalogue.recurringShort')
-                        : t('business:catalogue.oneOffShort'),
-                },
-            ]}
-            sections={[
-                {
-                    key: 'tiers',
-                    title: t('business:item.tiersTitle'),
-                    content: <VolumeTiers item={item} t={t} formatter={formatter} />,
-                },
-            ]}
-            chipsLabel={t('business:catalogue.columnChannels')}
-            chips={item.channels.map((channel) => ({
-                key: channel,
-                label: t(salesChannelKey(channel)),
-            }))}
-            statusContent={
-                <Stack space="sm">
-                    <HeadlinePrice item={item} t={t} formatter={formatter} />
-                    {orderable ? (
-                        <Inline space="xs" wrap>
-                            <Button
-                                testID="catalogue-item-cart"
-                                size="sm"
-                                variant="secondary"
-                                label={t('business:item.addToCart')}
-                                loading={addToCart.isPending}
-                                // Wrapped rather than passed by reference: `onPress` hands the press
-                                // event to its callback, and this one's first parameter is an
-                                // `onSuccess` continuation it would then try to call.
-                                onPress={() => {
-                                    onAddToCart();
-                                }}
-                            />
-                            <Button
-                                testID="catalogue-item-order"
-                                size="sm"
-                                variant="secondary"
-                                label={t('business:item.placeOrder')}
-                                loading={addToCart.isPending}
-                                onPress={() => {
-                                    onAddToCart(() => {
-                                        router.push(
-                                            `/customer/checkout?channel=${encodeURIComponent(B2B_CART_CHANNEL_CODE)}` as never,
-                                        );
-                                    });
-                                }}
-                            />
-                        </Inline>
-                    ) : null}
-                </Stack>
-            }
-            primaryAction={{
-                testID: 'catalogue-item-quote',
-                label: t('business:item.quote'),
-                icon: 'fileText',
-                onPress: () => {
-                    router.push(
-                        `/corporate/quotations/new?programme=${String(item.programmeId)}&item=${item.id}` as never,
-                    );
-                },
-            }}
-        />
+    const programmeKey = programme === undefined ? undefined : String(programme.id);
+    const dash = t('kitchen:list.noValue');
+    const pack = packText(t, formatter, item);
+    const kindLabel = t(catalogueKindKey(item.kind));
+    const rate = item.contractPrice === null ? null : formatMoney(formatter, item.contractPrice);
+    const value =
+        item.contractPrice === null
+            ? null
+            : formatMoney(formatter, {
+                  amount: item.contractPrice.amount * packs,
+                  currency: item.contractPrice.currency,
+              });
+    const where = [programme?.name, kitchen.data?.name].filter(
+        (part): part is string => part !== undefined && part !== '',
     );
-}
 
-interface PartProps {
-    readonly item: CatalogueItem;
-    readonly t: TFunction;
-    readonly formatter: Formatter;
-}
-
-/** The agreed rate, in the status card above the buying actions — the figure they act on. */
-function HeadlinePrice({ item, t, formatter }: PartProps) {
-    if (item.contractPrice === null) {
-        return (
-            <Text tone="secondary" testID="catalogue-item-detail-unpriced">
-                {t('business:catalogue.unpriced')}
-            </Text>
-        );
-    }
-    const price = formatMoney(formatter, item.contractPrice);
+    // A pop-up over the programme's catalogue it was picked from (`View as a pop-up`).
     return (
-        <Stack space="xs">
-            <Text variant="caption" tone="secondary">
-                {t('business:catalogue.columnPrice')}
-            </Text>
-            <Text variant="display" testID={contractPriceTestId(`headline-${item.id}`)}>
-                {item.pack === null
-                    ? price
-                    : t('business:catalogue.pricePerPack', {
-                          price,
-                          size: formatPackSize(t, formatter, item.pack),
-                      })}
-            </Text>
-        </Stack>
-    );
-}
-
-function VolumeTiers({ item, t, formatter }: PartProps) {
-    const columns: readonly CatalogueColumn<VolumeTier>[] = [
-        {
-            key: 'range',
-            role: 'title',
-            label: t('business:item.tierRange'),
-            width: 160,
-            grow: true,
-            priority: 100,
-            value: (tier) =>
-                tier.maximumQuantity === null
-                    ? t('business:item.tierFrom', { min: tier.minimumQuantity })
-                    : t('business:item.tierBetween', {
-                          min: tier.minimumQuantity,
-                          max: tier.maximumQuantity,
-                      }),
-        },
-        {
-            key: 'price',
-            role: 'metric',
-            label: t('business:item.tierPrice'),
-            width: 140,
-            align: 'end',
-            priority: 90,
-            value: (tier) => formatMoney(formatter, tier.unitPrice),
-            render: (tier) => (
-                <Text variant="mono" testID={contractPriceTestId(`tier-${String(tier.id)}`)}>
-                    {formatMoney(formatter, tier.unitPrice)}
-                </Text>
-            ),
-        },
-        {
-            key: 'lead',
-            role: 'meta',
-            label: t('business:item.tierLeadTime'),
-            width: 110,
-            align: 'end',
-            priority: 80,
-            value: (tier) => t('business:catalogue.days', { count: tier.leadTimeDays }),
-        },
-    ];
-
-    if (item.volumeTiers.length === 0) {
-        return (
-            <Text tone="secondary" testID="catalogue-item-tier-table-empty">
-                {t('business:item.noTiers')}
-            </Text>
-        );
-    }
-
-    return (
-        <CatalogueList<VolumeTier>
-            testID="catalogue-item-tier-table"
-            label={t('business:item.tiersCaption')}
-            columns={columns}
-            rows={item.volumeTiers}
-            rowKey={(tier) => String(tier.id)}
-            density="sm"
-            rowActionsLabel={t('business:catalogue.rowActions')}
-            rowEntrance={false}
-        />
+        <>
+            {programmeKey === undefined ? null : (
+                <CorporateCatalogueScreen programmeId={programmeKey} />
+            )}
+            <RecordViewPage
+                look="sheet"
+                testID="catalogue-item-screen"
+                eyebrow={t('business:item.kind')}
+                title={item.name}
+                kind={
+                    pack === null
+                        ? (programme?.name ?? kindLabel)
+                        : t('business:item.packChip', { size: pack })
+                }
+                status={{ label: kindLabel, tone: KIND_TONE[item.kind] }}
+                statusLines={where.length === 0 ? [] : [where.join(' · ')]}
+                photo={{
+                    assetId: item.imagePlaceholderId === '' ? undefined : item.imagePlaceholderId,
+                    label: item.name,
+                }}
+                figureKeys={['rate', 'pack']}
+                onBack={() => {
+                    if (programmeKey === undefined) router.push(CORPORATE_HOME_HREF as never);
+                    else router.push(corporateCatalogueHref(programmeKey) as never);
+                }}
+                fields={[
+                    {
+                        key: 'rate',
+                        label: t('business:item.rate'),
+                        value: rate ?? t('business:catalogue.unpricedShort'),
+                    },
+                    { key: 'pack', label: t('business:catalogue.columnPack'), value: pack ?? dash },
+                    { key: 'kind', label: t('business:catalogue.kindLabel'), value: kindLabel },
+                    {
+                        key: 'programme',
+                        label: t('business:quotations.columnProgramme'),
+                        value: programme?.name ?? dash,
+                    },
+                    {
+                        key: 'kitchen',
+                        label: t('business:overview.kitchen'),
+                        value: kitchen.data?.name ?? dash,
+                    },
+                    { key: 'code', label: t('business:item.code'), value: item.id },
+                ]}
+                sections={[
+                    {
+                        key: 'ask',
+                        title: t('business:picked.ask'),
+                        content: (
+                            <View className="flex-row flex-wrap items-center gap-2.5">
+                                <PackStepper
+                                    testID="catalogue-item-packs"
+                                    label={t('business:item.packsLabel', { name: item.name })}
+                                    value={packs}
+                                    onChange={setPacks}
+                                />
+                                {value === null ? null : (
+                                    <Text
+                                        tone="secondary"
+                                        className="tabular-nums"
+                                        testID={contractPriceTestId(`headline-${item.id}`)}
+                                    >
+                                        {t('business:item.atYourRate', { value })}
+                                    </Text>
+                                )}
+                            </View>
+                        ),
+                    },
+                ]}
+                rail={
+                    item.imagePlaceholderId === ''
+                        ? []
+                        : [
+                              {
+                                  key: 'photo',
+                                  title: t('business:item.photo'),
+                                  content: (
+                                      <View className="overflow-hidden rounded-[14px]">
+                                          <EntityImage
+                                              testID="catalogue-item-photo-large"
+                                              assetId={item.imagePlaceholderId}
+                                              seed={item.id}
+                                              label={item.name}
+                                              aspect="card"
+                                              flush
+                                          />
+                                      </View>
+                                  ),
+                              },
+                          ]
+                }
+                primaryAction={{
+                    testID: 'catalogue-item-quote',
+                    label: t('business:catalogue.quote'),
+                    icon: 'fileText',
+                    onPress: () => {
+                        router.push(
+                            quotationBuilderHref(programmeKey ?? '', [item.id], packs) as never,
+                        );
+                    },
+                }}
+            />
+        </>
     );
 }

@@ -212,8 +212,9 @@ export function recipeFixHref(
  * that row is not in the ingredient library and its form has no category for a sauce. Only a gap
  * about a real raw material — the vinegar in a marinade — opens that ingredient's form.
  *
- * Every page but the production plan is handed this exact view as `returnTo`, so its Cancel, Save
- * and trail come back to the gap — the stock movement with `fixed=1`, which retries it on arrival.
+ * Every page is handed this exact view as `returnTo`, so its Cancel, Save and trail come back to the
+ * gap — the stock movement with `fixed=1`, which retries it on arrival. The production plan and
+ * quality control have nothing to save for a gap; there the return is only the trail's way back.
  */
 export type StockGapFixKind = 'recipe' | 'stock' | 'ingredient' | 'product' | 'production';
 
@@ -321,13 +322,13 @@ function gapFix(row: GapFixFields, returnHref: string): StockGapFixAction | null
             return {
                 kind: 'production',
                 labelKey: 'kitchen:ops.exceptions.fixAction.production',
-                href: '/kitchen/production',
+                href: withReturnTo('/kitchen/production-desk', returnHref),
             };
         case 'quality_hold':
             return {
                 kind: 'production',
                 labelKey: 'kitchen:ops.exceptions.fixAction.quality',
-                href: '/kitchen/qc',
+                href: withReturnTo('/kitchen/qc', returnHref),
             };
         default:
             return null;

@@ -1,6 +1,7 @@
 import type {
     AdminEntityMeta,
     IngredientAdmin,
+    ItemPacks,
     MealAdmin,
     ProductAdmin,
     RecipeAdmin,
@@ -8,9 +9,16 @@ import type {
     RecipeSoldAs,
     RecipeVersionAdmin,
 } from '@healthy360/api-client/contracts';
-import { IngredientId, KitchenId, MealId, ProductId, RecipeId } from '@healthy360/domain-types';
+import {
+    IngredientId,
+    KitchenId,
+    MealId,
+    PriceListId,
+    ProductId,
+    RecipeId,
+} from '@healthy360/domain-types';
 import type { RecipeVersionId } from '@healthy360/domain-types';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react-native';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 import type { ComponentType, ReactNode } from 'react';
 
 import KitchenDressingRoute from '../../../app/kitchen/dressings/[product].tsx';
@@ -29,19 +37,19 @@ import { CookedItemEditScreen, RecipeBookEditScreen } from './screens/cooked-ite
 
 /**
  * Everything a kitchen cooks — a meal, a sauce, a dressing, a preparation — is one page in the recipe
- * book: the recipe, and on a tab of its own the listing of whatever sells it.
+ * book: the recipe, with no Selling tab — what sells it reads its name and description off the
+ * Description tab, its diets are drawn there, and where it sells is Packs & prices.
  *
  * Two records, two lock versions, two saves, and the page has to keep them apart without making the
  * reader care. What this file pins:
  *
- * 1. **The page is the recipe, and the listing is a tab on it.** A sauce opens on its formulation,
- *    with the Packaging tab every recipe has — its bottles are packaging lines — and a Selling tab
- *    whose listing draws no recipe picker and no category, because the page already answers both.
- *    A recipe nothing sells has no Selling tab, and one sold twice switches between its sellers.
- * 2. **The listing saves as the listing.** Against the item's own lock version, and without writing
- *    the recipe.
- * 3. **Nothing typed is lost.** A half-typed pack survives a tab switch, and leaving the page with
- *    one asks first.
+ * 1. **The page is the recipe.** A sauce opens on its formulation, with a Packs & prices tab — its
+ *    bottles are packs — and its shop description and diet classifications on Description. A recipe
+ *    sold twice switches sellers above Packs & prices.
+ * 2. **Save writes the item's name and description**, against the item's own lock version — and
+ *    Packs & prices after it, on the lock that write left. Publishing puts draft items on sale.
+ * 3. **Nothing typed is lost.** A half-typed description survives a tab switch and marks the page
+ *    unsaved.
  * 4. **An item is reached through its recipe.** The item address hands over to the recipe; an item
  *    with no recipe yet can still be listed, under the notice that offers to start one, and starting
  *    it lands on the recipe it wrote.
@@ -60,6 +68,9 @@ jest.mock('expo-router', () => {
     const canGoBack = () => false;
     return {
         __esModule: true,
+        useSegments: () => [],
+        useGlobalSearchParams: () => ({}),
+        useNavigation: () => ({}),
         useRouter: () => ({
             push,
             replace,
@@ -363,54 +374,75 @@ function renderSauceItem(item: ProductAdmin, writes: Record<string, unknown> = {
     });
 }
 
-const PACK_LABEL = 'kitchen-product-pack-editor-row-seed-0-BTL300-label-input';
+/** The item's English description, on the recipe's Description tab. */
+const DESCRIPTION = 'kitchen-recipe-description-en-input';
+
+const SAUCE_PACK = '01935f6d-0000-7000-8000-0000000c0001';
+const PACK_HOME_PRICE = `kitchen-packs-${SAUCE_PACK}-price-home-input`;
+
+/** The sauce's packs: its one bottle at $3.00 on the Home shop, sold there, at `lockVersion`. */
+function saucePacks(lockVersion: number): ItemPacks {
+    return {
+        lockVersion,
+        places: {
+            home: {
+                salesChannelId: 'web-shop',
+                priceListId: PriceListId.unsafe('retail-usd'),
+                currency: 'USD',
+                offered: true,
+            },
+            business: {
+                salesChannelId: 'wholesale',
+                priceListId: PriceListId.unsafe('trade-usd'),
+                currency: 'USD',
+                offered: false,
+            },
+            counter: null,
+        },
+        packs: [
+            {
+                id: SAUCE_PACK,
+                code: 'BTL300',
+                name: { en: 'Bottle 300 g', ar: 'عبوة 300 غ' },
+                isDefault: true,
+                fill: { quantity: 0.3, unit: 'kg' },
+                components: [{ ingredientId: GARLIC_ID, quantity: 1, isContainer: true }],
+                prices: { home: { amountMinor: 300, inherited: false }, business: null },
+            },
+        ],
+    };
+}
 
 /* ------------------------------------------------------------------------------------------------
  * The page
  * ---------------------------------------------------------------------------------------------- */
 
 describe('a cooked item’s page', () => {
-    it('opens a sauce on its recipe, with packaging and a Selling tab that holds its listing', async () => {
-        await renderSauceRecipe(sauce());
+    it('opens a sauce on its recipe, its shop description and diets on Description, and no Selling tab', async () => {
+        await renderSauceRecipe(sauce({ dietClassifications: ['vegan', 'vegetarian'] }));
 
         await untilVisible('kitchen-recipe-editor-screen-header');
-        // A sauce's bottles are packaging lines, as a meal's box is.
-        expect(screen.getByTestId('kitchen-recipe-tab-packaging')).toBeTruthy();
+        // A sauce's bottles are its packs, priced where they sell — the tab keeps its old key.
+        expect(screen.getByTestId('kitchen-recipe-tab-packaging')).toHaveTextContent(
+            /Packs & prices/,
+        );
+        expect(screen.queryByTestId('kitchen-recipe-tab-selling')).toBeNull();
 
-        await press('kitchen-recipe-tab-selling');
-        await untilVisible('kitchen-product-packs');
-
-        // The page is the recipe and its kind is the category: neither is asked again here.
-        expect(screen.queryByTestId('kitchen-product-recipe-select')).toBeNull();
-        expect(screen.queryByTestId('kitchen-product-category')).toBeNull();
-        // Made, not bought: no last purchase price beside the B2B and B2C prices.
-        expect(screen.queryByTestId('kitchen-product-unit-price')).toBeNull();
-        expect(screen.getByTestId('kitchen-product-publish')).toBeTruthy();
-        expect(screen.getByTestId('kitchen-product-editor-screen-status')).toBeTruthy();
-        // One seller, so nothing to choose between.
-        expect(screen.queryByTestId('kitchen-recipe-selling-seller')).toBeNull();
-    });
-
-    it('draws the listing’s Archive in the header row beside Cancel, on Selling only', async () => {
-        await renderSauceRecipe(sauce());
-
-        await untilVisible('kitchen-recipe-editor-screen-header');
+        // The item's description is the one the Description tab edits; its diets are read-only.
+        await waitFor(() => {
+            expect(screen.getByTestId(DESCRIPTION).props.value).toBe('Toum.');
+        });
+        await untilVisible('kitchen-recipe-diets');
+        expect(screen.getByTestId('kitchen-recipe-diet-vegan')).toBeTruthy();
+        expect(screen.getByTestId('kitchen-recipe-diet-vegetarian')).toBeTruthy();
+        // No listing of its own: no second status, Publish or Archive.
+        expect(screen.queryByTestId('kitchen-product-publish')).toBeNull();
         expect(screen.queryByTestId('kitchen-product-archive')).toBeNull();
-
-        await press('kitchen-recipe-tab-selling');
-        await untilVisible('kitchen-product-archive');
-
-        // One Archive, and it is the header's: inside the same row as Cancel.
-        expect(screen.getAllByTestId('kitchen-product-archive')).toHaveLength(1);
-        const header = screen.getByTestId('kitchen-recipe-editor-screen-header');
-        expect(within(header).getByTestId('kitchen-product-archive')).toBeTruthy();
-        expect(within(header).getByTestId('kitchen-recipe-editor-screen-discard')).toBeTruthy();
-
-        await press('kitchen-product-archive');
-        await untilVisible('kitchen-product-archive-dialog');
+        // One seller, so nothing to choose between.
+        expect(screen.queryByTestId('kitchen-recipe-packs-seller')).toBeNull();
     });
 
-    it('saves the listing from the recipe’s one Save, against the item’s own lock version, and writes no recipe', async () => {
+    it('saves the item’s name and description from the recipe’s one Save, against the item’s own lock version', async () => {
         const stored = sauce();
         const { repositories } = await renderSauceRecipe(stored, {
             updateProduct: async () => stored,
@@ -418,55 +450,96 @@ describe('a cooked item’s page', () => {
         });
 
         await untilVisible('kitchen-recipe-editor-screen-header');
-        await press('kitchen-recipe-tab-selling');
-        await untilVisible(PACK_LABEL);
-
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId(PACK_LABEL), 'Squeeze bottle 300 g');
+        await waitFor(() => {
+            expect(screen.getByTestId(DESCRIPTION).props.value).toBe('Toum.');
         });
-        // One Save for every tab: the listing draws none of its own.
-        expect(screen.queryByTestId('kitchen-product-editor-screen-save')).toBeNull();
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(DESCRIPTION), 'Toum, whipped.');
+        });
         await press('kitchen-recipe-editor-screen-save');
 
         await waitFor(() => {
-            expect(repositories.kitchenAdmin.updateProduct).toHaveBeenCalledWith(
-                SAUCE_ID,
-                expect.objectContaining({
-                    lockVersion: 7,
-                    // Echoed, not cleared: the page decides the recipe and the category.
-                    recipeId: RECIPE_ID,
-                    categoryCode: 'sauce',
-                    packVariants: [
-                        expect.objectContaining({
-                            code: 'BTL300',
-                            label: { en: 'Squeeze bottle 300 g', ar: 'عبوة 300 غ' },
-                        }),
-                    ],
-                }),
-            );
+            expect(repositories.kitchenAdmin.updateProduct).toHaveBeenCalledWith(SAUCE_ID, {
+                lockVersion: 7,
+                name: RECIPE.name,
+                description: { en: 'Toum, whipped.', ar: 'ثومية.' },
+            });
         });
+        expect(repositories.kitchenAdmin.setProductChannelAvailability).not.toHaveBeenCalled();
         expect(repositories.kitchenAdmin.setRecipeLines).not.toHaveBeenCalled();
-        // And says once that everything saved.
         await untilVisible('kitchen-recipe-editor-screen-saved');
     });
 
-    it('keeps a half-typed pack through a tab switch, and asks before leaving with it', async () => {
+    it('saves Packs & prices after the item’s text, on the lock that write left', async () => {
+        // The text's write moves the item from 7 to 8; the packs write must send 8, read from
+        // the cache when it is sent — not the 7 it opened on.
+        let current = sauce();
+        const { repositories } = await renderSauceRecipe(current, {
+            getProduct: async () => current,
+            updateProduct: async () => {
+                current = sauce({ meta: meta({ lockVersion: 8 }) });
+                return current;
+            },
+            getItemPacks: async () => saucePacks(current.meta.lockVersion),
+            setItemPacks: async () => saucePacks(9),
+        });
+
+        await untilVisible('kitchen-recipe-editor-screen-header');
+        await press('kitchen-recipe-tab-packaging');
+        await untilVisible(PACK_HOME_PRICE);
+        expect(screen.getByTestId(PACK_HOME_PRICE).props.value).toBe('3.00');
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(PACK_HOME_PRICE), '3.50');
+        });
+
+        await press('kitchen-recipe-tab-description');
+        await untilVisible(DESCRIPTION);
+        await act(async () => {
+            fireEvent.changeText(screen.getByTestId(DESCRIPTION), 'Toum, whipped.');
+        });
+        await press('kitchen-recipe-editor-screen-save');
+
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.setItemPacks).toHaveBeenCalledTimes(1);
+        });
+        const updateOrder = (repositories.kitchenAdmin.updateProduct as jest.Mock).mock
+            .invocationCallOrder[0];
+        const packsOrder = (repositories.kitchenAdmin.setItemPacks as jest.Mock).mock
+            .invocationCallOrder[0];
+        expect(updateOrder).toBeLessThan(packsOrder ?? 0);
+        expect(repositories.kitchenAdmin.setItemPacks).toHaveBeenCalledWith(
+            SAUCE_ID,
+            expect.objectContaining({
+                lockVersion: 8,
+                places: { home: true, business: false, counter: false },
+                packs: [
+                    expect.objectContaining({
+                        id: SAUCE_PACK,
+                        prices: { home: 350, business: null },
+                    }),
+                ],
+            }),
+        );
+        await untilVisible('kitchen-recipe-editor-screen-saved');
+    });
+
+    it('keeps a half-typed description through a tab switch, and marks the page unsaved', async () => {
         await renderSauceRecipe(sauce());
 
         await untilVisible('kitchen-recipe-editor-screen-header');
-        await press('kitchen-recipe-tab-selling');
-        await untilVisible(PACK_LABEL);
+        await waitFor(() => {
+            expect(screen.getByTestId(DESCRIPTION).props.value).toBe('Toum.');
+        });
         await act(async () => {
-            fireEvent.changeText(screen.getByTestId(PACK_LABEL), 'Squeeze bot');
+            fireEvent.changeText(screen.getByTestId(DESCRIPTION), 'Toum, whi');
         });
 
         await press('kitchen-recipe-tab-production');
-        await press('kitchen-recipe-tab-selling');
-        expect(screen.getByTestId(PACK_LABEL).props.value).toBe('Squeeze bot');
+        await press('kitchen-recipe-tab-description');
+        await untilVisible(DESCRIPTION);
+        expect(screen.getByTestId(DESCRIPTION).props.value).toBe('Toum, whi');
 
-        // The recipe is untouched; the listing is not, and that is enough to ask.
-        await press('kitchen-recipe-editor-screen-discard');
-        await untilVisible('kitchen-recipe-editor-screen-unsaved-dialog');
+        expect(screen.getByTestId('kitchen-recipe-editor-screen-dirty')).toBeTruthy();
         expect(routerMock.__push).not.toHaveBeenCalled();
     });
 
@@ -479,35 +552,30 @@ describe('a cooked item’s page', () => {
         await untilVisible('kitchen-recipe-editor-screen-header');
         expect(screen.getByTestId('kitchen-recipe-tab-sheet')).toBeTruthy();
         expect(screen.queryByTestId('kitchen-recipe-tab-selling')).toBeNull();
+        // Nothing sells it, so there is no shop description and no diets to show.
+        expect(screen.queryByTestId(DESCRIPTION)).toBeNull();
+        expect(screen.queryByTestId('kitchen-recipe-diets')).toBeNull();
     });
 
-    it('asks for the pieces produced before a meal’s recipe is published, and only a meal’s', async () => {
-        // At a desk's width, where the issue tray is docked and open beside the page.
-        await withDeskWidth(askForPieces);
-    });
-
-    async function askForPieces() {
-        await renderStubScreen(<RecipeBookEditScreen recipe={String(RECIPE_ID)} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    ...pageReads(sauce(), soldAs(seller(), MEAL_SELLER)),
-                    getMeal: async () => mealItem(),
+    it('asks for no pieces produced, even on a meal’s recipe — the field is optional', async () => {
+        await withDeskWidth(async () => {
+            await renderStubScreen(<RecipeBookEditScreen recipe={String(RECIPE_ID)} />, {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...pageReads(sauce(), soldAs(seller(), MEAL_SELLER)),
+                        getMeal: async () => mealItem(),
+                    },
                 },
-            },
-        });
+            });
 
-        // A card in the tray from the start, with the Production tab counting it.
-        await untilVisible('kitchen-recipe-issues-publish-pieces');
-        await press('kitchen-recipe-issues-publish-pieces-fix');
-        await untilVisible('kitchen-recipe-yield-pieces-input');
-
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-recipe-yield-pieces-input'), '8');
+            await untilVisible('kitchen-recipe-editor-screen-header');
+            await press('kitchen-recipe-tab-production');
+            await untilVisible('kitchen-recipe-yield-pieces-input');
+            expect(screen.queryByTestId('kitchen-recipe-issues-publish-pieces')).toBeNull();
+            expect(screen.queryByTestId('kitchen-recipe-check-pieces')).toBeNull();
         });
-        // Filled in, the card clears itself.
-        expect(screen.queryByTestId('kitchen-recipe-issues-publish-pieces')).toBeNull();
-    }
+    });
 
     it('owes no piece count on a recipe only a sauce sells', async () => {
         await renderSauceRecipe(sauce());
@@ -516,34 +584,38 @@ describe('a cooked item’s page', () => {
         expect(screen.queryByTestId('kitchen-recipe-issues-publish-pieces')).toBeNull();
     });
 
-    it('switches between the listings of a recipe sold twice', async () => {
-        await renderStubScreen(<RecipeBookEditScreen recipe={String(RECIPE_ID)} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    ...pageReads(sauce(), soldAs(seller(), MEAL_SELLER)),
-                    getMeal: async () => mealItem(),
+    it('switches sellers above Packs & prices on a recipe sold twice', async () => {
+        const { repositories } = await renderStubScreen(
+            <RecipeBookEditScreen recipe={String(RECIPE_ID)} />,
+            {
+                session: kitchenManagerSession(),
+                repositories: {
+                    kitchenAdmin: {
+                        ...pageReads(sauce(), soldAs(seller(), MEAL_SELLER)),
+                        getMeal: async () => mealItem(),
+                        getItemPacks: async () => saucePacks(7),
+                    },
                 },
             },
-        });
+        );
 
         await untilVisible('kitchen-recipe-editor-screen-header');
-        await press('kitchen-recipe-tab-selling');
+        await press('kitchen-recipe-tab-packaging');
 
         // The first seller opens, with a switch naming each by its handle, or its slug without one.
-        await untilVisible('kitchen-product-packs');
-        expect(screen.getByTestId('kitchen-recipe-selling-seller')).toBeTruthy();
+        await untilVisible('kitchen-recipe-packs-seller');
         expect(
-            screen.getByTestId(`kitchen-recipe-selling-seller-${String(SAUCE_ID)}`),
+            screen.getByTestId(`kitchen-recipe-packs-seller-${String(SAUCE_ID)}`),
         ).toHaveTextContent(/SAC-044/);
         expect(
-            screen.getByTestId(`kitchen-recipe-selling-seller-${String(MEAL_ID)}`),
+            screen.getByTestId(`kitchen-recipe-packs-seller-${String(MEAL_ID)}`),
         ).toHaveTextContent(/toum-bowl/);
 
-        await press(`kitchen-recipe-selling-seller-${String(MEAL_ID)}`);
+        await press(`kitchen-recipe-packs-seller-${String(MEAL_ID)}`);
 
-        await untilVisible('kitchen-meal-portion-input');
-        expect(screen.queryByTestId('kitchen-product-packs')).toBeNull();
+        await waitFor(() => {
+            expect(repositories.kitchenAdmin.getItemPacks).toHaveBeenCalledWith(MEAL_ID);
+        });
     });
 });
 
@@ -566,27 +638,21 @@ describe('an item’s address', () => {
         expect(routerMock.__replace).toHaveBeenCalledTimes(1);
     });
 
-    it('opens a sauce with no recipe yet as the full recipe page, its listing on Selling', async () => {
+    it('opens a sauce with no recipe yet as the full recipe page, its description on Description', async () => {
         await renderSauceItem(sauce({ recipeId: null }));
 
         // Every tab, as the recipe it is about to become, named after the item.
         await untilVisible('kitchen-recipe-editor-screen-header');
-        for (const tab of [
-            'description',
-            'production',
-            'packaging',
-            'costing',
-            'selling',
-            'sheet',
-        ]) {
+        for (const tab of ['description', 'production', 'packaging', 'costing', 'sheet']) {
             expect(screen.getByTestId(`kitchen-recipe-tab-${tab}`)).toBeTruthy();
         }
+        expect(screen.queryByTestId('kitchen-recipe-tab-selling')).toBeNull();
         expect(screen.getByTestId('kitchen-recipe-editor-screen-title')).toHaveTextContent(
             /Garlic sauce/,
         );
-        await press('kitchen-recipe-tab-selling');
-        await untilVisible('kitchen-product-packs');
-        expect(screen.getByTestId('kitchen-product-publish')).toBeTruthy();
+        await waitFor(() => {
+            expect(screen.getByTestId(DESCRIPTION).props.value).toBe('Toum.');
+        });
         expect(routerMock.__replace).not.toHaveBeenCalled();
     });
 
@@ -706,19 +772,17 @@ function mealReads(item: MealAdmin, recipe: RecipeAdmin = soldAs(MEAL_SELLER)) {
 }
 
 describe('a meal page', () => {
-    it('opens a meal on its recipe, with the portion and service days on its Selling tab', async () => {
+    it('opens a meal on its recipe, with the meal’s description on Description', async () => {
         await renderStubScreen(<RecipeBookEditScreen recipe={String(RECIPE_ID)} />, {
             session: kitchenManagerSession(),
             repositories: { kitchenAdmin: mealReads(mealItem()) },
         });
 
         await untilVisible('kitchen-recipe-editor-screen-header');
-        await press('kitchen-recipe-tab-selling');
-        await untilVisible('kitchen-meal-portion-input');
-
-        // The page is the recipe, so the listing no longer asks which one.
-        expect(screen.queryByTestId('kitchen-meal-recipe-select')).toBeNull();
-        expect(screen.getByTestId('kitchen-meal-availability-add')).toBeTruthy();
+        await waitFor(() => {
+            expect(screen.getByTestId(DESCRIPTION).props.value).toBe('Garlic sauce and chicken.');
+        });
+        expect(screen.queryByTestId('kitchen-recipe-tab-selling')).toBeNull();
     });
 
     it('writes a new meal recipe first, then the listing that sells it, and lands on the recipe', async () => {
@@ -816,7 +880,7 @@ describe('a meal page', () => {
         expect(repositories.kitchenAdmin.createProduct).not.toHaveBeenCalled();
     });
 
-    it('opens a meal with no recipe yet as the full recipe page, its listing on Selling', async () => {
+    it('opens a meal with no recipe yet as the full recipe page, its description on Description', async () => {
         await renderStubScreen(<CookedItemEditScreen item={String(MEAL_ID)} kind="meal" />, {
             session: kitchenManagerSession(),
             repositories: {
@@ -825,8 +889,10 @@ describe('a meal page', () => {
         });
 
         await untilVisible('kitchen-recipe-tab-production');
-        await press('kitchen-recipe-tab-selling');
-        await untilVisible('kitchen-meal-portion-input');
+        expect(screen.queryByTestId('kitchen-recipe-tab-selling')).toBeNull();
+        await waitFor(() => {
+            expect(screen.getByTestId(DESCRIPTION).props.value).toBe('Garlic sauce and chicken.');
+        });
     });
 });
 

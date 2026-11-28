@@ -1,14 +1,5 @@
 import type { ProductAdmin, PublishableStatus } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    Button,
-    Cascade,
-    Dialog,
-    Icon,
-    Inline,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { Cascade, Dialog, Icon, Inline, Text, useToast } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
@@ -16,6 +7,7 @@ import type { TFunction } from 'i18next';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate, useCan } from '../../../access/gate.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
@@ -27,7 +19,6 @@ import { CatalogueTransferActions } from '../catalogue/catalogue-transfer-action
 import { LensBar } from '../catalogue/lens-bar.tsx';
 import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { statusLensFigures, statusLensMix, statusLensTokens } from '../catalogue/lens-status.ts';
-import { RecordPhoto } from '../catalogue/record-photo.tsx';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import type { CatalogueViewField } from '../catalogue/record-view-page.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
@@ -53,6 +44,8 @@ import {
 } from '../format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/products` — what this kitchen buys in and sells on as goods, rather than cooks. The
  * cooked kinds that were listed here too — sauces, dressings, frozen meals — are recipes in the
@@ -171,6 +164,8 @@ function ProductsList({
     const toast = useToast();
     const canManage = useCan(CATALOGUE_MANAGE_PERMISSION);
     const list = useProductList(family.itemType, family.routeBase, view);
+    // The table closes the toolbar's card only when it is drawn.
+    const joined = !list.isPending && list.failure === null && list.rows.length > 0;
 
     /**
      * Code → the name the kitchen filed it under.
@@ -207,19 +202,18 @@ function ProductsList({
      * route of its own — Back is a state change, so the list's page, sort and filters survive it.
      */
     const viewing = list.viewing;
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-products-view"
-                media={
-                    <RecordPhoto
-                        assetId={viewing.imagePlaceholderId}
-                        photoUrl={viewing.photoUrl}
-                        label={displayName(viewing.name, locale).value}
-                        shape="wide"
-                        testID="kitchen-products-view-photo"
-                    />
-                }
+                look="sheet"
+                eyebrow={t('kitchen:recordView.eyebrowResale')}
+                photo={{
+                    assetId: viewing.imagePlaceholderId,
+                    photoUrl: viewing.photoUrl,
+                    label: displayName(viewing.name, locale).value,
+                }}
+                figureKeys={['packs', 'pricing', 'assorted', 'dataQuality']}
                 kind={t(family.viewKind)}
                 title={displayName(viewing.name, locale).value}
                 status={{
@@ -248,7 +242,6 @@ function ProductsList({
                 chipsContent={channelChips(viewing, t)}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-products-screen">
@@ -256,105 +249,109 @@ function ProductsList({
              * The Lens bar — figures, mix, query row and actions as one object directly over the
              * list it narrows (`lens-bar.tsx`), as on the ingredient list.
              */}
-            <LensBar
-                testID="kitchen-products-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={lensFigures(list, t, t(family.allLabel))}
-                {...statusLensMix(list, t)}
-                search={list.query}
-                onSearchChange={list.setQuery}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t(family.searchPlaceholder)}
-                tokens={statusLensTokens(list, t)}
-                result={
-                    list.total === null
-                        ? null
-                        : t('kitchen:lens.result', { shown: list.shown, total: list.total })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(list.isUnfiltered ? {} : { onClear: list.clearFilters })}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-                actions={
-                    canManage ? (
-                        <Inline space="xs" align="center">
-                            <CatalogueTransferActions testID="kitchen-products-toolbar" />
-                            <Button
-                                testID="kitchen-products-toolbar-create"
-                                label={t(family.create)}
-                                iconStart={<Icon name="plus" size="sm" />}
-                                onPress={list.createNew}
-                            />
-                        </Inline>
-                    ) : undefined
-                }
-            />
-
-            <CatalogueListBody
-                testID="kitchen-products"
-                list={list}
-                empty={{ title: t(family.emptyTitle), body: t(family.emptyBody) }}
-                filteredEmpty={{
-                    title: t('kitchen:products.filteredEmptyTitle'),
-                    body: t('kitchen:products.filteredEmptyBody'),
-                }}
-                create={
-                    canManage ? { label: t(family.create), onPress: list.createNew } : undefined
-                }
-            >
-                <CatalogueList
-                    testID="kitchen-products-table"
-                    label={t(family.caption)}
-                    columns={controls.columns}
-                    rows={list.rows}
-                    rowKey={(row) => String(row.id)}
-                    // Fixed, not switchable: the S/M/L control is gone.
-                    density="sm"
-                    highlightedId={list.lastOpenedId}
-                    onRowPress={(row) => {
-                        list.openEditor(String(row.id));
-                    }}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                    // View, Edit, Archive, in the design's order. Above `md` these are flat
-                    // icon buttons on the row; below it the same array becomes the overflow
-                    // menu, because a narrow row has space for exactly one control.
-                    rowActions={(row): readonly MenuItem[] => [
-                        {
-                            key: 'view',
-                            label: t('kitchen:list.view'),
-                            icon: CATALOGUE_ROW_ICONS.view,
-                            testID: `${productRowTestId(String(row.id))}-view`,
-                            onSelect: () => {
-                                list.openView(row);
-                            },
-                        },
-                        {
-                            key: 'edit',
-                            label: t('kitchen:catalogue.edit'),
-                            icon: CATALOGUE_ROW_ICONS.edit,
-                            testID: `${productRowTestId(String(row.id))}-open`,
-                            onSelect: () => {
-                                list.openEditor(String(row.id));
-                            },
-                        },
-                        // Archive is offered only where it would be accepted: the permission,
-                        // and a row that is not already archived.
-                        ...(canManage && row.meta.status !== 'retired'
-                            ? [
-                                  {
-                                      key: 'archive',
-                                      label: t('kitchen:list.archive'),
-                                      icon: CATALOGUE_ROW_ICONS.archive,
-                                      tone: 'danger' as const,
-                                      testID: `${productRowTestId(String(row.id))}-archive`,
-                                      onSelect: () => {
-                                          list.askToArchive(row);
-                                      },
-                                  },
-                              ]
-                            : []),
-                    ]}
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-products-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures(list, t, t(family.allLabel))}
+                    {...statusLensMix(list, t)}
+                    search={list.query}
+                    onSearchChange={list.setQuery}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t(family.searchPlaceholder)}
+                    tokens={statusLensTokens(list, t)}
+                    result={
+                        list.total === null
+                            ? null
+                            : t('kitchen:lens.result', { shown: list.shown, total: list.total })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(list.isUnfiltered ? {} : { onClear: list.clearFilters })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
+                    actions={
+                        canManage ? (
+                            <Inline space="xs" align="center">
+                                <CatalogueTransferActions testID="kitchen-products-toolbar" />
+                                <DeskButton
+                                    testID="kitchen-products-toolbar-create"
+                                    label={t(family.create)}
+                                    iconStart={<Icon name="plus" size="sm" />}
+                                    onPress={list.createNew}
+                                />
+                            </Inline>
+                        ) : undefined
+                    }
                 />
-            </CatalogueListBody>
+
+                <CatalogueListBody
+                    testID="kitchen-products"
+                    list={list}
+                    empty={{ title: t(family.emptyTitle), body: t(family.emptyBody) }}
+                    filteredEmpty={{
+                        title: t('kitchen:products.filteredEmptyTitle'),
+                        body: t('kitchen:products.filteredEmptyBody'),
+                    }}
+                    create={
+                        canManage ? { label: t(family.create), onPress: list.createNew } : undefined
+                    }
+                >
+                    <CatalogueList
+                        testID="kitchen-products-table"
+                        joined
+                        label={t(family.caption)}
+                        columns={controls.columns}
+                        rows={list.rows}
+                        rowKey={(row) => String(row.id)}
+                        // Fixed, not switchable: the S/M/L control is gone.
+                        density="sm"
+                        highlightedId={list.lastOpenedId}
+                        onRowPress={(row) => {
+                            list.openView(row);
+                        }}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        // View, Edit, Archive, in the design's order, behind the row's ⋯.
+                        rowActions={(row): readonly MenuItem[] => [
+                            {
+                                key: 'view',
+                                label: t('kitchen:list.view'),
+                                icon: CATALOGUE_ROW_ICONS.view,
+                                testID: `${productRowTestId(String(row.id))}-view`,
+                                onSelect: () => {
+                                    list.openView(row);
+                                },
+                            },
+                            {
+                                key: 'edit',
+                                label: t('kitchen:catalogue.edit'),
+                                icon: CATALOGUE_ROW_ICONS.edit,
+                                testID: `${productRowTestId(String(row.id))}-open`,
+                                onSelect: () => {
+                                    list.openEditor(String(row.id));
+                                },
+                            },
+                            // Archive is offered only where it would be accepted: the permission,
+                            // and a row that is not already archived.
+                            ...(canManage && row.meta.status !== 'retired'
+                                ? [
+                                      {
+                                          key: 'archive',
+                                          label: t('kitchen:list.archive'),
+                                          icon: CATALOGUE_ROW_ICONS.archive,
+                                          tone: 'danger' as const,
+                                          testID: `${productRowTestId(String(row.id))}-archive`,
+                                          onSelect: () => {
+                                              list.askToArchive(row);
+                                          },
+                                      },
+                                  ]
+                                : []),
+                        ]}
+                    />
+                </CatalogueListBody>
+            </View>
 
             {/*
              * Archiving is the only lifecycle action the contract gives this family. The dialog says
@@ -362,6 +359,7 @@ function ProductsList({
              * pointing at it — because "archive" on its own reads like a delete and is not one.
              */}
             <Dialog
+                look="card"
                 testID="kitchen-products-archive-dialog"
                 open={list.archiving !== null}
                 onClose={list.cancelArchive}
@@ -369,13 +367,13 @@ function ProductsList({
                 description={t('kitchen:products.archiveBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-products-archive-cancel"
                             variant="quiet"
                             label={t('kitchen:common.cancel')}
                             onPress={list.cancelArchive}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-products-archive-confirm"
                             variant="danger"
                             label={t('kitchen:products.archiveConfirm')}
@@ -399,13 +397,15 @@ function ProductsList({
                     </Text>
                 )}
             </Dialog>
+
+            {viewPopup}
         </Cascade>
     );
 }
 
 /**
- * The Lens bar's figures: All · Published · Draft · Awaiting review, then the two that block
- * publishing. Missing Arabic and No pack count the rows the list shows, the status included.
+ * The Lens bar's figures: All · Published · Draft · Awaiting review, then No pack, which counts
+ * the rows the list shows, the status included.
  */
 function lensFigures(
     list: ProductListState,
@@ -418,15 +418,8 @@ function lensFigures(
             allLabel,
         }),
         {
-            key: 'missingArabic',
-            label: t('kitchen:list.statMissingArabic'),
-            value: counted(list.missingArabicCount),
-            tone: 'danger',
-            alarm: true,
-            separated: true,
-        },
-        {
             key: 'noPack',
+            separated: true,
             label: t('kitchen:products.statNoPack'),
             value: counted(list.noPackCount),
             tone: 'warning',
@@ -439,10 +432,10 @@ function channelChips(row: ProductAdmin, t: TFunction): ReactNode {
     const channels = availableChannels(row.channelAvailability);
 
     return channels.length === 0 ? (
-        <Text tone="secondary">{t('kitchen:products.noChannels')}</Text>
+        <DeskChip tone="neutral" label={t('kitchen:products.noChannels')} />
     ) : (
         channels.map((channel) => (
-            <Badge key={channel} tone="info" label={t(channelKey(channel))} />
+            <DeskChip key={channel} tone="info" label={t(channelKey(channel))} />
         ))
     );
 }

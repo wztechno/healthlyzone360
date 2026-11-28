@@ -28,6 +28,7 @@ import {
 } from './ops-format.ts';
 import { SupplierDetailScreen } from './screens/supplier-detail-screen.tsx';
 import { SuppliersScreen } from './screens/suppliers-screen.tsx';
+import { getRecordAction } from '../../testing/record-actions.ts';
 
 /*
  * The Operations lists are desk surfaces: at desk width a row draws every column the spec declares.
@@ -72,6 +73,9 @@ jest.mock('expo-router', () => {
     const dismissTo = jest.fn();
     return {
         __esModule: true,
+        useSegments: () => [],
+        useGlobalSearchParams: () => ({}),
+        useNavigation: () => ({}),
         useRouter: () => ({
             push,
             replace,
@@ -331,8 +335,12 @@ describe('suppliers list', () => {
         await untilVisible('kitchen-suppliers-view');
         expect(routerMock.__setParams).toHaveBeenLastCalledWith({ view: String(GULF.id) });
 
+        const action = await getRecordAction(
+            'kitchen-suppliers-view',
+            'kitchen-suppliers-view-primary',
+        );
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-suppliers-view-primary'));
+            fireEvent.press(action);
         });
         expect(routerMock.__push).toHaveBeenCalledWith(
             withReturnTo(
@@ -349,7 +357,8 @@ describe('suppliers list', () => {
         });
 
         await untilVisible('kitchen-suppliers-view');
-        expect(screen.queryByTestId('kitchen-suppliers-table')).toBeNull();
+        // A pop-up over the list: the list stays mounted behind it.
+        expect(screen.getByTestId('kitchen-suppliers-table')).toBeTruthy();
     });
 
     it('searches the English name, the Arabic name and the code', async () => {
@@ -650,7 +659,7 @@ describe('supplier detail', () => {
         expect(screen.queryByTestId('kitchen-supplier-screen-steps-nav')).toBeNull();
     });
 
-    it('is one step — details — until the first save, so it draws no progress row', async () => {
+    it('shows all three steps on a new supplier, with contacts and items locked until saved', async () => {
         await renderStubScreen(<SupplierDetailScreen supplier="new" />, {
             session: kitchenManagerSession(),
             repositories: { kitchenOps: {} },
@@ -658,9 +667,19 @@ describe('supplier detail', () => {
 
         await untilVisible('kitchen-supplier-details');
 
-        expect(screen.queryByTestId('kitchen-supplier-screen-steps')).toBeNull();
-        expect(screen.queryByTestId('kitchen-supplier-screen-steps-nav')).toBeNull();
+        // The steps say where the form goes next, but nothing hangs off a supplier not yet saved.
+        for (const step of ['contacts', 'items'] as const) {
+            expect(
+                screen.getByTestId(`kitchen-supplier-screen-steps-${step}`).props.accessibilityState
+                    ?.disabled,
+            ).toBe(true);
+        }
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-supplier-screen-steps-contacts'));
+        });
         expect(screen.queryByTestId('kitchen-supplier-contacts')).toBeNull();
+        expect(screen.getByTestId('kitchen-supplier-details')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-supplier-screen-steps-nav')).toBeNull();
     });
 
     it('puts a refused email on the Email field and names it in the issue banner (BUG-06)', async () => {
@@ -747,7 +766,7 @@ describe('supplied items', () => {
         const priced = suppliedItemRowTestId(String(stockItemId(1)));
         expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/2\.50/);
         expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/USD/);
-        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/kg/);
+        expect(screen.getByTestId(`${priced}-price`)).toHaveTextContent(/Kg/);
         expect(screen.getByTestId(`${priced}-preferred`)).toBeTruthy();
         expect(screen.getByTestId(`${priced}-ref`)).toHaveTextContent('GF-FLOUR-25');
 

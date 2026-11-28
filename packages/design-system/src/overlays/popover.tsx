@@ -4,6 +4,7 @@ import { Platform, Pressable, Text as RNText, View } from 'react-native';
 
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
+import { useDensity } from '../hooks/use-density.tsx';
 import { useIsCoarsePointer } from '../hooks/use-pointer.ts';
 import { cx } from '../internal/class-names.ts';
 import { KEYS, keyDownProps } from '../internal/web-props.ts';
@@ -92,6 +93,7 @@ export function Popover({
     className,
     testID,
 }: PopoverProps) {
+    const density = useDensity();
     const generated = useId();
     const base = testID ?? `popover-${generated.replace(/:/g, '')}`;
     const panelId = `${base}-panel`;
@@ -127,6 +129,9 @@ export function Popover({
             document.removeEventListener('pointerdown', onPointerDown);
         };
     }, [open]);
+
+    // On the admin ladder a button trigger is the toolbar's 34px pill.
+    const compactButton = density === 'compact' && triggerVariant === 'button';
 
     const onTriggerKeyDown = (event: WebKeyEvent) => {
         if (event.key === KEYS.escape && openRef.current) {
@@ -167,9 +172,12 @@ export function Popover({
                     setOpen((current) => !current);
                 }}
                 className={cx(
-                    'min-h-touch flex-row items-center gap-1.5 self-start rounded-lg',
+                    'flex-row items-center gap-1.5 self-start',
+                    compactButton ? 'h-desk-toolbar rounded-full' : 'min-h-touch rounded-lg',
                     triggerVariant === 'button'
-                        ? 'border border-stroke bg-surface-raised px-3.5 py-2'
+                        ? compactButton
+                            ? 'border border-stroke-subtle bg-surface-raised px-3 hover:bg-surface-brand-subtle'
+                            : 'border border-stroke bg-surface-raised px-3.5 py-2'
                         : 'px-2 py-1',
                 )}
             >
@@ -179,9 +187,11 @@ export function Popover({
                 {triggerText === undefined ? null : (
                     <RNText
                         className={cx(
-                            'text-sm text-start',
+                            compactButton ? 'text-[13px] text-start' : 'text-sm text-start',
                             triggerVariant === 'button'
-                                ? 'font-medium text-content-primary'
+                                ? compactButton
+                                    ? 'font-semibold text-content-primary'
+                                    : 'font-medium text-content-primary'
                                 : 'text-content-secondary underline',
                         )}
                     >

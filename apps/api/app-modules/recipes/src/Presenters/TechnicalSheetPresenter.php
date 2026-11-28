@@ -9,6 +9,7 @@ use Healthy360\Recipes\Models\RecipeVersionLine;
 use Healthy360\Recipes\Models\RecipeVersionPackaging;
 use Healthy360\Recipes\Services\CostComputation;
 use Healthy360\Recipes\Services\PackagingCostComputation;
+use Healthy360\Recipes\Services\PackCost;
 use Healthy360\Recipes\Services\WeeklyCostComputation;
 use Healthy360\Recipes\Services\WeeklyLineCost;
 
@@ -128,8 +129,9 @@ final class TechnicalSheetPresenter
      *
      *
      * @param  list<array{line_number: int, ingredient_id: string, cost_per_package_amount: string|null}>  $packages
-     * @param  list<array{line_number: int, ingredient_id: string, unit_cost_amount: string|null, line_cost_amount: string|null}>  $productionLines
+     * @param  list<array{line_number: int, ingredient_id: string, unit_cost_amount: string|null, line_cost_amount: string|null, cost_source?: string|null, source_recipe?: array{id: string, name_en: string, name_ar: string}|null}>  $productionLines  `cost_source` and `source_recipe` default to null
      * @param  list<array{line_number: int, ingredient_id: string, unit_cost_amount: string|null, line_cost_amount: string|null}>  $packagingLines
+     * @param  list<array{key: string, contents_amount: string|null, packaging_amount: string|null, cost_amount: string|null, withheld_reason: string|null}>  $packs  what each sold pack costs ({@see PackCost}); only a draft preview states packs, so a saved sheet serves `[]`
      * @return array{
      *     currency_code: string|null,
      *     production: array{
@@ -141,7 +143,7 @@ final class TechnicalSheetPresenter
      *         waste_percent: string,
      *         uncosted_line_numbers: list<int>,
      *         is_complete: bool,
-     *         lines: list<array{line_number: int, ingredient_id: string, unit_cost_amount: string|null, line_cost_amount: string|null}>
+     *         lines: list<array{line_number: int, ingredient_id: string, unit_cost_amount: string|null, line_cost_amount: string|null, cost_source: string|null, source_recipe: array{id: string, name_en: string, name_ar: string}|null}>
      *     },
      *     packaging: array{
      *         total_packaging_cost_amount: string,
@@ -154,7 +156,8 @@ final class TechnicalSheetPresenter
      *     },
      *     total_cost_per_yield_unit_amount: string|null,
      *     yield_unit_id: string|null,
-     *     packages: list<array{line_number: int, ingredient_id: string, cost_per_package_amount: string|null}>
+     *     packages: list<array{line_number: int, ingredient_id: string, cost_per_package_amount: string|null}>,
+     *     packs: list<array{key: string, contents_amount: string|null, packaging_amount: string|null, cost_amount: string|null, withheld_reason: string|null}>
      * }
      */
     public function computed(
@@ -164,6 +167,7 @@ final class TechnicalSheetPresenter
         array $packages = [],
         array $productionLines = [],
         array $packagingLines = [],
+        array $packs = [],
     ): array {
         return [
             /*
@@ -182,7 +186,12 @@ final class TechnicalSheetPresenter
                 'waste_percent' => $production->wasteCoefficientPercent,
                 'uncosted_line_numbers' => $production->uncostedLineNumbers,
                 'is_complete' => $production->isComplete(),
-                'lines' => $productionLines,
+                // Where each cost came from (S6). A saved sheet's lines carry frozen figures whose
+                // source was never recorded, so they say null rather than guess one.
+                'lines' => array_map(static fn (array $line): array => $line + [
+                    'cost_source' => null,
+                    'source_recipe' => null,
+                ], $productionLines),
             ],
             'packaging' => [
                 'total_packaging_cost_amount' => $packaging->totalPackagingCostAmount,
@@ -199,6 +208,7 @@ final class TechnicalSheetPresenter
             // One entry per packaging line, answerable or not — see
             // `RecipeCostingService::costPerPackage()` for why a null is kept rather than dropped.
             'packages' => $packages,
+            'packs' => $packs,
         ];
     }
 
@@ -229,6 +239,9 @@ final class TechnicalSheetPresenter
             $weekly->packaging,
             $weekly->totalCostPerYieldUnitAmount,
         );
+
+        // The weekly block knows nothing of packs, and its schema does not carry them.
+        unset($block['packs']);
 
         $block['weekly_price_publication_id'] = $weekly->weeklyPricePublicationId;
         $block['has_carried_forward_prices'] = $weekly->hasCarriedForwardPrices();

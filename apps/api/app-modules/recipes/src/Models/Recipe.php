@@ -44,6 +44,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property RecipeStatus $status
  * @property string|null $notes
  * @property int|null $shelf_life_days days a batch keeps; a completed batch's expiry is its production date plus this
+ * @property string|null $twin_ingredient_id the ingredient a preparation is used as in other recipes; null when a listing holds the twin
  * @property string|null $source_system
  * @property string|null $source_ref
  * @property CarbonImmutable|null $seeded_at

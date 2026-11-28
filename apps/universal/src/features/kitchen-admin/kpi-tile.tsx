@@ -44,7 +44,7 @@ export function KpiTile({
     return (
         <View
             testID={testID}
-            className="min-h-[96px] min-w-[140px] flex-1 basis-[140px] rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
+            className="min-h-[96px] min-w-[140px] flex-1 basis-[140px] rounded-panel border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-card"
         >
             <Text tone="secondary" variant="micro">
                 {label}

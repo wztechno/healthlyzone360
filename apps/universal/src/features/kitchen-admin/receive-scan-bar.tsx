@@ -1,6 +1,5 @@
 import type { ApiFailure, BarcodeScan, StockItem } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Dialog,
     QuantityInput,
@@ -26,6 +25,8 @@ import { focusField } from './field-focus.ts';
 import { unitShortKey } from './format.ts';
 import type { ScannedPack } from './receive-delivery-model.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { FailureToast } from './failure-toast.tsx';
 /**
  * The scan field both receive screens put above their lines (ingredient barcodes, plan §8).
  *
@@ -46,6 +47,11 @@ export interface ReceiveScanBarProps {
     readonly onScanned: (pack: ScannedPack) => void;
     /** What the screen has to say about the last scan it placed — a lot kept apart, a pack to type. */
     readonly notice?: ScanNotice | null | undefined;
+    /**
+     * Drawn in a card's title row (the stepped Receive a delivery): no visible label — the
+     * placeholder says what it takes — and a wider field.
+     */
+    readonly inHeader?: boolean | undefined;
 }
 
 /** The screen's word on the last scan it placed, and the row it is about. */
@@ -96,7 +102,13 @@ export function placedScanNotice(
         : null;
 }
 
-export function ReceiveScanBar({ testID, stockItems, onScanned, notice }: ReceiveScanBarProps) {
+export function ReceiveScanBar({
+    testID,
+    stockItems,
+    onScanned,
+    notice,
+    inHeader = false,
+}: ReceiveScanBarProps) {
     const { t } = useTranslation();
     const { locale } = useLocale();
     const resolveScan = useResolveBarcodeScan();
@@ -173,8 +185,9 @@ export function ReceiveScanBar({ testID, stockItems, onScanned, notice }: Receiv
                 testID={`${testID}-code`}
                 id={`${testID}-code`}
                 size="sm"
-                className="w-field"
+                className={inHeader ? 'w-[340px]' : 'w-field'}
                 label={t('kitchen:barcodes.scanLabel')}
+                labelHidden={inHeader}
                 placeholder={t('kitchen:barcodes.scanPlaceholder')}
                 value={code}
                 autoCorrect={false}
@@ -272,6 +285,7 @@ function LinkBarcodeDialog({
 
     return (
         <Dialog
+            look="card"
             testID={testID}
             open
             onClose={onClose}
@@ -279,13 +293,13 @@ function LinkBarcodeDialog({
             description={t('kitchen:barcodes.linkBody', { code: `⁦${scan.data}⁩` })}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID={`${testID}-cancel`}
                         variant="quiet"
                         label={t('kitchen:barcodes.linkCancel')}
                         onPress={onClose}
                     />
-                    <Button
+                    <DeskButton
                         testID={`${testID}-save`}
                         label={t('kitchen:barcodes.linkSave')}
                         loading={link.isPending}
@@ -318,14 +332,11 @@ function LinkBarcodeDialog({
                     value={packQuantity}
                     onChangeText={setPackQuantity}
                 />
-                {failure === null ? null : (
-                    <Callout
-                        testID={`${testID}-error`}
-                        role="alert"
-                        tone="danger"
-                        title={barcodeFailureText(t, failure, locale) ?? ''}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID={`${testID}-error`}
+                    title={barcodeFailureText(t, failure, locale) ?? ''}
+                />
             </Stack>
         </Dialog>
     );

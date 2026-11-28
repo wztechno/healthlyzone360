@@ -26,6 +26,8 @@ import { allergenLabel } from '../ops-format.ts';
 import { CATALOGUE_PRIORITY } from './catalogue-column-spec.ts';
 import type { CatalogueColumn } from './catalogue-column-spec.ts';
 
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { DeskStatusDot } from '../desk-kit/desk-status-dot.tsx';
 /**
  * The recipe book, as an array — every track the merged page can draw, answering this entity's
  * questions: what the recipe is, what it is sold as, and whether that is on sale.
@@ -422,10 +424,9 @@ export function recipeColumns({
                         {title.value}
                     </Text>
                     {title.isFallback ? (
-                        <Badge
+                        <DeskChip
                             testID={`${rowID(row)}-missing-arabic`}
                             tone="warning"
-                            icon="warning"
                             label={t('kitchen:list.missingArabic')}
                         />
                     ) : null}
@@ -570,10 +571,10 @@ export function recipeColumns({
                     {dash}
                 </Text>
             ) : (
-                <Badge
+                // A publish state, so the status column's dot and word.
+                <DeskStatusDot
                     testID={`${rowID(row)}-on-sale`}
                     tone={statusTone(state)}
-                    icon={state === 'published' ? null : undefined}
                     label={t(statusShortKey(state))}
                 />
             );
@@ -592,11 +593,9 @@ export function recipeColumns({
         sortType: 'text',
         value: (row) => t(statusShortKey(row.meta.status)),
         render: (row) => (
-            <Badge
+            <DeskStatusDot
                 testID={`${rowID(row)}-status`}
                 tone={statusTone(row.meta.status)}
-                // No mark on Published — see the note in `ingredient-columns.tsx`.
-                icon={row.meta.status === 'published' ? null : undefined}
                 label={t(statusShortKey(row.meta.status))}
             />
         ),
@@ -647,7 +646,7 @@ export function recipeColumns({
             // A packaged seller with no pack has nothing to price against, so it is flagged; a
             // meal or a preparation has no pack by nature and gets the plain dash.
             return (row.soldAs ?? []).some(missingPack) ? (
-                <Badge
+                <DeskChip
                     testID={`${rowID(row)}-packs-none`}
                     tone="warning"
                     label={t('kitchen:products.noPacks')}
@@ -679,14 +678,14 @@ export function recipeColumns({
             return (
                 <Inline space="xs" align="center">
                     {seller.isMarketPriced ? (
-                        <Badge
+                        <DeskChip
                             testID={`${rowID(row)}-market-priced`}
                             tone="warning"
                             label={t('kitchen:products.marketPricedShort')}
                         />
                     ) : null}
                     {seller.isAssorted ? (
-                        <Badge
+                        <DeskChip
                             testID={`${rowID(row)}-assorted`}
                             tone="neutral"
                             label={t('kitchen:products.assortedShort')}

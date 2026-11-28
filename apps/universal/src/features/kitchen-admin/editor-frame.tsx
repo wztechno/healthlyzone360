@@ -1,10 +1,9 @@
 import type { AdminEntityMeta, AdminRecordMeta } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Cascade,
     Dialog,
     Inline,
+    IssueUnanchored,
     Stack,
     Text,
     useContentWidth,
@@ -24,7 +23,11 @@ import type { EditorStepsProps } from './editor-steps.tsx';
 import { useKitchenTrailLeaf } from './kitchen-ops-shell.tsx';
 import type { OptimisticConcurrency } from './use-optimistic-concurrency.ts';
 import type { UnsavedGuard } from './use-unsaved-guard.ts';
+import { UnsavedMark } from './unsaved-mark.tsx';
+import { PageBackPill } from '../../shell/area-trail.tsx';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 /** The editor rail's width beside the form. A style: there is no rail-width token. */
 const EDITOR_RAIL_WIDTH = 330;
 
@@ -169,6 +172,8 @@ export function EditorFrame({
     // The rail beside the form only while the form keeps its width — on the page, not the window.
     const railBeside = useContentWidth().atLeast(EDITOR_RAIL_WIDTH + 16 + EDITOR_FORM_MIN);
     const formatter = useFormatter();
+    // Beside the title where one is drawn; otherwise on the record-facts line.
+    const titleDrawn = !embedded && !chromeless && !hideTitle && steps === undefined;
 
     const updatedLine = (): string => {
         // An unknown timestamp reads the same as no record at all. `/kitchen/branch-operating` is the
@@ -200,27 +205,19 @@ export function EditorFrame({
     const metaLine = (
         <Inline space="xs" align="center" wrap testID={`${testID}-meta`}>
             {summary !== undefined ? null : meta === null ? (
-                <Badge
+                <DeskChip
                     testID={`${testID}-status`}
                     tone="neutral"
-                    icon="dot"
                     label={t('kitchen:status.draft')}
                 />
             ) : 'status' in meta ? (
-                <Badge
+                <DeskChip
                     testID={`${testID}-status`}
                     tone={statusTone(meta.status)}
                     label={t(statusKey(meta.status))}
                 />
             ) : null}
-            {guard.isDirty ? (
-                <Badge
-                    testID={`${testID}-dirty`}
-                    tone="warning"
-                    icon="warning"
-                    label={t('kitchen:editor.unsaved')}
-                />
-            ) : null}
+            {guard.isDirty && !titleDrawn ? <UnsavedMark testID={`${testID}-dirty`} /> : null}
             <Text testID={`${testID}-updated`} tone="secondary" variant="caption">
                 {updatedLine()}
             </Text>
@@ -247,7 +244,7 @@ export function EditorFrame({
                     >
                         {primaryAction}
                         {hideSave ? null : (
-                            <Button
+                            <DeskButton
                                 testID={`${testID}-save`}
                                 label={saveLabel}
                                 loading={saving}
@@ -260,18 +257,27 @@ export function EditorFrame({
             ) : (
                 <Stack space="xs">
                     <CataloguePageHeader
+                        titleLook="board"
                         testID={`${testID}-header`}
                         titleTestID={`${testID}-title`}
                         // A stepped form draws no heading: the top bar's trail already names
                         // the page, and the progress line is what opens the form.
                         title={hideTitle || steps !== undefined ? undefined : title}
                         titleAside={
-                            titleChip === undefined ? undefined : (
-                                <Badge
-                                    testID={`${testID}-chip`}
-                                    tone={titleChip.tone}
-                                    label={titleChip.label}
-                                />
+                            titleChip === undefined &&
+                            !(titleDrawn && guard.isDirty) ? undefined : (
+                                <Inline space="xs" align="center" wrap>
+                                    {titleChip === undefined ? null : (
+                                        <DeskChip
+                                            testID={`${testID}-chip`}
+                                            tone={titleChip.tone}
+                                            label={titleChip.label}
+                                        />
+                                    )}
+                                    {titleDrawn && guard.isDirty ? (
+                                        <UnsavedMark testID={`${testID}-dirty`} />
+                                    ) : null}
+                                </Inline>
                             )
                         }
                         primaryAction={
@@ -283,9 +289,8 @@ export function EditorFrame({
                                 testID={`${testID}-actions`}
                             >
                                 {hideBack ? null : (
-                                    <Button
+                                    <PageBackPill
                                         testID={`${testID}-back`}
-                                        variant="secondary"
                                         label={backLabel}
                                         onPress={() => {
                                             guard.intercept(onBack);
@@ -295,7 +300,7 @@ export function EditorFrame({
                                 {primaryAction}
                                 {/* A stepped form saves from its last step's Next, not up here. */}
                                 {hideSave || stepped ? null : (
-                                    <Button
+                                    <DeskButton
                                         testID={`${testID}-save`}
                                         label={saveLabel}
                                         loading={saving}
@@ -307,7 +312,7 @@ export function EditorFrame({
                         }
                     />
                     {summary === undefined ? null : summary}
-                    {summary !== undefined && !guard.isDirty ? null : metaLine}
+                    {summary !== undefined && !(guard.isDirty && !titleDrawn) ? null : metaLine}
                 </Stack>
             )}
 
@@ -320,6 +325,12 @@ export function EditorFrame({
             )}
 
             {banner}
+
+            {/*
+             * Inside an inline tray: what is wrong, as chips, only while something is. An embedded
+             * editor leaves it to its host, which draws one row for the whole page.
+             */}
+            {embedded ? null : <IssueUnanchored testID={`${testID}-issues-loose`} />}
 
             {/*
              * The form sits on the page, not in a panel: sections carry their own hairlines
@@ -350,7 +361,7 @@ export function EditorFrame({
                     finalAction={
                         steps.finalAction ??
                         (hideSave ? null : (
-                            <Button
+                            <DeskButton
                                 testID={`${testID}-save`}
                                 label={saveLabel}
                                 loading={saving}
@@ -363,6 +374,7 @@ export function EditorFrame({
             )}
 
             <Dialog
+                look="card"
                 testID={`${testID}-unsaved-dialog`}
                 open={guard.isPrompting}
                 onClose={guard.cancelDiscard}
@@ -370,13 +382,13 @@ export function EditorFrame({
                 description={t('kitchen:unsaved.body')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID={`${testID}-unsaved-keep`}
                             variant="quiet"
                             label={t('kitchen:unsaved.keepEditing')}
                             onPress={guard.cancelDiscard}
                         />
-                        <Button
+                        <DeskButton
                             testID={`${testID}-unsaved-discard`}
                             variant="danger"
                             label={t('kitchen:unsaved.discard')}
@@ -387,6 +399,7 @@ export function EditorFrame({
             />
 
             <Dialog
+                look="card"
                 testID={`${testID}-conflict-dialog`}
                 open={concurrency.conflict !== null}
                 onClose={concurrency.keepEditing}
@@ -395,13 +408,13 @@ export function EditorFrame({
                 description={t('kitchen:conflict.body')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID={`${testID}-conflict-keep`}
                             variant="quiet"
                             label={t('kitchen:conflict.keepEditing')}
                             onPress={concurrency.keepEditing}
                         />
-                        <Button
+                        <DeskButton
                             testID={`${testID}-conflict-reload`}
                             variant="danger"
                             label={t('kitchen:conflict.reload')}

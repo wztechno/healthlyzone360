@@ -117,16 +117,19 @@ describe('the expiry count', () => {
 });
 
 describe('the yield summary', () => {
+    // The catalogue's short label for the one unit these batches use; any other key comes back as-is.
+    const t = (key: string): string => (key === 'kitchen:unitsShort.l' ? 'L' : key);
+
     it('says nothing before a batch has been settled', () => {
         // Null, not "0" — a batch mid-cook has produced nothing *yet*, which is a
         // different statement from a batch that produced nothing.
-        expect(yieldSummary(batch())).toBeNull();
+        expect(yieldSummary(batch(), t)).toBeNull();
     });
 
     it('states one figure when nothing was rejected', () => {
         expect(
-            yieldSummary(batch({ producedQuantity: '38.0000', usableYieldQuantity: '38.0000' })),
-        ).toBe('38.0000 l');
+            yieldSummary(batch({ producedQuantity: '38.0000', usableYieldQuantity: '38.0000' }), t),
+        ).toBe('38.0000 L');
     });
 
     it('states both when they differ, because that is when something was thrown away', () => {
@@ -137,8 +140,9 @@ describe('the yield summary', () => {
                     rejectedQuantity: '1.0000',
                     usableYieldQuantity: '37.0000',
                 }),
+                t,
             ),
-        ).toBe('37.0000 / 38.0000 l');
+        ).toBe('37.0000 / 38.0000 L');
     });
 });
 

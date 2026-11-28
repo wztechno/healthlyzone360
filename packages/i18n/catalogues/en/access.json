@@ -77,6 +77,14 @@
         "open": "Open {{area}}",
         "webShop": "Web shop",
         "yourAccount": "Your account",
-        "workingIn": "Working in"
+        "resume": "Pick up where you left off",
+        "viewOnly": "View only",
+        "shopPages": "Discover · Menu · Kitchens",
+        "toConfirm": "{{count}} to confirm",
+        "confirmed": "{{count}} confirmed",
+        "live": "Live",
+        "onBoard": "{{count}} on the board",
+        "waiting": "{{count}} waiting",
+        "assignedOnRoad": "{{assigned}} assigned · {{onRoad}} on the road"
     }
 }

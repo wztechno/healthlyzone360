@@ -1,8 +1,6 @@
 import { apiFailure } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Cascade,
-    DatePickerButton,
     EmptyState,
     ErrorState,
     Stack,
@@ -34,6 +32,8 @@ import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import { useListMemory, useRememberedFilter, useRememberedQuery } from '../list-memory.ts';
 import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskDateButton } from '../desk-kit/mini-month.tsx';
 /**
  * `/kitchen/review` — the publication review queue (K1.8), as `Workbench.dc.html` draws it.
  *
@@ -213,8 +213,11 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
         value: t(SCOPE_LABELS[scope]),
     });
 
-    if (viewingItem !== null) {
-        return (
+    /** Rows on screen: the toolbar card then runs on into the table rather than closing above it. */
+    const joined = !sources.isPending && failure === null && items.length > 0;
+
+    const viewPopup =
+        viewingItem === null ? null : (
             <ReviewWindow
                 item={viewingItem}
                 onBack={() => {
@@ -223,153 +226,163 @@ function ReviewQueueBody({ view }: { readonly view?: string | undefined }) {
                 onOpen={open}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-review-screen">
-            {/*
-             * Drawn while the queue loads, its figures held: a bar that waited for the data would
-             * push the list down a row the moment it landed. An empty queue has nothing to search.
-             */}
-            {(queue !== null && queue.total === 0) || failure !== null ? null : (
-                <LensBar
-                    testID="kitchen-review-toolbar"
-                    label={t('kitchen:lens.label')}
-                    figures={lensFigures(searched, scope, t, pickScope)}
-                    {...(searched === null ? {} : lensMix(searched, scope, t))}
-                    search={search}
-                    onSearchChange={(next) => {
-                        setSearch(next);
-                        setViewing(null);
-                    }}
-                    searchLabel={t('kitchen:review.searchLabel')}
-                    searchPlaceholder={t('kitchen:review.searchPlaceholder')}
-                    tokens={
-                        scope === 'all'
-                            ? []
-                            : [
-                                  {
-                                      key: 'scope',
-                                      label: scopeToken,
-                                      removeLabel: t('kitchen:toolbar.removeFilter', {
-                                          filter: scopeToken,
-                                      }),
-                                      onRemove: () => {
-                                          pickScope('all');
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                {/*
+                 * Drawn while the queue loads, its figures held: a bar that waited for the data would
+                 * push the list down a row the moment it landed. An empty queue has nothing to search.
+                 */}
+                {(queue !== null && queue.total === 0) || failure !== null ? null : (
+                    <LensBar
+                        testID="kitchen-review-toolbar"
+                        layout="split"
+                        joined={joined}
+                        label={t('kitchen:lens.label')}
+                        figures={lensFigures(searched, scope, t, pickScope)}
+                        {...(searched === null ? {} : lensMix(searched, scope, t))}
+                        search={search}
+                        onSearchChange={(next) => {
+                            setSearch(next);
+                            setViewing(null);
+                        }}
+                        searchLabel={t('kitchen:review.searchLabel')}
+                        searchPlaceholder={t('kitchen:review.searchPlaceholder')}
+                        tokens={
+                            scope === 'all'
+                                ? []
+                                : [
+                                      {
+                                          key: 'scope',
+                                          label: scopeToken,
+                                          removeLabel: t('kitchen:toolbar.removeFilter', {
+                                              filter: scopeToken,
+                                          }),
+                                          onRemove: () => {
+                                              pickScope('all');
+                                          },
                                       },
-                                  },
-                              ]
-                    }
-                    result={
-                        queue === null
-                            ? null
-                            : t('kitchen:lens.result', { shown: items.length, total: queue.total })
-                    }
-                    clearLabel={t('kitchen:lens.clear')}
-                    {...(filtered ? { onClear: clearFilters } : {})}
-                    scope={
-                        <>
-                            <PeriodScope
-                                testID="kitchen-review-filter-period"
-                                today={today}
-                                value={{ from, to }}
-                                allowAll
-                                onChange={pickWindow}
-                            />
-                            <View className="z-auto flex-row items-center gap-tight">
-                                <DatePickerButton
-                                    testID="kitchen-review-filter-from"
-                                    label={t('kitchen:review.filterFrom')}
-                                    value={from}
-                                    max={to === '' ? undefined : to}
-                                    placeholder={t('kitchen:ops.exceptions.fromPlaceholder')}
-                                    onChange={(next) => {
-                                        pickWindow({ from: next, to });
-                                    }}
-                                    onClear={() => {
-                                        pickWindow({ from: '', to });
-                                    }}
+                                  ]
+                        }
+                        result={
+                            queue === null
+                                ? null
+                                : t('kitchen:lens.result', {
+                                      shown: items.length,
+                                      total: queue.total,
+                                  })
+                        }
+                        clearLabel={t('kitchen:lens.clear')}
+                        {...(filtered ? { onClear: clearFilters } : {})}
+                        scope={
+                            <>
+                                <PeriodScope
+                                    testID="kitchen-review-filter-period"
+                                    today={today}
+                                    value={{ from, to }}
+                                    allowAll
+                                    onChange={pickWindow}
                                 />
-                                <Text variant="caption" tone="secondary" aria-hidden>
-                                    {t('kitchen:ops.requirements.windowTo')}
-                                </Text>
-                                <DatePickerButton
-                                    testID="kitchen-review-filter-to"
-                                    label={t('kitchen:review.filterTo')}
-                                    value={to}
-                                    min={from === '' ? undefined : from}
-                                    placeholder={t('kitchen:ops.exceptions.toPlaceholder')}
-                                    onChange={(next) => {
-                                        pickWindow({ from, to: next });
-                                    }}
-                                    onClear={() => {
-                                        pickWindow({ from, to: '' });
-                                    }}
-                                />
-                            </View>
-                        </>
-                    }
-                    trailing={(compact) => <ColumnPicker {...controls.picker} compact={compact} />}
-                />
-            )}
+                                <View className="z-auto flex-row items-center gap-tight">
+                                    <DeskDateButton
+                                        testID="kitchen-review-filter-from"
+                                        label={t('kitchen:review.filterFrom')}
+                                        value={from}
+                                        max={to === '' ? undefined : to}
+                                        placeholder={t('kitchen:ops.exceptions.fromPlaceholder')}
+                                        onChange={(next) => {
+                                            pickWindow({ from: next, to });
+                                        }}
+                                        onClear={() => {
+                                            pickWindow({ from: '', to });
+                                        }}
+                                    />
+                                    <Text variant="caption" tone="secondary" aria-hidden>
+                                        {t('kitchen:ops.requirements.windowTo')}
+                                    </Text>
+                                    <DeskDateButton
+                                        testID="kitchen-review-filter-to"
+                                        label={t('kitchen:review.filterTo')}
+                                        value={to}
+                                        min={from === '' ? undefined : from}
+                                        placeholder={t('kitchen:ops.exceptions.toPlaceholder')}
+                                        onChange={(next) => {
+                                            pickWindow({ from, to: next });
+                                        }}
+                                        onClear={() => {
+                                            pickWindow({ from, to: '' });
+                                        }}
+                                    />
+                                </View>
+                            </>
+                        }
+                        trailing={<ColumnPicker {...controls.picker} compact />}
+                    />
+                )}
 
-            {sources.isPending ? (
-                <View testID="kitchen-review-loading" className="flex-col">
-                    <TableSkeleton partTestID="kitchen-review" rows={6} />
-                    <Text variant="caption" tone="secondary" className="pt-2.5">
-                        {t('kitchen:review.loadingCaption')}
-                    </Text>
-                </View>
-            ) : failure !== null ? (
-                <ErrorState
-                    testID="kitchen-review-error"
-                    failure={failure}
-                    title={t('kitchen:review.errorTitle')}
-                    onRetry={() => {
-                        void sources.refetch();
-                    }}
-                    retrying={sources.isFetching}
-                />
-            ) : queue === null || queue.total === 0 ? (
-                <EmptyState
-                    testID="kitchen-review-clear"
-                    title={t('kitchen:review.clearTitle')}
-                    body={t('kitchen:review.clearBody')}
-                />
-            ) : (
-                <Stack space="md">
-                    {sections.length === 0 ? (
-                        /*
-                         * The queue has records and the search or scope hid all of them. Not the
-                         * all-clear: "nothing is waiting" would be false, and it is the one sentence
-                         * this screen must never say by accident.
-                         */
-                        <EmptyState
-                            testID="kitchen-review-filtered-empty"
-                            title={t('kitchen:review.filteredEmptyTitle')}
-                            body={t('kitchen:review.filteredEmptyBody')}
-                            actions={
-                                <Button
-                                    testID="kitchen-review-clear-filters"
-                                    variant="secondary"
-                                    size="sm"
-                                    label={t('kitchen:toolbar.clearFilters')}
-                                    onPress={clearFilters}
-                                />
-                            }
-                        />
-                    ) : (
-                        <ReviewTable
-                            testID="kitchen-review-table"
-                            items={items}
-                            controls={controls}
-                            onView={(item) => {
-                                setViewing({ item });
-                            }}
-                        />
-                    )}
-                </Stack>
-            )}
+                {sources.isPending ? (
+                    <View testID="kitchen-review-loading" className="flex-col">
+                        <TableSkeleton partTestID="kitchen-review" rows={6} />
+                        <Text variant="caption" tone="secondary" className="pt-2.5">
+                            {t('kitchen:review.loadingCaption')}
+                        </Text>
+                    </View>
+                ) : failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-review-error"
+                        failure={failure}
+                        title={t('kitchen:review.errorTitle')}
+                        onRetry={() => {
+                            void sources.refetch();
+                        }}
+                        retrying={sources.isFetching}
+                    />
+                ) : queue === null || queue.total === 0 ? (
+                    <EmptyState
+                        testID="kitchen-review-clear"
+                        title={t('kitchen:review.clearTitle')}
+                        body={t('kitchen:review.clearBody')}
+                    />
+                ) : (
+                    <Stack space="md">
+                        {sections.length === 0 ? (
+                            /*
+                             * The queue has records and the search or scope hid all of them. Not the
+                             * all-clear: "nothing is waiting" would be false, and it is the one sentence
+                             * this screen must never say by accident.
+                             */
+                            <EmptyState
+                                testID="kitchen-review-filtered-empty"
+                                title={t('kitchen:review.filteredEmptyTitle')}
+                                body={t('kitchen:review.filteredEmptyBody')}
+                                actions={
+                                    <DeskButton
+                                        testID="kitchen-review-clear-filters"
+                                        variant="secondary"
+                                        size="sm"
+                                        label={t('kitchen:toolbar.clearFilters')}
+                                        onPress={clearFilters}
+                                    />
+                                }
+                            />
+                        ) : (
+                            <ReviewTable
+                                testID="kitchen-review-table"
+                                joined
+                                items={items}
+                                controls={controls}
+                                onView={(item) => {
+                                    setViewing({ item });
+                                }}
+                            />
+                        )}
+                    </Stack>
+                )}
+            </View>
+
+            {viewPopup}
         </Cascade>
     );
 }
@@ -390,6 +403,7 @@ function ReviewWindow({
 
     return (
         <RecordViewPage
+            look="sheet"
             testID="kitchen-review-window"
             onBack={onBack}
             title={displayName(item.name, locale).value}

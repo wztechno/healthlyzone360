@@ -95,7 +95,7 @@ function trackStyle(weight: number, tracks: MatrixTracks) {
 
 /** `CatalogueList`'s panel — the frame every kitchen table sits in. */
 const PANEL =
-    'flex-col overflow-hidden rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card';
+    'flex-col overflow-hidden rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-card';
 
 /** The width below which the matrix scrolls sideways: the name track plus each column's floor. */
 export function matrixFloor(

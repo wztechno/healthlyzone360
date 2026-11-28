@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Healthy360\Catalogues\Http\Controllers;
 
+use Healthy360\Catalogues\Models\CatalogueItemPackVariant;
 use Healthy360\Catalogues\Models\DishMargin;
 use Healthy360\Catalogues\Services\DishMargins;
 use Healthy360\Kitchens\Services\KitchenServiceSettingsLookup;
@@ -12,12 +13,14 @@ use Healthy360\Tenancy\TenantContext;
 use Illuminate\Http\JsonResponse;
 
 /**
- * GET /api/v1/catalogue/reports/dish-margins — what each dish earns, lowest first.
+ * GET /api/v1/catalogue/reports/dish-margins — what each pack of each dish earns on
+ * each place, lowest first.
  *
  * Behind `recipe.view_costs_organisation`, the code the technical sheet's money
  * takes. `is_below_target` reads the target as it stands now, so moving the target
- * moves the flag at once; the figures are as of the last overnight run, and
- * `computed_at` says when. `item_type` is the recipe kind the page's row links open the
+ * moves the flag at once; the figures are as of the last run — overnight, or the
+ * item's last packs save — and `computed_at` says when. `pack` is null on a dish's
+ * one row saying it has no pack, recipe or price; its `fill` is read live. `item_type` is the recipe kind the page's row links open the
  * recipe under.
  */
 final class DishMarginIndexController
@@ -32,6 +35,7 @@ final class DishMarginIndexController
     {
         $target = $this->settings->for((string) $this->context->organisationId())->dish_margin_target_percent;
         $rows = $this->margins->list();
+        $sizes = CatalogueItemPackVariant::sizesOf(array_values(array_filter($rows->pluck('catalogue_item_variant_id')->all())));
 
         return ApiResponse::data([
             'target_percent' => $target,
@@ -43,8 +47,16 @@ final class DishMarginIndexController
                 'name_ar' => $row->catalogueItem?->name_ar,
                 // meal, sauce, dressing or frozen_meal: refresh() never prices a product or a plan.
                 'item_type' => $row->catalogueItem?->item_type->value,
-                'channel' => $row->channel,
+                'place' => $row->channel,
+                'pack' => $row->catalogue_item_variant_id === null ? null : [
+                    'catalogue_item_variant_id' => $row->catalogue_item_variant_id,
+                    'label' => $row->pack_label,
+                    'fill' => isset($sizes[$row->catalogue_item_variant_id])
+                        ? ['quantity' => $sizes[$row->catalogue_item_variant_id]['size'], 'unit' => $sizes[$row->catalogue_item_variant_id]['unit']]
+                        : null,
+                ],
                 'price_amount' => $row->price_amount === null ? null : (string) $row->price_amount,
+                'contents_amount' => $row->contents_amount === null ? null : (string) $row->contents_amount,
                 'cost_amount' => $row->cost_amount === null ? null : (string) $row->cost_amount,
                 'currency_code' => $row->currency_code,
                 'margin_percent' => $row->margin_percent === null ? null : (string) $row->margin_percent,

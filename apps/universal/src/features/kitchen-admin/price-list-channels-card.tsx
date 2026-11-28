@@ -1,17 +1,9 @@
 import type { PriceListId } from '@healthy360/domain-types';
-import {
-    Badge,
-    Button,
-    Card,
-    Inline,
-    Stack,
-    Switch,
-    Text,
-    useToast,
-} from '@healthy360/design-system';
+import { FormSection, Stack, Switch, Text, useToast } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { toFailure } from '../../data/hooks.ts';
 import {
@@ -21,6 +13,8 @@ import {
 } from '../../data/kitchen-wholesale-hooks.ts';
 import { displayName } from './format.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 export interface PriceListChannelsCardProps {
     readonly priceListId: PriceListId;
     readonly canManage: boolean;
@@ -57,7 +51,43 @@ export function PriceListChannelsCard({
     const rows = (channels.data ?? []).filter((row) => row.isActive || saved.includes(row.id));
 
     return (
-        <Card testID={testID} title={t('kitchen:priceLists.channelsTitle')}>
+        <FormSection
+            first
+            variant="panel"
+            testID={testID}
+            title={t('kitchen:priceLists.channelsTitle')}
+            actions={
+                canManage && changed && assignment.data !== undefined ? (
+                    <DeskButton
+                        size="sm"
+                        testID={`${testID}-save`}
+                        label={t('kitchen:priceLists.channelsSave')}
+                        loading={save.isPending}
+                        onPress={() => {
+                            save.mutate(
+                                {
+                                    priceListId,
+                                    request: {
+                                        lockVersion: assignment.data.lockVersion,
+                                        salesChannelIds: selected,
+                                    },
+                                },
+                                {
+                                    onSuccess: () => {
+                                        setDraft(null);
+                                        toast.show({
+                                            testID: `${testID}-saved-toast`,
+                                            tone: 'success',
+                                            message: t('kitchen:priceLists.channelsSavedToast'),
+                                        });
+                                    },
+                                },
+                            );
+                        }}
+                    />
+                ) : undefined
+            }
+        >
             <Stack space="sm">
                 <Text tone="secondary">{t('kitchen:priceLists.channelsBody')}</Text>
                 {failure !== null ? (
@@ -70,7 +100,10 @@ export function PriceListChannelsCard({
                     </Text>
                 ) : (
                     rows.map((row) => (
-                        <Inline key={row.id} space="sm" align="center">
+                        <View
+                            key={row.id}
+                            className="flex-row flex-wrap items-center gap-2 border-t border-stroke-subtle py-2"
+                        >
                             <Switch
                                 testID={`${testID}-${row.code}`}
                                 label={displayName(row.name, locale).value}
@@ -88,12 +121,12 @@ export function PriceListChannelsCard({
                                 {row.code}
                             </Text>
                             {row.isActive ? null : (
-                                <Badge
+                                <DeskChip
                                     tone="neutral"
                                     label={t('kitchen:priceLists.channelInactive')}
                                 />
                             )}
-                        </Inline>
+                        </View>
                     ))
                 )}
                 {saveFailure === null ? null : (
@@ -101,37 +134,7 @@ export function PriceListChannelsCard({
                         {saveFailure.message}
                     </Text>
                 )}
-                {canManage && changed && assignment.data !== undefined ? (
-                    <Inline space="sm">
-                        <Button
-                            testID={`${testID}-save`}
-                            label={t('kitchen:priceLists.channelsSave')}
-                            loading={save.isPending}
-                            onPress={() => {
-                                save.mutate(
-                                    {
-                                        priceListId,
-                                        request: {
-                                            lockVersion: assignment.data.lockVersion,
-                                            salesChannelIds: selected,
-                                        },
-                                    },
-                                    {
-                                        onSuccess: () => {
-                                            setDraft(null);
-                                            toast.show({
-                                                testID: `${testID}-saved-toast`,
-                                                tone: 'success',
-                                                message: t('kitchen:priceLists.channelsSavedToast'),
-                                            });
-                                        },
-                                    },
-                                );
-                            }}
-                        />
-                    </Inline>
-                ) : null}
             </Stack>
-        </Card>
+        </FormSection>
     );
 }

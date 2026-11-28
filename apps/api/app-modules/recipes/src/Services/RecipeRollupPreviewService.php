@@ -65,7 +65,8 @@ final class RecipeRollupPreviewService
      *     yield_unit_id?: string|null,
      *     yield_piece_count?: int|null,
      *     packaging_waste_percent?: string|null,
-     *     packaging?: list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>
+     *     packaging?: list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>,
+     *     packs?: list<array{key: string, fill_quantity: float|int|string, fill_unit: string, components: list<array{ingredient_id: string, quantity: float|int|string, is_container: bool}>}>
      * }  $draft
      * @return array{
      *     per_recipe: array<string, mixed>|null,
@@ -206,7 +207,7 @@ final class RecipeRollupPreviewService
      * the older roll-up carries a summed line total in `estimated_cost` and
      * nothing else, and it stays exactly as it was.
      *
-     * @param  array{lines: list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null}>, waste_percent: float|string|null, yield_quantity?: string|null, yield_unit_id?: string|null, yield_piece_count?: int|null, packaging_waste_percent?: string|null, packaging?: list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>}  $draft
+     * @param  array{lines: list<array{ingredient_id: string, quantity?: float|string|null, unit_id?: string|null}>, waste_percent: float|string|null, yield_quantity?: string|null, yield_unit_id?: string|null, yield_piece_count?: int|null, packaging_waste_percent?: string|null, packaging?: list<array{ingredient_id: string, basis: string, quantity?: float|string|null}>, packs?: list<array{key: string, fill_quantity: float|int|string, fill_unit: string, components: list<array{ingredient_id: string, quantity: float|int|string, is_container: bool}>}>}  $draft
      * @return array<string, mixed>|null
      */
     private function computedCost(array $draft): ?array
@@ -219,6 +220,7 @@ final class RecipeRollupPreviewService
             $draft['yield_piece_count'] ?? null,
             $draft['waste_percent'] === null ? null : (string) $draft['waste_percent'],
             $draft['packaging_waste_percent'] ?? null,
+            $draft['packs'] ?? [],
         );
 
         if ($costed === null) {
@@ -232,6 +234,7 @@ final class RecipeRollupPreviewService
             $costed['packages'],
             $costed['production_lines'],
             $costed['packaging_lines'],
+            $costed['packs'],
         );
     }
 

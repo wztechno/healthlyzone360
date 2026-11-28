@@ -1,7 +1,9 @@
+import { createContext, useContext } from 'react';
 import type { ReactNode } from 'react';
 import { Text as RNText, View } from 'react-native';
 
 import { InfoTip } from '../overlays/info-tip.tsx';
+import { IssueAnchor } from '../issues/issue-anchor.tsx';
 import { Separator } from '../primitives/separator.tsx';
 import { cx } from '../internal/class-names.ts';
 
@@ -20,10 +22,16 @@ import { cx } from '../internal/class-names.ts';
  */
 
 export interface FormSectionProps {
-    /** Renders on the `section` step — 13px, 600, sentence case. */
-    readonly title: string;
+    /**
+     * Renders on the `section` step — 13px, 600, sentence case. Optional for a page's one section
+     * whose name the page title already says (Delivery windows): without it the section opens on
+     * its printed description, or straight on its content.
+     */
+    readonly title?: string | undefined;
     /** Guidance the section genuinely needs, behind an (i) beside the title — see `InfoTip`. */
     readonly description?: string | undefined;
+    /** Prints the description under the title instead, where the section's board draws it there. */
+    readonly printDescription?: boolean | undefined;
     /**
      * Sits immediately after the title, on its baseline — a `From database` badge, or the one line
      * of eyebrow copy the Catalogue's Sale section carries.
@@ -52,8 +60,11 @@ export interface FormSectionProps {
      * inset `Card density="compact" tone="raised"` draws — so each section reads as its own object
      * on the page. Every kitchen record editor draws its sections this way. It does not clip: a
      * dropdown opened in the last field still has to escape the panel.
+     *
+     * `ruled` is one section of a form drawn as a single card: the caller draws the card, and each
+     * section is a heavier title with a hairline over it, none over the `first`.
      */
-    readonly variant?: 'divided' | 'underlined' | 'card' | undefined;
+    readonly variant?: 'divided' | 'underlined' | 'card' | 'panel' | 'ruled' | undefined;
     readonly children: ReactNode;
     readonly className?: string | undefined;
     /**
@@ -64,9 +75,43 @@ export interface FormSectionProps {
     readonly testID?: string | undefined;
 }
 
+/**
+ * A screen that is drawn from its own board can ask every card section inside it to take the
+ * board's look — `board`: an 18px corner, a hairline and no cast, a 15px bold title with no rule
+ * under it, and 14px before the content — without the parts it hosts (a listing, the packs) having
+ * to know. Only `card` and `panel` sections change; everywhere else nothing does.
+ */
+const SectionLookContext = createContext<'board' | null>(null);
+
+/**
+ * True inside a board section's title row: a `label` badge there is drawn as the board's title
+ * chip (26px, round, 12px bold) rather than the 16px tag it is in a table.
+ */
+const TitleAsideContext = createContext(false);
+
+export function useInTitleAside(): boolean {
+    return useContext(TitleAsideContext);
+}
+
+/** The look the surrounding screen asked for, or `null`. */
+export function useSectionLook(): 'board' | null {
+    return useContext(SectionLookContext);
+}
+
+export function SectionLook({
+    look,
+    children,
+}: {
+    readonly look: 'board';
+    readonly children: ReactNode;
+}) {
+    return <SectionLookContext.Provider value={look}>{children}</SectionLookContext.Provider>;
+}
+
 export function FormSection({
     title,
     description,
+    printDescription = false,
     aside,
     actions,
     first = false,
@@ -76,8 +121,19 @@ export function FormSection({
     nativeID,
     testID,
 }: FormSectionProps) {
-    const card = variant === 'card';
+    const board =
+        useContext(SectionLookContext) === 'board' && (variant === 'card' || variant === 'panel');
+    const card = variant === 'card' && !board;
+    // The admin canvas's flat card: no cast, no rule under the title, a heavier title.
+    const panel = variant === 'panel' && !board;
+    const ruled = variant === 'ruled';
     const underlined = variant === 'underlined' || card;
+    // An untitled section with nothing else for its opening row draws none, and no gap under it.
+    const headed =
+        title !== undefined ||
+        aside !== undefined ||
+        actions !== undefined ||
+        (description !== undefined && printDescription === true);
 
     return (
         // `z-auto` for the reason `FormField` states: every React Native Web `View` is a stacking
@@ -88,55 +144,98 @@ export function FormSection({
             nativeID={nativeID}
             className={cx(
                 'z-auto flex-col',
+                panel ? 'rounded-[18px] border border-stroke-subtle bg-surface-raised p-4' : null,
+                board
+                    ? 'rounded-[18px] border border-stroke-subtle bg-surface-raised px-[18px] py-4'
+                    : null,
                 card
                     ? 'rounded border border-stroke-subtle bg-surface-raised p-base shadow-elevation-card'
                     : null,
+                ruled ? 'pb-5 pt-[18px]' : null,
+                ruled && !first ? 'border-t border-stroke-subtle' : null,
                 className,
             )}
         >
-            {first || underlined ? null : <Separator className="mb-loose" />}
+            {first || underlined || panel || ruled || board ? null : (
+                <Separator className="mb-loose" />
+            )}
 
-            <View
-                className={cx(
-                    'mb-snug flex-col gap-hair',
-                    underlined ? 'border-b border-stroke-subtle pb-1.5' : null,
-                )}
-            >
-                <View className="flex-row items-center justify-between gap-tight">
-                    {/*
-                     * The title and its aside are one group so `justify-between` separates *them*
-                     * from the actions rather than separating the badge from the title it
-                     * qualifies. `min-w-0` lets a long title truncate instead of shoving the
-                     * actions off the row.
-                     */}
-                    <View className="min-w-0 flex-row items-baseline gap-tight">
-                        <RNText
-                            testID={testID === undefined ? undefined : `${testID}-title`}
-                            accessibilityRole="header"
-                            aria-level={3}
-                            className="text-role-section text-content-primary text-start"
-                        >
-                            {title}
-                        </RNText>
+            {!headed ? null : (
+                <View
+                    className={cx(
+                        board ? 'mb-[14px] flex-col gap-hair' : 'mb-snug flex-col gap-hair',
+                        underlined ? 'border-b border-stroke-subtle pb-1.5' : null,
+                    )}
+                >
+                    <View className="flex-row items-center justify-between gap-tight">
                         {/*
-                         * The description is a tip beside the title, not a paragraph under it:
-                         * a sentence there pushed every section's fields down by a line and read
-                         * as fine print. See `InfoTip`.
+                         * The title and its aside are one group so `justify-between` separates *them*
+                         * from the actions rather than separating the badge from the title it
+                         * qualifies. `min-w-0` lets a long title truncate instead of shoving the
+                         * actions off the row.
                          */}
-                        {description === undefined ? null : (
-                            <View className="self-center">
-                                <InfoTip
-                                    label={title}
-                                    text={description}
-                                    {...(testID === undefined ? {} : { testID: `${testID}-info` })}
-                                />
-                            </View>
-                        )}
-                        {aside}
+                        <View className="min-w-0 flex-row items-baseline gap-tight">
+                            {title === undefined ? null : (
+                                <RNText
+                                    testID={testID === undefined ? undefined : `${testID}-title`}
+                                    accessibilityRole="header"
+                                    aria-level={3}
+                                    {...(board ? { dataSet: { face: 'body' } } : {})}
+                                    className={cx(
+                                        panel || ruled || board
+                                            ? 'text-[15px] font-bold'
+                                            : 'text-role-section',
+                                        'text-content-primary text-start',
+                                    )}
+                                >
+                                    {title}
+                                </RNText>
+                            )}
+                            {/*
+                             * The description is a tip beside the title, not a paragraph under it:
+                             * a sentence there pushed every section's fields down by a line and read
+                             * as fine print. See `InfoTip`.
+                             */}
+                            {description === undefined ||
+                            printDescription ||
+                            title === undefined ? null : (
+                                <View className="self-center">
+                                    <InfoTip
+                                        label={title}
+                                        text={description}
+                                        {...(testID === undefined
+                                            ? {}
+                                            : { testID: `${testID}-info` })}
+                                    />
+                                </View>
+                            )}
+                            {board ? (
+                                <TitleAsideContext.Provider value={true}>
+                                    {aside}
+                                </TitleAsideContext.Provider>
+                            ) : (
+                                aside
+                            )}
+                            {/*
+                             * On a page whose issue tray is inline, the problems this section holds
+                             * are drawn here, beside its title — matched on the section's testID.
+                             */}
+                            {testID === undefined ? null : (
+                                <IssueAnchor anchor={testID} testID={`${testID}-fixes`} />
+                            )}
+                        </View>
+                        {actions}
                     </View>
-                    {actions}
+                    {description === undefined || !printDescription ? null : (
+                        <RNText
+                            testID={testID === undefined ? undefined : `${testID}-description`}
+                            className="text-[13px] font-medium text-content-secondary text-start"
+                        >
+                            {description}
+                        </RNText>
+                    )}
                 </View>
-            </View>
+            )}
 
             {/*
              * The section's content as one column with a 12px gap, so a notice, a grid and a table

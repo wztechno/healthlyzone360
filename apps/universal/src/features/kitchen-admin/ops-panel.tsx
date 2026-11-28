@@ -95,7 +95,7 @@ export function OpsPanel({
                 ))}
             </View>
 
-            <View className="rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card md:p-5">
+            <View className="rounded-panel border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-card md:p-5">
                 {children ?? (
                     <EmptyState
                         testID={`${testID}-empty`}

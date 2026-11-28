@@ -15,6 +15,7 @@ import { SlideIn } from '../motion/slide-in.tsx';
 import { useMotion } from '../motion/use-motion.ts';
 import { Drawer } from '../overlays/drawer.tsx';
 import { Notice } from '../overlays/notice.tsx';
+import { InlineIssuesProvider } from './issue-anchor.tsx';
 import { createIssueRegistry, IssueRegistryProvider } from './issue-group.tsx';
 import type { IssueRegistry, RegisteredIssues } from './issue-group.tsx';
 import { IssueTrayFrameControllerProvider, useIssueTrayController } from './issue-tray-context.tsx';
@@ -82,6 +83,11 @@ export interface IssueCardItem {
     readonly action?: IssueAction | undefined;
     /** A second, quieter way out — "Back to stock gaps" beside "Publish". */
     readonly secondaryAction?: IssueAction | undefined;
+    /**
+     * The section the problem lives in — on an inline page the card is drawn beside that
+     * section's title (`IssueAnchor`). Ignored by the panel.
+     */
+    readonly anchor?: string | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -136,6 +142,12 @@ export interface IssueTrayContent {
      * page has no "done" to show, and a docked panel saying so beside every list is noise.
      */
     readonly hideWhenClear?: boolean | undefined;
+    /**
+     * `inline` draws no panel and no sheet: each card is drawn beside the section it names
+     * (`IssueAnchor`, `IssueUnanchored`), and the shell's "To fix" pill stays away. A press that
+     * cannot go through still says so in the middle of the page. Defaults to `tray`.
+     */
+    readonly placement?: 'tray' | 'inline' | undefined;
     readonly testID?: string | undefined;
 }
 
@@ -263,8 +275,9 @@ function IssueTrayFrameBody({
         (tray.checking ?? []).length === 0 &&
         tray.notes.length === 0;
 
+    const inline = tray?.placement === 'inline';
     const summary = useMemo<IssueTraySummary | null>(() => {
-        if (tray === null || hidden) return null;
+        if (tray === null || hidden || inline) return null;
         const blocking = tray.groups.flatMap((group) =>
             group.items.filter((item) => item.tone !== 'info'),
         );
@@ -279,7 +292,7 @@ function IssueTrayFrameBody({
                     : 'clear',
             title: tray.title,
         };
-    }, [tray, hidden]);
+    }, [tray, hidden, inline]);
 
     const { publish } = tray$;
     useEffect(() => {
@@ -311,13 +324,22 @@ function IssueTrayFrameBody({
      * the ports that measure their own node (`useCataloguePort`) are told with one `resize`, as the
      * shell tells them when its own panel settles.
      */
-    const docked = wide && tray !== null && tray$.open && !hidden;
+    const docked = wide && tray !== null && tray$.open && !hidden && !inline;
     useEffect(() => {
         if (Platform.OS !== 'web' || typeof window === 'undefined') return;
         window.dispatchEvent(new Event('resize'));
     }, [docked]);
+    const inlineIssues = useMemo(
+        () =>
+            tray !== null && inline
+                ? { groups: tray.groups, passed: tray.passed ?? [], doneAction: tray.doneAction }
+                : null,
+        [tray, inline],
+    );
     const page = (
-        <ContentWidthBeside width={docked ? DOCKED_WIDTH : 0}>{children}</ContentWidthBeside>
+        <InlineIssuesProvider value={inlineIssues}>
+            <ContentWidthBeside width={docked ? DOCKED_WIDTH : 0}>{children}</ContentWidthBeside>
+        </InlineIssuesProvider>
     );
 
     /*
@@ -329,36 +351,19 @@ function IssueTrayFrameBody({
         <BlockedNotice tray={tray} controller={tray$} wide={wide} testID={`${base}-blocked`} />
     );
 
-    if (!wide) {
-        return (
-            <>
-                {page}
-                {blocked}
-                {tray === null ? null : (
-                    <Drawer
-                        testID={`${base}-sheet`}
-                        placement="bottom"
-                        title={tray.title}
-                        open={tray$.open && !hidden}
-                        onClose={() => {
-                            tray$.setOpen(false);
-                        }}
-                    >
-                        {panel}
-                    </Drawer>
-                )}
-            </>
-        );
-    }
-
+    /*
+     * And the same place for the page on both sides of `lg`: a page that moved in the tree as the
+     * window crossed it was remounted, dropping every draft in it and any write still in flight —
+     * a refused publish then said nothing at all. Only the tray beside it changes.
+     */
     return (
         <>
-            {blocked}
+            {wide ? blocked : null}
             <View
-                testID={tray === null ? undefined : `${base}-frame`}
-                className="z-auto flex-row items-start gap-6"
+                testID={wide && tray !== null ? `${base}-frame` : undefined}
+                className={wide ? 'z-auto flex-row items-start gap-6' : 'z-auto'}
             >
-                <View className="z-auto min-w-0 flex-1">{page}</View>
+                <View className={wide ? 'z-auto min-w-0 flex-1' : 'z-auto'}>{page}</View>
                 {docked ? (
                     // Sticky against the shell's scroll port, so the tray stays beside whatever part of
                     // a long form the reader is on. Its own scroll when it is taller than the window.
@@ -377,6 +382,20 @@ function IssueTrayFrameBody({
                     </SlideIn>
                 ) : null}
             </View>
+            {wide ? null : blocked}
+            {wide || tray === null || inline ? null : (
+                <Drawer
+                    testID={`${base}-sheet`}
+                    placement="bottom"
+                    title={tray.title}
+                    open={tray$.open && !hidden}
+                    onClose={() => {
+                        tray$.setOpen(false);
+                    }}
+                >
+                    {panel}
+                </Drawer>
+            )}
         </>
     );
 }

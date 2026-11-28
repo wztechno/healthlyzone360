@@ -7,6 +7,7 @@ import { flattenStyle, renderWithI18n, withI18n } from '../testing/render.tsx';
 import { Cascade, CascadeItem } from './cascade.tsx';
 import { Collapse } from './collapse.tsx';
 import { FadeIn } from './fade-in.tsx';
+import { LoadingSweep } from './loading-sweep.tsx';
 import { PageTransition } from './page-transition.tsx';
 import { Shimmer } from './shimmer.tsx';
 import { SLIDE_EDGES, SlideIn } from './slide-in.tsx';
@@ -223,6 +224,31 @@ describe('Shimmer', () => {
 function NumberProbe({ value }: { readonly value: number }) {
     return <RNText testID="figure">{String(useAnimatedNumber(value))}</RNText>;
 }
+
+describe('LoadingSweep', () => {
+    it('sweeps the band across the button, hidden from assistive technology', async () => {
+        const timing = jest.spyOn(Animated, 'timing');
+        await renderWithI18n(<LoadingSweep testID="sweep" tint="bg-surface-raised opacity-40" />);
+        const band = screen.getByTestId('sweep');
+
+        expect(band.props['aria-hidden']).toBe(true);
+        expect(timing).toHaveBeenCalledWith(
+            expect.anything(),
+            expect.objectContaining({ toValue: 1, duration: 1100, useNativeDriver: true }),
+        );
+        timing.mockRestore();
+    });
+
+    it('stands still, filling the first half, under reduced motion', async () => {
+        mockReducedMotion = true;
+        const timing = jest.spyOn(Animated, 'timing');
+        await renderWithI18n(<LoadingSweep testID="sweep" tint="bg-surface-raised opacity-40" />);
+
+        expect(timing).not.toHaveBeenCalled();
+        expect(flattenStyle(screen.getByTestId('sweep').props.style).transform).toBeUndefined();
+        timing.mockRestore();
+    });
+});
 
 describe('useAnimatedNumber', () => {
     it('returns the target immediately under reduced motion', async () => {

@@ -1,9 +1,11 @@
 import type { AccountChecklistStep } from '@healthy360/api-client/contracts';
-import { Icon, cx, useBreakpoint } from '@healthy360/design-system';
+import { Icon, cx } from '@healthy360/design-system';
 import type { IconName } from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, Text as RNText, View } from 'react-native';
+import type { LayoutChangeEvent } from 'react-native';
 
 import { withReturnTo } from '../../navigation/return-to.ts';
 
@@ -90,14 +92,47 @@ const STEP_ICONS: Readonly<Record<AccountChecklistStep, IconName>> = {
     consents: 'clipboardCheck',
 };
 
+/**
+ * The narrowest a step tile reads well at: its mark, a two-word title on one line, the chevron.
+ * Below this the titles wrap word by word and the tiles stop lining up.
+ */
+const STEP_TILE_MIN_WIDTH = 210;
+/** The panel's heading column beside the tiles. */
+const PANEL_HEAD_WIDTH = 300;
+/** The panel's gap between that column and the tiles (`gap-[18px]`). */
+const PANEL_GAP = 18;
+
+/**
+ * The width a view was given, read from its own layout rather than the window: the panel sits in a
+ * full page on the account screen but in the narrow column beside the order ticket on checkout, so
+ * the window's breakpoint says nothing about the room it actually has. `0` until measured.
+ */
+function useOwnWidth(): readonly [number, (event: LayoutChangeEvent) => void] {
+    const [width, setWidth] = useState(0);
+    return [
+        width,
+        (event) => {
+            const next = Math.round(event.nativeEvent.layout.width);
+            if (next !== width) setWidth(next);
+        },
+    ];
+}
+
 export function AccountSetupSteps({ steps, returnTo, testID }: AccountSetupStepsProps) {
     const { t } = useTranslation();
     const router = useRouter();
-    // One row of tiles from `md`; stacked below it, so each title keeps its width.
-    const row = useBreakpoint().atLeast('md');
+    // One row of tiles only where every tile gets its minimum width; stacked otherwise, so each
+    // title keeps its line and the tiles keep their alignment.
+    const [width, onLayout] = useOwnWidth();
+    const row = width >= steps.length * STEP_TILE_MIN_WIDTH;
 
     return (
-        <View testID={testID} role="list" className={cx('gap-2.5', row ? 'flex-row' : 'flex-col')}>
+        <View
+            testID={testID}
+            role="list"
+            onLayout={onLayout}
+            className={cx('gap-2.5', row ? 'flex-row' : 'flex-col')}
+        >
             {steps.map(({ step, blockedReason, hasAddress }) => {
                 const blocked = blockedReason !== undefined && blockedReason !== null;
                 const title = t(`account:checklist.steps.${step}.title`);
@@ -206,10 +241,15 @@ export function AccountSetupPanel({
     testID,
     stepsTestID,
 }: AccountSetupPanelProps) {
-    const wide = useBreakpoint().atLeast('lg');
+    // The heading beside the tiles only where the panel itself has room for both side by side —
+    // never on checkout's narrow column, where it now sits over them instead.
+    const [width, onLayout] = useOwnWidth();
+    const wide =
+        width >= PANEL_HEAD_WIDTH + PANEL_GAP + steps.length * STEP_TILE_MIN_WIDTH + 2 * PANEL_GAP;
     return (
         <View
             testID={testID}
+            onLayout={onLayout}
             role={role}
             {...(role === 'alert'
                 ? { accessibilityRole: 'alert' as const }

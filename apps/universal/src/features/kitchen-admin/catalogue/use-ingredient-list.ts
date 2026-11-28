@@ -15,11 +15,11 @@ import {
 } from '@healthy360/api-client/contracts';
 import type { IngredientReferenceSeries } from '@healthy360/api-client/contracts';
 import { useLocale } from '@healthy360/i18n';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMemo } from 'react';
 
 import { toFailure } from '../../../data/hooks.ts';
-import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
+import { safeReturnTo, withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import {
     KITCHEN_PAGE_SIZE,
     pagesInResult,
@@ -241,6 +241,8 @@ export interface IngredientListState {
 /** `view` is the route's `?view=` — the record whose page is open (`use-viewed-record.ts`). */
 export function useIngredientList(view?: string): IngredientListState {
     const router = useRouter();
+    const rawReturn = useLocalSearchParams().returnTo;
+    const listReturn = safeReturnTo(Array.isArray(rawReturn) ? rawReturn[0] : rawReturn);
     const { locale } = useLocale();
     // Search, filters, sort, page and the row last opened survive leaving the list for a record.
     const memory = useListMemory('kitchen.ingredients');
@@ -450,7 +452,11 @@ export function useIngredientList(view?: string): IngredientListState {
                 withReturnTo(
                     `/kitchen/ingredients/${ingredientId}`,
                     viewed.viewingId === ingredientId
-                        ? withQuery('/kitchen/ingredients', { view: ingredientId })
+                        ? // The list's own way back rides along — to Requirements, say.
+                          withReturnTo(
+                              withQuery('/kitchen/ingredients', { view: ingredientId }),
+                              listReturn,
+                          )
                         : null,
                 ) as never,
             );

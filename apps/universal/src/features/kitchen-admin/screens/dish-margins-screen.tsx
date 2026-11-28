@@ -8,8 +8,10 @@ import {
     Text,
 } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
+import type { TFunction } from 'i18next';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
 
@@ -20,8 +22,12 @@ import { withQuery, withReturnTo } from '../../../navigation/return-to.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
 import { CATALOGUE_ROW_ICONS } from '../catalogue/catalogue-list-item.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
+import { LensBar } from '../catalogue/lens-bar.tsx';
+import type { LensFigure } from '../catalogue/lens-bar.tsx';
 import { RECIPE_VIEW_COSTS_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-registry.ts';
+import { unitCodeLabel } from '../format.ts';
 
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/dish-margins` — what each dish earns at today's costs, lowest first.
  *
@@ -29,15 +35,15 @@ import { RECIPE_VIEW_COSTS_PERMISSION, RECIPE_VIEW_PERMISSION } from '../entity-
  * number: a margin over part of a recipe reads like a whole one and is too high. Below target is a
  * warning badge with its wording, so colour is not the only signal.
  *
- * A row opens its dish's recipe on Production, and its actions open it on Production or on Selling
- * (where the list price is set), each coming back here. Only for a reader who may open recipes.
+ * A row opens its dish's recipe on Production, and its actions open it on Production or on Packs & prices
+ * (where each pack's price is set), each coming back here. Only for a reader who may open recipes.
  */
 
 const EM_DASH = '—';
 const RETURN_HREF = '/kitchen/dish-margins';
 
 /** The dish's recipe, under its item's address, on one editor tab. */
-function recipeHref(row: DishMargin, tab: 'production' | 'selling'): string {
+function recipeHref(row: DishMargin, tab: 'production' | 'packaging'): string {
     return withReturnTo(
         withQuery(`/kitchen/recipes/item/${encodeURIComponent(row.catalogueItemId)}`, {
             kind: row.itemType,
@@ -65,8 +71,10 @@ function DishMarginsPage() {
     const formatter = useFormatter();
     const report = useDishMarginsQuery();
     const router = useRouter();
+    /** The Below target figure pressed: the list narrowed to the dishes under the target. */
+    const [belowOnly, setBelowOnly] = useState(false);
     const canOpenRecipe = useCan(RECIPE_VIEW_PERMISSION);
-    const open = (row: DishMargin, tab: 'production' | 'selling') => {
+    const open = (row: DishMargin, tab: 'production' | 'packaging') => {
         router.push(recipeHref(row, tab) as never);
     };
     const rowActions = (row: DishMargin): readonly MenuItem[] => [
@@ -83,7 +91,7 @@ function DishMarginsPage() {
             label: t('kitchen:ops.dishMargins.changePrice'),
             icon: 'tag',
             onSelect: () => {
-                open(row, 'selling');
+                open(row, 'packaging');
             },
         },
     ];
@@ -98,6 +106,18 @@ function DishMarginsPage() {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
               })} ${currency ?? ''}`.trim();
+    const packText = (row: DishMargin) => {
+        if (row.pack === null) return EM_DASH;
+        const label = row.pack.label ?? t('kitchen:packs.unnamed');
+        return row.pack.fill === null
+            ? label
+            : t('kitchen:packs.packWithFill', {
+                  name: label,
+                  fill: `${formatter.formatNumber(Number(row.pack.fill.quantity), {
+                      maximumFractionDigits: 3,
+                  })} ${unitCodeLabel(row.pack.fill.unit, t)}`,
+              });
+    };
 
     const columns: readonly CatalogueColumn<DishMargin>[] = [
         {
@@ -110,12 +130,29 @@ function DishMarginsPage() {
             render: (row) => <Text variant="strong">{name(row)}</Text>,
         },
         {
-            key: 'channel',
+            key: 'pack',
+            label: t('kitchen:packs.columnPack'),
+            width: 180,
+            priority: 75,
+            render: (row) => (
+                <Text tone="secondary" numberOfLines={1} testID={`kitchen-dish-pack-${row.id}`}>
+                    {packText(row)}
+                </Text>
+            ),
+        },
+        {
+            key: 'place',
             label: t('kitchen:ops.dishMargins.columnChannel'),
             width: 110,
             priority: 70,
             render: (row) => (
-                <Text tone="secondary">{t(`kitchen:ops.dishMargins.channel.${row.channel}`)}</Text>
+                <Text tone="secondary">
+                    {t(
+                        row.place === 'home'
+                            ? 'kitchen:packs.placeHome'
+                            : 'kitchen:packs.placeBusiness',
+                    )}
+                </Text>
             ),
         },
         {
@@ -135,8 +172,13 @@ function DishMarginsPage() {
             width: 130,
             priority: 85,
             render: (row) => (
-                <Text variant="mono" tone="secondary">
-                    {money(row.costAmount, row.currencyCode)}
+                <Text variant="mono" tone="secondary" testID={`kitchen-dish-cost-${row.id}`}>
+                    {/* The packaging is not known, so only what the fill costs can be said. */}
+                    {row.withheldReason === 'packaging_unknown' && row.contentsAmount !== null
+                        ? t('kitchen:ops.dishMargins.contentsCost', {
+                              amount: money(row.contentsAmount, row.currencyCode),
+                          })
+                        : money(row.costAmount, row.currencyCode)}
                 </Text>
             ),
         },
@@ -163,7 +205,7 @@ function DishMarginsPage() {
             priority: 92,
             render: (row) =>
                 row.withheldReason !== null ? (
-                    <Badge
+                    <DeskChip
                         tone="warning"
                         label={t(`kitchen:ops.dishMargins.withheld.${row.withheldReason}`)}
                     />
@@ -176,7 +218,7 @@ function DishMarginsPage() {
                 ) : report.data?.targetPercent === null ? (
                     <Text tone="secondary">{EM_DASH}</Text>
                 ) : (
-                    <Badge tone="success" label={t('kitchen:ops.dishMargins.onTarget')} />
+                    <DeskChip tone="success" label={t('kitchen:ops.dishMargins.onTarget')} />
                 ),
         },
     ];
@@ -204,16 +246,17 @@ function DishMarginsPage() {
                 />
             ) : (
                 <View className="flex-col gap-loose">
-                    <Text variant="section" accessibilityRole="header">
-                        {t('kitchen:ops.dishMargins.heading')}
-                    </Text>
-                    <Text variant="caption" tone="secondary" testID="kitchen-dish-margins-note">
-                        {[
-                            data.targetPercent === null
-                                ? t('kitchen:ops.dishMargins.noTarget')
-                                : t('kitchen:ops.dishMargins.targetNote', {
-                                      percent: data.targetPercent,
-                                  }),
+                    {/*
+                     * The Lens bar, like every list: the dishes and the ones below target as figures
+                     * you can press, the target itself as a figure — and, with none set, an amber
+                     * "Not set" that opens branch operating, where it is set. The time the margins
+                     * were worked out sits at the end of the row.
+                     */}
+                    <LensBar
+                        testID="kitchen-dish-margins-lens"
+                        label={t('kitchen:ops.dishMargins.lensLabel')}
+                        figures={dishFigures(data, belowOnly, setBelowOnly, router, t)}
+                        result={
                             data.computedAt === null
                                 ? null
                                 : t('kitchen:ops.dishMargins.asOf', {
@@ -221,16 +264,17 @@ function DishMarginsPage() {
                                           dateStyle: 'medium',
                                           timeStyle: 'short',
                                       }),
-                                  }),
-                        ]
-                            .filter((part) => part !== null)
-                            .join(' ')}
-                    </Text>
+                                  })
+                        }
+                        clearLabel={t('kitchen:lens.clear')}
+                    />
                     <CatalogueList<DishMargin>
                         testID="kitchen-dish-margins-table"
                         label={t('kitchen:ops.dishMargins.heading')}
                         columns={columns}
-                        rows={data.dishes}
+                        rows={
+                            belowOnly ? data.dishes.filter((row) => row.isBelowTarget) : data.dishes
+                        }
                         rowKey={(row) => row.id}
                         onRowPress={
                             canOpenRecipe
@@ -246,4 +290,60 @@ function DishMarginsPage() {
             )}
         </Cascade>
     );
+}
+
+/** All dishes · Below target │ Target margin — the Lens bar's figures for the margins report. */
+function dishFigures(
+    data: { readonly dishes: readonly DishMargin[]; readonly targetPercent: number | null },
+    belowOnly: boolean,
+    setBelowOnly: (next: boolean) => void,
+    router: ReturnType<typeof useRouter>,
+    t: TFunction,
+): readonly LensFigure[] {
+    const below = data.dishes.filter((row) => row.isBelowTarget).length;
+    return [
+        {
+            key: 'all',
+            label: t('kitchen:ops.dishMargins.figureAll'),
+            value: data.dishes.length,
+            active: !belowOnly,
+            onPress: () => {
+                setBelowOnly(false);
+            },
+            accessibilityLabel: t('kitchen:ops.dishMargins.showAll'),
+        },
+        {
+            key: 'below',
+            label: t('kitchen:ops.dishMargins.belowTarget'),
+            value: below,
+            tone: 'warning',
+            active: belowOnly,
+            onPress: () => {
+                setBelowOnly(true);
+            },
+            accessibilityLabel: t('kitchen:ops.dishMargins.showBelow'),
+        },
+        data.targetPercent === null
+            ? {
+                  key: 'target',
+                  label: t('kitchen:ops.dishMargins.figureTarget'),
+                  value: 0,
+                  display: t('kitchen:ops.dishMargins.targetNotSet'),
+                  tone: 'warning',
+                  separated: true,
+                  info: t('kitchen:ops.dishMargins.noTarget'),
+                  onPress: () => {
+                      router.push('/kitchen/branch-operating' as never);
+                  },
+                  accessibilityLabel: t('kitchen:ops.dishMargins.setTarget'),
+              }
+            : {
+                  key: 'target',
+                  label: t('kitchen:ops.dishMargins.figureTarget'),
+                  value: data.targetPercent,
+                  display: `${String(data.targetPercent)}%`,
+                  tone: 'success',
+                  separated: true,
+              },
+    ];
 }

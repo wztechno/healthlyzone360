@@ -55,6 +55,9 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
 
 jest.mock('expo-router', () => ({
     __esModule: true,
+    useSegments: () => [],
+    useGlobalSearchParams: () => ({}),
+    useNavigation: () => ({}),
     useRouter: () => ({
         push: jest.fn(),
         replace: jest.fn(),
@@ -174,7 +177,9 @@ describe('stock headers', () => {
             expect(orderOf(STOCK_NAMES)).toEqual([stockName(2)]);
         });
 
-        // A filter value leaves its menu open, so Clear is already there to press.
+        // The desk menu closes on a pick: open it again unless it is still on screen.
+        if (screen.queryByTestId('kitchen-stock-column-unit-clear') === null)
+            await press('kitchen-stock-column-unit-trigger');
         await untilVisible('kitchen-stock-column-unit-clear');
         await press('kitchen-stock-column-unit-clear');
 
@@ -542,6 +547,7 @@ function quotationLine(
         quantity: '12.0000',
         unitAmountMinor: null,
         lineTotalMinor: null,
+        corporateUnitAmountMinor: null,
         note: `Line ${String(ordinal)} note`,
         ...overrides,
     };
@@ -610,7 +616,9 @@ describe('quotation headers', () => {
         });
         expect(screen.getByTestId(quotationReference(ACCEPTED))).toBeTruthy();
 
-        // A filter value leaves its menu open, so Clear is already there to press.
+        // The desk menu closes on a pick: open it again unless it is still on screen.
+        if (screen.queryByTestId('kitchen-quotations-column-status-clear') === null)
+            await press('kitchen-quotations-column-status-trigger');
         await untilVisible('kitchen-quotations-column-status-clear');
         await press('kitchen-quotations-column-status-clear');
 
@@ -646,7 +654,7 @@ describe('quotation headers', () => {
         await untilVisible('kitchen-quotations-detail-lines');
 
         const QUANTITIES = /^kitchen-quotation-line-test-quotation-line-\d+-quantity$/;
-        for (const column of ['line', 'quantity', 'unitPrice', 'lineTotal']) {
+        for (const column of ['line', 'quantity', 'corporateRate', 'unitPrice', 'lineTotal']) {
             expect(
                 screen.getByTestId(`kitchen-quotations-detail-lines-column-${column}-trigger`),
             ).toBeTruthy();

@@ -1,5 +1,5 @@
-import { Icon, cx } from '@healthy360/design-system';
-import { useCallback, useState } from 'react';
+import { AnchoredLayer, Icon, PANEL_IS_LIFTED, cx } from '@healthy360/design-system';
+import { useCallback, useRef, useState } from 'react';
 import { Pressable, Text as RNText, View } from 'react-native';
 
 import { useOutsideDismiss } from './use-outside-dismiss.ts';
@@ -38,7 +38,8 @@ export function InkSortMenu<T extends string>({
     const close = useCallback(() => {
         setOpen(false);
     }, []);
-    const root = useOutsideDismiss(open, close);
+    const panel = useRef<View>(null);
+    const root = useOutsideDismiss(open, close, panel);
     const current = options.find((option) => option.value === value)?.label ?? '';
 
     return (
@@ -70,48 +71,56 @@ export function InkSortMenu<T extends string>({
                 )}
             </Pressable>
             {open ? (
-                <View
-                    testID={`${testID}-panel`}
-                    role="menu"
-                    aria-label={label}
-                    className="absolute end-0 top-full z-tooltip mt-2 w-[260px] rounded-2xl border border-stroke-subtle bg-surface-raised p-2 shadow-elevation-3"
-                >
-                    {options.map((option) => {
-                        const on = option.value === value;
-                        return (
-                            <Pressable
-                                key={option.value}
-                                testID={`${testID}-${option.value}`}
-                                role="menuitem"
-                                aria-selected={on}
-                                accessibilityState={{ selected: on }}
-                                onPress={() => {
-                                    onChange(option.value);
-                                    close();
-                                }}
-                                className="h-11 flex-row items-center justify-between rounded-xl px-3 hover:bg-surface-base"
-                            >
-                                <RNText
-                                    className={cx(
-                                        'text-sm',
-                                        on
-                                            ? 'font-bold text-content-on-brand-subtle'
-                                            : 'font-medium text-content-primary',
-                                    )}
+                // Lifted onto `body` on the web, so nothing drawn later (the footer under a short
+                // list) can paint over it.
+                <AnchoredLayer anchorRef={root} align="end">
+                    <View
+                        ref={panel}
+                        testID={`${testID}-panel`}
+                        role="menu"
+                        aria-label={label}
+                        className={cx(
+                            'w-[260px] rounded-2xl border border-stroke-subtle bg-surface-raised p-2 shadow-elevation-3',
+                            PANEL_IS_LIFTED ? 'my-1' : 'absolute end-0 top-full z-tooltip mt-2',
+                        )}
+                    >
+                        {options.map((option) => {
+                            const on = option.value === value;
+                            return (
+                                <Pressable
+                                    key={option.value}
+                                    testID={`${testID}-${option.value}`}
+                                    role="menuitem"
+                                    aria-selected={on}
+                                    accessibilityState={{ selected: on }}
+                                    onPress={() => {
+                                        onChange(option.value);
+                                        close();
+                                    }}
+                                    className="h-11 flex-row items-center justify-between rounded-xl px-3 hover:bg-surface-base"
                                 >
-                                    {option.label}
-                                </RNText>
-                                {on ? (
-                                    <Icon
-                                        name="check"
-                                        size="sm"
-                                        className="text-content-on-brand-subtle"
-                                    />
-                                ) : null}
-                            </Pressable>
-                        );
-                    })}
-                </View>
+                                    <RNText
+                                        className={cx(
+                                            'text-sm',
+                                            on
+                                                ? 'font-bold text-content-on-brand-subtle'
+                                                : 'font-medium text-content-primary',
+                                        )}
+                                    >
+                                        {option.label}
+                                    </RNText>
+                                    {on ? (
+                                        <Icon
+                                            name="check"
+                                            size="sm"
+                                            className="text-content-on-brand-subtle"
+                                        />
+                                    ) : null}
+                                </Pressable>
+                            );
+                        })}
+                    </View>
+                </AnchoredLayer>
             ) : null}
         </View>
     );

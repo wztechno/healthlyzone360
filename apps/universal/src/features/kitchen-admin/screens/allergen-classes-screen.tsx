@@ -1,18 +1,12 @@
 import type { AllergenClass } from '@healthy360/api-client/contracts';
-import {
-    Button,
-    Cascade,
-    EmptyState,
-    ErrorState,
-    Inline,
-    TableSkeleton,
-} from '@healthy360/design-system';
+import { Cascade, EmptyState, ErrorState, Inline, TableSkeleton } from '@healthy360/design-system';
 import type { MenuItem } from '@healthy360/design-system';
 import { useFormatter, useLocale } from '@healthy360/i18n';
 import type { Formatter } from '@healthy360/i18n';
 import type { TFunction } from 'i18next';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 
 import { Gate } from '../../../access/gate.tsx';
 import {
@@ -36,6 +30,7 @@ import { displayName } from '../format.ts';
 import { ColumnPicker } from '../catalogue/column-picker.tsx';
 import { useListMemory, useRememberedOpened } from '../list-memory.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/allergen-classes` — the fourteen regulatory classes, read only.
  *
@@ -106,6 +101,8 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
     const formatter = useFormatter();
 
     const list = useAllergenList(view);
+    // The table closes the toolbar's card only when it is drawn.
+    const joined = !list.isPending && list.failure === null && list.rows.length > 0;
     // The class last opened and the page survive leaving the list. The filters are the list
     // hook's own state.
     const memory = useListMemory('kitchen.allergen-classes');
@@ -140,10 +137,13 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
      * route of its own — Back is a state change, so the list's page, sort and filters survive it.
      */
     const viewing = list.viewing;
-    if (viewing !== null) {
-        return (
+    const viewPopup =
+        viewing === null ? null : (
             <RecordViewPage
                 testID="kitchen-allergen-classes-view"
+                look="sheet"
+                eyebrow={t('kitchen:recordView.eyebrowAllergens')}
+                figureKeys={['threshold', 'markets']}
                 kind={t('kitchen:classes.viewKind')}
                 reference={String(viewing.code)}
                 title={displayName(viewing.name, locale).value}
@@ -157,7 +157,6 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
                 onBack={list.closeView}
             />
         );
-    }
 
     return (
         <Cascade space="md" testID="kitchen-allergen-classes-screen">
@@ -165,112 +164,120 @@ function AllergenClasses({ view }: { readonly view?: string | undefined }) {
              * The Lens bar — figures, mix and query row as one object directly over the list it
              * narrows (`lens-bar.tsx`). No actions: allergen classes are the platform's to govern.
              */}
-            <LensBar
-                testID="kitchen-allergen-classes-toolbar"
-                label={t('kitchen:lens.label')}
-                figures={lensFigures(list, t)}
-                mix={[
-                    {
-                        key: 'active',
-                        value: list.total - list.withdrawnCount,
-                        tone: 'success',
-                        dimmed: list.status === 'withdrawn',
-                    },
-                    {
-                        key: 'withdrawn',
-                        value: list.withdrawnCount,
-                        tone: 'warning',
-                        dimmed: list.status === 'active',
-                    },
-                ]}
-                mixLabel={t('kitchen:lens.allergenMix', {
-                    active: list.total - list.withdrawnCount,
-                    withdrawn: list.withdrawnCount,
-                })}
-                search={list.query}
-                onSearchChange={list.setQuery}
-                searchLabel={t('kitchen:toolbar.searchLabel')}
-                searchPlaceholder={t('kitchen:classes.searchPlaceholder')}
-                tokens={lensTokens(list, t)}
-                result={
-                    list.isPending
-                        ? null
-                        : t('kitchen:lens.result', { shown: list.shown, total: list.total })
-                }
-                clearLabel={t('kitchen:lens.clear')}
-                {...(list.isUnfiltered ? {} : { onClear: list.clearFilters })}
-                trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
-            />
-
-            {list.isPending ? (
-                <TableSkeleton
-                    testID="kitchen-allergen-classes-loading"
-                    partTestID="kitchen-allergen-classes"
-                />
-            ) : list.failure !== null ? (
-                <ErrorState
-                    testID="kitchen-allergen-classes-error"
-                    failure={list.failure}
-                    title={t('kitchen:classes.errorTitle')}
-                    onRetry={list.refetch}
-                    retrying={list.isFetching}
-                />
-            ) : list.rows.length === 0 ? (
-                <EmptyState
-                    testID="kitchen-allergen-classes-empty"
-                    title={
-                        list.isUnfiltered
-                            ? t('kitchen:classes.emptyTitle')
-                            : t('kitchen:list.filteredEmptyTitle')
-                    }
-                    body={
-                        list.isUnfiltered
-                            ? t('kitchen:classes.emptyBody')
-                            : t('kitchen:list.filteredEmptyBody')
-                    }
-                    actions={
-                        list.isUnfiltered ? undefined : (
-                            <Inline space="sm" wrap>
-                                <Button
-                                    testID="kitchen-allergen-classes-clear"
-                                    variant="secondary"
-                                    label={t('kitchen:toolbar.clearFilters')}
-                                    onPress={list.clearFilters}
-                                />
-                            </Inline>
-                        )
-                    }
-                />
-            ) : (
-                <CatalogueList
-                    testID="kitchen-allergen-classes-table"
-                    label={t('kitchen:classes.title')}
-                    columns={controls.columns}
-                    rows={list.rows}
-                    rowKey={(entry) => String(entry.code)}
-                    density="sm"
-                    highlightedId={lastOpenedId}
-                    initialPage={memory.initial.page}
-                    onPageChange={(page) => {
-                        memory.remember({ page });
-                    }}
-                    onRowPress={openView}
-                    rowActionsLabel={t('kitchen:list.rowActions')}
-                    // One action, and it is the only one this record can offer — see the note above
-                    // on why there is no Edit.
-                    rowActions={(entry): readonly MenuItem[] => [
+            {/* One block, so the toolbar card runs straight on into the table. */}
+            <View className={joined ? 'z-10' : 'z-10 gap-4'}>
+                <LensBar
+                    testID="kitchen-allergen-classes-toolbar"
+                    layout="split"
+                    joined={joined}
+                    label={t('kitchen:lens.label')}
+                    figures={lensFigures(list, t)}
+                    mix={[
                         {
-                            key: 'view',
-                            label: t('kitchen:list.view'),
-                            icon: CATALOGUE_ROW_ICONS.view,
-                            testID: `${allergenRowTestId(String(entry.code))}-view`,
-                            onSelect: () => {
-                                openView(entry);
-                            },
+                            key: 'active',
+                            value: list.total - list.withdrawnCount,
+                            tone: 'success',
+                            dimmed: list.status === 'withdrawn',
+                        },
+                        {
+                            key: 'withdrawn',
+                            value: list.withdrawnCount,
+                            tone: 'warning',
+                            dimmed: list.status === 'active',
                         },
                     ]}
+                    mixLabel={t('kitchen:lens.allergenMix', {
+                        active: list.total - list.withdrawnCount,
+                        withdrawn: list.withdrawnCount,
+                    })}
+                    search={list.query}
+                    onSearchChange={list.setQuery}
+                    searchLabel={t('kitchen:toolbar.searchLabel')}
+                    searchPlaceholder={t('kitchen:classes.searchPlaceholder')}
+                    tokens={lensTokens(list, t)}
+                    result={
+                        list.isPending
+                            ? null
+                            : t('kitchen:lens.result', { shown: list.shown, total: list.total })
+                    }
+                    clearLabel={t('kitchen:lens.clear')}
+                    {...(list.isUnfiltered ? {} : { onClear: list.clearFilters })}
+                    trailing={(narrow) => <ColumnPicker {...controls.picker} compact={narrow} />}
                 />
-            )}
+
+                {list.isPending ? (
+                    <TableSkeleton
+                        testID="kitchen-allergen-classes-loading"
+                        partTestID="kitchen-allergen-classes"
+                    />
+                ) : list.failure !== null ? (
+                    <ErrorState
+                        testID="kitchen-allergen-classes-error"
+                        failure={list.failure}
+                        title={t('kitchen:classes.errorTitle')}
+                        onRetry={list.refetch}
+                        retrying={list.isFetching}
+                    />
+                ) : list.rows.length === 0 ? (
+                    <EmptyState
+                        testID="kitchen-allergen-classes-empty"
+                        title={
+                            list.isUnfiltered
+                                ? t('kitchen:classes.emptyTitle')
+                                : t('kitchen:list.filteredEmptyTitle')
+                        }
+                        body={
+                            list.isUnfiltered
+                                ? t('kitchen:classes.emptyBody')
+                                : t('kitchen:list.filteredEmptyBody')
+                        }
+                        actions={
+                            list.isUnfiltered ? undefined : (
+                                <Inline space="sm" wrap>
+                                    <DeskButton
+                                        testID="kitchen-allergen-classes-clear"
+                                        variant="secondary"
+                                        label={t('kitchen:toolbar.clearFilters')}
+                                        onPress={list.clearFilters}
+                                    />
+                                </Inline>
+                            )
+                        }
+                    />
+                ) : (
+                    <CatalogueList
+                        testID="kitchen-allergen-classes-table"
+                        joined
+                        label={t('kitchen:classes.title')}
+                        columns={controls.columns}
+                        rows={list.rows}
+                        rowKey={(entry) => String(entry.code)}
+                        density="sm"
+                        highlightedId={lastOpenedId}
+                        initialPage={memory.initial.page}
+                        onPageChange={(page) => {
+                            memory.remember({ page });
+                        }}
+                        onRowPress={openView}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        // One action, and it is the only one this record can offer — see the note above
+                        // on why there is no Edit.
+                        rowActions={(entry): readonly MenuItem[] => [
+                            {
+                                key: 'view',
+                                label: t('kitchen:list.view'),
+                                icon: CATALOGUE_ROW_ICONS.view,
+                                testID: `${allergenRowTestId(String(entry.code))}-view`,
+                                onSelect: () => {
+                                    openView(entry);
+                                },
+                            },
+                        ]}
+                    />
+                )}
+            </View>
+
+            {viewPopup}
         </Cascade>
     );
 }

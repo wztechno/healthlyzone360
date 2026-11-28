@@ -1,7 +1,6 @@
 import { isDeletableRole, isValidationFailure } from '@healthy360/api-client/contracts';
 import type { ApiFailure } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Cascade,
     Dialog,
@@ -47,6 +46,7 @@ import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useOptimisticConcurrency } from '../use-optimistic-concurrency.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/roles/{role}` and `/kitchen/roles/new` — one editor, three jobs.
  *
@@ -273,7 +273,7 @@ function RoleEditor() {
                 title={t('accessAdmin:role.notFoundTitle')}
                 body={t('accessAdmin:role.notFoundBody')}
                 actions={
-                    <Button
+                    <DeskButton
                         testID="kitchen-role-editor-missing-back"
                         variant="quiet"
                         label={t('accessAdmin:role.backToList')}
@@ -542,6 +542,7 @@ function RoleEditor() {
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-role-editor-tray',
+        placement: 'inline',
         groups: [
             {
                 key: 'save',
@@ -579,7 +580,7 @@ function RoleEditor() {
                     }
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-role-editor-back"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -588,7 +589,7 @@ function RoleEditor() {
                                 }}
                             />
                             {deletable ? (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-role-editor-delete"
                                     variant="quiet"
                                     label={t('accessAdmin:role.delete')}
@@ -597,20 +598,19 @@ function RoleEditor() {
                                     }}
                                 />
                             ) : null}
-                            {/*
-                             * Save role, last, on every step. Not drawn at all on a role this
-                             * caller cannot change — every field is locked and the tray says why.
-                             */}
-                            {readOnly ? null : (
-                                <Button
-                                    testID="kitchen-role-editor-save"
-                                    label={t('accessAdmin:role.save')}
-                                    loading={create.isPending || update.isPending}
-                                    disabled={create.isPending || update.isPending}
-                                    onPress={attemptSave}
-                                />
-                            )}
                         </>
+                    }
+                    creating={isNew}
+                    save={
+                        readOnly
+                            ? undefined
+                            : {
+                                  testID: 'kitchen-role-editor-save',
+                                  label: t('accessAdmin:role.save'),
+                                  loading: create.isPending || update.isPending,
+                                  disabled: create.isPending || update.isPending,
+                                  onPress: attemptSave,
+                              }
                     }
                     errors={{
                         summary: t(
@@ -654,7 +654,7 @@ function RoleEditor() {
                     {step !== 'details' ? null : (
                         <FormSection
                             first
-                            variant="card"
+                            variant="panel"
                             testID="kitchen-role-editor-details"
                             title={t('accessAdmin:role.tabs.details')}
                         >
@@ -753,26 +753,30 @@ function RoleEditor() {
                      * matrix's own header row is the first thing under it.
                      */}
                     {step !== 'pages' ? null : (
-                        <RolePagesTab
-                            testID="kitchen-role-editor-pages"
-                            codes={current.codes}
-                            disabled={readOnly}
-                            onChange={(codes) => {
-                                edit({ codes });
-                            }}
-                        />
+                        <View className="z-auto rounded-[18px] border border-stroke-subtle bg-surface-raised p-4">
+                            <RolePagesTab
+                                testID="kitchen-role-editor-pages"
+                                codes={current.codes}
+                                disabled={readOnly}
+                                onChange={(codes) => {
+                                    edit({ codes });
+                                }}
+                            />
+                        </View>
                     )}
 
                     {step !== 'advanced' ? null : (
-                        <RolePermissionsTab
-                            testID="kitchen-role-editor-advanced"
-                            domains={catalogue.data ?? []}
-                            codes={current.codes}
-                            disabled={readOnly}
-                            onChange={(codes) => {
-                                edit({ codes });
-                            }}
-                        />
+                        <View className="z-auto rounded-[18px] border border-stroke-subtle bg-surface-raised p-4">
+                            <RolePermissionsTab
+                                testID="kitchen-role-editor-advanced"
+                                domains={catalogue.data ?? []}
+                                codes={current.codes}
+                                disabled={readOnly}
+                                onChange={(codes) => {
+                                    edit({ codes });
+                                }}
+                            />
+                        </View>
                     )}
                 </View>
             </Cascade>
@@ -784,6 +788,7 @@ function RoleEditor() {
             />
 
             <Dialog
+                look="card"
                 testID="kitchen-role-editor-delete-dialog"
                 open={confirmingDelete}
                 onClose={() => {
@@ -793,7 +798,7 @@ function RoleEditor() {
                 description={t('accessAdmin:role.deleteBody')}
                 actions={
                     <>
-                        <Button
+                        <DeskButton
                             testID="kitchen-role-editor-delete-cancel"
                             variant="secondary"
                             label={t('accessAdmin:role.cancel')}
@@ -801,7 +806,7 @@ function RoleEditor() {
                                 setConfirmingDelete(false);
                             }}
                         />
-                        <Button
+                        <DeskButton
                             testID="kitchen-role-editor-delete-confirm"
                             variant="danger"
                             label={t('accessAdmin:role.deleteConfirm')}

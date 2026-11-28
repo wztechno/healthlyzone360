@@ -1,10 +1,17 @@
 import type { ContactPoint, DietaryProfile } from '@healthy360/api-client/contracts';
-import { Callout, Icon, cx, useBreakpoint, useToast } from '@healthy360/design-system';
+import {
+    Callout,
+    Icon,
+    cx,
+    useBreakpoint,
+    useToast,
+    LoadingSweep,
+} from '@healthy360/design-system';
 import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { useCan } from '../../access/gate.tsx';
 import {
@@ -393,13 +400,13 @@ function DietaryPreferences({
                         );
                     }}
                     className={cx(
-                        'h-12 flex-row items-center gap-2 rounded-[14px] px-5',
+                        'relative h-12 flex-row items-center gap-2 overflow-hidden rounded-[14px] px-5',
                         !answered || !dirty
                             ? 'bg-stroke-subtle'
                             : 'bg-surface-brand hover:bg-surface-canopy',
                     )}
                 >
-                    {save.isPending ? <ActivityIndicator size="small" /> : null}
+                    {save.isPending ? <LoadingSweep tint="bg-surface-raised opacity-40" /> : null}
                     <RNText
                         className={cx(
                             'text-sm font-bold',

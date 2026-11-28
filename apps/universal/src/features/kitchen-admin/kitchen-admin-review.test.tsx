@@ -53,6 +53,7 @@ import { KitchenHomeScreen } from './screens/kitchen-home-screen.tsx';
 import { withReturnTo } from '../../navigation/return-to.ts';
 import { ReviewScreen } from './screens/review-screen.tsx';
 import { Dimensions } from 'react-native';
+import { getRecordAction } from '../../testing/record-actions.ts';
 
 /**
  * These screens draw their tables through `CatalogueList`, which only lays out columns at `md` and
@@ -764,8 +765,12 @@ describe('the review queue screen', () => {
             /Nothing is resolved from this window/,
         );
 
+        const action = await getRecordAction(
+            'kitchen-review-window',
+            'kitchen-review-window-primary',
+        );
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-review-window-primary'));
+            fireEvent.press(action);
         });
 
         // The editor, carrying the way back to this record's page in the queue.
@@ -816,8 +821,17 @@ describe('the review queue screen', () => {
             '0',
         );
 
+        // The desk menu closes on a pick; a press that finds it still open shuts it, so press again.
+        const trigger = 'kitchen-review-filter-period-trigger';
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-review-filter-period-trigger'));
+            fireEvent.press(screen.getByTestId(trigger));
+        });
+        if (screen.queryByTestId('kitchen-review-filter-period-all') === null) {
+            await act(async () => {
+                fireEvent.press(screen.getByTestId(trigger));
+            });
+        }
+        await act(async () => {
             fireEvent.press(await screen.findByTestId('kitchen-review-filter-period-all'));
         });
         await untilVisible('kitchen-review-table-list');
@@ -865,9 +879,9 @@ describe('the review queue screen', () => {
             repositories: reviewRepositories({ ingredients: [QUARANTINED_INGREDIENT] }),
         });
 
-        await untilVisible('kitchen-review-window-back');
+        await untilVisible('kitchen-review-window-close');
         await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-review-window-back'));
+            fireEvent.press(screen.getByTestId('kitchen-review-window-close'));
         });
 
         await untilVisible('kitchen-review-screen');

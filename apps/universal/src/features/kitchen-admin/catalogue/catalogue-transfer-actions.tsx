@@ -1,7 +1,6 @@
 import type { Repositories } from '@healthy360/api-client';
 import type { DownloadedFile, ImportReport, ImportUpload } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Dialog,
     Icon,
@@ -27,6 +26,7 @@ import { canSaveFiles } from '../save-download.ts';
 import { ImportDropZone } from './import-drop-zone.tsx';
 import type { ImportGuide } from './import-guides.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * Import and Export, the pair that opens every Catalogue list beside its primary.
  *
@@ -99,7 +99,7 @@ export function CatalogueTransferActions({
     return (
         <>
             {importGuide === undefined ? (
-                <Button
+                <DeskButton
                     testID={`${testID}-import`}
                     variant="secondary"
                     disabled
@@ -121,7 +121,7 @@ export function CatalogueTransferActions({
 function DisabledExport({ testID }: { readonly testID: string }) {
     const { t } = useTranslation();
     return (
-        <Button
+        <DeskButton
             testID={`${testID}-export`}
             variant="secondary"
             disabled
@@ -181,9 +181,11 @@ function ExportControl({
         <Menu
             label={t('kitchen:transfer.export.menuLabel')}
             align="end"
+            // The admin's one menu look: the card, as every scope and row menu draws it.
+            look="card"
             sections={[{ items }]}
             trigger={({ triggerProps, toggle }) => (
-                <Button
+                <DeskButton
                     {...triggerProps}
                     testID={`${testID}-export`}
                     variant="secondary"
@@ -293,20 +295,20 @@ function ImportControl({
 
     const actions =
         report !== undefined ? (
-            <Button
+            <DeskButton
                 testID={`${testID}-import-done`}
                 label={t('kitchen:transfer.import.done')}
                 onPress={close}
             />
         ) : (
             <>
-                <Button
+                <DeskButton
                     testID={`${testID}-import-cancel`}
                     variant="secondary"
                     label={t('kitchen:common.cancel')}
                     onPress={close}
                 />
-                <Button
+                <DeskButton
                     testID={`${testID}-import-submit`}
                     label={t('kitchen:transfer.import.action')}
                     disabled={picked === null || blocked !== undefined}
@@ -320,7 +322,7 @@ function ImportControl({
 
     return (
         <>
-            <Button
+            <DeskButton
                 testID={`${testID}-import`}
                 variant="secondary"
                 label={t('kitchen:list.import')}
@@ -329,6 +331,7 @@ function ImportControl({
                 }}
             />
             <Dialog
+                look="card"
                 open={open}
                 onClose={close}
                 testID={`${testID}-import-dialog`}
@@ -442,7 +445,7 @@ function GuideBlock({
                 {t('kitchen:transfer.guide.rowCap', { count: guide.rowCap })}
             </Text>
             <Inline space="sm" align="center" wrap>
-                <Button
+                <DeskButton
                     testID={`${testID}-template`}
                     variant="quiet"
                     size="sm"

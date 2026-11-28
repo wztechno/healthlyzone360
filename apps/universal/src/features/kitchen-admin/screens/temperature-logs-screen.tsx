@@ -6,8 +6,6 @@ import type {
     TemperatureUnitDraft,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Dialog,
     EmptyState,
     ErrorState,
@@ -44,6 +42,9 @@ import {
     ORDER_PREPARE_PERMISSION,
 } from '../entity-registry.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskSelect } from '../desk-kit/desk-select.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/temperature-logs`: what an inspector asks to see. Fridge and freezer readings twice a
  * day, and the core temperature of each cooked batch, a month at a time, on paper through the list
@@ -150,7 +151,7 @@ function TemperatureLogs() {
                         : 'kitchen:temperature.inRange',
                 ),
             render: (row) => (
-                <Badge
+                <DeskChip
                     tone={row.outOfRange ? 'danger' : 'success'}
                     label={t(
                         row.outOfRange
@@ -268,7 +269,7 @@ function TemperatureLogs() {
             value: (row) =>
                 t(row.active ? 'kitchen:temperature.active' : 'kitchen:temperature.retired'),
             render: (row) => (
-                <Badge
+                <DeskChip
                     tone={row.active ? 'success' : 'neutral'}
                     label={t(
                         row.active ? 'kitchen:temperature.active' : 'kitchen:temperature.retired',
@@ -354,90 +355,102 @@ function TemperatureLogs() {
 
     return (
         <Stack space="md" testID="kitchen-temperature-screen">
-            <Tabs<Tab>
-                label={t('kitchen:families.temperatureLogs.name')}
-                value={tab}
-                onChange={setTab}
-                items={[
-                    { value: 'readings', label: t('kitchen:temperature.tabReadings') },
-                    { value: 'cooking', label: t('kitchen:temperature.tabCooking') },
-                    { value: 'units', label: t('kitchen:temperature.tabUnits') },
-                ]}
-            />
+            {/* The Cash page's strip, centred over the page. */}
+            <View className="flex-row justify-center">
+                <Tabs<Tab>
+                    variant="strip"
+                    label={t('kitchen:families.temperatureLogs.name')}
+                    value={tab}
+                    onChange={setTab}
+                    items={[
+                        { value: 'readings', label: t('kitchen:temperature.tabReadings') },
+                        { value: 'cooking', label: t('kitchen:temperature.tabCooking') },
+                        { value: 'units', label: t('kitchen:temperature.tabUnits') },
+                    ]}
+                />
+            </View>
 
-            <View className="flex-row flex-wrap items-end gap-tight">
+            {/*
+             * One toolbar under the tabs, as every list's query row: the month at the start, the
+             * actions at the end — Print, then the one green button.
+             */}
+            <View className="z-auto flex-row flex-wrap items-center gap-tight rounded-panel border border-stroke-subtle bg-surface-raised p-2">
+                {/* The admin's one dropdown look: the Lens bar's scope pill and its card menu. */}
                 {tab === 'units' ? null : (
-                    <View className="w-40">
-                        <Select
-                            testID="kitchen-temperature-month"
-                            label={t('kitchen:temperature.month')}
-                            size="sm"
-                            value={month}
-                            options={months.map((value) => ({
-                                value,
-                                label: formatter.formatDate(`${value}-01`, {
-                                    month: 'long',
-                                    year: 'numeric',
-                                }),
-                            }))}
-                            onChange={setMonth}
+                    <DeskSelect
+                        testID="kitchen-temperature-month"
+                        label={t('kitchen:temperature.month')}
+                        value={month}
+                        options={months.map((value) => ({
+                            value,
+                            label: formatter.formatDate(`${value}-01`, {
+                                month: 'long',
+                                year: 'numeric',
+                            }),
+                        }))}
+                        onChange={setMonth}
+                    />
+                )}
+                <View className="z-auto ms-auto flex-row items-center gap-tight">
+                    {tab === 'units' ? null : (
+                        <DeskButton
+                            testID="kitchen-temperature-print"
+                            variant="secondary"
+                            label={t('kitchen:temperature.print')}
+                            onPress={() => {
+                                print.start(
+                                    tab === 'readings'
+                                        ? listPrintJob({
+                                              resource: 'temperature-logs',
+                                              title: t('kitchen:temperature.printReadings', {
+                                                  month,
+                                              }),
+                                              columns: readingColumns,
+                                              rows: readings,
+                                          })
+                                        : listPrintJob({
+                                              resource: 'temperature-logs',
+                                              title: t('kitchen:temperature.printCooking', {
+                                                  month,
+                                              }),
+                                              columns: cookingColumns,
+                                              rows: cooking,
+                                          }),
+                                );
+                            }}
                         />
-                    </View>
-                )}
-                {tab !== 'readings' || !canRecord ? null : (
-                    <Button
-                        testID="kitchen-temperature-record"
-                        label={t('kitchen:temperature.record')}
-                        iconStart={<Icon name="plus" size="sm" />}
-                        onPress={() => {
-                            setRecording(true);
-                        }}
-                    />
-                )}
-                {tab !== 'cooking' || !canRecord ? null : (
-                    <Button
-                        testID="kitchen-temperature-record-batch"
-                        label={t('kitchen:temperature.recordBatch')}
-                        iconStart={<Icon name="plus" size="sm" />}
-                        onPress={() => {
-                            setRecordingBatch(true);
-                        }}
-                    />
-                )}
-                {tab !== 'units' || !canManage ? null : (
-                    <Button
-                        testID="kitchen-temperature-unit-add"
-                        label={t('kitchen:temperature.addUnit')}
-                        iconStart={<Icon name="plus" size="sm" />}
-                        onPress={() => {
-                            setEditing('new');
-                        }}
-                    />
-                )}
-                {tab === 'units' ? null : (
-                    <Button
-                        testID="kitchen-temperature-print"
-                        variant="secondary"
-                        label={t('kitchen:temperature.print')}
-                        onPress={() => {
-                            print.start(
-                                tab === 'readings'
-                                    ? listPrintJob({
-                                          resource: 'temperature-logs',
-                                          title: t('kitchen:temperature.printReadings', { month }),
-                                          columns: readingColumns,
-                                          rows: readings,
-                                      })
-                                    : listPrintJob({
-                                          resource: 'temperature-logs',
-                                          title: t('kitchen:temperature.printCooking', { month }),
-                                          columns: cookingColumns,
-                                          rows: cooking,
-                                      }),
-                            );
-                        }}
-                    />
-                )}
+                    )}
+                    {tab !== 'readings' || !canRecord ? null : (
+                        <DeskButton
+                            testID="kitchen-temperature-record"
+                            label={t('kitchen:temperature.record')}
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={() => {
+                                setRecording(true);
+                            }}
+                        />
+                    )}
+                    {tab !== 'cooking' || !canRecord ? null : (
+                        <DeskButton
+                            testID="kitchen-temperature-record-batch"
+                            label={t('kitchen:temperature.recordBatch')}
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={() => {
+                                setRecordingBatch(true);
+                            }}
+                        />
+                    )}
+                    {tab !== 'units' || !canManage ? null : (
+                        <DeskButton
+                            testID="kitchen-temperature-unit-add"
+                            label={t('kitchen:temperature.addUnit')}
+                            iconStart={<Icon name="plus" size="sm" />}
+                            onPress={() => {
+                                setEditing('new');
+                            }}
+                        />
+                    )}
+                </View>
             </View>
 
             {body()}
@@ -488,12 +501,13 @@ function ReadingDialog({
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-temperature-dialog"
             open
             onClose={onClose}
             title={t('kitchen:temperature.record')}
             actions={
-                <Button
+                <DeskButton
                     testID="kitchen-temperature-save"
                     label={t('kitchen:temperature.save')}
                     loading={record.isPending}
@@ -592,12 +606,13 @@ function BatchDialog({ onClose }: { readonly onClose: () => void }) {
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-temperature-batch-dialog"
             open
             onClose={onClose}
             title={t('kitchen:temperature.recordBatch')}
             actions={
-                <Button
+                <DeskButton
                     testID="kitchen-temperature-batch-save"
                     label={t('kitchen:temperature.save')}
                     loading={record.isPending}
@@ -685,6 +700,7 @@ function UnitDialog({
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-temperature-unit-dialog"
             open
             onClose={onClose}
@@ -692,7 +708,7 @@ function UnitDialog({
                 unit === null ? 'kitchen:temperature.addUnit' : 'kitchen:temperature.editUnit',
             )}
             actions={
-                <Button
+                <DeskButton
                     testID="kitchen-temperature-unit-save"
                     label={t('kitchen:temperature.save')}
                     loading={save.isPending}

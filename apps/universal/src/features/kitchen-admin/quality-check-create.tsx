@@ -7,13 +7,13 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
+    cx,
     FormSection,
     IssueTrayFrame,
     SearchInput,
     Skeleton,
     Stack,
     Text,
-    cx,
     useIssueTrayController,
     useToast,
 } from '@healthy360/design-system';
@@ -215,7 +215,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                         return {
                             key: line.id,
                             name: item?.name ?? shortId(String(line.stockItemId)),
-                            qty: ledgerQuantity(number, line.quantity, unit, noValue),
+                            qty: ledgerQuantity(number, line.quantity, unit, noValue, t),
                         };
                     }),
                     more: Math.max(0, row.lines.length - COVER_LIMIT),
@@ -232,6 +232,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                     row.producedQuantity ?? row.plannedYield,
                     row.plannedYieldUnitCode,
                     noValue,
+                    t,
                 );
                 const name = row.productionItemNameEn ?? noValue;
                 return {
@@ -441,6 +442,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-qc-create-tray',
+        placement: 'inline',
         groups: [
             { key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards },
             { key: 'check', title: t('kitchen:tray.groupCheck'), items: checkCards },
@@ -490,7 +492,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
 
             <FormSection
                 first
-                variant="card"
+                variant="panel"
                 testID="kitchen-qc-create-states"
                 title={t('kitchen:ops.qc.statesTitle')}
             >
@@ -506,7 +508,6 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                             <View className="w-20 flex-row">
                                 <Badge
                                     variant="label"
-                                    icon={null}
                                     tone={qualityCheckStatusTone(status)}
                                     label={t(
                                         status === 'hold'
@@ -548,7 +549,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                 <View className="flex-col gap-base">
                     <FormSection
                         first
-                        variant="card"
+                        variant="panel"
                         testID="kitchen-qc-create-subject"
                         // Where the tray's subject cards take the reader.
                         nativeID="kitchen-qc-create-subject"
@@ -643,7 +644,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
                         <>
                             <FormSection
                                 first
-                                variant="card"
+                                variant="panel"
                                 testID="kitchen-qc-create-cover"
                                 title={t(
                                     isReceipt
@@ -695,7 +696,7 @@ export function QualityCheckCreate({ onDone, onOpenCheck }: QualityCheckCreatePr
 
                             <FormSection
                                 first
-                                variant="card"
+                                variant="panel"
                                 testID="kitchen-qc-create-start"
                                 title={t('kitchen:ops.qc.startSection')}
                             >
@@ -863,7 +864,6 @@ function SubjectList({
                                 ) : (
                                     <Badge
                                         variant="label"
-                                        icon={null}
                                         testID={`kitchen-qc-subject-${row.id}-check`}
                                         tone={qualityCheckStatusTone(row.check.status)}
                                         label={t('kitchen:ops.qc.checkBadge', {

@@ -1,21 +1,12 @@
 import { PLAN_DURATION_KINDS } from '@healthy360/api-client/contracts';
 import type { PlanDurationKind } from '@healthy360/api-client/contracts';
-import {
-    Badge,
-    DataList,
-    Icon,
-    IconButton,
-    Select,
-    Text,
-    TextInputField,
-    spanWidth,
-} from '@healthy360/design-system';
+import { DataList, Select, Switch, Text, TextInputField } from '@healthy360/design-system';
 import type { DataListColumn } from '@healthy360/design-system';
 import { useState } from 'react';
-import type { ReactNode } from 'react';
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 
+import { DeskRowMenu } from './desk-kit/desk-row-menu.tsx';
 import { durationKindKey } from './format.ts';
 import { withDurationKind } from './plan-matrix.ts';
 import type { DurationDraft, DurationError, VariantDraft } from './plan-matrix.ts';
@@ -28,6 +19,11 @@ import { UndoBar } from './row-editor-shell.tsx';
  * `./price-row-editors.tsx` is its own: these rows enforce contract rules *while they are being
  * typed* — a duration's `CHECK`, a discount that must stay undecided rather than become zero — and
  * that logic wants to be readable next to the control it governs.
+ *
+ * Both are tables (Commercial canvas, 2026-11-15): one line per row, every field on that line, the
+ * row's Remove behind its `⋯`, and what is wrong with a row said on a line *under* the row
+ * (`DataList`'s `rowNote`) — never under one field, where it would make that cell taller and move
+ * the row's other fields out of line with it.
  *
  * ## Configurations are entered here, and the matrix only reads them
  *
@@ -62,17 +58,19 @@ export interface PlanVariantRowsProps {
 }
 
 /**
- * Every configuration in full (Commercial §2.2 `PlanVariantCard`, §3.3 Configurations tab).
+ * Every configuration in full (Commercial §3.3 Configurations tab, as a table since 2026-11-15).
  *
  * ```
- * CONFIGURATION 1  [ACTIVE]                                                                ✕
- * Configuration name (span 2)                 Offer this configuration [Active ▾]
- * Meals a day [3]      Snacks a day [1]      Energy from [1500]  Energy to [1800]
+ * CONFIGURATION NAME     MEALS A DAY   SNACKS A DAY   ENERGY FROM – TO          OFFER          ⋯
+ * [Standard          ]   [ 3 ]         [ 1 ]          [ 1700 ] – [ 1900 ] kcal  (●) Active     ⋯
+ * [Large             ]   [ 3 ]         [ 2 ]          [ 2400 ] – [      ] kcal  (●) Active     ⋯
+ *   Give both ends of the energy band.                                      <- the row's note
  * ```
  *
- * One hairline row per configuration, the fields on the no-stretch 280px track. Meals, snacks and
- * the band are the configuration's **coordinates**: they are the cell of the matrix it sits in. `Inactive` is chosen from a select, not a checkbox, because it is
- * one of two named states and neither is a deletion.
+ * Meals, snacks and the band are the configuration's **coordinates**: they are the cell of the
+ * matrix it sits in. The band is one field of two halves — a range, not two facts — so its unit is
+ * said once, after it. `Offer` is a switch that names its state (Active / Inactive), because the
+ * two are named states and neither is a deletion.
  *
  * The name is the design's one field. It writes the English name and leaves the Arabic one as it
  * was, so a configuration imported with both keeps both.
@@ -91,158 +89,224 @@ export function PlanVariantRows({
     const nameOf = (row: VariantDraft): string =>
         row.name.en.trim() === '' ? t('kitchen:plans.unnamedVariant') : row.name.en;
 
+    const patchRow = (key: string, next: Partial<VariantDraft>) => {
+        onChange(rows.map((entry) => (entry.key === key ? { ...entry, ...next } : entry)));
+    };
+
+    const removable = canManage && !(keepOne && rows.length === 1);
+    const rowId = (row: VariantDraft) => `${testID}-row-${row.key}`;
+
+    const columns: readonly DataListColumn<VariantDraft>[] = [
+        {
+            key: 'name',
+            label: t('kitchen:plans.variantNameLabel'),
+            width: NAME_TRACK,
+            priority: 100,
+            fill: true,
+            render: (row) => (
+                <View className="w-full py-tight">
+                    <TextInputField
+                        testID={`${rowId(row)}-name`}
+                        id={`${rowId(row)}-name`}
+                        label={t('kitchen:plans.variantNameLabel')}
+                        labelHidden
+                        placeholder={t('kitchen:plans.variantNamePlaceholder')}
+                        size="sm"
+                        required
+                        disabled={!canManage}
+                        value={row.name.en}
+                        onChangeText={(next) => {
+                            patchRow(row.key, { name: { ...row.name, en: next } });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        {
+            key: 'meals',
+            label: t('kitchen:plans.mealsPerDayLabel'),
+            width: COUNT_TRACK,
+            priority: 99,
+            grow: false,
+            render: (row) => (
+                <View className="w-full py-tight">
+                    <CountField
+                        testID={`${rowId(row)}-meals`}
+                        label={t('kitchen:plans.mealsPerDayLabel')}
+                        labelHidden
+                        placeholder={t('kitchen:plans.mealsPerDayPlaceholder')}
+                        value={row.mealsPerDay}
+                        disabled={!canManage}
+                        onChange={(next) => {
+                            patchRow(row.key, { mealsPerDay: next });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        {
+            key: 'snacks',
+            label: t('kitchen:plans.snacksPerDayLabel'),
+            width: COUNT_TRACK,
+            priority: 98,
+            grow: false,
+            render: (row) => (
+                <View className="w-full py-tight">
+                    <CountField
+                        testID={`${rowId(row)}-snacks`}
+                        label={t('kitchen:plans.snacksPerDayLabel')}
+                        labelHidden
+                        placeholder={t('kitchen:plans.snacksPerDayPlaceholder')}
+                        value={row.snacksPerDay}
+                        disabled={!canManage}
+                        onChange={(next) => {
+                            patchRow(row.key, { snacksPerDay: next });
+                        }}
+                    />
+                </View>
+            ),
+        },
+        {
+            key: 'energy',
+            label: t('kitchen:plans.energyBandHeader'),
+            width: BAND_TRACK,
+            priority: 97,
+            grow: false,
+            render: (row) => (
+                <View className="w-full flex-row items-center gap-tight py-tight">
+                    <View style={{ width: BAND_BOX }}>
+                        <CountField
+                            testID={`${rowId(row)}-energy-min`}
+                            label={t('kitchen:plans.energyMinLabel')}
+                            labelHidden
+                            placeholder={t('kitchen:plans.energyMinPlaceholder')}
+                            value={row.energyMin}
+                            disabled={!canManage}
+                            onChange={(next) => {
+                                patchRow(row.key, { energyMin: next });
+                            }}
+                        />
+                    </View>
+                    <View aria-hidden>
+                        <Text tone="secondary">–</Text>
+                    </View>
+                    <View style={{ width: BAND_BOX }}>
+                        <CountField
+                            testID={`${rowId(row)}-energy-max`}
+                            label={t('kitchen:plans.energyMaxLabel')}
+                            labelHidden
+                            placeholder={t('kitchen:plans.energyMaxPlaceholder')}
+                            value={row.energyMax}
+                            disabled={!canManage}
+                            onChange={(next) => {
+                                patchRow(row.key, { energyMax: next });
+                            }}
+                        />
+                    </View>
+                    <Text variant="caption" tone="secondary">
+                        {t('kitchen:nutritionFacts.unitKcal')}
+                    </Text>
+                </View>
+            ),
+        },
+        {
+            key: 'offer',
+            label: t('kitchen:plans.offerHeader'),
+            width: OFFER_TRACK,
+            priority: 96,
+            grow: false,
+            render: (row) => (
+                <Switch
+                    testID={`${rowId(row)}-active`}
+                    id={`${rowId(row)}-active`}
+                    label={t('kitchen:plans.variantActiveLabel')}
+                    labelHidden
+                    stateLabel={
+                        row.isActive
+                            ? t('kitchen:plans.variantActive')
+                            : t('kitchen:plans.variantInactive')
+                    }
+                    checked={row.isActive}
+                    disabled={!canManage}
+                    onChange={(next) => {
+                        patchRow(row.key, { isActive: next });
+                    }}
+                />
+            ),
+        },
+        ...(removable
+            ? [
+                  {
+                      key: 'actions',
+                      label: t('kitchen:list.actionHeader'),
+                      // The ⋯ needs no visible heading in a 48px track; its name stays for a reader.
+                      renderHeader: () => (
+                          <View accessibilityLabel={t('kitchen:list.actionHeader')} />
+                      ),
+                      width: MENU_TRACK,
+                      priority: 95,
+                      grow: false,
+                      align: 'end',
+                      render: (row: VariantDraft) => (
+                          <DeskRowMenu
+                              testID={`${rowId(row)}-menu`}
+                              label={t('kitchen:list.rowActions')}
+                              actions={[
+                                  {
+                                      key: 'remove',
+                                      label: t('kitchen:rows.remove'),
+                                      icon: 'trash',
+                                      tone: 'danger',
+                                      testID: `${rowId(row)}-remove`,
+                                      onSelect: () => {
+                                          setRemoved({
+                                              row,
+                                              index: rows.findIndex(
+                                                  (entry) => entry.key === row.key,
+                                              ),
+                                          });
+                                          onChange(rows.filter((entry) => entry.key !== row.key));
+                                      },
+                                  },
+                              ]}
+                          />
+                      ),
+                  } satisfies DataListColumn<VariantDraft>,
+              ]
+            : []),
+    ];
+
     return (
-        <View testID={testID} className="flex-col">
+        // The table carries the component's id when it is drawn, so its rows are `{testID}-row-{key}`;
+        // the wrapper takes it only while there is no table to carry it.
+        <View {...(rows.length === 0 ? { testID } : {})} className="z-auto flex-col">
             {rows.length === 0 ? (
                 <Text testID={`${testID}-empty`} tone="secondary">
                     {t('kitchen:plans.variantsEmpty')}
                 </Text>
             ) : (
-                rows.map((row, index) => {
-                    const rowTestId = `${testID}-row-${row.key}`;
-                    const error = errors.get(row.key);
-                    const patch = (next: Partial<VariantDraft>) => {
-                        onChange(
-                            rows.map((entry) =>
-                                entry.key === row.key ? { ...entry, ...next } : entry,
-                            ),
+                <DataList<VariantDraft>
+                    testID={testID}
+                    label={t('kitchen:plans.variantsTitle')}
+                    columns={columns}
+                    rows={rows}
+                    rowKey={(row) => row.key}
+                    density="sm"
+                    framed
+                    rowNote={(row) => {
+                        const error = errors.get(row.key);
+                        return error === undefined ? null : (
+                            <Text
+                                testID={`${rowId(row)}-error`}
+                                role="alert"
+                                tone="danger"
+                                variant="caption"
+                            >
+                                {error}
+                            </Text>
                         );
-                    };
-
-                    return (
-                        <View
-                            key={row.key}
-                            testID={rowTestId}
-                            className="z-auto flex-col gap-2.5 border-b border-stroke-subtle py-snug"
-                        >
-                            <RowHeading
-                                testID={rowTestId}
-                                title={t('kitchen:plans.variantNumber', { number: index + 1 })}
-                                badge={
-                                    <Badge
-                                        testID={`${rowTestId}-badge`}
-                                        tone={row.isActive ? 'success' : 'neutral'}
-                                        label={
-                                            row.isActive
-                                                ? t('kitchen:plans.variantActive')
-                                                : t('kitchen:plans.variantInactive')
-                                        }
-                                    />
-                                }
-                                canManage={canManage && !(keepOne && rows.length === 1)}
-                                onRemove={() => {
-                                    setRemoved({ row, index });
-                                    onChange(rows.filter((entry) => entry.key !== row.key));
-                                }}
-                            />
-
-                            <View className="z-auto flex-row flex-wrap items-start gap-x-base gap-y-snug">
-                                <View style={{ width: spanWidth(2) }}>
-                                    <TextInputField
-                                        testID={`${rowTestId}-name`}
-                                        id={`${rowTestId}-name`}
-                                        label={t('kitchen:plans.variantNameLabel')}
-                                        placeholder={t('kitchen:plans.variantNamePlaceholder')}
-                                        size="sm"
-                                        required
-                                        disabled={!canManage}
-                                        value={row.name.en}
-                                        onChangeText={(next) => {
-                                            patch({ name: { ...row.name, en: next } });
-                                        }}
-                                    />
-                                </View>
-                                <View style={{ width: spanWidth(1) }} className="z-auto">
-                                    <Select<'active' | 'inactive'>
-                                        testID={`${rowTestId}-active`}
-                                        id={`${rowTestId}-active`}
-                                        label={t('kitchen:plans.variantActiveLabel')}
-                                        disabled={!canManage}
-                                        value={row.isActive ? 'active' : 'inactive'}
-                                        options={[
-                                            {
-                                                value: 'active',
-                                                label: t('kitchen:plans.variantActive'),
-                                            },
-                                            {
-                                                value: 'inactive',
-                                                label: t('kitchen:plans.variantInactive'),
-                                            },
-                                        ]}
-                                        onChange={(next) => {
-                                            patch({ isActive: next === 'active' });
-                                        }}
-                                    />
-                                </View>
-                                <View style={{ width: spanWidth(1) }}>
-                                    <CountField
-                                        testID={`${rowTestId}-meals`}
-                                        label={t('kitchen:plans.mealsPerDayLabel')}
-                                        placeholder={t('kitchen:plans.mealsPerDayPlaceholder')}
-                                        value={row.mealsPerDay}
-                                        disabled={!canManage}
-                                        onChange={(next) => {
-                                            patch({ mealsPerDay: next });
-                                        }}
-                                    />
-                                </View>
-                                <View style={{ width: spanWidth(1) }}>
-                                    <CountField
-                                        testID={`${rowTestId}-snacks`}
-                                        label={t('kitchen:plans.snacksPerDayLabel')}
-                                        placeholder={t('kitchen:plans.snacksPerDayPlaceholder')}
-                                        value={row.snacksPerDay}
-                                        disabled={!canManage}
-                                        onChange={(next) => {
-                                            patch({ snacksPerDay: next });
-                                        }}
-                                    />
-                                </View>
-                                {/* The band is one field of two halves: a range, not two facts. */}
-                                <View
-                                    style={{ width: spanWidth(1) }}
-                                    className="flex-row gap-tight"
-                                >
-                                    <View className="min-w-0 flex-1">
-                                        <CountField
-                                            testID={`${rowTestId}-energy-min`}
-                                            label={t('kitchen:plans.energyMinLabel')}
-                                            placeholder={t('kitchen:plans.energyMinPlaceholder')}
-                                            value={row.energyMin}
-                                            disabled={!canManage}
-                                            onChange={(next) => {
-                                                patch({ energyMin: next });
-                                            }}
-                                        />
-                                    </View>
-                                    <View className="min-w-0 flex-1">
-                                        <CountField
-                                            testID={`${rowTestId}-energy-max`}
-                                            label={t('kitchen:plans.energyMaxLabel')}
-                                            placeholder={t('kitchen:plans.energyMaxPlaceholder')}
-                                            value={row.energyMax}
-                                            disabled={!canManage}
-                                            onChange={(next) => {
-                                                patch({ energyMax: next });
-                                            }}
-                                        />
-                                    </View>
-                                </View>
-                            </View>
-
-                            {error === undefined ? null : (
-                                <Text
-                                    testID={`${rowTestId}-error`}
-                                    role="alert"
-                                    tone="danger"
-                                    variant="caption"
-                                >
-                                    {error}
-                                </Text>
-                            )}
-                        </View>
-                    );
-                })
+                    }}
+                />
             )}
 
             {removed === null ? null : (
@@ -258,53 +322,6 @@ export function PlanVariantRows({
                 />
             )}
         </View>
-    );
-}
-
-/** A row's opening, as the design draws it: the micro number, its badge, and ✕ at the inline end. */
-function RowHeading({
-    testID,
-    title,
-    badge,
-    canManage,
-    onRemove,
-}: {
-    readonly testID: string;
-    readonly title: string;
-    readonly badge?: ReactNode | undefined;
-    readonly canManage: boolean;
-    readonly onRemove: () => void;
-}) {
-    return (
-        <View className="flex-row items-center gap-tight">
-            <Text variant="micro" tone="secondary" testID={`${testID}-position`}>
-                {title}
-            </Text>
-            {badge}
-            <View className="flex-1" />
-            {canManage ? <RemoveButton testID={testID} onRemove={onRemove} /> : null}
-        </View>
-    );
-}
-
-export function RemoveButton({
-    testID,
-    onRemove,
-}: {
-    readonly testID: string;
-    readonly onRemove: () => void;
-}) {
-    const { t } = useTranslation();
-    return (
-        <IconButton
-            testID={`${testID}-remove`}
-            variant="secondary"
-            size="sm"
-            tone="danger"
-            label={t('kitchen:rows.remove')}
-            icon={<Icon name="close" size="sm" />}
-            onPress={onRemove}
-        />
     );
 }
 
@@ -378,7 +395,7 @@ export interface PlanDurationRowsProps {
  * How long a plan runs — one line per option (Commercial §2.2 `PlanDurationRow`, §3.3 Durations).
  *
  * ```
- * KIND                   DAYS      DISCOUNT    WHAT THAT MEANS                               ✕
+ * KIND                   DAYS      DISCOUNT    WHAT THAT MEANS                               ⋯
  * [One-off          ▾]   None      [Not set]   A one-off is a single delivery …
  * [A fixed number … ▾]   [ 20 ]    [ 5 ]       This duration takes 5% off.
  * ```
@@ -394,6 +411,12 @@ export interface PlanDurationRowsProps {
  * An empty field is `null` on the wire; a typed `0` is the decision that the commitment earns
  * nothing. The sentence in the last column says which of the two the row holds. A one-off row with
  * no discount decided says what a one-off is instead, which is the question its Days cell raises.
+ *
+ * ## A row's problem is said under the row
+ *
+ * Each row has one problem at a time, and it belongs to a field (`DurationError['field']`). It is
+ * said on the row's note line, keeping that field's id (`…-days-error`, `…-discount-error`), so
+ * the row's fields stay on one line whichever of them is wrong.
  */
 export function PlanDurationRows({
     rows,
@@ -417,12 +440,6 @@ export function PlanDurationRows({
         onChange(rows.map((entry) => (entry.key === key ? { ...entry, ...next } : entry)));
     };
 
-    /** The row's problem when it belongs under this field; a Days problem never marks Discount. */
-    const errorOn = (row: DurationDraft, field: DurationError['field']): string | undefined => {
-        const error = errors.get(row.key);
-        return error?.field === field ? error.message : undefined;
-    };
-
     const meaning = (row: DurationDraft): string =>
         row.kind === 'one_off' && row.discountPercent === null
             ? t('kitchen:plans.oneOffExplainer')
@@ -431,6 +448,18 @@ export function PlanDurationRows({
               : row.discountPercent === 0
                 ? t('kitchen:plans.discountZeroExplainer')
                 : t('kitchen:plans.discountSetExplainer', { percent: row.discountPercent });
+
+    /**
+     * The note's id: a Days problem on a fixed-days row is that field's, a Discount problem always
+     * is, and what is left — a one-off's day-count or duplicate problem — has no field, so it is
+     * the row's.
+     */
+    const noteId = (row: DurationDraft, error: DurationError): string => {
+        const rowTestId = `${testID}-row-${row.key}`;
+        if (error.field === 'discount') return `${rowTestId}-discount-error`;
+        if (row.kind === 'fixed_days') return `${rowTestId}-days-error`;
+        return `${rowTestId}-error`;
+    };
 
     const removable = canManage && !(keepOne && rows.length === 1);
 
@@ -481,7 +510,6 @@ export function PlanDurationRows({
                             placeholder="0"
                             value={row.days}
                             disabled={!canManage}
-                            error={errorOn(row, 'days')}
                             onChange={(next) => {
                                 patchRow(row.key, { days: next });
                             }}
@@ -515,7 +543,6 @@ export function PlanDurationRows({
                         placeholder={t('kitchen:plans.discountNotSet')}
                         value={row.discountPercent}
                         disabled={!canManage}
-                        error={errorOn(row, 'discount')}
                         onChange={(next) => {
                             patchRow(row.key, { discountPercent: next });
                         }}
@@ -529,57 +556,54 @@ export function PlanDurationRows({
             width: MEANING_TRACK,
             priority: 97,
             fill: true,
-            render: (row) => {
-                // A Days problem on a fixed-days row is that field's own error, and a Discount
-                // problem is always that field's. What is left — a one-off's day-count or
-                // duplicate problem — has no field to sit on, so it sits under the sentence that
-                // explains the row.
-                const error = row.kind === 'fixed_days' ? undefined : errorOn(row, 'days');
-                return (
-                    <View className="min-w-0 flex-1 flex-col gap-hair py-tight">
-                        <Text
-                            testID={`${testID}-row-${row.key}-discount-state`}
-                            // A sentence, not a value: it wraps rather than ending in an ellipsis.
-                            numberOfLines={3}
-                            variant="caption"
-                            tone="secondary"
-                        >
-                            {meaning(row)}
-                        </Text>
-                        {error === undefined ? null : (
-                            <Text
-                                testID={`${testID}-row-${row.key}-error`}
-                                numberOfLines={3}
-                                role="alert"
-                                tone="danger"
-                                variant="caption"
-                            >
-                                {error}
-                            </Text>
-                        )}
-                    </View>
-                );
-            },
+            render: (row) => (
+                <View className="min-w-0 flex-1 py-tight">
+                    <Text
+                        testID={`${testID}-row-${row.key}-discount-state`}
+                        // A sentence, not a value: it wraps rather than ending in an ellipsis.
+                        numberOfLines={3}
+                        variant="caption"
+                        tone="secondary"
+                    >
+                        {meaning(row)}
+                    </Text>
+                </View>
+            ),
         },
         ...(removable
             ? [
                   {
                       key: 'remove',
                       label: t('kitchen:list.actionHeader'),
-                      width: REMOVE_TRACK,
+                      renderHeader: () => (
+                          <View accessibilityLabel={t('kitchen:list.actionHeader')} />
+                      ),
+                      width: MENU_TRACK,
                       priority: 96,
                       grow: false,
                       align: 'end',
                       render: (row: DurationDraft) => (
-                          <RemoveButton
-                              testID={`${testID}-row-${row.key}`}
-                              onRemove={() => {
-                                  setRemoved({
-                                      row,
-                                      index: rows.findIndex((entry) => entry.key === row.key),
-                                  });
-                                  onChange(rows.filter((entry) => entry.key !== row.key));
-                              }}
+                          <DeskRowMenu
+                              testID={`${testID}-row-${row.key}-menu`}
+                              label={t('kitchen:list.rowActions')}
+                              actions={[
+                                  {
+                                      key: 'remove',
+                                      label: t('kitchen:rows.remove'),
+                                      icon: 'trash',
+                                      tone: 'danger',
+                                      testID: `${testID}-row-${row.key}-remove`,
+                                      onSelect: () => {
+                                          setRemoved({
+                                              row,
+                                              index: rows.findIndex(
+                                                  (entry) => entry.key === row.key,
+                                              ),
+                                          });
+                                          onChange(rows.filter((entry) => entry.key !== row.key));
+                                      },
+                                  },
+                              ]}
                           />
                       ),
                   } satisfies DataListColumn<DurationDraft>,
@@ -590,7 +614,7 @@ export function PlanDurationRows({
     return (
         // The table carries the component's id when it is drawn, so its rows are `{testID}-row-{key}`;
         // the wrapper takes it only while there is no table to carry it.
-        <View {...(rows.length === 0 ? { testID } : {})} className="flex-col">
+        <View {...(rows.length === 0 ? { testID } : {})} className="z-auto flex-col">
             {rows.length === 0 ? (
                 <Text testID={`${testID}-empty`} tone="secondary">
                     {t('kitchen:plans.durationsEmpty')}
@@ -604,6 +628,19 @@ export function PlanDurationRows({
                     rowKey={(row) => row.key}
                     density="sm"
                     framed
+                    rowNote={(row) => {
+                        const error = errors.get(row.key);
+                        return error === undefined ? null : (
+                            <Text
+                                testID={noteId(row, error)}
+                                role="alert"
+                                tone="danger"
+                                variant="caption"
+                            >
+                                {error.message}
+                            </Text>
+                        );
+                    }}
                 />
             )}
 
@@ -624,13 +661,21 @@ export function PlanDurationRows({
 }
 
 /**
- * The design's duration tracks; its 150px kind is widened to show the longer label whole. Each is
- * its box's width plus the cell's own `px-control-sm` (8 + 8), so the boxes keep those widths.
+ * The tracks. Each is its box's width plus the cell's own `px-control-sm` (8 + 8), so the boxes
+ * keep those widths; the configuration's name and the duration's sentence take the row's slack.
  */
 const CELL_PADDING = 16;
+const NAME_TRACK = 200;
+const COUNT_TRACK = 96 + CELL_PADDING;
+/** Two 88px boxes, the dash between them and the unit after them, on the band's one track. */
+const BAND_BOX = 88;
+const BAND_TRACK = 2 * BAND_BOX + 64 + CELL_PADDING;
+const OFFER_TRACK = 112 + CELL_PADDING;
+/** The design's duration tracks; its 150px kind is widened to show the longer label whole. */
 const KIND_TRACK = 180 + CELL_PADDING;
 const DAYS_TRACK = 110 + CELL_PADDING;
 const DISCOUNT_TRACK = 130 + CELL_PADDING;
 /** The sentence's floor; it takes the row's slack, so the band runs the card's width. */
 const MEANING_TRACK = 240;
-const REMOVE_TRACK = 48;
+/** The `⋯`'s 28px target and the cell's padding. */
+const MENU_TRACK = 48;

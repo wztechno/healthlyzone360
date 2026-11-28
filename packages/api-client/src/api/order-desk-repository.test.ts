@@ -1502,3 +1502,90 @@ describe('createApiOrderDeskRepository — getCashReport', () => {
         });
     });
 });
+
+describe('createApiOrderDeskRepository — listPlanMeals', () => {
+    const META = {
+        correlation_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4901',
+        date: '2026-08-17',
+        count: 1,
+    };
+
+    it('asks for one day and maps a subscriber with the dish they picked', async () => {
+        const { repository, calls } = harness([
+            {
+                status: 200,
+                body: {
+                    data: [
+                        {
+                            subscription_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4902',
+                            basis: 'scheduled',
+                            plan: { name_en: 'Lean week', name_ar: null },
+                            meals_per_day: 2,
+                            snacks_per_day: 0,
+                            meals: [
+                                {
+                                    slot: 'lunch',
+                                    sequence: 1,
+                                    catalogue_item_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4903',
+                                    name_en: 'Lentil Soup',
+                                    name_ar: null,
+                                },
+                            ],
+                            customer: { display_name: 'Rania Haddad', phone: '+96170214380' },
+                        },
+                    ],
+                    meta: META,
+                },
+            },
+        ]);
+
+        const rows = await repository.listPlanMeals('2026-08-17');
+
+        expect(calls[0]?.path).toBe('/catalogue/order-desk/plan-meals?date=2026-08-17');
+        expect(rows).toEqual([
+            {
+                subscriptionId: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4902',
+                basis: 'scheduled',
+                plan: { nameEn: 'Lean week', nameAr: null },
+                mealsPerDay: 2,
+                snacksPerDay: 0,
+                meals: [
+                    {
+                        slot: 'lunch',
+                        sequence: 1,
+                        catalogueItemId: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4903',
+                        nameEn: 'Lentil Soup',
+                        nameAr: null,
+                    },
+                ],
+                customer: { displayName: 'Rania Haddad', phone: '+96170214380' },
+            },
+        ]);
+    });
+
+    it('leaves the customer off a row the caller may not see contacts for', async () => {
+        const { repository } = harness([
+            {
+                status: 200,
+                body: {
+                    data: [
+                        {
+                            subscription_id: '0198c5f2-7d3a-7b1e-9c4d-2f6a8b0e4902',
+                            basis: 'projected',
+                            plan: { name_en: 'Lean week', name_ar: null },
+                            meals_per_day: 1,
+                            snacks_per_day: null,
+                            meals: [],
+                        },
+                    ],
+                    meta: META,
+                },
+            },
+        ]);
+
+        const [row] = await repository.listPlanMeals('2026-08-17');
+
+        expect(row?.customer).toBeUndefined();
+        expect(row?.basis).toBe('projected');
+    });
+});

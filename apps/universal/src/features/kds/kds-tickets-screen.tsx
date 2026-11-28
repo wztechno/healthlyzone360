@@ -4,10 +4,14 @@ import {
     Button,
     Callout,
     Card,
+    Drawer,
     EmptyState,
     ErrorState,
     Heading,
+    Icon,
+    IconButton,
     Inline,
+    Popover,
     Skeleton,
     Stack,
     Tabs,
@@ -21,7 +25,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { View } from 'react-native';
+import { ScrollView, View } from 'react-native';
 
 import { Gate, useCan } from '../../access/gate.tsx';
 import { toFailure } from '../../data/hooks.ts';
@@ -49,6 +53,7 @@ import {
 import { playAlertTone } from './alert-tone.ts';
 import {
     KDS_COLUMN_KEYS,
+    allDayTotals,
     bucketTickets,
     isAlarming,
     isAwaitingStart,
@@ -60,7 +65,7 @@ import {
     ticketAgeTone,
     unseenTickets,
 } from './kds-board.ts';
-import type { KdsColumnKey } from './kds-board.ts';
+import type { KdsAllDayLine, KdsColumnKey } from './kds-board.ts';
 import { ticketDeliveryLine } from './ticket-print-sheet.tsx';
 import { useWakeLock } from './use-wake-lock.ts';
 
@@ -320,12 +325,14 @@ function KdsTickets() {
     const fulfilOrder = useFulfilOrderMutation();
     const { heldIds, hold } = useHeldBumps(t('kitchen:common.undo'));
     const [lane, setLane] = useState<KdsColumnKey>('incoming');
+    const [allDayOpen, setAllDayOpen] = useState(false);
     const queryClient = useQueryClient();
 
     const board = useMemo(
         () => bucketTickets(orders ?? [], now, branchId),
         [orders, now, branchId],
     );
+    const allDay = useMemo(() => allDayTotals(board), [board]);
 
     /** The open minutes a ticket has waited, while it is alarming; null otherwise. */
     function alarmMinutes(order: KitchenOrder): number | null {
@@ -430,7 +437,9 @@ function KdsTickets() {
         return (
             <Stack
                 space="sm"
-                className={atLeast('md') ? 'flex-1' : undefined}
+                className={
+                    atLeast('md') ? 'min-w-0 flex-1 rounded-2xl bg-surface-sunken p-2.5' : undefined
+                }
                 testID={kdsColumnTestId(column)}
             >
                 <Inline space="sm" align="center" justify="between">
@@ -469,8 +478,8 @@ function KdsTickets() {
             <Stack space="md" className="flex-1 p-4" testID="kds-tickets">
                 <EmptyState
                     testID="kds-tickets-no-branch"
+                    icon="store"
                     title={t('kitchen:kds.noBranchTitle')}
-                    body={t('kitchen:kds.noBranchBody')}
                 />
             </Stack>
         );
@@ -478,30 +487,75 @@ function KdsTickets() {
 
     return (
         <Stack space="md" className="flex-1 p-4" testID="kds-tickets">
-            <Stack space="xs">
+            <Inline space="sm" align="center" justify="between" wrap>
                 <Heading level={1}>{t('kitchen:kds.title')}</Heading>
-                <Inline space="sm" align="center" justify="between" wrap>
-                    <Text tone="secondary" variant="caption">
-                        {t('kitchen:kds.subtitle')}
-                    </Text>
-                    <Inline space="sm" align="center" wrap>
-                        {soundOffered ? (
-                            <Button
-                                testID="kds-sound-on"
-                                size="sm"
-                                variant="secondary"
-                                label={t('kitchen:kds.soundOn')}
-                                onPress={turnOnSound}
-                            />
-                        ) : null}
-                        {display.dataUpdatedAt === 0 ? null : (
-                            <Text tone="secondary" variant="caption" testID="kds-tickets-updated">
-                                {t('kitchen:kds.lastUpdated', { time: updatedAt })}
-                            </Text>
-                        )}
-                    </Inline>
+                <Inline space="sm" align="center" wrap>
+                    {display.dataUpdatedAt === 0 ? null : (
+                        <Text tone="secondary" variant="caption" testID="kds-tickets-updated">
+                            {t('kitchen:kds.lastUpdated', { time: updatedAt })}
+                        </Text>
+                    )}
+                    {/* The wall keeps the list beside the board; narrower, it waits behind a button. */}
+                    {allDay.length === 0 || atLeast('xl') ? null : atLeast('md') ? (
+                        <Popover
+                            testID="kds-all-day"
+                            className="z-auto"
+                            triggerVariant="button"
+                            align="end"
+                            triggerLabel={t('kitchen:kds.allDay')}
+                            triggerText={t('kitchen:kds.allDay')}
+                            triggerIcon="list"
+                            title={t('kitchen:kds.allDay')}
+                        >
+                            <ScrollView
+                                className="max-h-[60vh]"
+                                showsVerticalScrollIndicator={false}
+                            >
+                                <AllDayList lines={allDay} locale={locale} />
+                            </ScrollView>
+                        </Popover>
+                    ) : (
+                        <Button
+                            testID="kds-all-day"
+                            size="sm"
+                            variant="secondary"
+                            label={t('kitchen:kds.allDay')}
+                            iconStart={
+                                <Icon name="list" size="sm" className="text-content-primary" />
+                            }
+                            onPress={() => {
+                                setAllDayOpen(true);
+                            }}
+                        />
+                    )}
+                    {soundOffered ? (
+                        <Button
+                            testID="kds-sound-on"
+                            size="sm"
+                            variant="secondary"
+                            iconStart={
+                                <Icon name="bell" size="sm" className="text-content-primary" />
+                            }
+                            label={t('kitchen:kds.soundOn')}
+                            onPress={turnOnSound}
+                        />
+                    ) : null}
                 </Inline>
-            </Stack>
+            </Inline>
+
+            <Drawer
+                testID="kds-all-day-sheet"
+                placement="bottom"
+                open={allDayOpen && allDay.length > 0 && !atLeast('md')}
+                onClose={() => {
+                    setAllDayOpen(false);
+                }}
+                title={t('kitchen:kds.allDay')}
+            >
+                <View className="p-2">
+                    <AllDayList lines={allDay} locale={locale} />
+                </View>
+            </Drawer>
 
             {display.isRefetchError ? (
                 <Callout
@@ -569,8 +623,8 @@ function KdsTickets() {
             ) : empty ? (
                 <EmptyState
                     testID="kds-tickets-empty"
+                    icon="receipt"
                     title={t('kitchen:kds.emptyTitle')}
-                    body={t('kitchen:kds.emptyBody')}
                 />
             ) : atLeast('md') ? (
                 // Three rails side by side on anything tablet-sized and up — a wall screen reads
@@ -581,6 +635,14 @@ function KdsTickets() {
                     {renderColumn('incoming', board.incoming)}
                     {renderColumn('preparing', board.preparing)}
                     {renderColumn('done', board.done)}
+                    {allDay.length === 0 || !atLeast('xl') ? null : (
+                        <Card padding="md" className="w-[232px]" testID="kds-all-day">
+                            <Stack space="xs">
+                                <Heading level={2}>{t('kitchen:kds.allDay')}</Heading>
+                                <AllDayList lines={allDay} locale={locale} />
+                            </Stack>
+                        </Card>
+                    )}
                 </Inline>
             ) : (
                 <Stack space="md" testID="kds-tickets-columns">
@@ -653,6 +715,39 @@ function KdsTickets() {
     );
 }
 
+/** What is still to cook, dish by dish. See `allDayTotals`. */
+function AllDayList({
+    lines,
+    locale,
+}: {
+    readonly lines: readonly KdsAllDayLine[];
+    readonly locale: string;
+}) {
+    const formatter = useFormatter();
+
+    return (
+        <Stack space="none" testID="kds-all-day-list">
+            {lines.map((line) => (
+                <Inline
+                    key={`${line.nameEn}-${line.nameAr}`}
+                    space="sm"
+                    align="center"
+                    justify="between"
+                    wrap={false}
+                    className="border-t border-stroke-subtle py-2"
+                >
+                    <Text variant="body" className="min-w-0 flex-1">
+                        {displayName({ en: line.nameEn, ar: line.nameAr }, locale).value}
+                    </Text>
+                    <Text variant="bodyStrong" className="font-display text-lg tabular-nums">
+                        {formatter.formatNumber(line.quantity)}
+                    </Text>
+                </Inline>
+            ))}
+        </Stack>
+    );
+}
+
 interface TicketProps {
     readonly order: KitchenOrder;
     readonly now: Date;
@@ -699,11 +794,65 @@ function Ticket({
     const minutes = minutesSincePlaced(order, now);
     const later = isUpcoming(order, now);
 
+    const printTicket = (
+        <IconButton
+            testID={`${testID}-print`}
+            label={t('kitchen:kds.print')}
+            icon={<Icon name="printer" />}
+            onPress={() => {
+                router.push(`/kds/ticket?order=${encodeURIComponent(String(order.id))}` as never);
+            }}
+        />
+    );
+
+    // Finished today: a one-row receipt under what is still waiting to go.
+    if (order.status === 'fulfilled') {
+        return (
+            <Card padding="sm" testID={testID}>
+                <Inline space="sm" align="center" wrap={false}>
+                    <Stack space="none" className="min-w-0 flex-1">
+                        <Text variant="bodyStrong" testID={`${testID}-number`}>
+                            {order.orderNumber}
+                        </Text>
+                        <Text
+                            variant="caption"
+                            tone="secondary"
+                            numberOfLines={1}
+                            testID={`${testID}-lines`}
+                        >
+                            {order.lines
+                                .map((line) =>
+                                    t('kitchen:kds.lineSummary', {
+                                        name: displayName(
+                                            { en: line.nameEn, ar: line.nameAr },
+                                            locale,
+                                        ).value,
+                                        quantity: formatter.formatNumber(Number(line.quantity)),
+                                    }),
+                                )
+                                .join(t('kitchen:common.listSeparator'))}
+                        </Text>
+                    </Stack>
+                    <Badge
+                        testID={`${testID}-handed-over-badge`}
+                        tone="success"
+                        label={t('kitchen:kds.handedOver')}
+                    />
+                    {printTicket}
+                </Inline>
+            </Card>
+        );
+    }
+
     return (
-        <Card padding="md" testID={testID}>
+        <Card
+            padding="md"
+            testID={testID}
+            className={alarmMinutes === null ? undefined : '!border-danger'}
+        >
             <Stack space="sm">
                 <Inline space="sm" align="center" justify="between" wrap>
-                    <Heading level={3} testID={`${testID}-number`}>
+                    <Heading level={3} className="tabular-nums" testID={`${testID}-number`}>
                         {order.orderNumber}
                     </Heading>
                     <Badge
@@ -801,102 +950,116 @@ function Ticket({
                             {t('kitchen:kds.held')}
                         </Text>
                     ) : null}
-                    {!canPrepare ? null : isAwaitingStart(order) ? (
-                        /*
-                         * Accept and Start are two moments (HA-26). Accept tells the customer the order
-                         * was seen — a scheduled order is accepted the day it arrives; Start says it is
-                         * cooking, on the day. A later day's ticket offers only Accept; today's offers
-                         * Start, which accepts a new order too, so a same-day order is still one press.
-                         */
-                        <Stack space="xs">
-                            {order.status === 'confirmed' ? (
-                                <Text
-                                    variant="caption"
-                                    tone="secondary"
-                                    testID={`${testID}-accepted`}
-                                >
-                                    {t('kitchen:kds.accepted')}
-                                </Text>
-                            ) : null}
-                            {later ? null : (
-                                <Button
-                                    testID={`${testID}-start`}
-                                    block
-                                    label={t('kitchen:kds.start')}
-                                    loading={pending}
-                                    disabled={disabled}
-                                    onPress={() => {
-                                        onBump(order, 'start');
-                                    }}
-                                />
-                            )}
-                            {canManage && order.status === 'placed' ? (
-                                <Button
-                                    testID={`${testID}-accept`}
-                                    block
-                                    variant={later ? 'primary' : 'secondary'}
-                                    label={t('kitchen:kds.accept')}
-                                    loading={later && pending}
-                                    disabled={disabled}
-                                    onPress={() => {
-                                        onBump(order, 'accept');
-                                    }}
-                                />
-                            ) : null}
-                        </Stack>
-                    ) : canFulfilKitchenOrder(order.status) && (order.readyAt ?? null) === null ? (
-                        <Button
-                            testID={`${testID}-ready`}
-                            block
-                            label={t('kitchen:kds.ready')}
-                            loading={pending}
-                            disabled={disabled}
-                            onPress={() => {
-                                onBump(order, 'ready');
-                            }}
-                        />
-                    ) : canFulfilKitchenOrder(order.status) &&
-                      order.fulfilmentType === 'delivery' ? (
-                        // A delivery leaves with a driver, and it is the driver's Picked up that puts it
-                        // on the road (HA-19) — so the board shows where the run is rather than offering
-                        // a Handed over that would tell the customer it had arrived.
-                        <Text variant="caption" tone="secondary" testID={`${testID}-driver`}>
-                            {t(
-                                order.deliveryRun?.status === 'failed'
-                                    ? 'kitchen:kds.deliveryFailed'
-                                    : (order.deliveryRun?.pickedUpAt ?? null) === null
-                                      ? 'kitchen:kds.waitingForDriver'
-                                      : 'kitchen:kds.withDriver',
-                            )}
+                    {canPrepare && isAwaitingStart(order) && order.status === 'confirmed' ? (
+                        <Text variant="caption" tone="secondary" testID={`${testID}-accepted`}>
+                            {t('kitchen:kds.accepted')}
                         </Text>
-                    ) : canManage && canFulfilKitchenOrder(order.status) ? (
-                        // Cooked and waiting for its customer: handing it over is the step that fulfils it.
-                        <Button
-                            testID={`${testID}-handed-over`}
-                            block
-                            variant="secondary"
-                            label={t('kitchen:kds.handedOver')}
-                            loading={pending}
-                            disabled={disabled}
-                            onPress={() => {
-                                onBump(order, 'handOver');
-                            }}
-                        />
                     ) : null}
-                    {/* Last, and quiet: paper for the pass, never ahead of the bump. */}
-                    <Button
-                        testID={`${testID}-print`}
-                        block
-                        variant="secondary"
-                        label={t('kitchen:kds.print')}
-                        onPress={() => {
-                            router.push(
-                                `/kds/ticket?order=${encodeURIComponent(String(order.id))}` as never,
-                            );
-                        }}
-                    />
+                    <Inline space="xs" align="center" wrap={false}>
+                        {!canPrepare ? null : isAwaitingStart(order) ? (
+                            /*
+                             * Accept and Start are two moments (HA-26). Accept tells the customer the order
+                             * was seen — a scheduled order is accepted the day it arrives; Start says it is
+                             * cooking, on the day. A later day's ticket offers only Accept; today's offers
+                             * Start, which accepts a new order too, so a same-day order is still one press.
+                             */
+                            <>
+                                {later ? null : (
+                                    <Button
+                                        testID={`${testID}-start`}
+                                        block
+                                        className="min-w-0 flex-1"
+                                        label={t('kitchen:kds.start')}
+                                        loading={pending}
+                                        disabled={disabled}
+                                        onPress={() => {
+                                            onBump(order, 'start');
+                                        }}
+                                    />
+                                )}
+                                {canManage && order.status === 'placed' ? (
+                                    <Button
+                                        testID={`${testID}-accept`}
+                                        block
+                                        className="min-w-0 flex-1"
+                                        variant={later ? 'primary' : 'secondary'}
+                                        label={t('kitchen:kds.accept')}
+                                        loading={later && pending}
+                                        disabled={disabled}
+                                        onPress={() => {
+                                            onBump(order, 'accept');
+                                        }}
+                                    />
+                                ) : null}
+                            </>
+                        ) : canFulfilKitchenOrder(order.status) &&
+                          (order.readyAt ?? null) === null ? (
+                            <Button
+                                testID={`${testID}-ready`}
+                                block
+                                className="min-w-0 flex-1"
+                                label={t('kitchen:kds.ready')}
+                                loading={pending}
+                                disabled={disabled}
+                                onPress={() => {
+                                    onBump(order, 'ready');
+                                }}
+                            />
+                        ) : canFulfilKitchenOrder(order.status) &&
+                          order.fulfilmentType === 'delivery' ? (
+                            // A delivery leaves with a driver, and it is the driver's Picked up that puts it
+                            // on the road (HA-19) — so the board shows where the run is rather than offering
+                            // a Handed over that would tell the customer it had arrived.
+                            <RunStatus order={order} testID={`${testID}-driver`} />
+                        ) : canManage && canFulfilKitchenOrder(order.status) ? (
+                            // Cooked and waiting for its customer: handing it over is the step that fulfils it.
+                            <Button
+                                testID={`${testID}-handed-over`}
+                                block
+                                className="min-w-0 flex-1"
+                                variant="secondary"
+                                label={t('kitchen:kds.handedOver')}
+                                loading={pending}
+                                disabled={disabled}
+                                onPress={() => {
+                                    onBump(order, 'handOver');
+                                }}
+                            />
+                        ) : null}
+                        {/* Last, and quiet: paper for the pass, never ahead of the bump. */}
+                        <View className="ms-auto">{printTicket}</View>
+                    </Inline>
                 </Stack>
             </Stack>
         </Card>
+    );
+}
+
+/** Where a cooked delivery is: with nobody yet, on the road, or back. */
+function RunStatus({ order, testID }: { readonly order: KitchenOrder; readonly testID: string }) {
+    const { t } = useTranslation();
+    const failed = order.deliveryRun?.status === 'failed';
+    const waiting = (order.deliveryRun?.pickedUpAt ?? null) === null;
+    const tone = failed
+        ? { fill: 'bg-danger-subtle', ink: 'text-danger-strong' }
+        : waiting
+          ? { fill: 'bg-surface-sunken', ink: 'text-content-secondary' }
+          : { fill: 'bg-info-subtle', ink: 'text-info-strong' };
+
+    return (
+        <View
+            className={`min-h-touch min-w-0 flex-1 flex-row items-center gap-2 rounded-full px-3 ${tone.fill}`}
+        >
+            <Icon name="truck" size="sm" className={tone.ink} />
+            <Text variant="bodyStrong" className={`min-w-0 flex-1 ${tone.ink}`} testID={testID}>
+                {t(
+                    failed
+                        ? 'kitchen:kds.deliveryFailed'
+                        : waiting
+                          ? 'kitchen:kds.waitingForDriver'
+                          : 'kitchen:kds.withDriver',
+                )}
+            </Text>
+        </View>
     );
 }

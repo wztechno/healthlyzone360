@@ -1,6 +1,5 @@
 import type { PurchaseOrder } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Card,
     ErrorState,
@@ -21,6 +20,7 @@ import { useReturnTo } from '../../../navigation/use-return-to.ts';
 import { INVENTORY_ORDER_SUPPLIES_PERMISSION } from '../entity-registry.ts';
 import { PrintSheet, usePrintSheet } from '../print-sheet.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * `/kitchen/supply-orders/print?orders=…` — the Phase 1 export (SUP7, §7).
  *
@@ -123,7 +123,7 @@ function SupplyOrderPrint({ orders }: SupplyOrderPrintScreenProps) {
     );
 
     const backButton = (
-        <Button
+        <DeskButton
             testID="kitchen-supply-print-back"
             variant="secondary"
             // One step back — to the order the sheet was printed from, or the book.
@@ -214,7 +214,7 @@ function SupplyOrderPrint({ orders }: SupplyOrderPrintScreenProps) {
                     <Inline space="sm" align="center" wrap>
                         {backButton}
                         {sheet.mode === 'browser' && sheets.length > 0 ? (
-                            <Button
+                            <DeskButton
                                 testID="kitchen-supply-print-action"
                                 label={t('kitchen:ops.supplyOrders.print.printAction')}
                                 onPress={sheet.print}

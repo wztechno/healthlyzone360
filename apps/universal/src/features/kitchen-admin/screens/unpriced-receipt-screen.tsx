@@ -4,23 +4,20 @@ import type {
     StockItem,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
-    Card,
     Cascade,
     DataList,
     Dialog,
     EmptyState,
     ErrorState,
+    FormSection,
     IssueTrayFrame,
-    RecordSkeleton,
-    RecordWindowFieldGrid,
-    Stack,
+    IssueUnanchored,
     QuantityInput,
+    RecordSkeleton,
     Text,
+    useContentWidth,
     useIssueTrayController,
     useToast,
-    useContentWidth,
 } from '@healthy360/design-system';
 import type {
     DataListColumn,
@@ -50,6 +47,8 @@ import { CatalogueStatCards } from '../catalogue/catalogue-stat-cards.tsx';
 import type { CatalogueStatCard } from '../catalogue/catalogue-stat-cards.tsx';
 import { INVENTORY_VIEW_COSTS_PERMISSION } from '../entity-registry.ts';
 import { focusField } from '../field-focus.ts';
+import { unitCodeLabel } from '../format.ts';
+import { BoardFieldRows } from '../catalogue/record-view-page.tsx';
 import { RECORD_RAIL_MIN, RECORD_SPLIT_MIN } from '../desk-layout.ts';
 import { useKitchenTrailLeaf } from '../kitchen-ops-shell.tsx';
 import { receiptCostStatusKey, receiptCostStatusTone } from '../ops-format.ts';
@@ -60,6 +59,8 @@ import type { ServerFieldTarget } from '../server-field-errors.ts';
 import { useNudgeOnRefusal } from '../tray-nudge.ts';
 import { useUnsavedGuard } from '../use-unsaved-guard.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 /**
  * `/kitchen/supplier-bills/{receipt}` — one receipt's missing prices (SUP5, §7).
  *
@@ -176,7 +177,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                 title={t('kitchen:ops.unpricedReceipts.notFoundTitle')}
                 body={t('kitchen:ops.unpricedReceipts.notFoundBody')}
                 actions={
-                    <Button
+                    <DeskButton
                         testID="kitchen-unpriced-receipt-not-found-back"
                         variant="secondary"
                         size="sm"
@@ -325,6 +326,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
     const trayContent: IssueTrayContent = {
         title: t('kitchen:tray.title'),
         testID: 'kitchen-unpriced-receipt-tray',
+        placement: 'inline',
         groups: [{ key: 'save', title: t('kitchen:tray.groupSave'), items: saveCards }],
         notes: {
             title: t('kitchen:tray.groupNote'),
@@ -348,7 +350,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                     testID="kitchen-unpriced-receipt-header"
                     title={title ?? undefined}
                     titleAside={
-                        <Badge
+                        <DeskChip
                             testID="kitchen-unpriced-receipt-status"
                             tone={receiptCostStatusTone(detail.costStatus)}
                             label={t(receiptCostStatusKey(detail.costStatus))}
@@ -356,7 +358,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                     }
                     primaryAction={
                         <View className="flex-row flex-wrap items-center gap-tight">
-                            <Button
+                            <DeskButton
                                 testID="kitchen-unpriced-receipt-cancel"
                                 variant="secondary"
                                 label={t('kitchen:editor.cancel')}
@@ -365,7 +367,7 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                                 }}
                             />
                             {priceable.length === 0 ? null : (
-                                <Button
+                                <DeskButton
                                     testID="kitchen-unpriced-receipt-save"
                                     label={t('kitchen:ops.unpricedReceipts.savePrices', {
                                         count: typed.length,
@@ -380,6 +382,8 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                         </View>
                     }
                 />
+
+                <IssueUnanchored testID="kitchen-unpriced-receipt-issues-loose" />
 
                 <CatalogueStatCards
                     testID="kitchen-unpriced-receipt-facts"
@@ -402,28 +406,27 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                                 : 'min-w-0 flex-col gap-base'
                         }
                     >
-                        <Card
+                        <FormSection
+                            first
+                            variant="panel"
                             testID="kitchen-unpriced-receipt-lines"
-                            tone="raised"
-                            padding="md"
                             title={t('kitchen:ops.unpricedReceipts.linesHeading')}
+                            printDescription
+                            description={
+                                priceable.length === 0
+                                    ? t('kitchen:ops.unpricedReceipts.nothingToPrice')
+                                    : t('kitchen:ops.unpricedReceipts.quantitiesImmutable')
+                            }
                         >
-                            <Stack space="sm">
-                                <Text variant="caption" tone="secondary">
-                                    {priceable.length === 0
-                                        ? t('kitchen:ops.unpricedReceipts.nothingToPrice')
-                                        : t('kitchen:ops.unpricedReceipts.quantitiesImmutable')}
-                                </Text>
-                                <DataList<GoodsReceiptLine>
-                                    testID="kitchen-unpriced-receipt-lines-table"
-                                    label={t('kitchen:ops.unpricedReceipts.linesHeading')}
-                                    columns={columns}
-                                    rows={lines}
-                                    rowKey={(line) => line.id}
-                                    density="sm"
-                                />
-                            </Stack>
-                        </Card>
+                            <DataList<GoodsReceiptLine>
+                                testID="kitchen-unpriced-receipt-lines-table"
+                                label={t('kitchen:ops.unpricedReceipts.linesHeading')}
+                                columns={columns}
+                                rows={lines}
+                                rowKey={(line) => line.id}
+                                density="sm"
+                            />
+                        </FormSection>
                     </View>
 
                     <View
@@ -434,21 +437,23 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                         }
                         style={split ? { minWidth: RECORD_RAIL_MIN } : undefined}
                     >
-                        <Card
+                        <FormSection
+                            first
+                            variant="panel"
                             testID="kitchen-unpriced-receipt-record"
-                            tone="raised"
-                            padding="md"
                             title={t('kitchen:ops.unpricedReceipts.recordHeading')}
                         >
-                            <RecordWindowFieldGrid
+                            <BoardFieldRows
+                                stacked
                                 testID="kitchen-unpriced-receipt-field"
                                 fields={receiptFields(detail, formatter, t)}
                             />
-                        </Card>
+                        </FormSection>
                     </View>
                 </View>
 
                 <Dialog
+                    look="card"
                     testID="kitchen-unpriced-receipt-unsaved-dialog"
                     open={guard.isPrompting}
                     onClose={guard.cancelDiscard}
@@ -456,13 +461,13 @@ function UnpricedReceipt({ receipt }: UnpricedReceiptScreenProps) {
                     description={t('kitchen:unsaved.body')}
                     actions={
                         <>
-                            <Button
+                            <DeskButton
                                 testID="kitchen-unpriced-receipt-unsaved-keep"
                                 variant="quiet"
                                 label={t('kitchen:unsaved.keepEditing')}
                                 onPress={guard.cancelDiscard}
                             />
-                            <Button
+                            <DeskButton
                                 testID="kitchen-unpriced-receipt-unsaved-discard"
                                 variant="danger"
                                 label={t('kitchen:unsaved.discard')}
@@ -532,13 +537,15 @@ function lineColumns({
             label: t('kitchen:ops.unpricedReceipts.columnReceived'),
             width: 110,
             priority: 90,
-            render: (line) => (
-                <Text variant="mono" testID={`kitchen-unpriced-line-${line.id}-quantity`}>
-                    {`${formatter.formatNumber(Number(line.quantity))} ${
-                        itemsById.get(String(line.stockItemId))?.unitCode ?? ''
-                    }`.trim()}
-                </Text>
-            ),
+            render: (line) => {
+                const code = itemsById.get(String(line.stockItemId))?.unitCode;
+                const unit = code === undefined ? '' : unitCodeLabel(code, t);
+                return (
+                    <Text variant="mono" testID={`kitchen-unpriced-line-${line.id}-quantity`}>
+                        {`${formatter.formatNumber(Number(line.quantity))} ${unit}`.trim()}
+                    </Text>
+                );
+            },
         },
         {
             key: 'unitPrice',
@@ -620,7 +627,7 @@ function lineColumns({
             render: (line) => {
                 const state = lineState(line);
                 return (
-                    <Badge
+                    <DeskChip
                         testID={`kitchen-unpriced-line-${line.id}-state`}
                         tone={state === 'priced' ? 'success' : 'warning'}
                         label={t(

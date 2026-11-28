@@ -6,10 +6,8 @@ import type {
     IngredientAllergenMapping,
 } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Checkbox,
-    FormGrid,
     Inline,
     Stack,
     Text,
@@ -27,13 +25,17 @@ import {
     useImportIngredientAllergenReference,
     useConfirmIngredientAllergensMutation,
 } from '../../data/kitchen-admin-hooks.ts';
+import { AllergenChoiceRow } from './allergen-choice-row.tsx';
+import type { AllergenChoice } from './allergen-choice-row.tsx';
 import { AllergenMappingList } from './allergen-mapping-list.tsx';
 import { AllergenReferencePicker } from './allergen-reference-picker.tsx';
 import { AllergenReferenceSource } from './allergen-reference-source.tsx';
 import { displayName } from './format.ts';
 import { serverFieldErrors } from './server-field-errors.ts';
 
-type Choice = AllergenContainment | 'none';
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { FailureToast } from './failure-toast.tsx';
+type Choice = AllergenChoice;
 
 export interface IngredientAllergenEditorProps {
     readonly ingredient: IngredientAdmin;
@@ -147,6 +149,23 @@ export function IngredientAllergenEditor({
         );
     };
 
+    const namesOf = (containment: AllergenContainment): string =>
+        active
+            .filter((entry) => draft.get(String(entry.code)) === containment)
+            .map((entry) => displayName(entry.name, locale).value)
+            .join(t('kitchen:allergenBoard.summaryJoin'));
+    const containsNames = namesOf('contains');
+    const mayNames = namesOf('may_contain');
+    const summary =
+        [
+            containsNames === ''
+                ? null
+                : t('kitchen:allergenBoard.summaryContains', { names: containsNames }),
+            mayNames === '' ? null : t('kitchen:allergenBoard.mayContain', { allergen: mayNames }),
+        ]
+            .filter((part): part is string => part !== null)
+            .join(t('kitchen:recordView.metaSeparator')) || t('kitchen:allergenBoard.summaryNone');
+
     const failure = toFailure(save.error ?? confirm.error ?? importReference.error);
     // What the server refused, put on the fields it named (BUG-06). No issue banner here, so the
     // callout stays and carries only what no field shows.
@@ -198,7 +217,7 @@ export function IngredientAllergenEditor({
                 />
             ) : null}
             {selection === undefined ? null : (
-                <Button
+                <DeskButton
                     testID="allergen-reference-import"
                     label={t('kitchen:allergenLookup.import')}
                     loading={importReference.isPending}
@@ -300,7 +319,7 @@ export function IngredientAllergenEditor({
                                     {/* `Button` holds itself to the top; the wrapper lines it up
                                         with the input box. */}
                                     <View>
-                                        <Button
+                                        <DeskButton
                                             testID="allergen-review-confirm"
                                             variant="primary"
                                             label={t('kitchen:nutritionLookup.confirmReview')}
@@ -351,46 +370,52 @@ export function IngredientAllergenEditor({
                     onChange={() => setNothingDeclared(false)}
                 />
             ) : (
-                <FormGrid testID="kitchen-ingredient-mapping-grid">
-                    {active.map((entry) => {
-                        const code = String(entry.code);
-                        const choice = draft.get(code) ?? 'none';
-                        return (
-                            <Checkbox
-                                key={code}
-                                testID={`kitchen-ingredient-mapping-${code}`}
-                                id={`kitchen-ingredient-mapping-${code}`}
-                                label={displayName(entry.name, locale).value}
-                                checked={choice !== 'none'}
-                                // A stored "may contain" stays one while it is ticked.
-                                {...(choice === 'may_contain'
-                                    ? { description: t('kitchen:containment.mayContain') }
-                                    : {})}
-                                {...mappingFlag(code)}
-                                onChange={(checked) => {
-                                    const kept = stored.get(code)?.containment ?? 'contains';
-                                    setDraft((current) =>
-                                        new Map(current).set(code, checked ? kept : 'none'),
-                                    );
-                                }}
-                            />
-                        );
-                    })}
-                </FormGrid>
+                <Stack space="xs">
+                    {/* What the rows below add up to, so the set can be read before it is saved. */}
+                    <View className="items-end">
+                        <Text
+                            testID="kitchen-ingredient-mapping-summary"
+                            variant="label"
+                            tone={chosen.length === 0 ? 'secondary' : 'warning'}
+                        >
+                            {summary}
+                        </Text>
+                    </View>
+                    <View
+                        testID="kitchen-ingredient-mapping-grid"
+                        nativeID="kitchen-ingredient-mapping-grid"
+                        className="flex-row flex-wrap gap-x-5 gap-y-1.5"
+                    >
+                        {active.map((entry) => {
+                            const code = String(entry.code);
+                            return (
+                                <AllergenChoiceRow
+                                    key={code}
+                                    testID={`kitchen-ingredient-mapping-${code}`}
+                                    nativeID={`kitchen-ingredient-mapping-${code}`}
+                                    name={displayName(entry.name, locale).value}
+                                    value={draft.get(code) ?? 'none'}
+                                    {...mappingFlag(code)}
+                                    onChange={(choice) => {
+                                        setDraft((current) => new Map(current).set(code, choice));
+                                    }}
+                                />
+                            );
+                        })}
+                    </View>
+                </Stack>
             )}
 
-            {failure === null ? null : (
-                <Callout
-                    testID="kitchen-ingredient-mapping-error"
-                    tone="danger"
-                    title={t('kitchen:allergens.saveError')}
-                    body={server.unplaced ?? failure.message}
-                />
-            )}
+            <FailureToast
+                failure={failure}
+                testID="kitchen-ingredient-mapping-error"
+                title={t('kitchen:allergens.saveError')}
+                body={server.unplaced ?? failure?.message}
+            />
 
             {fromLookup ? null : (
                 <Inline justify="end">
-                    <Button
+                    <DeskButton
                         testID="kitchen-ingredient-mapping-save"
                         variant="primary"
                         size="sm"

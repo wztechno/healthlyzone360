@@ -11,6 +11,7 @@ use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Ingredients\Models\IngredientAllergen;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
+use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\Recipes\Enums\DerivationState;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Jobs\RecomputeRecipeDerivations;
@@ -67,6 +68,9 @@ beforeEach(function (): void {
         'name_ar' => 'وجبة',
         'recipe_id' => $this->recipeId,
     ]);
+
+    // Buyable (S3), so a later version of the recipe it sells may publish.
+    PricingWorld::sellable($this->kitchen, $this->item);
 
     // The supplier now says the tahini also runs on peanut equipment. The queue
     // is synchronous here, so the recompute quarantines the version at once.

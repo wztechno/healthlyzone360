@@ -1,7 +1,7 @@
 import { Breadcrumbs, Inline, Text } from '@healthy360/design-system';
 import type { BreadcrumbItem } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
-import { View } from 'react-native';
+import { View, Text as RNText } from 'react-native';
 
 import { CatalogueNavToggle } from './catalogue-nav.tsx';
 
@@ -65,6 +65,8 @@ export interface CataloguePageHeaderProps {
      * Overrides the derived `{testID}-title`. For a screen whose title id is already a contract
      * with a suite and should not move because the header around it did.
      */
+    /** `board`: the title as the recipe editor's board sets it — 24px display, bold. */
+    readonly titleLook?: 'board' | undefined;
     readonly titleTestID?: string | undefined;
     readonly testID: string;
 }
@@ -77,6 +79,7 @@ export function CataloguePageHeader({
     primaryAction,
     titleAside,
     titleTestID,
+    titleLook,
     testID,
 }: CataloguePageHeaderProps) {
     return (
@@ -105,7 +108,16 @@ export function CataloguePageHeader({
                  */}
                 {/* eslint-disable-next-line no-restricted-syntax -- the title column *is* the row; see above. */}
                 <Inline space="xs" align="center" wrap className="min-w-0 flex-1">
-                    {title === undefined ? null : (
+                    {title === undefined ? null : titleLook === 'board' ? (
+                        <RNText
+                            testID={titleTestID ?? `${testID}-title`}
+                            accessibilityRole="header"
+                            numberOfLines={1}
+                            className="font-display text-2xl font-bold tracking-display text-content-primary"
+                        >
+                            {title}
+                        </RNText>
+                    ) : (
                         <Text variant="title" testID={titleTestID ?? `${testID}-title`}>
                             {title}
                         </Text>

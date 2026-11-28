@@ -6,6 +6,9 @@ use Healthy360\AccessControl\Database\Seeders\AccessControlSeeder;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
 use Healthy360\Organisations\Database\Seeders\OrganisationTypeSeeder;
+use Healthy360\Pricing\Models\PriceList;
+use Healthy360\Pricing\Models\PriceListItem;
+use Healthy360\Pricing\Tests\Fixtures\PricingWorld;
 use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\ReferenceData\Database\Seeders\ReferenceDataSeeder;
@@ -86,6 +89,8 @@ function assertReadinessMatchesPublish(CatalogueItem $item, array $headers, int 
 }
 
 it('reports a publishable product as publishable, and the publication then succeeds', function (): void {
+    // Offered nowhere and priced nowhere: a resold product is not asked the
+    // selling rule (S3), only for its pack.
     $item = CatalogueWorld::publishableProduct($this->a);
 
     [$publishable, $reasons] = itemReadiness($item, $this->headers);
@@ -144,8 +149,9 @@ it('reports and refuses a meal that cannot say what is in it identically', funct
 
     $reasons = assertReadinessMatchesPublish($item, $this->headers, 0);
 
-    // With no recipe, a sale would take nothing off a shelf either (HA-45).
-    expect(collect($reasons)->pluck('code')->all())->toBe(['no_allergen_basis', 'stock_no_recipe']);
+    // With no recipe, a sale would take nothing off a shelf either (HA-45), and
+    // with no pack or place there is nothing to buy (S3).
+    expect(collect($reasons)->pluck('code')->all())->toBe(['no_pack', 'no_selling_place', 'no_allergen_basis', 'stock_no_recipe']);
 });
 
 it('reports and refuses a quarantined listing identically, carrying its reason', function (): void {
@@ -201,9 +207,12 @@ it('reports and refuses a listing whose recipe is under review identically', fun
     $reasons = assertReadinessMatchesPublish($item, $this->headers, 0);
 
     // The only version is under review, so none is published to take ingredients from (HA-45).
-    expect(collect($reasons)->pluck('code')->all())->toBe(['linked_recipe_quarantined', 'stock_recipe_not_published'])
-        ->and($reasons[0]['context']['recipe_id'])->toBe((string) $recipe->getKey())
-        ->and($reasons[0]['context']['recipe_version_ids'])->toBe([(string) $version->getKey()]);
+    expect(collect($reasons)->pluck('code')->all())->toBe(['no_pack', 'no_selling_place', 'linked_recipe_quarantined', 'stock_recipe_not_published']);
+
+    $quarantine = collect($reasons)->firstWhere('code', 'linked_recipe_quarantined');
+
+    expect($quarantine['context']['recipe_id'])->toBe((string) $recipe->getKey())
+        ->and($quarantine['context']['recipe_version_ids'])->toBe([(string) $version->getKey()]);
 });
 
 it('reports and refuses an unfinished plan identically, in the same order', function (): void {
@@ -262,4 +271,63 @@ it('is a read, so it needs the read permission and not the publish one', functio
 
     $this->getJson('/api/v1/catalogue/items/'.$item->getKey().'/readiness', CatalogueWorld::headers($stranger))
         ->assertStatus(403);
+});
+
+/*
+| The selling rule (S3): a meal, sauce, dressing or frozen meal publishes only
+| with a pack, a place it is offered on, and a price on every such place.
+*/
+
+it('reports a sauce with nothing to buy through the selling rule alone, not twice', function (): void {
+    $sauce = CatalogueItem::factory()->sauce()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_ar' => 'صلصة',
+    ]);
+
+    $codes = collect(assertReadinessMatchesPublish($sauce, $this->headers, 0))->pluck('code')->all();
+
+    // A sauce's packs are its only variants: `no_pack` says what
+    // `no_active_variant` would, so only the first is reported.
+    expect($codes)->toContain('no_pack', 'no_selling_place')
+        ->and($codes)->not->toContain('no_active_variant', 'place_unpriced');
+});
+
+it('names the place a cooked item is offered on with no price, then publishes it once priced', function (): void {
+    $recipe = Recipe::factory()->create(['organisation_id' => $this->a->organisation->getKey()]);
+
+    RecipeVersion::factory()->published()->create([
+        'organisation_id' => $this->a->organisation->getKey(),
+        'recipe_id' => $recipe->getKey(),
+        'yield_piece_count' => 4,
+    ]);
+
+    $meal = CatalogueItem::factory()->meal()->create([
+        'catalogue_id' => $this->a->catalogue->getKey(),
+        'organisation_id' => $this->a->organisation->getKey(),
+        'name_ar' => 'وجبة',
+        'recipe_id' => $recipe->getKey(),
+    ]);
+
+    // A pack, offered on the Home shop — and its price taken away.
+    $pack = PricingWorld::sellable($this->a, $meal);
+    $price = PriceListItem::withoutTenancy()->where('catalogue_item_id', $meal->getKey())->sole();
+    $list = PriceList::withoutTenancy()->whereKey($price->price_list_id)->sole();
+    $price->delete();
+
+    $reasons = assertReadinessMatchesPublish($meal, $this->headers, 0);
+
+    expect(collect($reasons)->pluck('code')->all())->toBe(['place_unpriced'])
+        ->and($reasons[0]['context'])->toBe(['place' => 'home']);
+
+    PricingWorld::price($list, $meal, $pack, 1800);
+
+    [$publishable, $ready] = itemReadiness($meal, $this->headers);
+
+    expect($publishable)->toBeTrue()->and($ready)->toBe([]);
+
+    $this->postJson('/api/v1/catalogue/items/'.$meal->getKey().'/publish', [],
+        $this->headers + ['If-Match' => '"0"'])
+        ->assertOk()
+        ->assertJsonPath('data.item.status', 'published');
 });

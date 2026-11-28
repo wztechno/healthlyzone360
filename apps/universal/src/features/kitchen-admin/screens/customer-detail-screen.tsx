@@ -5,8 +5,6 @@ import type {
     KitchenCustomerDetail,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
     Callout,
     ErrorState,
     Inline,
@@ -26,7 +24,7 @@ import { Gate, useCan } from '../../../access/gate.tsx';
 import { toFailure } from '../../../data/hooks.ts';
 import { useKitchenCustomerQuery } from '../../../data/kitchen-customers-hooks.ts';
 import { useKitchenOrdersQuery } from '../../../data/kitchen-orders-hooks.ts';
-import { useReturnTo } from '../../../navigation/use-return-to.ts';
+import { useCurrentHref, useReturnTo } from '../../../navigation/use-return-to.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { RecordViewPage } from '../catalogue/record-view-page.tsx';
 import {
@@ -36,8 +34,17 @@ import {
 import { prefersArabic } from '../format.ts';
 import { kitchenOrderStatusKey } from '../ops-format.ts';
 import { ChosenAllergies } from '../order-desk/sale-customer.tsx';
-import { customerName, customerTypeKey, customerTypeTone } from './customers-screen.tsx';
+import {
+    CustomersScreen,
+    customerName,
+    customerTypeKey,
+    customerTypeTone,
+} from './customers-screen.tsx';
+import { BackPill } from '../../../ui/back-pill.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { withReturnTo } from '../../../navigation/return-to.ts';
 /**
  * `/kitchen/customers/{customer}` — one customer in the kitchen's book: their contacts, every saved
  * address, and for a corporate buyer the company record and named contacts. Read-only; correcting a
@@ -102,9 +109,8 @@ function CustomerRecord({ customer }: CustomerDetailScreenProps) {
                     tone="warning"
                     title={t('kitchen:ops.customers.notFoundTitle')}
                     actions={
-                        <Button
+                        <BackPill
                             testID="kitchen-customer-not-found-back"
-                            variant="quiet"
                             label={t('kitchen:ops.customers.backToList')}
                             onPress={backToList}
                         />
@@ -127,11 +133,18 @@ function CustomerRecord({ customer }: CustomerDetailScreenProps) {
         );
     }
 
-    if (record.data === undefined) {
-        return <TableSkeleton testID="kitchen-customer-loading" partTestID="kitchen-customer" />;
-    }
-
-    return <CustomerView detail={record.data} onBack={backToList} />;
+    // The record opens as a pop-up over the book it was picked from (`View as a pop-up`): the book
+    // is drawn behind while the record loads, and the pop-up joins it once it has.
+    return (
+        <>
+            <CustomersScreen />
+            {record.data === undefined ? (
+                <View testID="kitchen-customer-loading" />
+            ) : (
+                <CustomerView detail={record.data} onBack={backToList} />
+            )}
+        </>
+    );
 }
 
 function CustomerView({
@@ -184,11 +197,14 @@ function CustomerView({
     return (
         <RecordViewPage
             testID="kitchen-customer-view"
+            look="sheet"
+            figureKeys={['orders', 'lastOrder', 'since']}
+            eyebrow={t('kitchen:recordView.eyebrowCustomers')}
             title={customerName(detail, t)}
             kind={t('kitchen:ops.customers.viewKind')}
             reference={detail.accountNumber}
             titleAside={
-                <Badge
+                <DeskChip
                     tone={customerTypeTone(detail.type)}
                     label={t(customerTypeKey(detail.type))}
                 />
@@ -244,6 +260,7 @@ function CustomerOrders({ customerAccountId }: { readonly customerAccountId: str
     const { t } = useTranslation();
     const formatter = useFormatter();
     const router = useRouter();
+    const here = useCurrentHref();
     const orders = useKitchenOrdersQuery({ customerAccountId, limit: RECENT_ORDERS });
     const failure = toFailure(orders.error);
 
@@ -285,15 +302,18 @@ function CustomerOrders({ customerAccountId }: { readonly customerAccountId: str
                             currency: order.currencyCode,
                         })}
                     </Text>
-                    <Badge tone="neutral" label={t(kitchenOrderStatusKey(order.status))} />
-                    <Button
+                    <DeskChip tone="neutral" label={t(kitchenOrderStatusKey(order.status))} />
+                    <DeskButton
                         testID={`kitchen-customer-order-${String(order.id)}`}
                         size="sm"
                         variant="quiet"
                         label={t('kitchen:ops.customers.openOrder')}
                         onPress={() => {
                             router.push(
-                                `/kitchen/orders?view=${encodeURIComponent(String(order.id))}` as never,
+                                withReturnTo(
+                                    `/kitchen/orders?view=${encodeURIComponent(String(order.id))}`,
+                                    here,
+                                ) as never,
                             );
                         }}
                     />
@@ -324,10 +344,16 @@ function ContactList({ contacts }: { readonly contacts: readonly KitchenCustomer
                     </Text>
                     {contact.label === null ? null : <Text tone="secondary">{contact.label}</Text>}
                     {contact.isPrimary ? (
-                        <Badge tone="brand" label={t('kitchen:ops.customers.contactPrimary')} />
+                        <DeskChip
+                            tone="success"
+                            label={t('kitchen:ops.customers.contactPrimary')}
+                        />
                     ) : null}
                     {contact.verified ? (
-                        <Badge tone="success" label={t('kitchen:ops.customers.contactVerified')} />
+                        <DeskChip
+                            tone="success"
+                            label={t('kitchen:ops.customers.contactVerified')}
+                        />
                     ) : null}
                 </Inline>
             ))}
@@ -378,7 +404,10 @@ function AddressList({ addresses }: { readonly addresses: readonly KitchenCustom
                                     : t('kitchen:ops.customers.addressDelivery'))}
                         </Text>
                         {address.isDefault ? (
-                            <Badge tone="brand" label={t('kitchen:ops.customers.addressDefault')} />
+                            <DeskChip
+                                tone="success"
+                                label={t('kitchen:ops.customers.addressDefault')}
+                            />
                         ) : null}
                     </Inline>
                     <Text>{addressLine(address, locale, t)}</Text>

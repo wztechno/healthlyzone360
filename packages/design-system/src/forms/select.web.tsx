@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { Fragment, useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Pressable, ScrollView, Text as RNText, View } from 'react-native';
 
@@ -11,7 +11,7 @@ import { FormField, REQUIRED_MARK } from './form-field.tsx';
 import type { FieldControlProps } from './form-field.tsx';
 import { SearchInput } from './search-input.tsx';
 import { inputFrameClassName } from './text-input.tsx';
-import { optionMatches } from './select-shared.ts';
+import { optionMatches, sectionRuns } from './select-shared.ts';
 import type { SelectOption, SelectProps } from './select-shared.ts';
 
 export type { SelectOption, SelectProps } from './select-shared.ts';
@@ -78,6 +78,7 @@ export function Select<T extends string = string>({
     required = false,
     disabled = false,
     searchable = false,
+    look = 'field',
     loading = false,
     noResultsAction,
     size: sizeProp,
@@ -87,6 +88,7 @@ export function Select<T extends string = string>({
 }: SelectProps<T>) {
     const { t } = useTranslation();
     const density = useDensity();
+    const card = look === 'card';
     const [query, setQuery] = useState('');
     const trigger = useRef<View | null>(null);
     const searchId = `select-search-${useId().replace(/:/g, '')}`;
@@ -137,87 +139,115 @@ export function Select<T extends string = string>({
                 </View>
             )}
 
-            {visible.map((option: SelectOption<T>) => {
-                const isSelected = option.value === value;
-                return (
-                    <Pressable
-                        key={option.value}
-                        {...(testID === undefined
-                            ? {}
-                            : { testID: `${testID}-option-${option.value}` })}
-                        role="option"
-                        // `option` is outside React Native's `Role` union, so the native side takes
-                        // `none` and the web `role` above is what the listbox actually owns.
-                        accessibilityRole="none"
-                        accessibilityLabel={option.label}
-                        aria-label={option.label}
-                        aria-selected={isSelected}
-                        accessibilityState={{
-                            selected: isSelected,
-                            disabled: option.disabled === true,
-                        }}
-                        aria-disabled={option.disabled === true}
-                        focusable={option.disabled !== true}
-                        disabled={option.disabled === true}
-                        onPress={() => {
-                            choose(option, close);
-                        }}
-                        className={cx(
-                            'flex-row items-center gap-control-sm px-control-md',
-                            // One line per option, so the desk's list takes the smallest step and
-                            // shows twice the options a two-line row did. The phone keeps its
-                            // 44px target.
-                            density === 'compact' ? 'h-control-xs' : 'min-h-touch py-2',
-                            // The row under the pointer or the keyboard is lit, so the reader sees
-                            // which one a press or Enter will take — the chosen one keeps its brand
-                            // tint over it.
-                            isSelected
-                                ? 'bg-surface-brand-subtle'
-                                : option.disabled === true
-                                  ? null
-                                  : 'hover:bg-surface-sunken focus:bg-surface-sunken',
-                            option.disabled === true ? 'opacity-50' : null,
-                        )}
+            {sectionRuns(visible).map((run, runIndex) =>
+                run.section === undefined ? (
+                    <Fragment key={`run-${String(runIndex)}`}>
+                        {run.options.map((option) => optionRow(option, close))}
+                    </Fragment>
+                ) : (
+                    // A group inside the listbox, named by its heading — ARIA's own shape for
+                    // grouped options. The heading is not an option: no focus, no press.
+                    <View
+                        key={`run-${String(runIndex)}`}
+                        {...webRole('group')}
+                        aria-labelledby={`${searchId}-section-${String(runIndex)}`}
                     >
-                        {/* Fixed, so labels align whether or not one is ticked. */}
-                        <View className="w-icon-md">
-                            {isSelected ? (
-                                <Icon
-                                    name="check"
-                                    size="sm"
-                                    className="text-content-on-brand-subtle"
-                                />
-                            ) : null}
-                        </View>
-                        {/*
-                         * The name and its context on one line: the name takes what is left and
-                         * truncates, the description keeps its own width at the row's end.
-                         */}
                         <RNText
-                            className={cx(
-                                'min-w-0 flex-1 text-content-primary text-start',
-                                textClass,
-                            )}
-                            numberOfLines={1}
+                            {...(testID === undefined
+                                ? {}
+                                : { testID: `${testID}-section-${String(runIndex)}` })}
+                            nativeID={`${searchId}-section-${String(runIndex)}`}
+                            className="px-control-md py-1 text-role-micro text-content-secondary text-start"
                         >
-                            {option.label}
+                            {run.section}
                         </RNText>
-                        {option.description === undefined ? null : (
-                            <RNText
-                                className={cx(
-                                    'shrink-0 text-content-secondary text-end',
-                                    density === 'compact' ? 'text-role-caption' : 'text-xs',
-                                )}
-                                numberOfLines={1}
-                            >
-                                {option.description}
-                            </RNText>
-                        )}
-                    </Pressable>
-                );
-            })}
+                        {run.options.map((option) => optionRow(option, close))}
+                    </View>
+                ),
+            )}
         </>
     );
+
+    function optionRow(option: SelectOption<T>, close: () => void) {
+        const isSelected = option.value === value;
+        return (
+            <Pressable
+                key={option.value}
+                {...(testID === undefined ? {} : { testID: `${testID}-option-${option.value}` })}
+                role="option"
+                // `option` is outside React Native's `Role` union, so the native side takes
+                // `none` and the web `role` above is what the listbox actually owns.
+                accessibilityRole="none"
+                accessibilityLabel={option.label}
+                aria-label={option.label}
+                aria-selected={isSelected}
+                accessibilityState={{
+                    selected: isSelected,
+                    disabled: option.disabled === true,
+                }}
+                aria-disabled={option.disabled === true}
+                focusable={option.disabled !== true}
+                disabled={option.disabled === true}
+                onPress={() => {
+                    choose(option, close);
+                }}
+                className={cx(
+                    card
+                        ? 'h-9 flex-row items-center gap-2 rounded-[10px] px-2.5'
+                        : 'flex-row items-center gap-control-sm px-control-md',
+                    // One line per option, so the desk's list takes the smallest step and
+                    // shows twice the options a two-line row did. The phone keeps its
+                    // 44px target.
+                    card ? null : density === 'compact' ? 'h-control-xs' : 'min-h-touch py-2',
+                    // The row under the pointer or the keyboard is lit, so the reader sees
+                    // which one a press or Enter will take — the chosen one keeps its brand
+                    // tint over it.
+                    isSelected
+                        ? 'bg-surface-brand-subtle'
+                        : option.disabled === true
+                          ? null
+                          : 'hover:bg-surface-sunken focus:bg-surface-sunken',
+                    option.disabled === true ? 'opacity-50' : null,
+                )}
+            >
+                {/* Fixed, so labels align whether or not one is ticked. */}
+                <View className="w-icon-md">
+                    {isSelected ? (
+                        <Icon
+                            name="check"
+                            size="sm"
+                            className={card ? 'text-surface-brand' : 'text-content-on-brand-subtle'}
+                        />
+                    ) : null}
+                </View>
+                {/*
+                 * The name and its context on one line: the name takes what is left and
+                 * truncates, the description keeps its own width at the row's end.
+                 */}
+                <RNText
+                    className={cx(
+                        'min-w-0 flex-1 text-content-primary text-start',
+                        card ? 'text-sm' : textClass,
+                        card ? (isSelected ? 'font-bold' : 'font-medium') : null,
+                    )}
+                    numberOfLines={1}
+                >
+                    {option.label}
+                </RNText>
+                {option.description === undefined ? null : (
+                    <RNText
+                        className={cx(
+                            'shrink-0 text-content-secondary text-end',
+                            density === 'compact' ? 'text-role-caption' : 'text-xs',
+                        )}
+                        numberOfLines={1}
+                    >
+                        {option.description}
+                    </RNText>
+                )}
+            </Pressable>
+        );
+    }
 
     return (
         <FormField
@@ -241,7 +271,11 @@ export function Select<T extends string = string>({
                     // `w-full` rather than a min-width: an anchored panel shrinks to its content by
                     // default, and a six-option list narrower than the field it belongs to reads as
                     // a tooltip that happened to appear nearby. The field's width is the panel's.
-                    panelClassName="w-full max-h-[320px] overflow-hidden"
+                    panelClassName={
+                        card
+                            ? 'w-full max-h-[360px] overflow-hidden !rounded-xl !shadow-elevation-bar p-1.5'
+                            : 'w-full max-h-[320px] overflow-hidden'
+                    }
                     /*
                      * A closed panel has no query, whatever closed it — an outside press, Escape or
                      * a choice. `onOpenChange` is the one notification that covers every route, and

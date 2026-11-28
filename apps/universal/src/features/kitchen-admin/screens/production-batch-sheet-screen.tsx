@@ -1,15 +1,14 @@
 import {
-    Button,
     Callout,
     EmptyState,
     ErrorState,
-    Heading,
+    FormSection,
     RecordSkeleton,
     Stack,
     Text,
 } from '@healthy360/design-system';
 import { ProductionOrderId } from '@healthy360/domain-types';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useFormatter } from '@healthy360/i18n';
 import { useTranslation } from 'react-i18next';
 import { View } from 'react-native';
@@ -21,6 +20,8 @@ import { PRODUCTION_VIEW_PERMISSION } from '../entity-registry.ts';
 import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { BatchLinesPanel } from '../production-desk/batch-lines-panel.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { useReturnTo } from '../../../navigation/use-return-to.ts';
 /**
  * `/kitchen/production-desk/{order}/sheet` — what one batch stood on (PROD1).
  *
@@ -63,7 +64,11 @@ export function ProductionBatchSheetScreen({ order }: ProductionBatchSheetScreen
 function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
     const { t } = useTranslation();
     const formatter = useFormatter();
-    const router = useRouter();
+    const params = useLocalSearchParams<{ readonly returnTo?: string }>();
+    const back = useReturnTo(
+        params.returnTo,
+        order === undefined ? '/kitchen/production-desk' : `/kitchen/production-desk/${order}`,
+    );
 
     const parsed = order === undefined ? null : ProductionOrderId.safeParse(order);
     const record = useProductionTechnicalSheetQuery(parsed);
@@ -120,13 +125,13 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
                 subtitle={t('kitchen:ops.production.sheetSubtitle')}
                 back={
                     <View className="flex-row">
-                        <Button
+                        <DeskButton
                             testID="kitchen-production-batch-sheet-back"
                             variant="ghost"
                             size="sm"
                             label={t('kitchen:ops.production.openBatch')}
                             onPress={() => {
-                                router.push(`/kitchen/production-desk/${String(sheet.order.id)}`);
+                                back.leave();
                             }}
                         />
                     </View>
@@ -147,9 +152,13 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
                         title={t('kitchen:ops.production.sheetLive')}
                     />
 
-                    <Stack space="sm" testID="kitchen-production-batch-sheet-basis">
-                        <Heading level={2}>{t('kitchen:ops.production.sheetBasisHeading')}</Heading>
-                        <View className="flex-row flex-wrap gap-x-8 gap-y-3">
+                    <FormSection
+                        first
+                        variant="panel"
+                        testID="kitchen-production-batch-sheet-basis"
+                        title={t('kitchen:ops.production.sheetBasisHeading')}
+                    >
+                        <View className="flex-row flex-wrap gap-tight">
                             <SheetFigure
                                 testID="kitchen-production-batch-sheet-confirmed"
                                 label={t('kitchen:ops.production.confirmedAtLabel')}
@@ -170,11 +179,15 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
                                 }
                             />
                         </View>
-                    </Stack>
+                    </FormSection>
 
-                    <Stack space="sm" testID="kitchen-production-batch-sheet-yield">
-                        <Heading level={2}>{t('kitchen:ops.production.headingYield')}</Heading>
-                        <View className="flex-row flex-wrap gap-x-8 gap-y-3">
+                    <FormSection
+                        first
+                        variant="panel"
+                        testID="kitchen-production-batch-sheet-yield"
+                        title={t('kitchen:ops.production.headingYield')}
+                    >
+                        <View className="flex-row flex-wrap gap-tight">
                             <SheetFigure
                                 testID="kitchen-production-batch-sheet-yield-planned"
                                 label={t('kitchen:ops.production.yieldPlanned')}
@@ -201,25 +214,28 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
                                 value={sheet.yield.varianceQuantity ?? noValue}
                             />
                         </View>
-                    </Stack>
+                    </FormSection>
 
                     <BatchLinesPanel
                         testID="kitchen-production-batch-sheet-lines"
+                        panel
                         lines={sheet.lines}
                         costsVisible={sheet.costsVisible}
                         withOutcome={sheet.yield.producedQuantity !== null}
                     />
 
-                    <Stack space="sm" testID="kitchen-production-batch-sheet-nutrition">
-                        <Heading level={2}>
-                            {t('kitchen:ops.production.sheetNutritionHeading')}
-                        </Heading>
+                    <FormSection
+                        first
+                        variant="panel"
+                        testID="kitchen-production-batch-sheet-nutrition"
+                        title={t('kitchen:ops.production.sheetNutritionHeading')}
+                    >
                         {nutrition.length === 0 ? (
                             <Text tone="secondary">
                                 {t('kitchen:ops.production.sheetNutritionEmpty')}
                             </Text>
                         ) : (
-                            <View className="flex-row flex-wrap gap-x-8 gap-y-3">
+                            <View className="flex-row flex-wrap gap-tight">
                                 {nutrition.map(([nutrient, value]) => (
                                     <SheetFigure
                                         key={nutrient}
@@ -236,7 +252,7 @@ function ProductionBatchSheet({ order }: ProductionBatchSheetScreenProps) {
                                 ))}
                             </View>
                         )}
-                    </Stack>
+                    </FormSection>
                 </>
             )}
         </Stack>
@@ -253,11 +269,12 @@ function SheetFigure({
     readonly value: string;
 }) {
     return (
-        <View className="min-w-32 flex-col gap-0.5">
-            <Text variant="caption" tone="secondary">
+        // The board's figure tile: a quiet label over the value, on the sunken ground.
+        <View className="min-w-32 flex-col gap-0.5 rounded-lg bg-surface-sunken px-snug py-tight">
+            <Text variant="micro" tone="secondary" className="uppercase tracking-wide">
                 {label}
             </Text>
-            <Text variant="mono" testID={testID} numberOfLines={1}>
+            <Text variant="mono" className="font-bold" testID={testID} numberOfLines={1}>
                 {value}
             </Text>
         </View>

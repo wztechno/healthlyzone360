@@ -1,7 +1,4 @@
-import { themes } from '@healthy360/design-tokens';
-import type { ThemeTokens } from '@healthy360/design-tokens';
-import { useColorScheme } from 'nativewind';
-import { ActivityIndicator, Platform, Pressable, Text as RNText, View } from 'react-native';
+import { Platform, Pressable, Text as RNText, View } from 'react-native';
 import type { PressableProps } from 'react-native';
 import { useCallback, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
@@ -9,6 +6,7 @@ import type { ReactNode } from 'react';
 import { useDensity } from '../hooks/use-density.tsx';
 import type { Density } from '../hooks/use-density.tsx';
 import { cx } from '../internal/class-names.ts';
+import { LoadingSweep } from '../motion/loading-sweep.tsx';
 import {
     BUTTON_SIZES,
     BUTTON_VARIANTS,
@@ -59,9 +57,10 @@ const COMFORTABLE_CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
  * from padding, so "make the admin two pixels tighter" stays one edit in `control.ts`.
  */
 const COMPACT_CONTAINER_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'h-control-sm px-control-sm gap-control-sm rounded',
-    md: 'h-control-md px-control-md gap-control-md rounded',
-    lg: 'h-control-lg px-control-lg gap-control-lg rounded',
+    // The admin canvas draws every button as a pill: 34px in a toolbar or a row, 40 and 44 above that.
+    sm: 'h-desk-toolbar px-3 gap-1.5 rounded-full',
+    md: 'h-10 px-4 gap-2 rounded-full',
+    lg: 'h-11 px-4 gap-2 rounded-full',
 };
 
 const CONTAINER_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>> = {
@@ -86,9 +85,9 @@ const COMFORTABLE_LABEL_SIZE: Readonly<Record<ButtonSize, string>> = {
  * gives the size and the variant gives the weight, so the two never disagree.
  */
 const COMPACT_LABEL_SIZE: Readonly<Record<ButtonSize, string>> = {
-    sm: 'text-role-label',
-    md: 'text-role-label',
-    lg: 'text-role-label',
+    sm: 'text-[13px] leading-[18px] !font-semibold',
+    md: 'text-[13px] leading-[18px] !font-semibold',
+    lg: 'text-[13px] leading-[18px] !font-semibold',
 };
 
 const LABEL_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>> = {
@@ -97,16 +96,16 @@ const LABEL_SIZE: Readonly<Record<Density, Readonly<Record<ButtonSize, string>>>
 };
 
 /**
- * The spinner cannot inherit `currentColor` through `ActivityIndicator`, so its colour is a prop —
- * read from the theme's roles rather than typed here, so it follows the palette and the dark theme.
- * The ink on a filled button, and the brand green on the outlined ones.
+ * The loading sweep's band: light on a filled button, a wash of the brand green on an outlined one —
+ * the desk Save's tints, so a busy button reads the same everywhere.
  */
-const SPINNER_COLOUR: Readonly<Record<ButtonVariant, (theme: ThemeTokens) => string>> = {
-    primary: (theme) => theme.colours.textOnBrand,
-    secondary: (theme) => theme.colours.brandSurface,
-    quiet: (theme) => theme.colours.textSecondary,
-    ghost: (theme) => theme.colours.brandSurface,
-    danger: (theme) => theme.semantic.danger.onDefault,
+const SWEEP_TINT: Readonly<Record<ButtonVariant, string>> = {
+    primary: 'bg-surface-raised opacity-40',
+    secondary: 'bg-surface-brand opacity-20',
+    quiet: 'bg-surface-brand opacity-20',
+    ghost: 'bg-surface-brand opacity-20',
+    danger: 'bg-surface-raised opacity-40',
+    sidebar: 'bg-surface-raised opacity-40',
 };
 
 export interface ButtonProps extends Omit<
@@ -155,10 +154,11 @@ export function Button({
     ...rest
 }: ButtonProps) {
     const density = useDensity();
-    const { colorScheme } = useColorScheme();
     // A loading button is not merely styled as busy — it must not fire again, or a double tap
     // submits the form twice while the first request is still in flight.
     const inert = disabled || loading;
+    // Faded white on the sidebar's green reads as a hover state, and its words barely read at all.
+    const outlinedWhenInert = disabled && !loading && variant === 'sidebar';
 
     const floating = useRef<FloatingLabel | null>(null);
     const hideHint = useCallback(() => {
@@ -206,34 +206,37 @@ export function Button({
                 onHoverOut?.(event);
             }}
             className={cx(
-                'flex-row items-center justify-center',
-                CONTAINER_VARIANT[variant],
+                'relative flex-row items-center justify-center',
+                loading ? 'overflow-hidden' : null,
+                outlinedWhenInert
+                    ? 'border border-content-on-sidebar/60 bg-transparent'
+                    : CONTAINER_VARIANT[variant],
                 CONTAINER_SIZE[density][size],
                 block ? 'self-stretch' : 'self-start',
-                inert ? 'opacity-50' : null,
+                // A loading button keeps its full colour: it is busy, not off.
+                disabled && !loading && !outlinedWhenInert ? 'opacity-50' : null,
                 className,
             )}
         >
+            {/* Behind the label, which stays put: the button keeps its width while busy. */}
             {loading ? (
-                // Hidden from assistive technology: the button itself already announces
-                // `aria-busy`, and an unnamed nested progressbar is an axe serious violation.
-                <ActivityIndicator
-                    testID={testID === undefined ? undefined : `${testID}-spinner`}
-                    size="small"
-                    color={SPINNER_COLOUR[variant](
-                        themes[colorScheme === 'dark' ? 'dark' : 'light'],
-                    )}
-                    accessibilityElementsHidden
-                    aria-hidden
+                <LoadingSweep
+                    tint={SWEEP_TINT[variant]}
+                    testID={testID === undefined ? undefined : `${testID}-loading`}
                 />
-            ) : (
-                iconStart
-            )}
+            ) : null}
+            {iconStart}
             <RNText
                 // No family class: there is one Latin family, set on `html` per script. This used
                 // to add `ADMIN_FONT_CLASS` on the compact branch, which is now an empty string —
                 // a concatenation that costs a branch and says nothing.
-                className={cx(LABEL_VARIANT[variant], LABEL_SIZE[density][size], 'text-center')}
+                className={cx(
+                    outlinedWhenInert
+                        ? 'font-semibold text-content-on-sidebar'
+                        : LABEL_VARIANT[variant],
+                    LABEL_SIZE[density][size],
+                    'text-center',
+                )}
                 numberOfLines={1}
             >
                 {label}

@@ -856,6 +856,97 @@ describe('Select', () => {
             expect(screen.getByTestId('org-add')).toHaveTextContent('Add zzzz');
         });
     });
+
+    describe('sections', () => {
+        const grouped = [
+            { value: 'rice', label: 'Rice', section: 'Raw materials' },
+            { value: 'oil', label: 'Olive oil', section: 'Raw materials' },
+            { value: 'pesto', label: 'Pesto', section: 'Preparations' },
+        ];
+
+        it('draws a heading over each run of options that shares a section', async () => {
+            await renderWithI18n(
+                <Select
+                    testID="line"
+                    id="line"
+                    label="Ingredient"
+                    options={grouped}
+                    value={null}
+                    onChange={jest.fn()}
+                />,
+            );
+            await fireEvent.press(screen.getByTestId('line-trigger'));
+
+            expect(screen.getByTestId('line-section-0')).toHaveTextContent('Raw materials');
+            expect(screen.getByTestId('line-section-1')).toHaveTextContent('Preparations');
+            expect(screen.queryByTestId('line-section-2')).toBeNull();
+            // A heading is not an option.
+            expect(screen.getByTestId('line-section-0').props.accessibilityRole).toBe('header');
+            expect(screen.getByTestId('line-option-pesto').props.accessibilityRole).toBe('radio');
+        });
+
+        it('draws no heading for options without a section', async () => {
+            await renderWithI18n(
+                <Select
+                    testID="org"
+                    id="org"
+                    label="Organisation"
+                    options={options}
+                    value={null}
+                    onChange={jest.fn()}
+                />,
+            );
+            await fireEvent.press(screen.getByTestId('org-trigger'));
+
+            expect(screen.queryByTestId('org-section-0')).toBeNull();
+            expect(screen.getByTestId('org-option-cedar')).toBeTruthy();
+            expect(screen.getByTestId('org-option-verdant')).toBeTruthy();
+        });
+
+        it('searches across sections and drops a heading whose options are all filtered out', async () => {
+            const onChange = jest.fn();
+            await renderWithI18n(
+                <Select
+                    testID="line"
+                    id="line"
+                    label="Ingredient"
+                    options={grouped}
+                    value={null}
+                    onChange={onChange}
+                    searchable
+                />,
+            );
+            await fireEvent.press(screen.getByTestId('line-trigger'));
+            await fireEvent.changeText(screen.getByTestId('line-search-input'), 'pes');
+
+            expect(screen.getByTestId('line-option-pesto')).toBeTruthy();
+            expect(screen.queryByTestId('line-option-rice')).toBeNull();
+            expect(screen.getByTestId('line-section-0')).toHaveTextContent('Preparations');
+            expect(screen.queryByText('Raw materials')).toBeNull();
+            expect(screen.getByTestId('line-search-status')).toHaveTextContent('1 matching option');
+
+            await fireEvent.press(screen.getByTestId('line-option-pesto'));
+            expect(onChange).toHaveBeenCalledWith('pesto');
+        });
+
+        it('does not match a heading as if it were an option’s text', async () => {
+            await renderWithI18n(
+                <Select
+                    testID="line"
+                    id="line"
+                    label="Ingredient"
+                    options={grouped}
+                    value={null}
+                    onChange={jest.fn()}
+                    searchable
+                />,
+            );
+            await fireEvent.press(screen.getByTestId('line-trigger'));
+            await fireEvent.changeText(screen.getByTestId('line-search-input'), 'preparations');
+
+            expect(screen.queryByTestId('line-option-pesto')).toBeNull();
+        });
+    });
 });
 
 describe('clampToStep', () => {

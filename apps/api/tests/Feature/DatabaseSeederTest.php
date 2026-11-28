@@ -211,8 +211,11 @@ it('seeds the v6 platform ingredient library with its taxonomy', function (): vo
 
     $categories = IngredientCategory::withoutTenancy()->whereNull('organisation_id')->get();
 
-    expect($categories)->toHaveCount(79)
-        ->and($categories->whereNull('parent_id')->count())->toBe(18)
+    // The v6 taxonomy's 79, and "Preparations" — the top-level shelf a migration adds for the
+    // ingredient a preparation recipe produces.
+    expect($categories)->toHaveCount(80)
+        ->and($categories->whereNull('parent_id')->count())->toBe(19)
+        ->and($categories->where('code', 'preparation')->count())->toBe(1)
         ->and($categories->whereNotNull('parent_id')->count())->toBe(61)
         ->and($categories->where('code', 'packaging-disposables')->count())->toBe(1);
 

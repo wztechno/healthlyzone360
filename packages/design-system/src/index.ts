@@ -132,7 +132,7 @@ export {
     inputFrameClassName,
 } from './forms/text-input.tsx';
 export type { InputSize, TextInputFieldProps } from './forms/text-input.tsx';
-export { FormSection } from './forms/form-section.tsx';
+export { FormSection, SectionLook, useSectionLook } from './forms/form-section.tsx';
 export type { FormSectionProps } from './forms/form-section.tsx';
 export {
     FormIssueScope,
@@ -159,6 +159,7 @@ export type {
     IssueTraySummary,
 } from './issues/issue-tray-context.tsx';
 export { IssueTrayFrame } from './issues/issue-tray.tsx';
+export { IssueAnchor, IssueUnanchored, useInlineIssues } from './issues/issue-anchor.tsx';
 export { IssueRevealScope, useIssueGroup } from './issues/issue-group.tsx';
 export type { RegisteredIssues } from './issues/issue-group.tsx';
 export type {
@@ -252,6 +253,7 @@ export type {
 export { ListItem } from './content/list-item.tsx';
 export type { ListItemProps } from './content/list-item.tsx';
 export {
+    DATA_LIST_HEAD_TEXT_CLASS,
     DataList,
     UNDROPPABLE_PRIORITY,
     dataListColumnAlign,
@@ -357,6 +359,12 @@ export {
     resolveFlip,
 } from './overlays/anchored-surface.ts';
 export type { AnchorAlign, FlipInput } from './overlays/anchored-surface.ts';
+/**
+ * Extensionless so Metro picks the platform half: on the web the panel is portalled onto `body`
+ * (above every RN-Web `z-index: 0` view and every scroll port), on native it stays in place.
+ */
+export { AnchoredLayer, PANEL_IS_LIFTED } from './overlays/anchored-layer';
+export type { AnchoredLayerProps } from './overlays/anchored-layer';
 export {
     CommandPalette,
     commandShortcutLabel,
@@ -376,6 +384,8 @@ export { Dialog } from './overlays/dialog.tsx';
 export type { DialogProps, DialogSize } from './overlays/dialog.tsx';
 export { Notice } from './overlays/notice.tsx';
 export type { NoticeAction, NoticeProps, NoticeTone } from './overlays/notice.tsx';
+export { RECORD_DIALOG_WIDTH, RecordDialog } from './overlays/record-dialog.tsx';
+export type { RecordDialogAction, RecordDialogProps } from './overlays/record-dialog.tsx';
 export { RecordWindow, RecordWindowFieldGrid } from './overlays/record-window.tsx';
 export type { RecordWindowField, RecordWindowProps } from './overlays/record-window.tsx';
 export { DRAWER_PLACEMENTS, Drawer } from './overlays/drawer.tsx';
@@ -399,6 +409,7 @@ export type {
 export {
     DEFAULT_TOAST_DURATION_MS,
     TOAST_TONES,
+    useToastInset,
     ToastLookScope,
     ToastProvider,
     useToast,
@@ -413,9 +424,22 @@ export type {
     ToastTone,
 } from './overlays/toast.tsx';
 
-export { APP_SHELL_VARIANTS, AppShell } from './shell/app-shell.tsx';
+export {
+    APP_SHELL_VARIANTS,
+    AppShell,
+    FRAME_GUTTER,
+    RAIL_WIDTH,
+    ShellRailButton,
+} from './shell/app-shell.tsx';
+export { RailAccount } from './shell/rail-account.tsx';
+export type { RailAccountProps } from './shell/rail-account.tsx';
 export { HideShellTopbar, ShellDock } from './shell/shell-dock.tsx';
-export type { AppShellProps, AppShellVariant, NavigationItem } from './shell/app-shell.tsx';
+export type {
+    AppShellProps,
+    AppShellVariant,
+    NavigationItem,
+    ShellRailButtonProps,
+} from './shell/app-shell.tsx';
 
 export { MAX_STAGGERED_ITEMS, STAGGER_STEP_MS, useMotion } from './motion/use-motion.ts';
 export type { MotionTokens } from './motion/use-motion.ts';
@@ -427,6 +451,8 @@ export { Collapse } from './motion/collapse.tsx';
 export type { CollapseProps } from './motion/collapse.tsx';
 export { Shimmer } from './motion/shimmer.tsx';
 export type { ShimmerProps } from './motion/shimmer.tsx';
+export { LoadingSweep } from './motion/loading-sweep.tsx';
+export type { LoadingSweepProps } from './motion/loading-sweep.tsx';
 export { useAnimatedNumber } from './motion/use-animated-number.ts';
 export type { UseAnimatedNumberOptions } from './motion/use-animated-number.ts';
 export { PageTransition } from './motion/page-transition.tsx';

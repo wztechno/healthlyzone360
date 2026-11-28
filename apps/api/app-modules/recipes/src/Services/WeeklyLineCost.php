@@ -41,6 +41,12 @@ final readonly class WeeklyLineCost
     public const string SOURCE_NONE = 'none';
 
     /**
+     * A cost the request itself stated — the importer's `as_recorded` path. Never an answer of
+     * this costing; carried on a draft preview's line beside the four above (S6).
+     */
+    public const string SOURCE_QUOTED = 'quoted';
+
+    /**
      * @param  'weekly'|'latest_purchase'|'component_recipe'|'ingredient_fallback'|'none'  $source
      * @param  numeric-string|null  $unitCostAmount  per the line's own unit
      */

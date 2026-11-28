@@ -1,4 +1,4 @@
-import { CONTROL_SIZES, controlHeight, rowHeight } from '@healthy360/design-tokens';
+import { CONTROL_SIZES, controlHeight } from '@healthy360/design-tokens';
 import { screen } from '@testing-library/react-native';
 
 import { Badge } from './content/badge.tsx';
@@ -39,22 +39,6 @@ function resolveControlHeight(className: unknown): number | null {
     return controlHeight[size] ?? null;
 }
 
-/**
- * `min-h-row-sm` → 28.
- *
- * A floor rather than a fixed height: a cell whose value outgrows its track wraps and takes the row
- * with it instead of clipping mid-word. What the ladder still owns is where a row *starts*, which
- * is what this asserts — the suffix must name a real `rowHeight` key, so a density that resolved to
- * nothing fails here.
- */
-function resolveRowHeight(className: unknown): number | null {
-    if (typeof className !== 'string') return null;
-    const match = /(?:^|\s)min-h-row-([a-z]+)(?:$|\s)/.exec(className);
-    if (match === null) return null;
-    const size = match[1] as keyof typeof rowHeight;
-    return rowHeight[size] ?? null;
-}
-
 function compact(node: ReactNode) {
     return <DensityProvider value="compact">{node}</DensityProvider>;
 }
@@ -76,9 +60,11 @@ describe('control heights', () => {
                 ),
             );
 
-            const resolved = resolveControlHeight(screen.getByTestId('control').props.className);
-            expect(resolved).toBe(controlHeight[size]);
-            expect(HEIGHTS).toContain(resolved);
+            // The admin canvas's pills: 34, 40 and 44px, off the input ladder on purpose.
+            const expected = { sm: 'h-desk-toolbar', md: 'h-10', lg: 'h-11' }[
+                size as 'sm' | 'md' | 'lg'
+            ];
+            expect(screen.getByTestId('control').props.className).toContain(expected);
         },
     );
 
@@ -164,8 +150,9 @@ describe('control heights', () => {
                 ),
             );
 
-            expect(resolveRowHeight(screen.getByTestId('list-row-a').props.className)).toBe(
-                rowHeight[density],
+            // The admin canvas's row: 46px, 52 at the roomy end.
+            expect(screen.getByTestId('list-row-a').props.className).toContain(
+                density === 'lg' ? 'min-h-[52px]' : 'min-h-[46px]',
             );
         },
     );

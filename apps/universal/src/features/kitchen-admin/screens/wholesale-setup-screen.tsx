@@ -6,9 +6,6 @@ import type {
     SalesChannelRecord,
 } from '@healthy360/api-client/contracts';
 import {
-    Badge,
-    Button,
-    Card,
     Cascade,
     ErrorState,
     FormSkeleton,
@@ -17,6 +14,7 @@ import {
     Stack,
     Text,
     useToast,
+    cx,
 } from '@healthy360/design-system';
 import { useLocale } from '@healthy360/i18n';
 import { useRouter } from 'expo-router';
@@ -48,6 +46,8 @@ import { displayName, statusShortKey, statusTone } from '../format.ts';
 import { KitchenPageHeader } from '../kitchen-page-header.tsx';
 import { NewPriceListDialog } from '../new-price-list-dialog.tsx';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
 const PAGE = 'kitchen-wholesale';
 const ROUTE = '/kitchen/wholesale';
 
@@ -319,7 +319,8 @@ function WholesaleSetup() {
                 error={channelFailure?.message}
                 action={
                     wholesale === null && canManageCatalogue ? (
-                        <Button
+                        <DeskButton
+                            size="sm"
                             testID={`${PAGE}-channel-open`}
                             label={t('kitchen:wholesale.channelOpen')}
                             loading={createChannel.isPending}
@@ -343,7 +344,7 @@ function WholesaleSetup() {
                           })
                 }
                 action={
-                    <Button
+                    <DeskButton
                         testID={`${PAGE}-lists-new`}
                         variant={agreementLists.length === 0 ? 'primary' : 'secondary'}
                         label={t('kitchen:wholesale.listsNew')}
@@ -384,22 +385,29 @@ function WholesaleSetup() {
                           const pending =
                               assign.isPending && assign.variables?.priceListId === list.id;
                           return (
-                              <Inline key={String(list.id)} testID={rowID} space="sm">
-                                  <Text variant="strong" numberOfLines={1}>
-                                      {nameOf(list)}
-                                  </Text>
-                                  <Badge
+                              <View
+                                  key={String(list.id)}
+                                  testID={rowID}
+                                  className="mt-2 flex-row flex-wrap items-center gap-2 border-t border-stroke-subtle pt-2"
+                              >
+                                  <View className="min-w-0 flex-1">
+                                      <Text variant="strong" numberOfLines={1}>
+                                          {nameOf(list)}
+                                      </Text>
+                                  </View>
+                                  <DeskChip
                                       tone={statusTone(list.meta.status)}
                                       label={t(statusShortKey(list.meta.status))}
                                   />
                                   {isAssigned(list) ? (
-                                      <Badge
+                                      <DeskChip
                                           testID={`${rowID}-assigned`}
                                           tone="success"
                                           label={t('kitchen:wholesale.assigned')}
                                       />
                                   ) : (
-                                      <Button
+                                      <DeskButton
+                                          size="sm"
                                           testID={`${rowID}-assign`}
                                           variant="secondary"
                                           label={t('kitchen:wholesale.assign')}
@@ -410,7 +418,8 @@ function WholesaleSetup() {
                                           }}
                                       />
                                   )}
-                                  <Button
+                                  <DeskButton
+                                      size="sm"
                                       testID={`${rowID}-open`}
                                       variant="quiet"
                                       label={t('kitchen:wholesale.openList')}
@@ -423,7 +432,7 @@ function WholesaleSetup() {
                                           );
                                       }}
                                   />
-                              </Inline>
+                              </View>
                           );
                       })}
             </SetupStep>
@@ -439,7 +448,8 @@ function WholesaleSetup() {
                     canManageCatalogue &&
                     !offerings.pending &&
                     offered.size < itemIds.length ? (
-                        <Button
+                        <DeskButton
+                            size="sm"
                             testID={`${PAGE}-items-offer`}
                             label={t('kitchen:wholesale.itemsOffer')}
                             loading={progress !== null}
@@ -510,11 +520,19 @@ export function SetupStep({
 }) {
     const { t } = useTranslation();
     return (
-        <Card testID={testID} padding="sm">
+        <View
+            testID={testID}
+            className="z-auto rounded-[20px] border border-stroke-subtle bg-surface-raised px-[18px] py-4"
+        >
             <View className="flex-row flex-wrap items-start gap-snug">
-                <View className="h-7 w-7 items-center justify-center rounded-full bg-surface-sunken">
+                <View
+                    className={cx(
+                        'h-7 w-7 items-center justify-center rounded-full',
+                        done ? 'bg-surface-brand-subtle' : 'bg-surface-sunken',
+                    )}
+                >
                     {done ? (
-                        <Icon name="circleCheck" size="sm" className="text-success-strong" />
+                        <Icon name="check" size="sm" className="text-success-strong" />
                     ) : (
                         <Text variant="label" tone="secondary">
                             {String(ordinal)}
@@ -524,7 +542,7 @@ export function SetupStep({
                 <View className="min-w-0 flex-1 gap-1" style={{ flexBasis: 280 }}>
                     <Inline space="xs">
                         <Text variant="strong">{title}</Text>
-                        <Badge
+                        <DeskChip
                             testID={`${testID}-state`}
                             tone={done ? 'success' : 'warning'}
                             label={done ? t('kitchen:wholesale.done') : t('kitchen:wholesale.todo')}
@@ -542,6 +560,6 @@ export function SetupStep({
                 </View>
                 {action}
             </View>
-        </Card>
+        </View>
     );
 }

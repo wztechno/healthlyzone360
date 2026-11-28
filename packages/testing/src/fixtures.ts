@@ -107,6 +107,7 @@ export function makeMembership(overrides: Partial<Membership> = {}): Membership 
         organisation: makeOrganisation(),
         status: 'active',
         roles: [makeMembershipRole()],
+        branchId: null,
         branches: [makeBranch()],
         startsAt: FIXTURE_CREATED_AT,
         expiresAt: null,

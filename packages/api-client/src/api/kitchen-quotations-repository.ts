@@ -82,6 +82,7 @@ function mapLine(wire: WireQuotationLine): KitchenQuotationLine {
         quantity: wire.quantity,
         unitAmountMinor: wire.unit_amount_minor,
         lineTotalMinor: wire.line_total_minor,
+        corporateUnitAmountMinor: wire.corporate_unit_amount_minor ?? null,
         note: wire.note,
     };
 }

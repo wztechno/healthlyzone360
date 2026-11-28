@@ -1,5 +1,5 @@
 import type { ImportUpload } from '@healthy360/api-client/contracts';
-import { Button, Icon, Text } from '@healthy360/design-system';
+import { Icon, Text } from '@healthy360/design-system';
 import type { FileUploadRejection } from '@healthy360/design-system';
 import * as DocumentPicker from 'expo-document-picker';
 import { useEffect, useRef, useState } from 'react';
@@ -8,6 +8,7 @@ import { Platform, Pressable, View } from 'react-native';
 
 import { IMPORT_MAX_BYTES, XLSX_MIME } from './import-guides.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
 /**
  * Where the Import dialog takes its workbook: press to choose one, or drop it on the box (web).
  *
@@ -176,7 +177,7 @@ export function ImportDropZone({
             </Pressable>
             {picked === null ? null : (
                 <View className="items-center pb-4">
-                    <Button
+                    <DeskButton
                         testID={`${testID}-replace`}
                         variant="quiet"
                         size="sm"

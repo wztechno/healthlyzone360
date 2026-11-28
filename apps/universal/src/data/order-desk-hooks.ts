@@ -6,6 +6,7 @@ import type {
     CreateOrderDeskCustomerRequest,
     KitchenOrder,
     OrderDeskCalendar,
+    OrderDeskPlanMeal,
     OrderDeskCalendarFilters,
     CashSettlementRecord,
     DailyCloseRecord,
@@ -134,6 +135,27 @@ export function useOrderDeskCalendarQuery(
             if (repositories === null) throw new Error('Repositories are not ready.');
             if (filters === null) throw new Error('There is no week to read.');
             return repositories.orderDesk.listCalendar(filters);
+        },
+    });
+}
+
+/**
+ * One day's plan meals that are not orders yet, by subscriber and dish — the calendar's plan count
+ * for that day, opened. `null` asks for nothing.
+ */
+export function useOrderDeskPlanMealsQuery(
+    day: string | null,
+    enabled = true,
+): UseQueryResult<readonly OrderDeskPlanMeal[]> {
+    const { repositories } = useRepositoryContext();
+
+    return useQuery({
+        queryKey: queryKeys.orderDesk.planMeals(day ?? ''),
+        enabled: enabled && day !== null && repositories !== null,
+        queryFn: () => {
+            if (repositories === null) throw new Error('Repositories are not ready.');
+            if (day === null) throw new Error('There is no day to read.');
+            return repositories.orderDesk.listPlanMeals(day);
         },
     });
 }
@@ -297,12 +319,12 @@ export function useOrderDeskCashReportQuery(
     });
 }
 
-export function useDailyClosesQuery(): UseQueryResult<OrderDeskCloses> {
+export function useDailyClosesQuery(enabled = true): UseQueryResult<OrderDeskCloses> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.orderDesk.closes(),
-        enabled: repositories !== null,
+        enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.orderDesk.getCloses();
@@ -346,17 +368,36 @@ export function useSignOffDailyCloseMutation(): UseMutationResult<
     });
 }
 
-export function useCashSettlementsQuery(): UseQueryResult<OrderDeskSettlements> {
+export function useCashSettlementsQuery(enabled = true): UseQueryResult<OrderDeskSettlements> {
     const { repositories } = useRepositoryContext();
 
     return useQuery({
         queryKey: queryKeys.orderDesk.settlements(),
-        enabled: repositories !== null,
+        enabled: enabled && repositories !== null,
         queryFn: () => {
             if (repositories === null) throw new Error('Repositories are not ready.');
             return repositories.orderDesk.getSettlements();
         },
     });
+}
+
+/**
+ * What is waiting on the Cash page: drivers and couriers to settle, shifts to close. `null` until
+ * read. The same queries the tabs read, so the tabs, the side panel and the rail agree.
+ */
+export function useCashWaiting(enabled: boolean): {
+    readonly settle: number | null;
+    readonly close: number | null;
+} {
+    const settlements = useCashSettlementsQuery(enabled).data;
+    const closes = useDailyClosesQuery(enabled).data;
+    return {
+        settle:
+            settlements === undefined
+                ? null
+                : settlements.drivers.length + settlements.couriers.length,
+        close: closes === undefined ? null : closes.open.length,
+    };
 }
 
 /** No retry: a settled run answers `409`, and the screen reloads rather than guessing. */
@@ -480,6 +521,8 @@ export function useAssignDeliveryJobMutation(): UseMutationResult<
             repositories.orderDesk.assignDeliveryJob(request),
         onSuccess: () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.orderDesk.all() });
+            // The order book's rows carry the run too (the Orders page reads them).
+            void queryClient.invalidateQueries({ queryKey: queryKeys.kitchenOrders.all() });
         },
     });
 }

@@ -70,6 +70,11 @@ export interface ToastOptions {
      * added" over "Your basket: 3 items". The default look reads the two as one sentence.
      */
     readonly title?: string | undefined;
+    /**
+     * Something the person can take back — "Basmati rice archived · Undo". On the `desk` look it
+     * is drawn in dark ink with a line running out under it, and is the only toast that is.
+     */
+    readonly undo?: boolean | undefined;
     /** A photograph in place of the tone's icon — the dish just added. `card` look only. */
     readonly image?: ImageSourcePropType | undefined;
     /**
@@ -81,7 +86,7 @@ export interface ToastOptions {
     readonly look?: ToastLook | undefined;
 }
 
-export type ToastLook = 'default' | 'card';
+export type ToastLook = 'default' | 'card' | 'desk';
 
 export interface ToastAction {
     readonly label: string;
@@ -101,11 +106,30 @@ export interface ToastApi {
 }
 
 const ToastContext = createContext<ToastApi | null>(null);
+/** Lifts the toasts above a bar pinned to the foot of the page — the desk's save bar. */
+const ToastInsetContext = createContext<((owner: object, inset: number) => void) | null>(null);
+
+/**
+ * Keeps the toasts clear of something pinned to the bottom of the page: while this is mounted with
+ * a non-zero `inset`, the toast column rises by that many pixels. Several owners may ask at once;
+ * the highest wins. Outside a provider it does nothing.
+ */
+export function useToastInset(inset: number): void {
+    const setInset = useContext(ToastInsetContext);
+    const [owner] = useState(() => ({}));
+    useEffect(() => {
+        if (setInset === null) return undefined;
+        setInset(owner, inset);
+        return () => {
+            setInset(owner, 0);
+        };
+    }, [inset, owner, setInset]);
+}
 const ToastLookContext = createContext<ToastLook>('default');
 
 /**
  * Sets the look of every toast shown from under it. The web shop's shells wrap their pages in
- * `<ToastLookScope look="card">`; the kitchen admin sets nothing and keeps the default.
+ * `<ToastLookScope look="card">`; the kitchen admin's layout sets `desk`.
  */
 export function ToastLookScope({
     look,
@@ -135,6 +159,17 @@ export interface ToastProviderProps {
 export function ToastProvider({ children, defaultDurationMs }: ToastProviderProps) {
     const { t } = useTranslation();
     const [toasts, setToasts] = useState<readonly Toast[]>([]);
+    const [insets, setInsets] = useState<ReadonlyMap<object, number>>(() => new Map());
+    const setInset = useCallback((owner: object, inset: number) => {
+        setInsets((current) => {
+            if ((current.get(owner) ?? 0) === inset) return current;
+            const next = new Map(current);
+            if (inset === 0) next.delete(owner);
+            else next.set(owner, inset);
+            return next;
+        });
+    }, []);
+    const lift = Math.max(0, ...insets.values());
     const counter = useRef(0);
     const timers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
@@ -189,7 +224,7 @@ export function ToastProvider({ children, defaultDurationMs }: ToastProviderProp
 
     return (
         <ToastContext.Provider value={api}>
-            {children}
+            <ToastInsetContext.Provider value={setInset}>{children}</ToastInsetContext.Provider>
 
             {/*
              * Pinned to the window on the web. The app's root view can be taller than the window,
@@ -201,6 +236,7 @@ export function ToastProvider({ children, defaultDurationMs }: ToastProviderProp
              */}
             <View
                 className="absolute bottom-4 end-4 start-4 z-50 flex-col gap-2 web:fixed web:bottom-6"
+                style={lift === 0 ? undefined : { bottom: 24 + lift }}
                 pointerEvents="box-none"
             >
                 <View
@@ -259,6 +295,9 @@ function ToastItem({
     const tone = toast.tone ?? 'neutral';
     if (toast.look === 'card') {
         return <CardToast toast={toast} closeLabel={closeLabel} onDismiss={onDismiss} />;
+    }
+    if (toast.look === 'desk') {
+        return <DeskToast toast={toast} closeLabel={closeLabel} onDismiss={onDismiss} />;
     }
     return (
         <View
@@ -489,6 +528,189 @@ function CardToast({
                 <Animated.View
                     aria-hidden
                     className={cx('absolute bottom-0 start-0 h-[3px]', look.bar)}
+                    style={{
+                        width: left.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: ['0%', '100%'],
+                        }),
+                    }}
+                />
+            ) : null}
+        </Animated.View>
+    );
+}
+
+/** The desk look's tone tile — a soft disc of the tone with its glyph. */
+const DESK_TILE: Readonly<Record<ToastTone, { readonly disc: string; readonly glyph: string }>> = {
+    neutral: { disc: 'bg-surface-sunken', glyph: 'text-content-secondary' },
+    info: { disc: 'bg-info-subtle', glyph: 'text-info-on-subtle' },
+    success: { disc: 'bg-success-subtle', glyph: 'text-success-on-subtle' },
+    warning: { disc: 'bg-warning-subtle', glyph: 'text-warning-on-subtle' },
+    danger: { disc: 'bg-danger-subtle', glyph: 'text-danger-strong' },
+};
+
+/**
+ * The kitchen admin's toast (Toasts / pop-ups / banners canvas, 2026-11-11):
+ *
+ * ```
+ *  ┌──────────────────────────────────────────────┐
+ *  │ (✓)  Supplier saved                 Show   × │   white card, one line, bottom centre
+ *  └──────────────────────────────────────────────┘
+ *  ┌──────────────────────────────────────────────┐
+ *  │ ↻  Basmati rice archived               Undo   │   dark ink only for something you can
+ *  │▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔                         │   take back, its time running out
+ *  └──────────────────────────────────────────────┘
+ * ```
+ *
+ * A failure keeps the white card with a red edge, so it is told apart by more than its tile. With
+ * a `title` the message becomes the quieter second line — two lines at most.
+ */
+function DeskToast({
+    toast,
+    closeLabel,
+    onDismiss,
+}: {
+    readonly toast: Toast;
+    readonly closeLabel: string;
+    readonly onDismiss: (id: string) => void;
+}) {
+    const tone = toast.tone ?? 'neutral';
+    const undo = toast.undo === true;
+    const tile = DESK_TILE[tone];
+    const { enabled } = useMotion();
+    const duration = toast.durationMs ?? DEFAULT_TOAST_DURATION_MS;
+    const [rise] = useState(() => new Animated.Value(enabled ? 0 : 1));
+    const [left] = useState(() => new Animated.Value(1));
+
+    useEffect(() => {
+        if (!enabled) return undefined;
+        const steps = [
+            Animated.timing(rise, {
+                toValue: 1,
+                duration: 320,
+                easing: Easing.bezier(0.22, 1, 0.36, 1),
+                useNativeDriver: Platform.OS !== 'web',
+            }),
+        ];
+        if (undo && duration > 0) {
+            steps.push(
+                Animated.timing(left, {
+                    toValue: 0,
+                    duration,
+                    easing: Easing.linear,
+                    useNativeDriver: false,
+                }),
+            );
+        }
+        const all = Animated.parallel(steps);
+        all.start();
+        return () => {
+            all.stop();
+        };
+    }, [duration, enabled, left, rise, undo]);
+
+    const testID = toast.testID ?? `toast-${tone}`;
+    const ink = undo ? 'text-content-inverse' : 'text-content-primary';
+    return (
+        <Animated.View
+            testID={testID}
+            className={cx(
+                'w-full max-w-[440px] flex-row items-center gap-2.5 self-center overflow-hidden rounded-2xl py-2.5 pe-2.5 ps-3 shadow-elevation-4',
+                undo
+                    ? 'bg-surface-inverse'
+                    : cx(
+                          'border bg-surface-raised',
+                          tone === 'danger' ? 'border-danger-border' : 'border-stroke-subtle',
+                      ),
+            )}
+            style={{
+                opacity: rise,
+                transform: [
+                    { translateY: rise.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) },
+                ],
+            }}
+        >
+            {undo ? (
+                <Icon name="rotateCw" size="sm" className="text-content-inverse" />
+            ) : (
+                <View
+                    aria-hidden
+                    className={cx(
+                        'h-7 w-7 shrink-0 items-center justify-center rounded-full',
+                        tile.disc,
+                    )}
+                >
+                    <Icon name={CARD_ICON[tone]} size="sm" className={tile.glyph} />
+                </View>
+            )}
+            <View className="min-w-0 flex-1 flex-col gap-0.5">
+                {toast.title === undefined ? null : (
+                    <RNText className={cx('text-sm font-semibold text-start', ink)}>
+                        {toast.title}
+                    </RNText>
+                )}
+                <RNText
+                    className={cx(
+                        'text-start',
+                        toast.title === undefined
+                            ? cx('text-sm font-semibold', ink)
+                            : 'text-xs text-content-secondary',
+                    )}
+                >
+                    {toast.message}
+                </RNText>
+            </View>
+            {toast.action === undefined ? null : (
+                <Pressable
+                    testID={toast.action.testID ?? `${testID}-action`}
+                    role="button"
+                    accessibilityRole="button"
+                    onPress={() => {
+                        toast.action?.onPress();
+                        onDismiss(toast.id);
+                    }}
+                    className={cx(
+                        'h-7 shrink-0 justify-center rounded-full px-2',
+                        undo ? 'hover:bg-content-inverse/15' : 'hover:bg-surface-sunken',
+                    )}
+                >
+                    <RNText
+                        className={cx(
+                            'text-sm font-bold',
+                            undo
+                                ? 'text-stage-green'
+                                : tone === 'danger'
+                                  ? 'text-danger-strong'
+                                  : 'text-content-on-brand-subtle',
+                        )}
+                    >
+                        {toast.action.label}
+                    </RNText>
+                </Pressable>
+            )}
+            <Pressable
+                testID={`${testID}-dismiss`}
+                role="button"
+                accessibilityRole="button"
+                accessibilityLabel={closeLabel}
+                onPress={() => {
+                    onDismiss(toast.id);
+                }}
+                className={cx(
+                    'h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full',
+                    undo ? 'hover:bg-content-inverse/15' : 'hover:bg-surface-sunken',
+                )}
+            >
+                <Icon
+                    name="close"
+                    size="sm"
+                    className={undo ? 'text-content-inverse' : 'text-content-secondary'}
+                />
+            </Pressable>
+            {undo && duration > 0 ? (
+                <Animated.View
+                    aria-hidden
+                    className="absolute bottom-0 start-0 h-[3px] bg-stage-green"
                     style={{
                         width: left.interpolate({
                             inputRange: [0, 1],

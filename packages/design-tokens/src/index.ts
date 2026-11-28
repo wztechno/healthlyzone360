@@ -52,6 +52,7 @@ export {
     cardWidth,
     controlGap,
     controlHeight,
+    deskHeight,
     controlPaddingX,
     fieldWidth,
     iconSize,

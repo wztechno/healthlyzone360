@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import type { RowDensity } from '@healthy360/design-tokens';
 import { Platform, Pressable, Text as RNText, View } from 'react-native';
@@ -260,6 +260,11 @@ export interface DataListProps<Row> {
     readonly density?: RowDensity | undefined;
     /** Opens the editor. The row body's behaviour is unchanged from today's list (§4.1). */
     readonly onRowPress?: ((row: Row) => void) | undefined;
+    /**
+     * The row a pick list has chosen — drawn on the brand's subtle fill and `aria-selected`, so the
+     * choice reads from the whole row, not only from a radio dot at its start.
+     */
+    readonly isRowSelected?: ((row: Row) => boolean) | undefined;
     readonly emptyState?: ReactNode | undefined;
     /**
      * The list sits inside a `rounded-panel` frame drawn by the caller. The header takes the frame's
@@ -269,6 +274,11 @@ export interface DataListProps<Row> {
      */
     readonly framed?: boolean | undefined;
     /**
+     * The frame's top edge runs straight on from a toolbar card above it, so its top corners are
+     * square and a curved header would leave white showing behind them.
+     */
+    readonly flushTop?: boolean | undefined;
+    /**
      * Rows fade and rise into place as they mount, cascading down the list — when its data lands,
      * and again for each page the pager brings in. The header does not move: it is the frame the
      * rows arrive into, and the skeleton before it already drew one in the same place.
@@ -277,6 +287,21 @@ export interface DataListProps<Row> {
      * animate unless its screen asked for it.
      */
     readonly rowEntrance?: boolean | undefined;
+    /**
+     * A heading row drawn across the whole table before a row — a day's orders under Breakfast,
+     * Lunch, Dinner. Asked for every row with the one before it (`undefined` for the first row on
+     * the page), so a group that runs onto the next page is headed again there. `null` draws
+     * nothing. The caller draws the heading's content; the list gives it a full-width row.
+     */
+    readonly sectionHeader?: ((row: Row, previous: Row | undefined) => ReactNode) | undefined;
+    /**
+     * A line drawn across the whole table directly under a row — what is wrong with an editable
+     * row, said once for the row rather than under one of its fields. A message under a field makes
+     * that cell taller, and a centred row then moves every other field out of line with it; under
+     * the row it moves nothing. `null` draws nothing. The row's rule moves below its note, so the
+     * two read as one row.
+     */
+    readonly rowNote?: ((row: Row) => ReactNode) | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -301,10 +326,21 @@ const ROW_DURATION = 'normal';
  * `TableCellTextContext`), so a page of ordinary rows is the same 28 / 32 / 36px whatever its values.
  */
 const ROW_HEIGHT_CLASS: Readonly<Record<RowDensity, string>> = {
-    sm: 'min-h-row-sm',
-    md: 'min-h-row-md',
-    lg: 'min-h-row-lg',
+    sm: 'min-h-[46px]',
+    md: 'min-h-[46px]',
+    lg: 'min-h-[52px]',
 };
+
+/**
+ * A column's name, as the admin canvas draws it: 11px bold capitals on the table's quiet band.
+ *
+ * Exported so the Catalogue's sort-and-filter header sets its label in the same type as a plain one.
+ */
+export const DATA_LIST_HEAD_TEXT_CLASS =
+    'text-[11px] leading-4 font-bold uppercase tracking-[0.06em] text-content-secondary';
+
+/** The first track's extra start inset: the row's text starts 14px in from the frame. */
+const FIRST_TRACK_CLASS = 'ps-3.5';
 
 const TEXT_ALIGN_CLASS: Readonly<Record<'start' | 'end' | 'center', string>> = {
     start: 'text-start',
@@ -346,7 +382,7 @@ export function dataListColumnAlign(
 /** The text of a cell with no renderer — the one size and ink every cell is set in. */
 function cellClass(column: DataListColumn<unknown>): string {
     return cx(
-        'text-role-body text-content-primary',
+        'text-[13px] leading-[18px] font-medium text-content-primary',
         column.mono === true ? 'tabular-nums' : null,
         TEXT_ALIGN_CLASS[dataListColumnAlign(column)],
     );
@@ -362,9 +398,13 @@ export function DataList<Row>({
     label,
     density = 'md',
     onRowPress,
+    isRowSelected,
     emptyState,
     framed = false,
+    flushTop = false,
     rowEntrance = false,
+    sectionHeader,
+    rowNote,
     className,
     testID,
 }: DataListProps<Row>) {
@@ -495,14 +535,14 @@ export function DataList<Row>({
                      * there.
                      */
                     className={cx(
-                        'min-h-row-sm z-raised flex-row items-center border-b border-stroke-subtle',
-                        // The brand's subtle ground: the header reads as the table's green band.
-                        // Opaque, which the sticky header needs so rows do not show through.
-                        'bg-surface-brand-subtle web:sticky web:top-0',
-                        framed ? 'rounded-t-panel' : null,
+                        'min-h-[38px] z-raised flex-row items-center border-b border-stroke-subtle',
+                        // The table's quiet band. Opaque, which the sticky header needs so rows do
+                        // not show through.
+                        'bg-surface-sunken web:sticky web:top-0',
+                        framed && !flushTop ? 'rounded-t-panel' : null,
                     )}
                 >
-                    {visible.map((column) => (
+                    {visible.map((column, columnIndex) => (
                         <View
                             key={column.key}
                             role="columnheader"
@@ -512,7 +552,10 @@ export function DataList<Row>({
                                     : `${testID}-columnheader-${column.key}`
                             }
                             style={trackStyle(column, fills)}
-                            className="px-control-sm"
+                            className={cx(
+                                'px-control-sm',
+                                columnIndex === 0 ? FIRST_TRACK_CLASS : null,
+                            )}
                         >
                             {column.renderHeader === undefined ? (
                                 /*
@@ -525,10 +568,7 @@ export function DataList<Row>({
                                     numberOfLines={1}
                                     {...truncationHoverProps}
                                     className={cx(
-                                        // `strong`: a step larger and heavier than the 12px cells
-                                        // under it, so the header reads as the column's name — the
-                                        // same role the sort and filter headers draw with.
-                                        'text-role-strong text-content-on-brand-subtle',
+                                        DATA_LIST_HEAD_TEXT_CLASS,
                                         TEXT_ALIGN_CLASS[
                                             dataListColumnAlign(column as DataListColumn<unknown>)
                                         ],
@@ -547,7 +587,7 @@ export function DataList<Row>({
                     ? null
                     : rows.map((row, index) => {
                           const key = rowKey(row);
-                          const cells = visible.map((column) => (
+                          const cells = visible.map((column, columnIndex) => (
                               <View
                                   key={column.key}
                                   role="cell"
@@ -558,6 +598,7 @@ export function DataList<Row>({
                                       // density it was asked for. No `overflow-hidden`: a cell
                                       // can hold a select whose panel has to escape it.
                                       'flex-row items-center px-control-sm',
+                                      columnIndex === 0 ? FIRST_TRACK_CLASS : null,
                                       JUSTIFY_CLASS[
                                           dataListColumnAlign(column as DataListColumn<unknown>)
                                       ],
@@ -597,10 +638,18 @@ export function DataList<Row>({
                                            * content-sized one collapsed it to its min-content.
                                            * The track's alignment moves to `items-*` here, so a
                                            * content-sized root still sits where the column says.
+                                           *
+                                           * And capped to it: a content-sized root (a name beside
+                                           * a badge, a two-line "price · supplier · date" stack)
+                                           * is sized on this box's cross axis, where `shrink` does
+                                           * nothing, so without `max-w-full` on it the root takes
+                                           * its text's full width and paints over the next column.
+                                           * Applied here to every renderer's root, so no column
+                                           * has to remember it.
                                            */}
                                           <View
                                               className={cx(
-                                                  'min-w-0 flex-1',
+                                                  'min-w-0 flex-1 web:*:max-w-full',
                                                   ITEMS_CLASS[
                                                       dataListColumnAlign(
                                                           column as DataListColumn<unknown>,
@@ -616,17 +665,22 @@ export function DataList<Row>({
                           ));
 
                           const last = index === rows.length - 1;
+                          const note = rowNote?.(row) ?? null;
+                          const noted = note !== null && note !== false;
                           /*
                            * A soft hairline between rows, in the subtle stroke so it separates
                            * without striping a dense page into a ledger. The last row has none —
                            * the frame's own edge closes the list — and takes the frame's bottom
-                           * corners, so its tint does not square them off.
+                           * corners, so its tint does not square them off. A row with a note
+                           * hands both to the note, which closes the row instead.
                            */
+                          const selected = isRowSelected?.(row) === true;
                           const rowClass = cx(
                               ROW_HEIGHT_CLASS[density],
                               'flex-row items-center',
-                              last ? null : 'border-b border-stroke-subtle',
-                              framed && last ? 'rounded-b-panel' : null,
+                              selected ? 'bg-surface-brand-subtle' : null,
+                              last || noted ? null : 'border-b border-stroke-subtle',
+                              framed && last && !noted ? 'rounded-b-panel' : null,
                           );
 
                           const rowTestID =
@@ -646,6 +700,9 @@ export function DataList<Row>({
                                       key={key}
                                       role="row"
                                       testID={rowTestID}
+                                      aria-selected={
+                                          isRowSelected === undefined ? undefined : selected
+                                      }
                                       onPress={() => {
                                           onRowPress(row);
                                       }}
@@ -653,7 +710,10 @@ export function DataList<Row>({
                                       // chevron and no button — so it covers the whole track sum
                                       // rather than the port, which is what the `minWidth` above
                                       // buys.
-                                      className={cx(rowClass, 'hover:bg-surface-sunken')}
+                                      className={cx(
+                                          rowClass,
+                                          selected ? null : 'hover:bg-surface-sunken',
+                                      )}
                                   >
                                       {cells}
                                   </Pressable>
@@ -664,7 +724,7 @@ export function DataList<Row>({
                            * its own element, id and hover — the wrapper is a plain box between the
                            * table and its row, which ARIA 1.2 allows for a required context.
                            */
-                          return rowEntrance ? (
+                          const entered = rowEntrance ? (
                               <CascadeItem
                                   key={key}
                                   index={index}
@@ -678,6 +738,61 @@ export function DataList<Row>({
                               </CascadeItem>
                           ) : (
                               drawn
+                          );
+
+                          /*
+                           * The note spans the table under its row, inset like the cells, and
+                           * closes the row: the rule between rows and the frame's bottom corners
+                           * are the note's when there is one.
+                           */
+                          const withNote = noted ? (
+                              <Fragment key={key}>
+                                  {entered}
+                                  <View
+                                      role="row"
+                                      testID={
+                                          rowTestID === undefined ? undefined : `${rowTestID}-note`
+                                      }
+                                      className={cx(
+                                          '-mt-1 px-control-sm pb-snug',
+                                          last ? null : 'border-b border-stroke-subtle',
+                                          framed && last ? 'rounded-b-panel' : null,
+                                      )}
+                                  >
+                                      <View role="cell" className="min-w-0">
+                                          {note}
+                                      </View>
+                                  </View>
+                              </Fragment>
+                          ) : (
+                              entered
+                          );
+
+                          const heading = sectionHeader?.(row, rows[index - 1]) ?? null;
+                          if (heading === null || heading === false) return withNote;
+                          return (
+                              <Fragment key={key}>
+                                  {/*
+                                   * The heading spans the table: one cell as wide as the tracks,
+                                   * with the rule above it a row's own rule. It brings its own
+                                   * ground and inset (`ListGroupRow`), so a group that is itself a
+                                   * warning can say so across the whole row.
+                                   */}
+                                  <View
+                                      role="row"
+                                      testID={
+                                          testID === undefined
+                                              ? undefined
+                                              : `${testID}-section-${key}`
+                                      }
+                                      className="border-b border-stroke-subtle"
+                                  >
+                                      <View role="cell" className="min-w-0">
+                                          {heading}
+                                      </View>
+                                  </View>
+                                  {withNote}
+                              </Fragment>
                           );
                       })}
             </View>

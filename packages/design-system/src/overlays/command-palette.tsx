@@ -224,7 +224,7 @@ export function CommandPalette({
                 />
                 {/* The bound is on a plain View: `FadeIn` is an Animated.View, which drops
                     `className` on the web. See the same note in `dialog.tsx`. */}
-                <View className="w-full max-w-[640px]">
+                <View className="w-full max-w-[620px]">
                     <FadeIn duration="fast">
                         <View
                             testID={testID}
@@ -232,10 +232,10 @@ export function CommandPalette({
                             aria-modal
                             aria-label={label}
                             accessibilityLabel={label}
-                            className="max-h-[70vh] w-full flex-col overflow-hidden rounded-xl bg-surface-raised shadow-elevation-4"
+                            className="max-h-[70vh] w-full flex-col overflow-hidden rounded-[20px] border border-stroke-subtle bg-surface-raised shadow-elevation-4"
                         >
-                            <View className="flex-row items-center gap-3 border-b border-stroke-subtle px-5 py-4">
-                                <Icon name="searchLens" className="text-content-secondary" />
+                            <View className="flex-row items-center gap-3 border-b border-stroke-subtle px-4 py-3.5">
+                                <Icon name="searchLens" className="text-content-on-brand-subtle" />
                                 <TextInput
                                     testID={`${testID}-input`}
                                     value={query}
@@ -261,7 +261,7 @@ export function CommandPalette({
                             <ScrollView
                                 testID={`${testID}-results`}
                                 className="min-h-0 shrink"
-                                contentContainerClassName="flex-col px-2 py-2"
+                                contentContainerClassName="flex-col px-2 pb-2 pt-1"
                                 keyboardShouldPersistTaps="handled"
                             >
                                 {flat.length === 0 ? (
@@ -278,7 +278,7 @@ export function CommandPalette({
                                             ungroupedLabel === undefined ? null : (
                                                 <RNText
                                                     accessibilityRole="header"
-                                                    className="px-3 pb-1 pt-3 text-xs font-semibold uppercase tracking-wider text-content-secondary text-start"
+                                                    className="px-2.5 pb-1.5 pt-3 text-role-caption font-bold uppercase tracking-wider text-content-secondary text-start"
                                                 >
                                                     {section.group ?? ungroupedLabel}
                                                 </RNText>
@@ -312,28 +312,34 @@ export function CommandPalette({
                                                             choose(item);
                                                         }}
                                                         className={cx(
-                                                            'flex-row items-center gap-3 rounded-lg px-3 py-2.5',
+                                                            'min-h-[46px] flex-row items-center gap-3 rounded-xl px-2.5 py-1.5',
                                                             highlighted
                                                                 ? 'bg-surface-brand-subtle'
                                                                 : 'bg-transparent',
                                                         )}
                                                     >
-                                                        <Icon
-                                                            name={item.icon ?? 'dot'}
-                                                            className={
+                                                        {/* The glyph in a small tile, green on the row Enter opens. */}
+                                                        <View
+                                                            className={cx(
+                                                                'h-[30px] w-[30px] items-center justify-center rounded-[9px]',
                                                                 highlighted
-                                                                    ? 'text-content-on-brand-subtle'
-                                                                    : 'text-content-secondary'
-                                                            }
-                                                        />
+                                                                    ? 'bg-surface-raised'
+                                                                    : 'bg-surface-sunken',
+                                                            )}
+                                                        >
+                                                            <Icon
+                                                                name={item.icon ?? 'dot'}
+                                                                size="sm"
+                                                                className={
+                                                                    highlighted
+                                                                        ? 'text-content-on-brand-subtle'
+                                                                        : 'text-content-primary'
+                                                                }
+                                                            />
+                                                        </View>
                                                         <RNText
                                                             numberOfLines={1}
-                                                            className={cx(
-                                                                'min-w-0 flex-1 text-sm text-start',
-                                                                highlighted
-                                                                    ? 'font-medium text-content-on-brand-subtle'
-                                                                    : 'text-content-primary',
-                                                            )}
+                                                            className="min-w-0 flex-1 text-sm font-semibold text-content-primary text-start"
                                                         >
                                                             {item.label}
                                                         </RNText>
@@ -343,6 +349,14 @@ export function CommandPalette({
                                                                 {String(item.count)}
                                                             </RNText>
                                                         )}
+                                                        {highlighted ? (
+                                                            <RNText
+                                                                aria-hidden
+                                                                className="rounded-md border border-stroke-subtle bg-surface-raised px-1.5 py-0.5 text-xs font-semibold text-content-secondary"
+                                                            >
+                                                                ↵
+                                                            </RNText>
+                                                        ) : null}
                                                     </Pressable>
                                                 );
                                             })}
@@ -353,7 +367,7 @@ export function CommandPalette({
 
                             <View
                                 testID={`${testID}-hints`}
-                                className="flex-row items-center gap-4 border-t border-stroke-subtle px-5 py-2.5"
+                                className="flex-row items-center gap-4 border-t border-stroke-subtle bg-surface-base px-4 py-2.5"
                             >
                                 <Hint keys="↑ ↓" text={hints.move} />
                                 <Hint keys="↵" text={hints.open} />
@@ -370,7 +384,7 @@ export function CommandPalette({
 function Hint({ keys, text }: { readonly keys: string; readonly text: string }) {
     return (
         <View className="flex-row items-center gap-1.5">
-            <RNText className="rounded border border-stroke-subtle bg-surface-sunken px-1.5 py-0.5 text-xs text-content-secondary">
+            <RNText className="rounded-md border border-stroke-subtle bg-surface-raised px-1.5 py-0.5 text-xs font-semibold text-content-primary">
                 {keys}
             </RNText>
             <RNText className="text-xs text-content-secondary">{text}</RNText>

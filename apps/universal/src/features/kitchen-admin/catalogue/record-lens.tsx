@@ -110,7 +110,7 @@ export function RecordLens({
             testID={testID}
             role="region"
             aria-label={label}
-            className="z-10 rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card"
+            className="z-10 rounded-panel border border-stroke-subtle bg-surface-raised shadow-elevation-card"
         >
             <View className="z-auto flex-row flex-wrap items-center gap-x-3 gap-y-tight py-tight pe-snug ps-4">
                 <View className="flex-row flex-wrap items-center gap-tight">{heading}</View>

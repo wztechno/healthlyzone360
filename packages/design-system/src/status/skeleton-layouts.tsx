@@ -22,7 +22,7 @@ import { Skeleton } from './skeleton.tsx';
 
 /** The list panel's frame — `catalogue-list.tsx`'s `FRAME_CLASS`, so the skeleton sits where the rows will. */
 const PANEL_CLASS =
-    'flex-col overflow-hidden rounded-panel border border-brand-100 bg-surface-raised shadow-elevation-card';
+    'flex-col overflow-hidden rounded-panel border border-stroke-subtle bg-surface-raised';
 
 /**
  * Cell widths, cycled by row and column so the rows read as text of different lengths rather than
@@ -62,7 +62,7 @@ export function TableSkeleton({
     return (
         <View testID={testID} aria-busy className={PANEL_CLASS}>
             {header ? (
-                <View className="min-h-row-sm flex-row items-center gap-snug border-b border-stroke-subtle px-control-sm">
+                <View className="min-h-[38px] flex-row items-center gap-snug border-b border-stroke-subtle bg-surface-sunken px-control-sm">
                     {columnIndexes.map((column) => (
                         <View
                             key={column}
@@ -85,7 +85,7 @@ export function TableSkeleton({
                             : `${partTestID}-skeleton-${String(row + 1)}`
                     }
                     className={cx(
-                        'min-h-row-md flex-row items-center gap-snug px-control-sm',
+                        'min-h-[46px] flex-row items-center gap-snug px-control-sm',
                         row < rows - 1 ? 'border-b border-stroke-subtle' : null,
                     )}
                 >
@@ -221,7 +221,7 @@ export function StatTilesSkeleton({
                             ? undefined
                             : `${partTestID}-skeleton-${String(tile + 1)}`
                     }
-                    className="min-w-card flex-1 flex-col gap-tight rounded-panel border border-brand-100 bg-surface-raised p-4 shadow-elevation-card"
+                    className="min-w-card flex-1 flex-col gap-tight rounded-panel border border-stroke-subtle bg-surface-raised p-4 shadow-elevation-card"
                 >
                     <Skeleton heightClassName="h-2.5" widthClassName="w-1/3" />
                     <Skeleton heightClassName="h-8" widthClassName="w-1/2" />

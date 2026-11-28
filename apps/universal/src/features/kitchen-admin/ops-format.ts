@@ -23,7 +23,7 @@ import type { BadgeTone, CalloutProps } from '@healthy360/design-system';
 import type { TFunction } from 'i18next';
 
 import { KDS_WARNING_MINUTES } from '../kds/kds-board.ts';
-import { displayName, humaniseCode } from './format.ts';
+import { displayName, humaniseCode, unitCodeLabel } from './format.ts';
 
 /**
  * Display helpers for the kitchen ops workspace (O1–O4).
@@ -50,17 +50,19 @@ export function isOutOfStock(quantity: string): boolean {
  * The ledger sends `"1.804906"` and `"0.0000"` — exact, and unreadable down a column. Three places
  * is the batch sheet's own precision (`BATCH_QUANTITY_FORMAT`), so a figure here matches the figure
  * the planner printed. A string that is not a number comes back as it arrived rather than as `NaN`.
+ * The unit is written the admin's way — `Kg`, `L`, `Pc` — not as the server's lowercase code.
  */
 export function ledgerQuantity(
     formatNumber: (value: number) => string,
     value: string | null,
     unitCode: string | null,
     fallback: string,
+    t: (key: string) => string,
 ): string {
     if (value === null) return fallback;
     const parsed = Number(value);
     const figure = Number.isFinite(parsed) ? formatNumber(parsed) : value;
-    return unitCode === null ? figure : `${figure} ${unitCode}`;
+    return unitCode === null ? figure : `${figure} ${unitCodeLabel(unitCode, t)}`;
 }
 
 const PRODUCTION_STATUS_KEYS: Readonly<Record<ProductionOrderStatus, string>> = {
@@ -701,11 +703,14 @@ export function receiptCostStatusTone(status: ReceiptCostStatus): BadgeTone {
  * received" would be a second answer to a question the receiving guard has already answered, and the
  * two would eventually disagree about a delivery quoted in a different unit.
  */
-export function outstandingLabel(line: {
-    readonly outstandingQuantity: string;
-    readonly unitCode: string;
-}): string {
-    return `${line.outstandingQuantity} ${line.unitCode}`;
+export function outstandingLabel(
+    line: {
+        readonly outstandingQuantity: string;
+        readonly unitCode: string;
+    },
+    t: (key: string) => string,
+): string {
+    return `${line.outstandingQuantity} ${unitCodeLabel(line.unitCode, t)}`;
 }
 
 /* ── B2B quotations (B4) ─────────────────────────────────────────────────────────────────────── */

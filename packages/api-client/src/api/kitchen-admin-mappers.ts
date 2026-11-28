@@ -36,6 +36,9 @@ import type {
     NutritionReferenceCandidate,
     ItemChannelOffer,
     ItemChannelPrices,
+    ItemPack,
+    ItemPackPrice,
+    ItemPacks,
     PackagingBasis,
     RecipePackagingLine,
     MealAdmin,
@@ -59,6 +62,7 @@ import type {
     RecipeComputedCost,
     RecipeAllergenDeclaration,
     RecipeLine,
+    RecipeLineCostSource,
     RecipeOutput,
     RecipeRollupPreview,
     RecipeStepAdmin,
@@ -112,6 +116,7 @@ import type {
     CatalogueItemStatus,
     DeliveryZoneStatus,
     ItemChannelPricesEnvelope,
+    ItemPacksEnvelope,
     PriceStatus,
     TechnicalSheet as WireTechnicalSheet,
     WeeklyCost as WireWeeklyCost,
@@ -405,6 +410,20 @@ export function mapIngredientAdmin(
                 ? null
                 : IngredientId.unsafe(wire.forked_from_ingredient_id),
         notes: wire.notes ?? null,
+        // Absent on a single read — `undefined`, not "bought in", so a caller can keep the list's.
+        producedByRecipe:
+            wire.produced_by_recipe === undefined
+                ? undefined
+                : wire.produced_by_recipe === null
+                  ? null
+                  : {
+                        id: RecipeId.unsafe(wire.produced_by_recipe.id),
+                        name: {
+                            en: wire.produced_by_recipe.name_en,
+                            ar: wire.produced_by_recipe.name_ar,
+                        },
+                        isPublished: wire.produced_by_recipe.is_published,
+                    },
     };
 }
 
@@ -1225,11 +1244,25 @@ function mapComputedCost(
         readonly ingredient_id: string;
         readonly unit_cost_amount: string | null;
         readonly line_cost_amount: string | null;
+        readonly cost_source?: RecipeLineCostSource | null;
+        readonly source_recipe?: {
+            readonly id: string;
+            readonly name_en: string;
+            readonly name_ar: string;
+        } | null;
     }) => ({
         lineNumber: line.line_number,
         ingredientId: IngredientId.unsafe(line.ingredient_id),
         unitCost: amount(line.unit_cost_amount),
         lineCost: amount(line.line_cost_amount),
+        costSource: line.cost_source ?? null,
+        sourceRecipe:
+            line.source_recipe == null
+                ? null
+                : {
+                      id: RecipeId.unsafe(line.source_recipe.id),
+                      name: { en: line.source_recipe.name_en, ar: line.source_recipe.name_ar },
+                  },
     });
 
     return {
@@ -1267,6 +1300,13 @@ function mapComputedCost(
             lineNumber: line.line_number,
             ingredientId: IngredientId.unsafe(line.ingredient_id),
             cost: amount(line.cost_per_package_amount),
+        })),
+        packs: ('packs' in wire ? (wire.packs ?? []) : []).map((pack) => ({
+            key: pack.key,
+            contents: amount(pack.contents_amount),
+            packaging: amount(pack.packaging_amount),
+            cost: amount(pack.cost_amount),
+            withheldReason: pack.withheld_reason,
         })),
     };
 }
@@ -1306,6 +1346,7 @@ function mapWeeklyCost(wire: WireWeeklyCost): RecipeWeeklyCost {
             },
             totalCostPerYieldUnit: null,
             packages: [],
+            packs: [],
         }),
         weeklyPricePublicationId: wire.weekly_price_publication_id ?? null,
         hasCarriedForwardPrices: wire.has_carried_forward_prices,
@@ -1680,5 +1721,69 @@ export function mapItemChannelPrices(wire: WireItemChannelPrices): ItemChannelPr
         lockVersion: wire.lock_version,
         b2b: offer(wire.channels.b2b),
         b2c: offer(wire.channels.b2c),
+    };
+}
+
+/* ── Packs & prices ──────────────────────────────────────────────────────────────────────────── */
+
+export type WireItemPacks = ItemPacksEnvelope['data'];
+type WireItemPackPlace = NonNullable<WireItemPacks['places']['home']>;
+type WireItemPack = WireItemPacks['packs'][number];
+
+/**
+ * Wire → `ItemPacks`. A place whose currency this build cannot format is read as absent, as on
+ * `mapItemChannelPrices`; a fill in a unit this build does not know reads as kilograms.
+ */
+export function mapItemPacks(wire: WireItemPacks): ItemPacks {
+    const place = (row: WireItemPackPlace | null) =>
+        row === null || !isCurrencyCode(row.currency_code)
+            ? null
+            : {
+                  salesChannelId: row.sales_channel_id,
+                  priceListId: PriceListId.unsafe(row.price_list_id),
+                  currency: row.currency_code,
+                  offered: row.offered,
+              };
+    const price = (
+        row: { amount_minor: number; inherited: boolean } | null,
+    ): ItemPackPrice | null =>
+        row === null ? null : { amountMinor: row.amount_minor, inherited: row.inherited };
+    const pack = (row: WireItemPack): ItemPack => ({
+        id: row.id,
+        code: row.code,
+        name:
+            row.name_en === null && row.name_ar === null
+                ? null
+                : localised(row.name_en ?? '', row.name_ar),
+        isDefault: row.is_default,
+        fill: {
+            quantity: Number(row.fill.quantity),
+            unit: isMeasureUnit(row.fill.unit) ? row.fill.unit : 'kg',
+        },
+        components: row.components.map((component) => ({
+            ingredientId: IngredientId.unsafe(component.ingredient_id),
+            quantity: Number(component.quantity),
+            isContainer: component.is_container,
+        })),
+        prices: { home: price(row.prices.home), business: price(row.prices.business) },
+    });
+    const counter = wire.places.counter;
+
+    return {
+        lockVersion: wire.lock_version,
+        places: {
+            home: place(wire.places.home),
+            business: place(wire.places.business),
+            counter:
+                counter === null
+                    ? null
+                    : {
+                          salesChannelId: counter.sales_channel_id,
+                          offered: counter.offered,
+                          followsHome: counter.follows_home,
+                          priceListName: counter.price_list_name,
+                      },
+        },
+        packs: wire.packs.map(pack),
     };
 }

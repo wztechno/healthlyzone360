@@ -487,7 +487,7 @@ describe('one batch', () => {
         // The quantities are still theirs to read — a 403 on the whole page would blank the desk
         // for the person actually running the batch.
         expect(screen.getByTestId('kitchen-production-batch-yield-produced')).toHaveTextContent(
-            '38 l',
+            '38 L',
         );
     });
 
@@ -594,7 +594,8 @@ describe('one batch', () => {
 
         fireEvent.press(screen.getByTestId('kitchen-production-batch-label'));
         expect(routerMock.__push).toHaveBeenCalledWith(
-            `/kitchen/production-desk/${BATCH_ID}/label`,
+            // With the batch as its way back, so the label returns to it.
+            `/kitchen/production-desk/${BATCH_ID}/label?returnTo=%252Fkitchen%252Fproduction-desk`,
         );
     });
 

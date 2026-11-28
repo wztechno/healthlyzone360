@@ -7,6 +7,7 @@ namespace Healthy360\Recipes\Services;
 use Healthy360\Ingredients\Contracts\IngredientUsageRegistry;
 use Healthy360\Ingredients\Models\Ingredient;
 use Healthy360\Recipes\Enums\DerivationState;
+use Healthy360\Recipes\Enums\RecipeStatus;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
 use Healthy360\Recipes\Jobs\RecomputeRecipeDerivations;
 use Healthy360\Recipes\Models\RecipeVersion;
@@ -137,6 +138,58 @@ final readonly class RecipeIngredientUsageRegistry implements IngredientUsageReg
         }
 
         return $versionIds;
+    }
+
+    /**
+     * One query for the page: every non-retired version of a live recipe stating one of these
+     * ingredients as an output, a published version first, then the newest; the first row per
+     * ingredient answers.
+     *
+     * `withoutTenancy()` with the organisation stated on the output table, because the query
+     * joins two more tables and an unqualified tenant column would be ambiguous — the pattern
+     * `CatalogueItemService::isProducedIngredient()` follows.
+     *
+     * @param  list<string>  $ingredientIds
+     * @return array<string, array{id: string, name_en: string, name_ar: string, is_published: bool}>
+     */
+    public function producedByRecipes(array $ingredientIds): array
+    {
+        $organisationId = $this->context->organisationId();
+
+        if ($ingredientIds === [] || $organisationId === null) {
+            return [];
+        }
+
+        $rows = RecipeVersionOutput::withoutTenancy()
+            ->join('recipe_versions', 'recipe_versions.id', '=', 'recipe_version_outputs.recipe_version_id')
+            ->join('recipes', 'recipes.id', '=', 'recipe_versions.recipe_id')
+            ->where('recipe_version_outputs.organisation_id', $organisationId)
+            ->whereIn('recipe_version_outputs.ingredient_id', $ingredientIds)
+            ->where('recipe_versions.status', '!=', RecipeVersionStatus::Retired->value)
+            ->where('recipes.status', '!=', RecipeStatus::Archived->value)
+            ->orderByRaw('case when recipe_versions.status = ? then 0 else 1 end', [RecipeVersionStatus::Published->value])
+            ->orderByDesc('recipe_versions.version_number')
+            ->toBase()
+            ->get([
+                'recipe_version_outputs.ingredient_id',
+                'recipe_versions.status as version_status',
+                'recipes.id as recipe_id',
+                'recipes.name_en',
+                'recipes.name_ar',
+            ]);
+
+        $producers = [];
+
+        foreach ($rows as $row) {
+            $producers[(string) $row->ingredient_id] ??= [
+                'id' => (string) $row->recipe_id,
+                'name_en' => (string) $row->name_en,
+                'name_ar' => (string) $row->name_ar,
+                'is_published' => $row->version_status === RecipeVersionStatus::Published->value,
+            ];
+        }
+
+        return $producers;
     }
 
     /**

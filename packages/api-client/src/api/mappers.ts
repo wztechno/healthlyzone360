@@ -44,7 +44,7 @@ import type {
  * | `Profile.avatarUrl`          | *(absent)*                         | `null`; there are no avatars yet |
  * | `Profile.displayName`        | `given_name` + `family_name`       | the API has no display-name concept |
  * | `MembershipRole.id`/`name`   | `roles[]` (codes only)             | the code is the identity and the label |
- * | `Membership.branches`        | `branch_id` + hydrated contexts    | see `BranchDirectory` |
+ * | `Membership.branches`        | `branches`                         | `BranchDirectory` only for a server without it |
  * | `Membership.expiresAt`       | *(absent)*                         | `null`; the API never lists an ended membership |
  * | `Branch.code`/`countryCode`  | *(absent)*                         | `''`; only `name`, `city`, `timezone`, `status` are on the wire |
  * | `ActiveContext.permissionVersion` | `/me` `meta.permissions_version` | an opaque string; see `parsePermissionsVersion` |
@@ -104,10 +104,10 @@ export function mapBranch(wire: WireBranch, organisationId: OrganisationId): Bra
 /**
  * Branches the client has actually been shown, keyed by identifier.
  *
- * `GET /me` gives a membership's `branch_id` but no branch directory, and there is no endpoint that
- * lists an organisation's branches — so the only hydrated `Branch` a client ever sees is the one
- * inside an `active_context`. Remembering those lets the profile screen name the current branch
- * instead of printing "no branch" next to a context that plainly has one.
+ * The fallback for a server whose `/me` does not list a membership's `branches`: there the only
+ * hydrated `Branch` a client ever sees is the one inside an `active_context`. Remembering those lets
+ * the profile screen name the current branch instead of printing "no branch" next to a context that
+ * plainly has one.
  *
  * It never manufactures a branch: an id with no hydrated record simply does not appear in
  * `Membership.branches`, which keeps `membershipRequiresBranchSelection` (`branches.length > 1`)
@@ -141,6 +141,12 @@ export function mapMembership(
 ): Membership {
     const organisation = mapOrganisation(wire.organisation);
     const scopedBranch = wire.branch_id === null ? undefined : branches.get(wire.branch_id);
+    // The server's own list of what this membership may select, which is what lets an
+    // organisation-wide member of a two-branch kitchen be offered the choice at all. A server that
+    // predates the field leaves only the directory to go on.
+    const selectable =
+        wire.branches?.map((branch) => mapBranch(branch, organisation.id)) ??
+        (scopedBranch === undefined ? [] : [scopedBranch]);
 
     return {
         id: MembershipId.unsafe(wire.id),
@@ -148,7 +154,8 @@ export function mapMembership(
         organisation,
         status: mapMembershipStatus(wire.status),
         roles: wire.roles.map(mapMembershipRole),
-        branches: scopedBranch === undefined ? [] : [scopedBranch],
+        branchId: wire.branch_id === null ? null : BranchId.unsafe(wire.branch_id),
+        branches: selectable,
         startsAt: wire.joined_at,
         expiresAt: null,
     };

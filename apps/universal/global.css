@@ -100,6 +100,16 @@ html:lang(en-XA) .font-display * {
     font-family: var(--h360-font-family-display);
 }
 
+/* A heading the board sets in the body face (Inter) — a card's title is an h3 for the reader of
+   the page, but the board draws it like the rest of the card. Outranks the rule above; Arabic keeps
+   its own face. */
+html:lang(en) [data-face='body'],
+html:lang(en) [data-face='body'] *,
+html:lang(en-XA) [data-face='body'],
+html:lang(en-XA) [data-face='body'] * {
+    font-family: var(--h360-font-family-latin);
+}
+
 html:lang(ar) * {
     font-family: var(--h360-font-family-arabic);
 }
@@ -137,6 +147,7 @@ html:lang(ar) * {
 }
 
 [data-testid$='-sidebar-scroll']::-webkit-scrollbar-thumb {
+    border: 0;
     background: transparent;
     border-radius: 9999px;
 }
@@ -144,6 +155,68 @@ html:lang(ar) * {
 [data-testid$='-sidebar-scroll']:hover::-webkit-scrollbar-thumb,
 [data-testid$='-sidebar-scroll']:focus-within::-webkit-scrollbar-thumb {
     background: rgb(var(--h360-color-on-sidebar-muted) / 0.45);
+}
+
+/* ================================================================================================
+   The thin scrollbar — the compact pop-up's (Orders redesign, 2026-11-10), for every scroller in
+   the web app since the same day: the shell's page, a pop-up, a list, a menu.
+
+   A thin, rounded bar that stays quiet in the border's ink and turns brand green when the pointer
+   reaches for it, with no arrow buttons — in place of the platform's grey slab. Written under
+   `:where(*)`, which weighs nothing, so a scroller with a bar of its own (the sidebar rail's, above)
+   still wins. A ScrollView whose test id ends in `-thin-scroll` also keeps its gutter, so its
+   content does not jump when the bar appears.
+   ============================================================================================== */
+[data-testid$='-thin-scroll'] {
+    scrollbar-gutter: stable;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+    :where(*) {
+        scrollbar-width: thin;
+        scrollbar-color: rgb(var(--h360-color-border-strong)) transparent;
+    }
+}
+
+:where(*)::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+:where(*)::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+:where(*)::-webkit-scrollbar-track:vertical {
+    margin: 10px 0;
+}
+
+:where(*)::-webkit-scrollbar-track:horizontal {
+    margin: 0 10px;
+}
+
+:where(*)::-webkit-scrollbar-thumb {
+    min-height: 40px;
+    min-width: 40px;
+    border: 4px solid transparent;
+    border-radius: 9999px;
+    background-color: rgb(var(--h360-color-border-strong));
+    background-clip: content-box;
+}
+
+:where(*)::-webkit-scrollbar-thumb:hover {
+    border-width: 3px;
+    background-color: rgb(var(--h360-color-brand-surface));
+}
+
+:where(*)::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
+:where(*)::-webkit-scrollbar-corner {
+    background: transparent;
 }
 
 /* ================================================================================================
@@ -176,6 +249,33 @@ input[data-picker-field]::-webkit-clear-button {
 input[data-picker-field='cover']::-webkit-calendar-picker-indicator {
     inset-inline-start: 0;
     width: 100%;
+}
+
+/* An open row menu: every row is a stacking context, so the row holding it goes above the later ones. */
+[role='row']:has([aria-haspopup='menu'][aria-expanded='true']),
+[data-testid$='-entrance']:has([aria-haspopup='menu'][aria-expanded='true']) {
+    z-index: 30;
+}
+
+/* The Setup road's next stop breathes, so the eye lands on what to do next. */
+[data-setup-road='next'] {
+    animation: setup-road-pulse 2s infinite;
+}
+
+@keyframes setup-road-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgb(var(--h360-color-brand-surface) / 0.4);
+    }
+    70%,
+    100% {
+        box-shadow: 0 0 0 16px rgb(var(--h360-color-brand-surface) / 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    [data-setup-road='next'] {
+        animation: none;
+    }
 }
 
 /* ================================================================================================

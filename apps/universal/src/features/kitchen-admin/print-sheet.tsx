@@ -9,7 +9,7 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Platform, View } from 'react-native';
 
-import { prefersArabic } from './format.ts';
+import { prefersArabic, unitCodeLabel } from './format.ts';
 import { printSheetTestId, purchaseOrderStatusKey } from './ops-format.ts';
 
 /**
@@ -157,8 +157,8 @@ export function PrintSheet({ order }: PrintSheetProps) {
         >
             {/* ── header ──────────────────────────────────────────────────────────────────────── */}
 
-            <Stack space="sm">
-                <Inline space="sm" align="start" justify="between" wrap>
+            <View className="flex-row flex-wrap items-start justify-between gap-5 border-b-2 border-stroke-strong pb-snug">
+                <Inline space="sm" align="start" wrap>
                     <Heading level={2} testID={`${printSheetTestId(String(order.id))}-title`}>
                         {t('kitchen:ops.supplyOrders.print.documentTitle')}
                     </Heading>
@@ -215,7 +215,7 @@ export function PrintSheet({ order }: PrintSheetProps) {
                         testID={`${printSheetTestId(String(order.id))}-status`}
                     />
                 </Inline>
-            </Stack>
+            </View>
 
             {/* ── who it is addressed to ──────────────────────────────────────────────────────── */}
 
@@ -376,7 +376,7 @@ export function PrintSheet({ order }: PrintSheetProps) {
                             ordinal={index + 1}
                             arabicFirst={arabicFirst}
                             sheetTestId={printSheetTestId(String(order.id))}
-                            quantity={`${formatter.formatNumber(Number(line.quantity))} ${line.unitCode}`}
+                            quantity={`${formatter.formatNumber(Number(line.quantity))} ${unitCodeLabel(line.unitCode, t)}`}
                         />
                     ))}
                 </View>

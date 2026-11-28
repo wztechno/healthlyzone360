@@ -72,6 +72,8 @@ function quotation(ordinal: number, state: QuotationState): Quotation {
         note: null,
         requestedAt: '2026-09-01T09:00:00Z' as Quotation['requestedAt'],
         respondedAt: null,
+        quotedAt: null,
+        decidedAt: null,
         expiresAt: null,
         contactName: null,
         contactEmail: null,
@@ -119,7 +121,11 @@ function RailProbe() {
                     }`}
                 </RNText>
             ))}
-            {navigation.find((item) => item.key === 'corporate-quotations')?.badge}
+            <RNText testID="probe-quotations-count">
+                {String(
+                    navigation.find((item) => item.key === 'corporate-quotations')?.count ?? '',
+                )}
+            </RNText>
         </>
     );
 }
@@ -155,7 +161,9 @@ function Crumbs() {
     const crumbs = useCorporateTrail();
     return (
         <>
-            <RNText testID="probe-trail">{crumbs.map((crumb) => crumb.label).join(' › ')}</RNText>
+            <RNText testID="probe-trail">
+                {crumbs.map((crumb) => `${crumb.kind}:${crumb.label}`).join(' › ')}
+            </RNText>
             {crumbs.map((crumb) =>
                 crumb.onPress === undefined ? null : (
                     <Pressable
@@ -212,7 +220,7 @@ describe('useCorporateNavigation', () => {
         );
     });
 
-    it('badges Quotations with the count waiting on the buyer, and only that', async () => {
+    it('counts on Quotations what is waiting on the buyer, and only that', async () => {
         await renderStubScreen(<RailProbe />, {
             session: buyerSession(),
             repositories: overrides,
@@ -221,19 +229,19 @@ describe('useCorporateNavigation', () => {
         // Two `quoted` of four: the submitted one waits on the account manager, the accepted one
         // on nobody.
         await waitFor(() => {
-            expect(screen.getByTestId('nav-corporate-quotations-badge')).toHaveTextContent('2');
+            expect(screen.getByTestId('probe-quotations-count')).toHaveTextContent('2');
         });
     });
 });
 
 describe('useCorporateTrail', () => {
-    it('draws nothing on the overview, where a trail would only name the page', async () => {
+    it('is one current pill on the overview, the home it is', async () => {
         await renderStubScreen(<TrailProbe />, {
             session: buyerSession(),
             repositories: overrides,
         });
 
-        expect(screen.getByTestId('probe-trail')).toHaveTextContent(/^$/);
+        expect(screen.getByTestId('probe-trail')).toHaveTextContent(/^current:Overview$/);
     });
 
     it('names a catalogue by its programme', async () => {
@@ -245,7 +253,7 @@ describe('useCorporateTrail', () => {
 
         await waitFor(() => {
             expect(screen.getByTestId('probe-trail')).toHaveTextContent(
-                'Overview › Cedar Clinic staff meals',
+                'home:Overview › module:Purchasing › current:Cedar Clinic staff meals',
             );
         });
     });
@@ -260,7 +268,7 @@ describe('useCorporateTrail', () => {
 
         await waitFor(() => {
             expect(screen.getByTestId('probe-trail')).toHaveTextContent(
-                'Overview › Quotations › H360-Q-2',
+                'home:Overview › module:Purchasing › page:Quotations › current:H360-Q-2',
             );
         });
         fireEvent.press(screen.getByTestId('probe-crumb-quotations'));

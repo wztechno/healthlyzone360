@@ -51,7 +51,7 @@ const WEB_PROPS = {
         if (node === null || !isClipped(node)) return;
         const text = node.textContent?.trim() ?? '';
         if (text === '') return;
-        shown = showFloatingLabel(node, text, 'table-cell-full-value', 'below', { wrap: true });
+        shown = showFloatingLabel(node, text, 'table-cell-full-value', 'above', { wrap: true });
     },
     onMouseLeave: hide,
 } as const;

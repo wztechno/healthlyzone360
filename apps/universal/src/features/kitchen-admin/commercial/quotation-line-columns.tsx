@@ -12,8 +12,8 @@ import type { ControlledColumn, SortDirection } from '../catalogue/use-column-co
 import { displayName, parseMinorAmount } from '../format.ts';
 
 /**
- * One quotation line — line · quantity · unit price · derived total (Commercial handoff §2.2
- * `QuotationLineRow`).
+ * One quotation line — line · quantity · corporate rate · unit price · derived total (Commercial
+ * handoff §2.2 `QuotationLineRow`, plus the corporate rate the owner asked for on 2026-11-23).
  *
  * A column spec for `DataList` rather than a row component, because the list already owns the row
  * geometry and a second row shape would be a second table. The four cells are what the handoff's row
@@ -106,13 +106,42 @@ export function quotationLineColumns({
         {
             key: 'quantity',
             label: t('kitchen:ops.quotations.lineQuantity'),
-            width: 80,
+            width: 110,
             priority: 80,
             sort: (left, right, direction) =>
                 compareNumber(Number(left.quantity), Number(right.quantity), direction),
             render: (line) => (
                 <Text variant="mono" testID={`kitchen-quotation-line-${line.id}-quantity`}>
                     {formatter.formatNumber(Number(line.quantity))}
+                </Text>
+            ),
+        },
+        {
+            // Today's corporate rate — what the buyer's catalogue showed them — beside the price
+            // being named, so the two can be compared. A reference, never the quote: the price
+            // box beside it still starts empty.
+            key: 'corporateRate',
+            label: t('kitchen:ops.quotations.lineCorporateRate'),
+            width: 140,
+            priority: 85,
+            sort: (left, right, direction) =>
+                compareAmount(
+                    left.corporateUnitAmountMinor,
+                    right.corporateUnitAmountMinor,
+                    direction,
+                ),
+            render: (line) => (
+                <Text
+                    variant="mono"
+                    tone={line.corporateUnitAmountMinor === null ? 'secondary' : 'primary'}
+                    testID={`kitchen-quotation-line-${line.id}-corporate-rate`}
+                >
+                    {line.corporateUnitAmountMinor === null
+                        ? t('kitchen:ops.quotations.lineNoCorporateRate')
+                        : formatMoney(formatter, {
+                              amount: line.corporateUnitAmountMinor,
+                              currency,
+                          })}
                 </Text>
             ),
         },
@@ -150,10 +179,11 @@ export function quotationLineColumns({
                             line: line.lineNumber,
                         })}
                         labelHidden
-                        // The cell is a row, and the field's own control is `flex-1 min-w-0` with
-                        // no intrinsic width: without growing into the cell it collapsed to 0px
-                        // and could be neither seen nor clicked.
-                        className="flex-1"
+                        // The cell is a column with `items-start`, and the field's control has no
+                        // intrinsic width: unless it stretches across the cell it shrinks to its
+                        // border (~18px) and can be neither read nor clicked. `flex-1` grew it
+                        // down the column, not across it.
+                        className="self-stretch"
                         size="sm"
                         placeholder={t('kitchen:fields.unitPricePlaceholder')}
                         value={raw}

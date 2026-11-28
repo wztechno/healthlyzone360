@@ -39,7 +39,7 @@ describe('shared helpers', () => {
             Object.keys(themes.light.colours).length +
             SEMANTIC_ROLES.length * Object.keys(themes.light.semantic.success).length +
             NUTRITION_LEVELS.length * 2 +
-            TINT_NAMES.length * 2 +
+            TINT_NAMES.length * 3 +
             STAGE_INK_NAMES.length;
         expect(variables).toHaveLength(expected);
         expect(new Set(variables.map((v) => v.name)).size).toBe(variables.length);

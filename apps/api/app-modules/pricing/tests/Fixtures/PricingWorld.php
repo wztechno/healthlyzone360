@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace Healthy360\Pricing\Tests\Fixtures;
 
 use Carbon\CarbonImmutable;
+use Healthy360\Catalogues\Enums\SalesChannelKind;
+use Healthy360\Catalogues\Enums\SalesChannelStatus;
 use Healthy360\Catalogues\Models\CatalogueItem;
 use Healthy360\Catalogues\Models\CatalogueItemVariant;
+use Healthy360\Catalogues\Models\ChannelCatalogueItem;
 use Healthy360\Catalogues\Models\SalesChannel;
 use Healthy360\Catalogues\Tests\Fixtures\CatalogueWorld;
 use Healthy360\Organisations\Models\Organisation;
@@ -14,6 +17,7 @@ use Healthy360\Pricing\Enums\PriceStatus;
 use Healthy360\Pricing\Models\ChannelPriceList;
 use Healthy360\Pricing\Models\PriceList;
 use Healthy360\Pricing\Models\PriceListItem;
+use Healthy360\Pricing\Services\PriceResolver;
 
 /**
  * The world the pricing suites are set in: kitchens that can price things, the
@@ -149,6 +153,60 @@ final class PricingWorld
             'effective_from' => $from ?? CarbonImmutable::now()->startOfDay(),
             'effective_to' => $to,
         ]);
+    }
+
+    /**
+     * Make a cooked item buyable, so the selling rule (S3) has nothing to say:
+     * an active pack (its first, or a new one), offered on the Home shop, with
+     * that pack's own confirmed price on the Home shop's public tariff. The
+     * channel and the tariff are reused when the kitchen already has them.
+     *
+     * The state the Packs & prices tab writes, built directly, for tests whose
+     * subject is something else that also has to publish the item.
+     */
+    public static function sellable(object $tenant, CatalogueItem $item, int $amountMinor = 1500): CatalogueItemVariant
+    {
+        $organisation = $tenant->organisation;
+
+        $shop = SalesChannel::withoutTenancy()
+            ->where('organisation_id', $organisation->getKey())
+            ->where('channel_kind', SalesChannelKind::B2cWeb->value)
+            ->where('status', SalesChannelStatus::Active->value)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->first() ?? self::channel($organisation, 'sellable-web-shop');
+
+        $list = app(PriceResolver::class)->publicTariffFor($shop);
+
+        if ($list === null) {
+            $list = self::priceList($organisation, 'sellable-retail', active: true);
+            self::assign($shop, $list);
+        }
+
+        $pack = CatalogueItemVariant::withoutTenancy()
+            ->where('catalogue_item_id', $item->getKey())
+            ->where('variant_type', 'pack')
+            ->where('status', 'active')
+            ->first() ?? CatalogueItemVariant::withoutTenancy()->create([
+                'organisation_id' => $organisation->getKey(),
+                'catalogue_item_id' => $item->getKey(),
+                'variant_type' => 'pack',
+                'code' => 'portion',
+                'is_default' => true,
+                'status' => 'active',
+                'lock_version' => 0,
+            ]);
+
+        ChannelCatalogueItem::withoutTenancy()->updateOrCreate([
+            'organisation_id' => $organisation->getKey(),
+            'sales_channel_id' => $shop->getKey(),
+            'catalogue_item_id' => $item->getKey(),
+            'catalogue_item_variant_id' => null,
+        ], ['is_available' => true]);
+
+        self::price($list, $item, $pack, $amountMinor);
+
+        return $pack;
     }
 
     public static function assign(SalesChannel $channel, PriceList $priceList, int $priority = 0): ChannelPriceList

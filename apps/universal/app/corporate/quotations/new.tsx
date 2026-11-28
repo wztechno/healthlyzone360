@@ -3,11 +3,11 @@ import { useLocalSearchParams } from 'expo-router';
 import { lazyScreen } from '../../../src/shell/lazy-screen.tsx';
 
 /**
- * `/corporate/quotations/new?programme={programme}&item={item}` — compose a quotation.
+ * `/corporate/quotations/new?programme={programme}&items={a,b}&qty={n}` — compose a quotation.
  *
  * A static segment beside `index.tsx`, so `new` is never read as a quotation reference. `programme`
- * is required and validated in the screen; `item` is the line the catalogue sent us, seeded at its
- * minimum order quantity.
+ * names the catalogue (the first programme when absent); `items` (or the older `item`) are the lines
+ * the catalogue sent us, seeded at `qty` packs — one when absent.
  */
 const QuotationBuilderScreen = lazyScreen(
     'corporate-quotation-builder-loading',
@@ -16,6 +16,22 @@ const QuotationBuilderScreen = lazyScreen(
 );
 
 export default function NewQuotation() {
-    const { programme, item } = useLocalSearchParams<{ programme?: string; item?: string }>();
-    return <QuotationBuilderScreen programmeId={programme} initialItemId={item} />;
+    const { programme, item, items, qty } = useLocalSearchParams<{
+        programme?: string;
+        item?: string;
+        items?: string;
+        qty?: string;
+    }>();
+    const initialItemIds = [
+        ...(items ?? '').split(','),
+        ...(item === undefined ? [] : [item]),
+    ].filter((id) => id !== '');
+    const quantity = qty === undefined ? Number.NaN : Number.parseInt(qty, 10);
+    return (
+        <QuotationBuilderScreen
+            programmeId={programme}
+            initialItemIds={initialItemIds}
+            initialQuantity={Number.isInteger(quantity) && quantity > 0 ? quantity : undefined}
+        />
+    );
 }

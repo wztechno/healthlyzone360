@@ -120,31 +120,38 @@ export const nativeTokens = {
       "tint": {
         "green": {
           "surface": "#dcfce7",
-          "on": "#14532d"
+          "on": "#14532d",
+          "fill": "#16a34a"
         },
         "blue": {
           "surface": "#dbeafe",
-          "on": "#1e3a8a"
+          "on": "#1e3a8a",
+          "fill": "#3b82f6"
         },
         "orange": {
           "surface": "#ffedd5",
-          "on": "#7c2d12"
+          "on": "#7c2d12",
+          "fill": "#f97316"
         },
         "yellow": {
           "surface": "#fef9c3",
-          "on": "#713f12"
+          "on": "#713f12",
+          "fill": "#eab308"
         },
         "pink": {
           "surface": "#fce7f3",
-          "on": "#831843"
+          "on": "#831843",
+          "fill": "#ec4899"
         },
         "violet": {
           "surface": "#ede9fe",
-          "on": "#4c1d95"
+          "on": "#4c1d95",
+          "fill": "#8b5cf6"
         },
         "teal": {
           "surface": "#ccfbf1",
-          "on": "#134e4a"
+          "on": "#134e4a",
+          "fill": "#14b8a6"
         }
       },
       "stage": {
@@ -266,31 +273,38 @@ export const nativeTokens = {
       "tint": {
         "green": {
           "surface": "#153a26",
-          "on": "#bbf7d0"
+          "on": "#bbf7d0",
+          "fill": "#4ade80"
         },
         "blue": {
           "surface": "#172554",
-          "on": "#bfdbfe"
+          "on": "#bfdbfe",
+          "fill": "#60a5fa"
         },
         "orange": {
           "surface": "#431407",
-          "on": "#fed7aa"
+          "on": "#fed7aa",
+          "fill": "#fb923c"
         },
         "yellow": {
           "surface": "#3f2a06",
-          "on": "#fef08a"
+          "on": "#fef08a",
+          "fill": "#facc15"
         },
         "pink": {
           "surface": "#4a0d2b",
-          "on": "#fbcfe8"
+          "on": "#fbcfe8",
+          "fill": "#f472b6"
         },
         "violet": {
           "surface": "#2e1065",
-          "on": "#ddd6fe"
+          "on": "#ddd6fe",
+          "fill": "#a78bfa"
         },
         "teal": {
           "surface": "#042f2e",
-          "on": "#99f6e4"
+          "on": "#99f6e4",
+          "fill": "#2dd4bf"
         }
       },
       "stage": {

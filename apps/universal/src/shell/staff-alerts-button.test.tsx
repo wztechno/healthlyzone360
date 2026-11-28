@@ -161,7 +161,10 @@ describe('the alerts bell', () => {
             fireEvent.press(target);
         });
 
-        expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/orders?view=order-1');
+        // Carrying the page the reader was on, so the order leads back to it.
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            '/kitchen/orders?view=order-1&returnTo=%252Fkitchen%252Fstock',
+        );
         expect(repositories.staffAlerts.markAlertRead).toHaveBeenCalledWith('1');
         expect(screen.queryByTestId('staff-alerts-panel')).toBeNull();
     });
@@ -176,7 +179,9 @@ describe('the alerts bell', () => {
             fireEvent.press(target);
         });
 
-        expect(routerMock.__push).toHaveBeenCalledWith('/kitchen/production-desk/order-1');
+        expect(routerMock.__push).toHaveBeenCalledWith(
+            '/kitchen/production-desk/order-1?returnTo=%252Fkitchen%252Fstock',
+        );
     });
 
     it('leaves an alert unread while an unsaved editor is holding the reader', async () => {

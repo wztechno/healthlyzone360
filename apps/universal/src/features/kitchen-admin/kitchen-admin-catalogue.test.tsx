@@ -85,6 +85,9 @@ jest.mock('expo-router', () => {
     const replace = jest.fn();
     return {
         __esModule: true,
+        useSegments: () => [],
+        useGlobalSearchParams: () => ({}),
+        useNavigation: () => ({}),
         useRouter: () => ({
             push,
             replace,
@@ -1281,14 +1284,14 @@ describe('creating and editing a product', () => {
 
         await withDeskWidth(async () => {
             // Nothing is flagged before anyone has typed — a page of red on arrival is not help.
-            expect(screen.queryByTestId('kitchen-product-issues-errors')).toBeNull();
+            expect(screen.queryByTestId('kitchen-product-issues-errors-name')).toBeNull();
 
             await act(async () => {
                 fireEvent.press(screen.getByTestId('kitchen-product-editor-screen-save'));
             });
 
-            // One card per required field, in the tray.
-            await untilVisible('kitchen-product-issues-errors');
+            // One chip per required field, beside its section.
+            await untilVisible('kitchen-product-issues-errors-name');
             for (const key of ['name', 'category', 'packs']) {
                 expect(screen.getByTestId(`kitchen-product-issues-errors-${key}`)).toBeTruthy();
             }
@@ -1655,7 +1658,7 @@ describe('the last purchase on a resale item', () => {
         expect(screen.getByTestId('kitchen-product-unit-price-input').props.editable).toBe(false);
         expect(
             screen.getByTestId('kitchen-product-unit-price-unit', { includeHiddenElements: true }),
-        ).toHaveTextContent('USD / pc');
+        ).toHaveTextContent('USD / Pc');
     });
 
     it('says "Never bought" when nothing has been received for it', async () => {
@@ -1915,7 +1918,12 @@ describe('editing a meal', () => {
         await untilVisible('kitchen-meal-availability-editor-row-seed-0-2026-09-01');
     });
 
-    it('renders the confidential margin here, labelled, and never a fabricated zero', async () => {
+    it('leaves prices and margins to the recipe’s Packs & prices tab', async () => {
+        /*
+         * The margin rail and the B2B/B2C block used to sit on this listing. A margin is per pack
+         * and per place now, read off the recipe's Packs & prices tab and its Costing table, so the
+         * listing draws neither — and never a single item-wide figure that could disagree with them.
+         */
         const stored = meal({ ordinal: 1, name: 'Freekeh bowl' });
 
         await renderStubScreen(<MealListing meal={stored.id} />, {
@@ -1927,39 +1935,12 @@ describe('editing a meal', () => {
                 },
             },
         });
-        await untilVisible('kitchen-meal-confidential');
+        await untilVisible('kitchen-meal-summary');
 
-        // Labelled, because an unlabelled purchase-derived figure is one copy-paste from a
-        // customer. `CostAmount` and everything computed from it live on this contract and on no
-        // other, which is what makes a leak a compile error rather than a review finding.
-        expect(screen.getByTestId('kitchen-meal-confidential-badge')).toBeTruthy();
-        // The authored margin, stated exactly — not rounded away and not invented.
-        expect(screen.getByTestId('kitchen-meal-margin')).toHaveTextContent(/42/);
-        expect(screen.queryByTestId('kitchen-meal-margin-unknown')).toBeNull();
-    });
-
-    it('refuses to state a margin it cannot compute, rather than showing nought per cent', async () => {
-        // `null` is the contract's answer when either side of the sum is missing: a margin over a
-        // placeholder price is a fiction (plan §2.4), and a zero would be one with a number on it.
-        const stored = meal({
-            ordinal: 2,
-            name: 'Market-priced bowl',
-            overrides: { marginPercent: null },
-        });
-
-        await renderStubScreen(<MealListing meal={stored.id} />, {
-            session: kitchenManagerSession(),
-            repositories: {
-                kitchenAdmin: {
-                    getMeal: async () => stored,
-                    listRecipes: async () => page(NO_RECIPES),
-                },
-            },
-        });
-
-        await untilVisible('kitchen-meal-margin-unknown');
-        expect(screen.getByTestId('kitchen-meal-confidential-badge')).toBeTruthy();
+        expect(screen.queryByTestId('kitchen-meal-confidential')).toBeNull();
         expect(screen.queryByTestId('kitchen-meal-margin')).toBeNull();
+        expect(screen.queryByTestId('kitchen-meal-margin-unknown')).toBeNull();
+        expect(screen.queryByTestId('kitchen-channel-prices')).toBeNull();
     });
 });
 
@@ -2041,10 +2022,7 @@ describe('publishing a meal', () => {
         });
         expect(repositories.kitchenAdmin.updateMeal).not.toHaveBeenCalled();
 
-        // …and only now does the editor say it is public, and offer the way to go and look at it.
-        await withDeskWidth(async () => {
-            await untilVisible('kitchen-meal-published');
-        });
+        // …and only now does the editor offer the way to go and look at it.
         await untilVisible('kitchen-meal-view-public');
         await act(async () => {
             fireEvent.press(screen.getByTestId('kitchen-meal-view-public'));
@@ -2107,9 +2085,7 @@ describe('publishing a meal', () => {
                 lockVersion: 1,
             });
         });
-        await withDeskWidth(async () => {
-            await untilVisible('kitchen-meal-published');
-        });
+        await untilVisible('kitchen-meal-view-public');
     });
 
     it('gives a new meal no allergen label it did not earn', async () => {

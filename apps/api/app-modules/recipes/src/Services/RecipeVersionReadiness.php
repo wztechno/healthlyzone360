@@ -7,7 +7,9 @@ namespace Healthy360\Recipes\Services;
 use Healthy360\Ingredients\Enums\AllergenContainment;
 use Healthy360\Ingredients\Enums\IngredientVerificationStatus;
 use Healthy360\Ingredients\Models\Ingredient;
+use Healthy360\Recipes\Contracts\RecipeUsageRegistry;
 use Healthy360\Recipes\Enums\RecipeVersionStatus;
+use Healthy360\Recipes\Models\Recipe;
 use Healthy360\Recipes\Models\RecipeVersion;
 use Healthy360\Recipes\Models\RecipeVersionLine;
 use Illuminate\Database\Eloquent\Collection;
@@ -41,7 +43,10 @@ use Illuminate\Database\Eloquent\Collection;
  */
 final readonly class RecipeVersionReadiness
 {
-    public function __construct(private AllergenRollupService $rollup) {}
+    public function __construct(
+        private AllergenRollupService $rollup,
+        private RecipeUsageRegistry $usage,
+    ) {}
 
     /**
      * Every reason this version cannot be published, in the order a kitchen
@@ -52,12 +57,20 @@ final readonly class RecipeVersionReadiness
      * against the same data `publish()` will re-read a moment later. There is
      * deliberately no stored flag to fall out of step.
      *
+     * The selling reasons follow the structural ones, as publication raises
+     * them; `$applySellingRule` is off only for the console paths that publish
+     * with the rule off ({@see RecipeVersionService::publish()}).
+     *
      * @return list<array{code: string, detail: string, context: array<string, mixed>}>
      */
-    public function reasons(RecipeVersion $version): array
+    public function reasons(RecipeVersion $version, bool $applySellingRule = true): array
     {
         $lines = $this->linesOf($version);
         $reasons = $this->structuralReasons($version, $lines);
+
+        if ($applySellingRule) {
+            $reasons = [...$reasons, ...$this->sellingReasons($version)];
+        }
 
         /** @var list<string> $orderedIngredientIds */
         $orderedIngredientIds = $lines->pluck('ingredient_id')->map(static fn (mixed $id): string => (string) $id)->all();
@@ -74,6 +87,21 @@ final readonly class RecipeVersionReadiness
         }
 
         return $reasons;
+    }
+
+    /**
+     * Why whatever sells this version's recipe cannot be bought (S3) — asked
+     * through the {@see RecipeUsageRegistry} port, because the answer is in
+     * catalogue and pricing rows this module must not read. Each reason's
+     * context names the selling item. A preparation answers empty.
+     *
+     * @return list<array{code: string, detail: string, context: array<string, mixed>}>
+     */
+    public function sellingReasons(RecipeVersion $version): array
+    {
+        $recipe = Recipe::withoutTenancy()->whereKey($version->recipe_id)->first();
+
+        return $recipe instanceof Recipe ? $this->usage->sellingBlockers($recipe) : [];
     }
 
     /**

@@ -7,13 +7,11 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
     Dialog,
     EmptyState,
     ErrorState,
-    Select,
     Stack,
     TableSkeleton,
     Text,
@@ -34,9 +32,14 @@ import {
 } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { LensScope } from '../catalogue/lens-bar.tsx';
+import { DeskTableTitle } from '../order-desk/desk-parts.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/order-desk/cash?tab=close` — counting the till at the end of a shift.
  *
@@ -151,19 +154,22 @@ function OrderDeskClose() {
         },
         {
             key: 'close',
-            label: t('kitchen:ops.dailyClose.columnAction'),
+            align: 'end',
+            label: '',
             width: 120,
             priority: 99,
             render: (row) => (
-                <Button
-                    testID={`kitchen-close-${row.branchId ?? 'kitchen'}-${row.currencyCode}-open`}
-                    variant="secondary"
-                    size="sm"
-                    label={t('kitchen:ops.dailyClose.close')}
-                    onPress={() => {
-                        setClosing(row);
-                    }}
-                />
+                <View className="flex-row justify-end">
+                    <DeskButton
+                        testID={`kitchen-close-${row.branchId ?? 'kitchen'}-${row.currencyCode}-open`}
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:ops.dailyClose.close')}
+                        onPress={() => {
+                            setClosing(row);
+                        }}
+                    />
+                </View>
             ),
         },
     ];
@@ -274,13 +280,13 @@ function OrderDeskClose() {
             priority: 93,
             render: (row) =>
                 row.varianceMinor === 0 ? (
-                    <Badge tone="success" label={t('kitchen:ops.dailyClose.balanced')} />
+                    <DeskChip tone="success" label={t('kitchen:ops.dailyClose.balanced')} />
                 ) : row.varianceMinor > 0 ? (
-                    <Badge tone="neutral" label={t('kitchen:ops.dailyClose.over')} />
+                    <DeskChip tone="neutral" label={t('kitchen:ops.dailyClose.over')} />
                 ) : row.signedOffAt !== null ? (
-                    <Badge tone="neutral" label={t('kitchen:ops.dailyClose.signedOff')} />
+                    <DeskChip tone="neutral" label={t('kitchen:ops.dailyClose.signedOff')} />
                 ) : canSignOff ? (
-                    <Button
+                    <DeskButton
                         testID={`kitchen-close-${row.id}-sign-off`}
                         variant="secondary"
                         size="sm"
@@ -370,90 +376,100 @@ function OrderDeskClose() {
             ) : data === undefined ? null : (
                 <View className="flex-col gap-loose">
                     {!multiBranch ? null : (
-                        <View className="w-field">
-                            <Select
+                        <View className="z-10 flex-row">
+                            <LensScope<string>
                                 testID="kitchen-close-branch"
                                 label={t('kitchen:ops.dailyClose.branchLabel')}
-                                size="sm"
                                 value={branch}
+                                onChange={setBranch}
                                 options={[
                                     {
                                         value: ALL_BRANCHES,
                                         label: t('kitchen:ops.dailyClose.allBranches'),
+                                        testID: 'kitchen-close-branch-option-all',
                                     },
                                     ...data.branches.map((option) => ({
-                                        value: option.id,
+                                        value: String(option.id),
                                         label: option.name,
+                                        testID: `kitchen-close-branch-option-${String(option.id)}`,
                                     })),
                                 ]}
-                                onChange={setBranch}
                             />
                         </View>
                     )}
-                    <Text variant="section" accessibilityRole="header">
-                        {t('kitchen:ops.dailyClose.openHeading')}
-                    </Text>
-                    <Text variant="caption" tone="secondary" testID="kitchen-close-clock">
-                        {t('kitchen:ops.dailyClose.clockNote', { timezone: data.timezone })}
-                    </Text>
-                    {open.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-close-open-empty"
-                            title={t('kitchen:ops.dailyClose.openEmpty')}
-                        />
-                    ) : (
-                        <CatalogueList<OpenDailyClose>
-                            testID="kitchen-close-open"
-                            label={t('kitchen:ops.dailyClose.openHeading')}
-                            columns={openColumns}
-                            rows={open}
-                            rowKey={(row) => `${row.branchId ?? 'kitchen'}-${row.currencyCode}`}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
-                    )}
+                    <DeskTableTitle
+                        title={t('kitchen:ops.dailyClose.openHeading')}
+                        count={open.length}
+                        aside={
+                            <Text variant="caption" tone="secondary" testID="kitchen-close-clock">
+                                {t('kitchen:ops.dailyClose.clockNote', { timezone: data.timezone })}
+                            </Text>
+                        }
+                    />
+                    <CatalogueList<OpenDailyClose>
+                        testID="kitchen-close-open"
+                        label={t('kitchen:ops.dailyClose.openHeading')}
+                        columns={openColumns}
+                        rows={open}
+                        rowKey={(row) => `${row.branchId ?? 'kitchen'}-${row.currencyCode}`}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        frameEmpty
+                        emptyState={
+                            <EmptyState
+                                testID="kitchen-close-open-empty"
+                                shape="row"
+                                icon="coins"
+                                title={t('kitchen:ops.dailyClose.openEmpty')}
+                            />
+                        }
+                    />
 
-                    <Text variant="section" accessibilityRole="header">
-                        {t('kitchen:ops.dailyClose.recentHeading')}
-                    </Text>
-                    {closes.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-close-recent-empty"
-                            title={t('kitchen:ops.dailyClose.recentEmpty')}
-                        />
-                    ) : (
-                        <CatalogueList<DailyCloseRecord>
-                            testID="kitchen-close-recent"
-                            label={t('kitchen:ops.dailyClose.recentHeading')}
-                            columns={recentColumns}
-                            rows={closes}
-                            rowKey={(row) => row.id}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
-                    )}
+                    <DeskTableTitle title={t('kitchen:ops.dailyClose.recentHeading')} />
+                    <CatalogueList<DailyCloseRecord>
+                        testID="kitchen-close-recent"
+                        label={t('kitchen:ops.dailyClose.recentHeading')}
+                        columns={recentColumns}
+                        rows={closes}
+                        rowKey={(row) => row.id}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        frameEmpty
+                        emptyState={
+                            <EmptyState
+                                testID="kitchen-close-recent-empty"
+                                shape="row"
+                                icon="clipboardCheck"
+                                title={t('kitchen:ops.dailyClose.recentEmpty')}
+                            />
+                        }
+                    />
 
                     {!multiBranch ? null : (
                         <>
-                            <Text variant="section" accessibilityRole="header">
-                                {t('kitchen:ops.dailyClose.totalHeading')}
-                            </Text>
-                            <Text variant="caption" tone="secondary">
-                                {t('kitchen:ops.dailyClose.totalNote')}
-                            </Text>
-                            {data.totals.length === 0 ? (
-                                <EmptyState
-                                    testID="kitchen-close-total-empty"
-                                    title={t('kitchen:ops.dailyClose.recentEmpty')}
-                                />
-                            ) : (
-                                <CatalogueList<DailyCloseTotal>
-                                    testID="kitchen-close-total"
-                                    label={t('kitchen:ops.dailyClose.totalHeading')}
-                                    columns={totalColumns}
-                                    rows={data.totals}
-                                    rowKey={(row) => `${row.businessDate}-${row.currencyCode}`}
-                                    rowActionsLabel={t('kitchen:list.rowActions')}
-                                />
-                            )}
+                            <DeskTableTitle
+                                title={t('kitchen:ops.dailyClose.totalHeading')}
+                                aside={
+                                    <Text variant="caption" tone="secondary">
+                                        {t('kitchen:ops.dailyClose.totalNote')}
+                                    </Text>
+                                }
+                            />
+                            <CatalogueList<DailyCloseTotal>
+                                testID="kitchen-close-total"
+                                label={t('kitchen:ops.dailyClose.totalHeading')}
+                                columns={totalColumns}
+                                rows={data.totals}
+                                rowKey={(row) => `${row.businessDate}-${row.currencyCode}`}
+                                rowActionsLabel={t('kitchen:list.rowActions')}
+                                frameEmpty
+                                emptyState={
+                                    <EmptyState
+                                        testID="kitchen-close-total-empty"
+                                        shape="row"
+                                        icon="banknote"
+                                        title={t('kitchen:ops.dailyClose.recentEmpty')}
+                                    />
+                                }
+                            />
                         </>
                     )}
                 </View>
@@ -532,6 +548,7 @@ function CloseDialog({
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-close-dialog"
             open
             onClose={onClose}
@@ -543,13 +560,13 @@ function CloseDialog({
             description={t('kitchen:ops.dailyClose.dialogBody')}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID="kitchen-close-dismiss"
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <Button
+                    <DeskButton
                         testID="kitchen-close-confirm"
                         label={t('kitchen:ops.dailyClose.confirm')}
                         loading={record.isPending}
@@ -616,14 +633,12 @@ function CloseDialog({
                         required={short}
                     />
                 )}
-                {failure === null ? null : (
-                    <Callout
-                        testID="kitchen-close-error"
-                        tone="danger"
-                        title={t('kitchen:ops.dailyClose.saveError')}
-                        body={failure.message}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID="kitchen-close-error"
+                    title={t('kitchen:ops.dailyClose.saveError')}
+                    body={failure?.message}
+                />
             </Stack>
         </Dialog>
     );

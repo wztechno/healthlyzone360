@@ -121,6 +121,10 @@ export interface Quotation {
     readonly declineReason: string | null;
     readonly requestedAt: IsoDateTime;
     readonly respondedAt: IsoDateTime | null;
+    /** When the account manager put a price on it. */
+    readonly quotedAt: IsoDateTime | null;
+    /** When the buyer accepted or declined it — one date for both. */
+    readonly decidedAt: IsoDateTime | null;
     readonly expiresAt: IsoDateTime | null;
     /** The version the buyer is looking at — sent back on accept and decline, so a re-priced quotation is refused rather than accepted unseen. */
     readonly lockVersion: number;

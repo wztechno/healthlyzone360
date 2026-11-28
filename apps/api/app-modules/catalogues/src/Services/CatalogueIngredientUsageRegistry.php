@@ -99,4 +99,15 @@ final readonly class CatalogueIngredientUsageRegistry implements IngredientUsage
     {
         return $this->inner->dependentOrganisationIds($ingredient);
     }
+
+    /**
+     * Delegated whole: a recipe makes an ingredient, a listing only sells one.
+     *
+     * @param  list<string>  $ingredientIds
+     * @return array<string, array{id: string, name_en: string, name_ar: string, is_published: bool}>
+     */
+    public function producedByRecipes(array $ingredientIds): array
+    {
+        return $this->inner->producedByRecipes($ingredientIds);
+    }
 }

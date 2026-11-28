@@ -37,6 +37,11 @@ use Throwable;
  * `line_quantity_missing` and they should. A run that published them would be
  * inventing formulations.
  *
+ * **The selling rule is off here, explicitly** (S3). Both evaluators are asked
+ * with `applySellingRule: false`, and versions publish the same way: whether a
+ * dish has a pack and a price is commercial, not food-safety, and this
+ * bootstrap ran before packs were priced. Its behaviour stays what it was.
+ *
  * **Order matters and is fixed**: recipe versions, then catalogue items. A meal
  * whose allergen basis is a published recipe version cannot pass its own gate
  * until that version is published, so publishing recipes second would refuse
@@ -194,7 +199,7 @@ final class PublishReadyCatalogueCommand extends Command
             /** @var RecipeVersion $version */
             $version = $drafts->first();
 
-            $reasons = $readiness->reasons($version);
+            $reasons = $readiness->reasons($version, applySellingRule: false);
 
             if ($reasons !== []) {
                 $this->refusals[] = [
@@ -213,7 +218,7 @@ final class PublishReadyCatalogueCommand extends Command
             }
 
             try {
-                $versions->publish($version, $version->lock_version);
+                $versions->publish($version, $version->lock_version, applySellingRule: false);
                 $this->published['recipe_version']++;
             } catch (Throwable $exception) {
                 $this->failures[] = [
@@ -270,7 +275,7 @@ final class PublishReadyCatalogueCommand extends Command
         $this->section(sprintf('Catalogue items (%d draft(s))', $drafts->count()));
 
         foreach ($drafts as $item) {
-            $reasons = $readiness->reasons($item);
+            $reasons = $readiness->reasons($item, applySellingRule: false);
             $type = $item->item_type->value;
 
             if ($reasons !== []) {

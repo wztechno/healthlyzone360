@@ -4,7 +4,6 @@ import type {
     NutritionReferenceSelection,
 } from '@healthy360/api-client/contracts';
 import {
-    Button,
     Callout,
     Checkbox,
     Inline,
@@ -21,6 +20,8 @@ import { View } from 'react-native';
 import { toFailure } from '../../data/hooks.ts';
 import { useNutritionReferenceSearch } from '../../data/kitchen-admin-hooks.ts';
 
+import { DeskButton } from './desk-kit/desk-button.tsx';
+import { FailureToast } from './failure-toast.tsx';
 /** `saturated_fat` → `saturatedFat`: the provider's ids are snake case, the catalogue's keys are not. */
 export function nutrientKey(id: string): string {
     return `nutrition:nutrients.${id.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase())}`;
@@ -120,7 +121,7 @@ export function NutritionReferencePicker({
                     {/* `Button` holds itself to the top (`self-start`); the wrapper is what the row
                         lines up with the input box. */}
                     <View>
-                        <Button
+                        <DeskButton
                             testID="nutrition-reference-search"
                             variant="secondary"
                             label={t('kitchen:nutritionLookup.search')}
@@ -147,7 +148,7 @@ export function NutritionReferencePicker({
                     actions={
                         <>
                             {onRename === undefined ? null : (
-                                <Button
+                                <DeskButton
                                     testID="nutrition-reference-rename"
                                     size="sm"
                                     variant="secondary"
@@ -156,7 +157,7 @@ export function NutritionReferencePicker({
                                 />
                             )}
                             {relationNotice === 'more_specific' ? (
-                                <Button
+                                <DeskButton
                                     testID="nutrition-reference-choose-another"
                                     size="sm"
                                     variant="ghost"
@@ -169,18 +170,16 @@ export function NutritionReferencePicker({
                 />
             )}
 
-            {failure === null ? null : (
-                <Callout
-                    testID="nutrition-reference-error"
-                    tone="danger"
-                    title={t(
-                        failure.code === 'nutrition.provider_configuration'
-                            ? 'kitchen:nutritionLookup.configuration'
-                            : 'kitchen:nutritionLookup.unavailable',
-                    )}
-                    body={failure.message}
-                />
-            )}
+            <FailureToast
+                failure={failure}
+                testID="nutrition-reference-error"
+                title={t(
+                    failure?.code === 'nutrition.provider_configuration'
+                        ? 'kitchen:nutritionLookup.configuration'
+                        : 'kitchen:nutritionLookup.unavailable',
+                )}
+                body={failure?.message}
+            />
             {!search.isPending && !search.isError && search.data?.length === 0 ? (
                 <Callout
                     testID="nutrition-reference-empty"
@@ -263,7 +262,7 @@ export function NutritionReferencePicker({
                                 }
                                 trailing={
                                     selected ? (
-                                        <Button
+                                        <DeskButton
                                             testID="nutrition-reference-change"
                                             size="sm"
                                             variant="ghost"
@@ -271,7 +270,7 @@ export function NutritionReferencePicker({
                                             onPress={() => onChange(undefined)}
                                         />
                                     ) : (
-                                        <Button
+                                        <DeskButton
                                             testID={`nutrition-reference-select-${candidate.ref}`}
                                             size="sm"
                                             variant="secondary"

@@ -6,6 +6,7 @@ import { useDensity } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
 import type { IconName } from '../icons/icon.tsx';
 import { cx } from '../internal/class-names.ts';
+import { useInTitleAside } from '../forms/form-section.tsx';
 import {
     NUTRITION_ON_CLASS,
     NUTRITION_SURFACE_CLASS,
@@ -127,6 +128,7 @@ export function Badge({
     testID,
 }: BadgeProps) {
     const density = useDensity();
+    const inTitle = useInTitleAside();
     const compact = density === 'compact';
     /*
      * The soft tag (Badges & Callouts, 1a): 20px tall, 18 in the admin, so a status sits inside a
@@ -161,6 +163,24 @@ export function Badge({
                     {nutritionMark(nutrition)}
                 </RNText>
                 <RNText className={cx(labelClass, NUTRITION_ON_CLASS[nutrition])}>{label}</RNText>
+            </View>
+        );
+    }
+
+    if (variant === 'label' && inTitle) {
+        // The board's title chip: 26px, round, 12px bold on the tone's subtle fill, no mark.
+        return (
+            <View
+                testID={testID}
+                accessibilityRole="text"
+                accessibilityLabel={label}
+                className={cx(
+                    'h-[26px] flex-row items-center rounded-full px-2.5',
+                    TONE_FILL_CLASS[tone],
+                    className,
+                )}
+            >
+                <RNText className={cx('text-xs font-bold', TONE_TEXT_CLASS[tone])}>{label}</RNText>
             </View>
         );
     }

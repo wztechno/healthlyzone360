@@ -145,6 +145,12 @@ it('replaces the prefill, splits a second lot, and holds an unverified lot until
         },
     });
 
+    // Opened from the order, the form starts on the paperwork; the lines are step 3.
+    await act(async () => {
+        fireEvent.press(
+            await screen.findByTestId('kitchen-receive-steps-lines', {}, { timeout: 10_000 }),
+        );
+    });
     await waitFor(
         () => {
             expect(screen.getByTestId('kitchen-receive-line-0-quantity-input').props.value).toBe(
@@ -177,12 +183,15 @@ it('replaces the prefill, splits a second lot, and holds an unverified lot until
     // 25 + 25 of 50: neither short nor over, so nothing asks to close the order short.
     expect(screen.queryByTestId('kitchen-receive-close-short')).toBeNull();
     expect(screen.queryByTestId('kitchen-receive-over-receipt')).toBeNull();
-    // Post is held, never dead: pressed now, it opens no confirmation and goes to the lot to tick.
+    // Post is held, never dead: pressed now, it posts nothing and goes back to the lot to tick.
     jest.mocked(focusField).mockClear();
     await act(async () => {
-        fireEvent.press(screen.getByTestId('kitchen-receive-screen-save'));
+        fireEvent.press(screen.getByTestId('kitchen-receive-steps-check'));
     });
-    expect(screen.queryByTestId('kitchen-receive-confirm-post')).toBeNull();
+    await act(async () => {
+        fireEvent.press(screen.getByTestId('kitchen-receive-post'));
+    });
+    expect(posted).toHaveLength(0);
     expect(focusField).toHaveBeenCalledWith('kitchen-receive-line-1-trace-lot-checked');
 
     await act(async () => {
@@ -192,11 +201,12 @@ it('replaces the prefill, splits a second lot, and holds an unverified lot until
         expect(screen.queryByTestId('kitchen-receive-lot-check-1')).toBeNull();
     });
 
+    // Post posts at once from Check and post: the old confirmation is that step.
     await act(async () => {
-        fireEvent.press(screen.getByTestId('kitchen-receive-screen-save'));
+        fireEvent.press(screen.getByTestId('kitchen-receive-steps-check'));
     });
     await act(async () => {
-        fireEvent.press(await screen.findByTestId('kitchen-receive-confirm-post'));
+        fireEvent.press(screen.getByTestId('kitchen-receive-post'));
     });
     await waitFor(() => {
         expect(posted).toHaveLength(1);
@@ -242,6 +252,12 @@ it('counts two scans that answer in the same moment as two packs', async () => {
         },
     });
 
+    // Opened from the order, the form starts on the paperwork; the lines are step 3.
+    await act(async () => {
+        fireEvent.press(
+            await screen.findByTestId('kitchen-receive-steps-lines', {}, { timeout: 10_000 }),
+        );
+    });
     await waitFor(
         () => {
             expect(screen.getByTestId('kitchen-receive-line-0-quantity-input').props.value).toBe(

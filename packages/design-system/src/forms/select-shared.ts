@@ -27,6 +27,32 @@ export interface SelectOption<T extends string = string> {
      */
     readonly keywords?: string | undefined;
     readonly disabled?: boolean | undefined;
+    /**
+     * A heading the option is listed under, as `Menu`'s `sections` label its runs. Consecutive
+     * options with the same `section` share one heading, so the caller orders the list. Never
+     * searched: a filter by heading would empty a group the reader is looking inside. An option with
+     * no section is drawn exactly as before — no heading, no group around it.
+     */
+    readonly section?: string | undefined;
+}
+
+/** A run of consecutive options under one heading; `section` undefined is a run with none. */
+export interface SelectOptionRun<T extends string = string> {
+    readonly section: string | undefined;
+    readonly options: readonly SelectOption<T>[];
+}
+
+/** Splits options into runs of the same `section`, in order. A list with none is one run. */
+export function sectionRuns<T extends string>(
+    options: readonly SelectOption<T>[],
+): readonly SelectOptionRun<T>[] {
+    const runs: { section: string | undefined; options: SelectOption<T>[] }[] = [];
+    for (const option of options) {
+        const last = runs[runs.length - 1];
+        if (last !== undefined && last.section === option.section) last.options.push(option);
+        else runs.push({ section: option.section, options: [option] });
+    }
+    return runs;
 }
 
 /**
@@ -52,6 +78,12 @@ export interface SelectProps<T extends string = string> extends GridSpanProps {
      * rendered exactly as it was before this prop existed — no extra nodes, no extra live region.
      */
     readonly searchable?: boolean | undefined;
+    /**
+     * The open list's look. `card` is the kitchen admin's one menu look — the 260px rounded card
+     * with roomy, rounded rows and a brand check — so a searchable picker on a desk page opens like
+     * every scope and row menu beside it. Web only; the phone's sheet is unchanged.
+     */
+    readonly look?: 'field' | 'card' | undefined;
     /**
      * The options are still being fetched. An empty list then says so rather than "No option
      * matches", which read as a refusal for the half minute a slow list took to arrive.

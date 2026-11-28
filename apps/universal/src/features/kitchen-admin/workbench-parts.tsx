@@ -1,10 +1,11 @@
-import { Badge, Text } from '@healthy360/design-system';
+import { Text } from '@healthy360/design-system';
 import type { BadgeTone } from '@healthy360/design-system';
 import type { ReactNode } from 'react';
 import { View } from 'react-native';
 
 import { CataloguePageHeader } from './catalogue/catalogue-page-header.tsx';
 
+import { DeskChip } from './desk-kit/desk-chip.tsx';
 /**
  * The pieces the four Workbench screens draw the same way (Workbench handoff §3y).
  *
@@ -36,7 +37,7 @@ export function WorkbenchHeader({
             testID={testID}
             title={title}
             titleTestID={titleTestID}
-            titleAside={<Badge tone={chipTone} label={chip} testID={`${testID}-chip`} />}
+            titleAside={<DeskChip tone={chipTone} label={chip} testID={`${testID}-chip`} />}
         />
     );
 }

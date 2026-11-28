@@ -130,6 +130,51 @@ it('lists the workspaces a person may act under', function (): void {
         ->toBe(['cedar-clinic', 'verdant-kitchen']);
 });
 
+/*
+| An organisation-wide member of a kitchen with two branches is given no
+| branch by default, and kitchen and KDS routes require one. Until /me listed
+| what the membership may select, the client had nothing to offer and the
+| person was locked out of both.
+*/
+it('lists the branches a membership may choose between', function (): void {
+    OrganisationBranch::factory()->create([
+        'organisation_id' => $this->verdant->getKey(),
+        'country_code' => $this->verdant->country_code,
+        'name' => 'Marina',
+    ]);
+    OrganisationBranch::factory()->closed()->create([
+        'organisation_id' => $this->verdant->getKey(),
+        'country_code' => $this->verdant->country_code,
+        'name' => 'Shut',
+    ]);
+
+    signIn('owner@verdant.test');
+
+    $this->putJson('/api/v1/me/context', ['organisation_id' => $this->verdant->getKey()])
+        ->assertOk()
+        ->assertJsonPath('data.active_context.branch', null);
+
+    $membership = collect($this->getJson('/api/v1/me')->assertOk()->json('data.memberships'))
+        ->firstWhere('organisation.slug', 'verdant-kitchen');
+
+    expect(array_column($membership['branches'], 'name'))->toBe(['Al Quoz', 'Marina']);
+});
+
+it('offers a branch-scoped membership its own branch and no other', function (): void {
+    OrganisationBranch::factory()->create([
+        'organisation_id' => $this->verdant->getKey(),
+        'country_code' => $this->verdant->country_code,
+        'name' => 'Marina',
+    ]);
+
+    signIn('chef@verdant.test');
+
+    $membership = collect($this->getJson('/api/v1/me')->assertOk()->json('data.memberships'))
+        ->firstWhere('organisation.slug', 'verdant-kitchen');
+
+    expect(array_column($membership['branches'], 'name'))->toBe(['Al Quoz']);
+});
+
 it('refuses an organisation the person is not a member of', function (): void {
     signIn('owner@cedar.test');
 

@@ -69,6 +69,7 @@ function quotationLine(
         quantity: '12.0000',
         unitAmountMinor: null,
         lineTotalMinor: null,
+        corporateUnitAmountMinor: null,
         note: `Line ${String(ordinal)} note`,
         ...overrides,
     };
@@ -343,6 +344,34 @@ describe('kitchen quotations', () => {
         expect(screen.getByTestId('kitchen-quotations-detail-summary-total')).toHaveTextContent(
             'Not priced yet',
         );
+    });
+
+    it('shows the corporate rate beside the price box without filling the box', async () => {
+        const book = createQuotationBook([
+            quotation({
+                lines: [
+                    quotationLine(1, { corporateUnitAmountMinor: 1_500 }),
+                    quotationLine(2, { quantity: '4.0000' }),
+                ],
+            }),
+        ]);
+        await renderQuotations(book);
+
+        await waitForTable();
+        fireEvent.press(screen.getByTestId(`kitchen-quotation-${String(quotationIdAt(1))}-open`));
+        await waitForDetail();
+
+        // The rate the buyer's catalogue showed them, and a dash where nothing prices the line.
+        expect(
+            screen.getByTestId('kitchen-quotation-line-test-quotation-line-1-corporate-rate'),
+        ).toHaveTextContent('$15.00');
+        expect(
+            screen.getByTestId('kitchen-quotation-line-test-quotation-line-2-corporate-rate'),
+        ).toHaveTextContent('—');
+        // A reference only: the price is still the kitchen's to type.
+        expect(
+            screen.getByTestId('kitchen-quotation-line-test-quotation-line-1-price-input'),
+        ).toHaveProp('value', '');
     });
 
     it('names the article, the delivery asked for and the order an acceptance placed', async () => {

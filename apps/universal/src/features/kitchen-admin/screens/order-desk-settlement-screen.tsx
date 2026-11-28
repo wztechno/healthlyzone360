@@ -9,7 +9,6 @@ import type {
 } from '@healthy360/api-client/contracts';
 import {
     Badge,
-    Button,
     Callout,
     Cascade,
     Checkbox,
@@ -36,9 +35,13 @@ import {
 } from '../../../data/order-desk-hooks.ts';
 import { formatMoney } from '../../marketplace/format.ts';
 import { CatalogueList } from '../catalogue/catalogue-list.tsx';
+import { DeskTableTitle } from '../order-desk/desk-parts.tsx';
 import type { CatalogueColumn } from '../catalogue/catalogue-column-spec.ts';
 import { ORDER_SETTLE_CASH_PERMISSION, ORDER_SUPERVISE_PERMISSION } from '../entity-registry.ts';
 
+import { DeskButton } from '../desk-kit/desk-button.tsx';
+import { DeskChip } from '../desk-kit/desk-chip.tsx';
+import { FailureToast } from '../failure-toast.tsx';
 /**
  * `/kitchen/order-desk/cash?tab=handins` — cash coming back from the road.
  *
@@ -139,19 +142,22 @@ function OrderDeskSettlement() {
         },
         {
             key: 'settle',
-            label: t('kitchen:ops.settlement.columnAction'),
+            align: 'end',
+            label: '',
             width: 120,
             priority: 99,
             render: (row) => (
-                <Button
-                    testID={`kitchen-settlement-driver-${row.driverUserId}${tillSuffix(row)}-settle`}
-                    variant="secondary"
-                    size="sm"
-                    label={t('kitchen:ops.settlement.settle')}
-                    onPress={() => {
-                        setSettling({ kind: 'driver', row });
-                    }}
-                />
+                <View className="flex-row justify-end">
+                    <DeskButton
+                        testID={`kitchen-settlement-driver-${row.driverUserId}${tillSuffix(row)}-settle`}
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:ops.settlement.settle')}
+                        onPress={() => {
+                            setSettling({ kind: 'driver', row });
+                        }}
+                    />
+                </View>
             ),
         },
     ];
@@ -209,19 +215,22 @@ function OrderDeskSettlement() {
         },
         {
             key: 'settle',
-            label: t('kitchen:ops.settlement.columnAction'),
+            align: 'end',
+            label: '',
             width: 120,
             priority: 99,
             render: (row) => (
-                <Button
-                    testID={`kitchen-settlement-courier-${row.courierName}${tillSuffix(row)}-settle`}
-                    variant="secondary"
-                    size="sm"
-                    label={t('kitchen:ops.settlement.settle')}
-                    onPress={() => {
-                        setSettling({ kind: 'courier', row });
-                    }}
-                />
+                <View className="flex-row justify-end">
+                    <DeskButton
+                        testID={`kitchen-settlement-courier-${row.courierName}${tillSuffix(row)}-settle`}
+                        variant="secondary"
+                        size="sm"
+                        label={t('kitchen:ops.settlement.settle')}
+                        onPress={() => {
+                            setSettling({ kind: 'courier', row });
+                        }}
+                    />
+                </View>
             ),
         },
     ];
@@ -284,11 +293,11 @@ function OrderDeskSettlement() {
             priority: 92,
             render: (row) =>
                 row.shortMinor === 0 ? (
-                    <Badge tone="success" label={t('kitchen:ops.settlement.settled')} />
+                    <DeskChip tone="success" label={t('kitchen:ops.settlement.settled')} />
                 ) : row.signedOffAt !== null ? (
-                    <Badge tone="neutral" label={t('kitchen:ops.settlement.signedOff')} />
+                    <DeskChip tone="neutral" label={t('kitchen:ops.settlement.signedOff')} />
                 ) : canSignOff ? (
-                    <Button
+                    <DeskButton
                         testID={`kitchen-settlement-${row.id}-sign-off`}
                         variant="secondary"
                         size="sm"
@@ -333,67 +342,71 @@ function OrderDeskSettlement() {
                     retrying={report.isFetching}
                 />
             ) : data === undefined ? null : (
-                <View className="flex-col gap-loose">
-                    <Text variant="section" accessibilityRole="header">
-                        {t('kitchen:ops.settlement.driversHeading')}
-                    </Text>
-                    {data.drivers.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-settlement-drivers-empty"
-                            title={t('kitchen:ops.settlement.driversEmpty')}
-                        />
-                    ) : (
-                        <CatalogueList<DriverCashOwed>
-                            testID="kitchen-settlement-drivers"
-                            label={t('kitchen:ops.settlement.driversHeading')}
-                            columns={driverColumns}
-                            rows={data.drivers}
-                            rowKey={(row) =>
-                                `${row.driverUserId}-${row.currencyCode}${tillSuffix(row)}`
-                            }
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
-                    )}
+                <View className="flex-col gap-base">
+                    <DeskTableTitle
+                        title={t('kitchen:ops.settlement.driversHeading')}
+                        count={data.drivers.length}
+                    />
+                    <CatalogueList<DriverCashOwed>
+                        testID="kitchen-settlement-drivers"
+                        label={t('kitchen:ops.settlement.driversHeading')}
+                        columns={driverColumns}
+                        rows={data.drivers}
+                        rowKey={(row) =>
+                            `${row.driverUserId}-${row.currencyCode}${tillSuffix(row)}`
+                        }
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        frameEmpty
+                        emptyState={
+                            <EmptyState
+                                testID="kitchen-settlement-drivers-empty"
+                                shape="row"
+                                icon="truck"
+                                title={t('kitchen:ops.settlement.driversEmpty')}
+                            />
+                        }
+                    />
 
-                    <Text variant="section" accessibilityRole="header">
-                        {t('kitchen:ops.settlement.couriersHeading')}
-                    </Text>
-                    {data.couriers.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-settlement-couriers-empty"
-                            title={t('kitchen:ops.settlement.couriersEmpty')}
-                        />
-                    ) : (
-                        <CatalogueList<CourierCashOwed>
-                            testID="kitchen-settlement-couriers"
-                            label={t('kitchen:ops.settlement.couriersHeading')}
-                            columns={courierColumns}
-                            rows={data.couriers}
-                            rowKey={(row) =>
-                                `${row.courierName}-${row.currencyCode}${tillSuffix(row)}`
-                            }
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
-                    )}
+                    <DeskTableTitle
+                        title={t('kitchen:ops.settlement.couriersHeading')}
+                        count={data.couriers.length}
+                    />
+                    <CatalogueList<CourierCashOwed>
+                        testID="kitchen-settlement-couriers"
+                        label={t('kitchen:ops.settlement.couriersHeading')}
+                        columns={courierColumns}
+                        rows={data.couriers}
+                        rowKey={(row) => `${row.courierName}-${row.currencyCode}${tillSuffix(row)}`}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        frameEmpty
+                        emptyState={
+                            <EmptyState
+                                testID="kitchen-settlement-couriers-empty"
+                                shape="row"
+                                icon="wallet"
+                                title={t('kitchen:ops.settlement.couriersEmpty')}
+                            />
+                        }
+                    />
 
-                    <Text variant="section" accessibilityRole="header">
-                        {t('kitchen:ops.settlement.recentHeading')}
-                    </Text>
-                    {data.settlements.length === 0 ? (
-                        <EmptyState
-                            testID="kitchen-settlement-recent-empty"
-                            title={t('kitchen:ops.settlement.recentEmpty')}
-                        />
-                    ) : (
-                        <CatalogueList<CashSettlementRecord>
-                            testID="kitchen-settlement-recent"
-                            label={t('kitchen:ops.settlement.recentHeading')}
-                            columns={recentColumns}
-                            rows={data.settlements}
-                            rowKey={(row) => row.id}
-                            rowActionsLabel={t('kitchen:list.rowActions')}
-                        />
-                    )}
+                    <DeskTableTitle title={t('kitchen:ops.settlement.recentHeading')} />
+                    <CatalogueList<CashSettlementRecord>
+                        testID="kitchen-settlement-recent"
+                        label={t('kitchen:ops.settlement.recentHeading')}
+                        columns={recentColumns}
+                        rows={data.settlements}
+                        rowKey={(row) => row.id}
+                        rowActionsLabel={t('kitchen:list.rowActions')}
+                        frameEmpty
+                        emptyState={
+                            <EmptyState
+                                testID="kitchen-settlement-recent-empty"
+                                shape="row"
+                                icon="banknote"
+                                title={t('kitchen:ops.settlement.recentEmpty')}
+                            />
+                        }
+                    />
                 </View>
             )}
 
@@ -495,6 +508,7 @@ function SettleDialog({
 
     return (
         <Dialog
+            look="card"
             testID="kitchen-settlement-dialog"
             open
             onClose={onClose}
@@ -502,13 +516,13 @@ function SettleDialog({
             description={t(`kitchen:ops.settlement.dialogBody.${settling.kind}`)}
             actions={
                 <>
-                    <Button
+                    <DeskButton
                         testID="kitchen-settlement-dismiss"
                         variant="quiet"
                         label={t('kitchen:common.cancel')}
                         onPress={onClose}
                     />
-                    <Button
+                    <DeskButton
                         testID="kitchen-settlement-confirm"
                         label={t('kitchen:ops.settlement.confirm')}
                         loading={record.isPending}
@@ -583,14 +597,12 @@ function SettleDialog({
                         />
                     </>
                 )}
-                {failure === null ? null : (
-                    <Callout
-                        testID="kitchen-settlement-error"
-                        tone="danger"
-                        title={t('kitchen:ops.settlement.saveError')}
-                        body={failure.message}
-                    />
-                )}
+                <FailureToast
+                    failure={failure}
+                    testID="kitchen-settlement-error"
+                    title={t('kitchen:ops.settlement.saveError')}
+                    body={failure?.message}
+                />
             </Stack>
         </Dialog>
     );

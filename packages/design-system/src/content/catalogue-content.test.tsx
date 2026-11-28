@@ -246,7 +246,7 @@ describe('DataList', () => {
         // not a fixed height, for a cell whose content is taller than a line of text.
         const value = screen.getByText('Condiments and sweeteners');
         expect(value.props.numberOfLines).toBe(1);
-        expect(screen.getByTestId('list-row-a').props.className).toContain('min-h-row-sm');
+        expect(screen.getByTestId('list-row-a').props.className).toContain('min-h-[46px]');
     });
 
     it('clips a renderer’s own text to one line too, but not a run nested inside it', async () => {

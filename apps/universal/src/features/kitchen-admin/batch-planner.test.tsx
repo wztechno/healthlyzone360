@@ -56,9 +56,11 @@ jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
  *    it, so the cook can see the rounding rather than trust it.
  */
 
+const mockPush = jest.fn();
+
 jest.mock('expo-router', () => ({
     __esModule: true,
-    useRouter: () => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() }),
+    useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn() }),
     usePathname: () => '/kitchen/batch',
     useLocalSearchParams: () => ({}),
     Redirect: () => null,
@@ -329,6 +331,22 @@ function untilVisible(testID: string) {
     );
 }
 
+/** Chooses the fixture recipe from the plan's list. */
+async function pickRecipe() {
+    await untilVisible(`kitchen-batch-recipe-${String(RECIPE_ID)}`);
+    await act(async () => {
+        fireEvent.press(screen.getByTestId(`kitchen-batch-recipe-${String(RECIPE_ID)}`));
+    });
+}
+
+/** Types the target once the recipe's version is read. */
+async function typeTarget(value: string) {
+    await untilVisible('kitchen-batch-planner-target-needed');
+    await act(async () => {
+        fireEvent.changeText(screen.getByTestId('kitchen-batch-target-input'), value);
+    });
+}
+
 /* ------------------------------------------------------------------------------------------------
  * The screen
  * ---------------------------------------------------------------------------------------------- */
@@ -345,20 +363,14 @@ describe('the batch planner', () => {
         await untilVisible('kitchen-batch-planner-pick-recipe');
         expect(screen.queryByTestId('kitchen-batch-ingredients')).toBeNull();
 
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-batch-recipe-trigger'));
-        });
-        await untilVisible(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`);
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`));
-        });
+        await pickRecipe();
 
-        // The version's own facts are on the page before anything is scaled.
+        // The chosen recipe says what one batch makes before anything is scaled.
         await waitFor(
             () => {
                 expect(
-                    screen.getByTestId('kitchen-batch-facts-figure-yield-value'),
-                ).toHaveTextContent('4 Kg');
+                    screen.getByTestId(`kitchen-batch-recipe-${String(RECIPE_ID)}`),
+                ).toHaveTextContent(/4 Kg a batch/);
             },
             { timeout: 10_000 },
         );
@@ -366,18 +378,17 @@ describe('the batch planner', () => {
         // A recipe with no target is still not a batch.
         await untilVisible('kitchen-batch-planner-target-needed');
 
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-batch-target-input'), '10');
-        });
+        await typeTarget('10');
 
         await untilVisible('kitchen-batch-ingredients');
 
         // 10 kg of a 4 kg recipe is two and a half batches, which a kitchen runs as three.
-        expect(screen.getByTestId('kitchen-batch-facts-figure-batches-value')).toHaveTextContent(
-            '3',
+        expect(screen.getByTestId('kitchen-batch-facts-batches-value')).toHaveTextContent('3');
+        // The exact factor rides on the Batches chip, since every quantity is scaled by it.
+        expect(screen.getByTestId('kitchen-batch-facts-batches-note')).toHaveTextContent('×2.5');
+        expect(screen.getByTestId('kitchen-batch-summary-name')).toHaveTextContent(
+            'Tabbouleh base',
         );
-        // The factor itself is said once, behind the raw materials' (i), not under the form.
-        expect(screen.queryByTestId('kitchen-batch-factor')).toBeNull();
 
         // The name can only have come from the ingredient record: the line carries none.
         await waitFor(
@@ -393,9 +404,13 @@ describe('the batch planner', () => {
         expect(
             screen.getByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-quantity`),
         ).toHaveTextContent('0.515');
-        expect(screen.getByTestId('kitchen-batch-consume-info-trigger')).toHaveProp(
+        // The kilogram lines summed, waste and all, and the waste rate said beside it.
+        expect(screen.getByTestId('kitchen-batch-facts-weight-value')).toHaveTextContent(
+            '0.515 Kg',
+        );
+        expect(screen.getByTestId('kitchen-batch-facts-weight-info-trigger')).toHaveProp(
             'accessibilityHint',
-            '×2.5 · +3 % waste',
+            '+3 % waste',
         );
 
         // The planner is a sheet, not a stock check: no shelf column is drawn.
@@ -437,12 +452,8 @@ describe('the batch planner', () => {
             },
         });
 
-        await untilVisible('kitchen-batch-recipe-trigger');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-batch-recipe-trigger'));
-        });
-        await untilVisible(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`);
-        expect(screen.getByTestId(`kitchen-batch-recipe-option-${String(first.id)}`)).toBeTruthy();
+        await untilVisible(`kitchen-batch-recipe-${String(RECIPE_ID)}`);
+        expect(screen.getByTestId(`kitchen-batch-recipe-${String(first.id)}`)).toBeTruthy();
     });
 
     it('adds the packaging rate to packaging before it rounds up, and says so', async () => {
@@ -452,18 +463,8 @@ describe('the batch planner', () => {
             repositories: batchRepositories(record),
         });
 
-        await untilVisible('kitchen-batch-recipe-trigger');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-batch-recipe-trigger'));
-        });
-        await untilVisible(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`);
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`));
-        });
-        await untilVisible('kitchen-batch-target-input');
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-batch-target-input'), '10');
-        });
+        await pickRecipe();
+        await typeTarget('10');
         await untilVisible('kitchen-batch-packaging');
 
         // 3 trays × 2.5 × 1.10 is 8.25, so nine — where the bare 7.5 would have asked for eight.
@@ -493,18 +494,8 @@ describe('the batch planner', () => {
             repositories: batchRepositories(record),
         });
 
-        await untilVisible('kitchen-batch-recipe-trigger');
-        await act(async () => {
-            fireEvent.press(screen.getByTestId('kitchen-batch-recipe-trigger'));
-        });
-        await untilVisible(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`);
-        await act(async () => {
-            fireEvent.press(screen.getByTestId(`kitchen-batch-recipe-option-${String(RECIPE_ID)}`));
-        });
-        await untilVisible('kitchen-batch-target-input');
-        await act(async () => {
-            fireEvent.changeText(screen.getByTestId('kitchen-batch-target-input'), '10');
-        });
+        await pickRecipe();
+        await typeTarget('10');
         await untilVisible('kitchen-batch-ingredients-column-name-trigger');
 
         const burghulRow = `kitchen-batch-ingredients-row-${String(BURGHUL_ID)}`;
@@ -545,6 +536,119 @@ describe('the batch planner', () => {
         await waitFor(() => {
             expect(rowOrder()).toEqual([burghulRow]);
         });
+    });
+
+    it('plans whole batches from the chips and restates the target when the basis switches', async () => {
+        const record = recipe({ currentVersion: version({ yieldPieces: 20 }) });
+        await renderStubScreen(<BatchPlannerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: batchRepositories(record),
+        });
+
+        await pickRecipe();
+        await untilVisible('kitchen-batch-quick-2');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-quick-2'));
+        });
+        await untilVisible('kitchen-batch-summary');
+        // Two batches of a 4 kg recipe: the target reads 8 and the chip is the plan.
+        expect(screen.getByTestId('kitchen-batch-target-input')).toHaveProp('value', '8');
+        expect(screen.getByTestId('kitchen-batch-facts-batches-value')).toHaveTextContent('2');
+        expect(screen.getByTestId('kitchen-batch-quick-2')).toHaveProp('aria-pressed', true);
+
+        // The same plan by portions: 2 batches of 20 is 40, not 8 portions.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-mode-pieces'));
+        });
+        await waitFor(() => {
+            expect(screen.getByTestId('kitchen-batch-target-input')).toHaveProp('value', '40');
+        });
+        expect(screen.getByTestId('kitchen-batch-facts-portions-value')).toHaveTextContent('40');
+
+        // The stepper moves by ten portions.
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-more'));
+        });
+        expect(screen.getByTestId('kitchen-batch-target-input')).toHaveProp('value', '50');
+    });
+
+    it('lists the lines to issue without a tick column', async () => {
+        await renderStubScreen(<BatchPlannerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: batchRepositories(),
+        });
+
+        await pickRecipe();
+        await typeTarget('10');
+        await untilVisible(`kitchen-batch-row-${String(BURGHUL_ID)}-quantity`);
+
+        // The user took the ticks out (2026-11-18): the sheet is read, not checked off.
+        expect(screen.queryByTestId(`kitchen-batch-row-${String(BURGHUL_ID)}-issued`)).toBeNull();
+        expect(screen.getByTestId('kitchen-batch-line-count')).toHaveTextContent('1 line');
+    });
+
+    it('hands New batch the planned yield in the output’s unit', async () => {
+        mockPush.mockClear();
+        const record = recipe({
+            currentVersion: version({
+                outputs: [
+                    {
+                        ingredientId: TRAY_ID,
+                        ingredientName: { en: 'Tabbouleh base', ar: '' },
+                        quantity: 5,
+                        unit: 'l',
+                        isPrimary: true,
+                    },
+                ],
+            }),
+        });
+        await renderStubScreen(<BatchPlannerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: batchRepositories(record),
+        });
+
+        await pickRecipe();
+        await typeTarget('10');
+        await untilVisible('kitchen-batch-start');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-start'));
+        });
+
+        const query = new URLSearchParams(String(mockPush.mock.calls[0]?.[0]).split('?')[1]);
+        // 10 kg of a 4 kg recipe is ×2.5, and the recipe's output is 5 L a run: 12.5 L, typed in.
+        expect(query.get('yield')).toBe('12.5');
+        expect(query.get('runs')).toBeNull();
+    });
+
+    it('starts a batch at the exact factor when the output is not known, and keeps the plan', async () => {
+        mockPush.mockClear();
+        await renderStubScreen(<BatchPlannerScreen />, {
+            session: kitchenManagerSession(),
+            repositories: batchRepositories(),
+        });
+
+        await pickRecipe();
+        await typeTarget('10');
+        await untilVisible('kitchen-batch-start');
+        await act(async () => {
+            fireEvent.press(screen.getByTestId('kitchen-batch-start'));
+        });
+
+        expect(mockPush).toHaveBeenCalledTimes(1);
+        const href = String(mockPush.mock.calls[0]?.[0]);
+        const [path, search] = href.split('?');
+        expect(path).toBe('/kitchen/production-desk/new');
+        const query = new URLSearchParams(search);
+        expect(query.get('recipe')).toBe(String(RECIPE_ID));
+        // 10 kg of a 4 kg recipe is ×2.5 — not rounded up to three, so the batch reserves the sheet.
+        expect(query.get('runs')).toBe('2.5');
+        // `returnTo` is encoded twice on purpose (`withQuery`), so it is decoded once more here.
+        const back = new URLSearchParams(
+            decodeURIComponent(String(query.get('returnTo'))).split('?')[1],
+        );
+        expect(back.get('recipe')).toBe(String(RECIPE_ID));
+        expect(back.get('target')).toBe('10');
+        expect(back.get('basis')).toBe('yield');
     });
 
     it('refuses a reader who may see recipes but not the catalogue behind their names', async () => {

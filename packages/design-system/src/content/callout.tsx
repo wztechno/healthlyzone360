@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Text as RNText, View } from 'react-native';
+import { Pressable, Text as RNText, View } from 'react-native';
 
 import { useDensity } from '../hooks/use-density.tsx';
 import { Icon } from '../icons/icon.tsx';
@@ -21,6 +21,14 @@ const TONE_TEXT_CLASS: Readonly<Record<CalloutTone, string>> = {
     warning: 'text-warning-on-subtle',
     danger: 'text-danger-on-subtle',
     success: 'text-success-on-subtle',
+};
+
+/** The strip's edge — the tone's own border, one step deeper than its fill. */
+const TONE_BORDER_CLASS: Readonly<Record<CalloutTone, string>> = {
+    info: 'border-info-border',
+    warning: 'border-warning-border',
+    danger: 'border-danger-border',
+    success: 'border-success-border',
 };
 
 /** The mark's ink: the tone's `DEFAULT`, fuller than the text so the shape leads the line. */
@@ -68,6 +76,13 @@ export interface CalloutProps {
      * the density when omitted, so every notice in the kitchen admin is a strip.
      */
     readonly size?: CalloutSize | undefined;
+    /**
+     * Puts a × at the strip's end. Only for news the reader may put away ("All stock gaps are
+     * fixed") — never for a warning that is still true. `compact` only.
+     */
+    readonly onDismiss?: (() => void) | undefined;
+    /** The ×'s accessible name, translated by the caller. */
+    readonly dismissLabel?: string | undefined;
     readonly className?: string | undefined;
     readonly testID?: string | undefined;
 }
@@ -99,8 +114,9 @@ export interface CalloutProps {
  * ## Two sizes
  *
  * `regular` is the panel: the title on its line, the body under it, the actions under that.
- * `compact` is the strip `FormIssueBanner` draws — 32px tall at least, the mark, then the title and
- * the body as one run of text, the actions at the end of the same row. Anything structured passed
+ * `compact` is the notice strip (Toasts / pop-ups / banners canvas, 2026-11-11) — 40px tall at
+ * least, the tone's fill inside its own edge, the mark, then the bold lead and the rest as one run
+ * of text, the pill actions and an optional × at the end of the same row. Anything structured passed
  * as `children` (a list of short items) goes on a full-width row under the strip. The kitchen
  * admin renders under `DensityProvider value="compact"`, so every notice there is a strip unless
  * it asks for the panel.
@@ -114,6 +130,8 @@ export function Callout({
     actions,
     role = 'note',
     size,
+    onDismiss,
+    dismissLabel,
     className,
     testID,
 }: CalloutProps) {
@@ -134,8 +152,9 @@ export function Callout({
             <View
                 {...semantics}
                 className={cx(
-                    'min-h-8 w-full flex-col justify-center gap-1 rounded-md py-1 pe-1 ps-2.5',
+                    'min-h-10 w-full flex-col justify-center gap-1 rounded-xl border py-1 pe-2 ps-3',
                     TONE_CLASS[tone],
+                    TONE_BORDER_CLASS[tone],
                     className,
                 )}
             >
@@ -160,7 +179,7 @@ export function Callout({
                             TONE_TEXT_CLASS[tone],
                         )}
                     >
-                        <RNText testID={part('title')} className="font-semibold">
+                        <RNText testID={part('title')} className="font-bold">
                             {title}
                         </RNText>
                         {body === undefined ? null : (
@@ -177,6 +196,18 @@ export function Callout({
                         >
                             {actions}
                         </View>
+                    )}
+                    {onDismiss === undefined ? null : (
+                        <Pressable
+                            testID={part('dismiss')}
+                            role="button"
+                            accessibilityRole="button"
+                            accessibilityLabel={dismissLabel}
+                            onPress={onDismiss}
+                            className="h-7 w-7 items-center justify-center rounded-full hover:bg-surface-raised/60"
+                        >
+                            <Icon name="close" size="sm" className={TONE_TEXT_CLASS[tone]} />
+                        </Pressable>
                     )}
                 </View>
                 {hasChildren ? (

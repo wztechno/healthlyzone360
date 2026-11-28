@@ -151,7 +151,7 @@ function standard(): OrganisationRoleSummary {
 /** An administrator whose membership is bound to one branch. */
 function branchManagerSession() {
     return permissionsAdministratorSession({
-        memberships: [testMembership({ branches: [testBranch()] })],
+        memberships: [testMembership({ branchId: testBranch().id, branches: [testBranch()] })],
     });
 }
 

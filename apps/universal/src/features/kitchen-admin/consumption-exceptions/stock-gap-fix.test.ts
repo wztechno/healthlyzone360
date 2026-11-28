@@ -220,7 +220,11 @@ describe('stockGapFixAction', () => {
         expect(fixOf({ reasonCode: 'no_net_content', itemType: 'product' })?.href).toMatch(
             /^\/kitchen\/products\/item-1\?returnTo=/,
         );
-        expect(fixOf({ reasonCode: 'reserved_for_production' })?.href).toBe('/kitchen/production');
+        // Nothing to save there, but the trail still leads back to the gap.
+        expect(fixOf({ reasonCode: 'reserved_for_production' })?.href).toMatch(
+            /^\/kitchen\/production-desk\?returnTo=/,
+        );
+        expect(fixOf({ reasonCode: 'quality_hold' })?.href).toMatch(/^\/kitchen\/qc\?returnTo=/);
     });
 
     it('offers nothing where nothing fixes the gap', () => {
